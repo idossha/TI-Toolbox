@@ -1206,73 +1206,73 @@ software check, advisory, reported) and citation, and the rules are in
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/simulation.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-472">472</a></span>
-<span class="normal"><a href="#__codelineno-0-473">473</a></span>
-<span class="normal"><a href="#__codelineno-0-474">474</a></span>
-<span class="normal"><a href="#__codelineno-0-475">475</a></span>
-<span class="normal"><a href="#__codelineno-0-476">476</a></span>
-<span class="normal"><a href="#__codelineno-0-477">477</a></span>
-<span class="normal"><a href="#__codelineno-0-478">478</a></span>
-<span class="normal"><a href="#__codelineno-0-479">479</a></span>
-<span class="normal"><a href="#__codelineno-0-480">480</a></span>
-<span class="normal"><a href="#__codelineno-0-481">481</a></span>
-<span class="normal"><a href="#__codelineno-0-482">482</a></span>
-<span class="normal"><a href="#__codelineno-0-483">483</a></span>
-<span class="normal"><a href="#__codelineno-0-484">484</a></span>
-<span class="normal"><a href="#__codelineno-0-485">485</a></span>
-<span class="normal"><a href="#__codelineno-0-486">486</a></span>
-<span class="normal"><a href="#__codelineno-0-487">487</a></span>
-<span class="normal"><a href="#__codelineno-0-488">488</a></span>
-<span class="normal"><a href="#__codelineno-0-489">489</a></span>
-<span class="normal"><a href="#__codelineno-0-490">490</a></span>
-<span class="normal"><a href="#__codelineno-0-491">491</a></span>
-<span class="normal"><a href="#__codelineno-0-492">492</a></span>
-<span class="normal"><a href="#__codelineno-0-493">493</a></span>
-<span class="normal"><a href="#__codelineno-0-494">494</a></span>
-<span class="normal"><a href="#__codelineno-0-495">495</a></span>
-<span class="normal"><a href="#__codelineno-0-496">496</a></span>
-<span class="normal"><a href="#__codelineno-0-497">497</a></span>
-<span class="normal"><a href="#__codelineno-0-498">498</a></span>
-<span class="normal"><a href="#__codelineno-0-499">499</a></span>
-<span class="normal"><a href="#__codelineno-0-500">500</a></span>
-<span class="normal"><a href="#__codelineno-0-501">501</a></span>
-<span class="normal"><a href="#__codelineno-0-502">502</a></span>
-<span class="normal"><a href="#__codelineno-0-503">503</a></span>
-<span class="normal"><a href="#__codelineno-0-504">504</a></span>
-<span class="normal"><a href="#__codelineno-0-505">505</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_simulation_report</span><span class="p">(</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="w">    </span><span class="sd">"""Write the report for one simulation folder; into the project's reports unless *out_dir*."""</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">))</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a>    <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a>    <span class="k">if</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">]:</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a>            <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_mni"</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_mni</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_world"</span><span class="p">],</span> <span class="n">m2m</span><span class="p">)</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: peak left in subject space (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>        <span class="n">images</span> <span class="o">=</span> <span class="n">field_images</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">m2m</span> <span class="o">/</span> <span class="s2">"T1.nii.gz"</span><span class="p">)</span>
-<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-493" name="__codelineno-0-493"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: no envelope figure (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-<a id="__codelineno-0-494" name="__codelineno-0-494"></a>        <span class="n">images</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-495" name="__codelineno-0-495"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-496" name="__codelineno-0-496"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
-<a id="__codelineno-0-497" name="__codelineno-0-497"></a>        <span class="n">html</span><span class="p">,</span>
-<a id="__codelineno-0-498" name="__codelineno-0-498"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-499" name="__codelineno-0-499"></a>        <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-500" name="__codelineno-0-500"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
-<a id="__codelineno-0-501" name="__codelineno-0-501"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
-<a id="__codelineno-0-502" name="__codelineno-0-502"></a>        <span class="n">out_dir</span><span class="p">,</span>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a>        <span class="n">t0</span><span class="p">,</span>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Simulation report"</span><span class="p">,</span>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-609">609</a></span>
+<span class="normal"><a href="#__codelineno-0-610">610</a></span>
+<span class="normal"><a href="#__codelineno-0-611">611</a></span>
+<span class="normal"><a href="#__codelineno-0-612">612</a></span>
+<span class="normal"><a href="#__codelineno-0-613">613</a></span>
+<span class="normal"><a href="#__codelineno-0-614">614</a></span>
+<span class="normal"><a href="#__codelineno-0-615">615</a></span>
+<span class="normal"><a href="#__codelineno-0-616">616</a></span>
+<span class="normal"><a href="#__codelineno-0-617">617</a></span>
+<span class="normal"><a href="#__codelineno-0-618">618</a></span>
+<span class="normal"><a href="#__codelineno-0-619">619</a></span>
+<span class="normal"><a href="#__codelineno-0-620">620</a></span>
+<span class="normal"><a href="#__codelineno-0-621">621</a></span>
+<span class="normal"><a href="#__codelineno-0-622">622</a></span>
+<span class="normal"><a href="#__codelineno-0-623">623</a></span>
+<span class="normal"><a href="#__codelineno-0-624">624</a></span>
+<span class="normal"><a href="#__codelineno-0-625">625</a></span>
+<span class="normal"><a href="#__codelineno-0-626">626</a></span>
+<span class="normal"><a href="#__codelineno-0-627">627</a></span>
+<span class="normal"><a href="#__codelineno-0-628">628</a></span>
+<span class="normal"><a href="#__codelineno-0-629">629</a></span>
+<span class="normal"><a href="#__codelineno-0-630">630</a></span>
+<span class="normal"><a href="#__codelineno-0-631">631</a></span>
+<span class="normal"><a href="#__codelineno-0-632">632</a></span>
+<span class="normal"><a href="#__codelineno-0-633">633</a></span>
+<span class="normal"><a href="#__codelineno-0-634">634</a></span>
+<span class="normal"><a href="#__codelineno-0-635">635</a></span>
+<span class="normal"><a href="#__codelineno-0-636">636</a></span>
+<span class="normal"><a href="#__codelineno-0-637">637</a></span>
+<span class="normal"><a href="#__codelineno-0-638">638</a></span>
+<span class="normal"><a href="#__codelineno-0-639">639</a></span>
+<span class="normal"><a href="#__codelineno-0-640">640</a></span>
+<span class="normal"><a href="#__codelineno-0-641">641</a></span>
+<span class="normal"><a href="#__codelineno-0-642">642</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_simulation_report</span><span class="p">(</span>
+<a id="__codelineno-0-610" name="__codelineno-0-610"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="w">    </span><span class="sd">"""Write the report for one simulation folder; into the project's reports unless *out_dir*."""</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-619" name="__codelineno-0-619"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-620" name="__codelineno-0-620"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">))</span>
+<a id="__codelineno-0-621" name="__codelineno-0-621"></a>    <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-622" name="__codelineno-0-622"></a>    <span class="k">if</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">]:</span>
+<a id="__codelineno-0-623" name="__codelineno-0-623"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-624" name="__codelineno-0-624"></a>            <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_mni"</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_mni</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_world"</span><span class="p">],</span> <span class="n">m2m</span><span class="p">)</span>
+<a id="__codelineno-0-625" name="__codelineno-0-625"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-626" name="__codelineno-0-626"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: peak left in subject space (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+<a id="__codelineno-0-627" name="__codelineno-0-627"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-628" name="__codelineno-0-628"></a>        <span class="n">images</span> <span class="o">=</span> <span class="n">field_images</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">m2m</span> <span class="o">/</span> <span class="s2">"T1.nii.gz"</span><span class="p">)</span>
+<a id="__codelineno-0-629" name="__codelineno-0-629"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-630" name="__codelineno-0-630"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: no envelope figure (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+<a id="__codelineno-0-631" name="__codelineno-0-631"></a>        <span class="n">images</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-632" name="__codelineno-0-632"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-633" name="__codelineno-0-633"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-634" name="__codelineno-0-634"></a>        <span class="n">html</span><span class="p">,</span>
+<a id="__codelineno-0-635" name="__codelineno-0-635"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-636" name="__codelineno-0-636"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-637" name="__codelineno-0-637"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-638" name="__codelineno-0-638"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-639" name="__codelineno-0-639"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-640" name="__codelineno-0-640"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-641" name="__codelineno-0-641"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Simulation report"</span><span class="p">,</span>
+<a id="__codelineno-0-642" name="__codelineno-0-642"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1297,43 +1297,43 @@ software check, advisory, reported) and citation, and the rules are in
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/flex_search.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-523">523</a></span>
-<span class="normal"><a href="#__codelineno-0-524">524</a></span>
-<span class="normal"><a href="#__codelineno-0-525">525</a></span>
-<span class="normal"><a href="#__codelineno-0-526">526</a></span>
-<span class="normal"><a href="#__codelineno-0-527">527</a></span>
-<span class="normal"><a href="#__codelineno-0-528">528</a></span>
-<span class="normal"><a href="#__codelineno-0-529">529</a></span>
-<span class="normal"><a href="#__codelineno-0-530">530</a></span>
-<span class="normal"><a href="#__codelineno-0-531">531</a></span>
-<span class="normal"><a href="#__codelineno-0-532">532</a></span>
-<span class="normal"><a href="#__codelineno-0-533">533</a></span>
-<span class="normal"><a href="#__codelineno-0-534">534</a></span>
-<span class="normal"><a href="#__codelineno-0-535">535</a></span>
-<span class="normal"><a href="#__codelineno-0-536">536</a></span>
-<span class="normal"><a href="#__codelineno-0-537">537</a></span>
-<span class="normal"><a href="#__codelineno-0-538">538</a></span>
-<span class="normal"><a href="#__codelineno-0-539">539</a></span>
-<span class="normal"><a href="#__codelineno-0-540">540</a></span>
-<span class="normal"><a href="#__codelineno-0-541">541</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-523" name="__codelineno-0-523"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_flex_search_report</span><span class="p">(</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-528" name="__codelineno-0-528"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-529" name="__codelineno-0-529"></a><span class="w">    </span><span class="sd">"""Write the report for one flex-search run folder; into the project's reports unless *out_dir*."""</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">)</span>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
-<a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
-<a id="__codelineno-0-538" name="__codelineno-0-538"></a>        <span class="n">out_dir</span><span class="p">,</span>
-<a id="__codelineno-0-539" name="__codelineno-0-539"></a>        <span class="n">t0</span><span class="p">,</span>
-<a id="__codelineno-0-540" name="__codelineno-0-540"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Flex-search report"</span><span class="p">,</span>
-<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-632">632</a></span>
+<span class="normal"><a href="#__codelineno-0-633">633</a></span>
+<span class="normal"><a href="#__codelineno-0-634">634</a></span>
+<span class="normal"><a href="#__codelineno-0-635">635</a></span>
+<span class="normal"><a href="#__codelineno-0-636">636</a></span>
+<span class="normal"><a href="#__codelineno-0-637">637</a></span>
+<span class="normal"><a href="#__codelineno-0-638">638</a></span>
+<span class="normal"><a href="#__codelineno-0-639">639</a></span>
+<span class="normal"><a href="#__codelineno-0-640">640</a></span>
+<span class="normal"><a href="#__codelineno-0-641">641</a></span>
+<span class="normal"><a href="#__codelineno-0-642">642</a></span>
+<span class="normal"><a href="#__codelineno-0-643">643</a></span>
+<span class="normal"><a href="#__codelineno-0-644">644</a></span>
+<span class="normal"><a href="#__codelineno-0-645">645</a></span>
+<span class="normal"><a href="#__codelineno-0-646">646</a></span>
+<span class="normal"><a href="#__codelineno-0-647">647</a></span>
+<span class="normal"><a href="#__codelineno-0-648">648</a></span>
+<span class="normal"><a href="#__codelineno-0-649">649</a></span>
+<span class="normal"><a href="#__codelineno-0-650">650</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-632" name="__codelineno-0-632"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_flex_search_report</span><span class="p">(</span>
+<a id="__codelineno-0-633" name="__codelineno-0-633"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-634" name="__codelineno-0-634"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-635" name="__codelineno-0-635"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-636" name="__codelineno-0-636"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-637" name="__codelineno-0-637"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-638" name="__codelineno-0-638"></a><span class="w">    </span><span class="sd">"""Write the report for one flex-search run folder; into the project's reports unless *out_dir*."""</span>
+<a id="__codelineno-0-639" name="__codelineno-0-639"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-640" name="__codelineno-0-640"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">)</span>
+<a id="__codelineno-0-641" name="__codelineno-0-641"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-642" name="__codelineno-0-642"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
+<a id="__codelineno-0-643" name="__codelineno-0-643"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-644" name="__codelineno-0-644"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-645" name="__codelineno-0-645"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-646" name="__codelineno-0-646"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-647" name="__codelineno-0-647"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-648" name="__codelineno-0-648"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-649" name="__codelineno-0-649"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Flex-search report"</span><span class="p">,</span>
+<a id="__codelineno-0-650" name="__codelineno-0-650"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1353,58 +1353,73 @@ software check, advisory, reported) and citation, and the rules are in
 
     <div class="doc doc-contents first">
 
-        <p>Write the report for one ex-search run folder; into the project's reports unless <em>out_dir</em>.</p>
+        <p>Write the report for one ex- or mEx-search run folder; into the project's reports unless
+<em>out_dir</em>.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/ex_search.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-465">465</a></span>
-<span class="normal"><a href="#__codelineno-0-466">466</a></span>
-<span class="normal"><a href="#__codelineno-0-467">467</a></span>
-<span class="normal"><a href="#__codelineno-0-468">468</a></span>
-<span class="normal"><a href="#__codelineno-0-469">469</a></span>
-<span class="normal"><a href="#__codelineno-0-470">470</a></span>
-<span class="normal"><a href="#__codelineno-0-471">471</a></span>
-<span class="normal"><a href="#__codelineno-0-472">472</a></span>
-<span class="normal"><a href="#__codelineno-0-473">473</a></span>
-<span class="normal"><a href="#__codelineno-0-474">474</a></span>
-<span class="normal"><a href="#__codelineno-0-475">475</a></span>
-<span class="normal"><a href="#__codelineno-0-476">476</a></span>
-<span class="normal"><a href="#__codelineno-0-477">477</a></span>
-<span class="normal"><a href="#__codelineno-0-478">478</a></span>
-<span class="normal"><a href="#__codelineno-0-479">479</a></span>
-<span class="normal"><a href="#__codelineno-0-480">480</a></span>
-<span class="normal"><a href="#__codelineno-0-481">481</a></span>
-<span class="normal"><a href="#__codelineno-0-482">482</a></span>
-<span class="normal"><a href="#__codelineno-0-483">483</a></span>
-<span class="normal"><a href="#__codelineno-0-484">484</a></span>
-<span class="normal"><a href="#__codelineno-0-485">485</a></span>
-<span class="normal"><a href="#__codelineno-0-486">486</a></span>
-<span class="normal"><a href="#__codelineno-0-487">487</a></span>
-<span class="normal"><a href="#__codelineno-0-488">488</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_ex_search_report</span><span class="p">(</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="w">    </span><span class="sd">"""Write the report for one ex-search run folder; into the project's reports unless *out_dir*."""</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">,</span> <span class="n">pm</span><span class="o">.</span><span class="n">leadfields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]:</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv has no montages"</span><span class="p">)</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a>        <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a>        <span class="n">out_dir</span><span class="p">,</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>        <span class="n">t0</span><span class="p">,</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Ex-search report"</span><span class="p">,</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-610">610</a></span>
+<span class="normal"><a href="#__codelineno-0-611">611</a></span>
+<span class="normal"><a href="#__codelineno-0-612">612</a></span>
+<span class="normal"><a href="#__codelineno-0-613">613</a></span>
+<span class="normal"><a href="#__codelineno-0-614">614</a></span>
+<span class="normal"><a href="#__codelineno-0-615">615</a></span>
+<span class="normal"><a href="#__codelineno-0-616">616</a></span>
+<span class="normal"><a href="#__codelineno-0-617">617</a></span>
+<span class="normal"><a href="#__codelineno-0-618">618</a></span>
+<span class="normal"><a href="#__codelineno-0-619">619</a></span>
+<span class="normal"><a href="#__codelineno-0-620">620</a></span>
+<span class="normal"><a href="#__codelineno-0-621">621</a></span>
+<span class="normal"><a href="#__codelineno-0-622">622</a></span>
+<span class="normal"><a href="#__codelineno-0-623">623</a></span>
+<span class="normal"><a href="#__codelineno-0-624">624</a></span>
+<span class="normal"><a href="#__codelineno-0-625">625</a></span>
+<span class="normal"><a href="#__codelineno-0-626">626</a></span>
+<span class="normal"><a href="#__codelineno-0-627">627</a></span>
+<span class="normal"><a href="#__codelineno-0-628">628</a></span>
+<span class="normal"><a href="#__codelineno-0-629">629</a></span>
+<span class="normal"><a href="#__codelineno-0-630">630</a></span>
+<span class="normal"><a href="#__codelineno-0-631">631</a></span>
+<span class="normal"><a href="#__codelineno-0-632">632</a></span>
+<span class="normal"><a href="#__codelineno-0-633">633</a></span>
+<span class="normal"><a href="#__codelineno-0-634">634</a></span>
+<span class="normal"><a href="#__codelineno-0-635">635</a></span>
+<span class="normal"><a href="#__codelineno-0-636">636</a></span>
+<span class="normal"><a href="#__codelineno-0-637">637</a></span>
+<span class="normal"><a href="#__codelineno-0-638">638</a></span>
+<span class="normal"><a href="#__codelineno-0-639">639</a></span>
+<span class="normal"><a href="#__codelineno-0-640">640</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_ex_search_report</span><span class="p">(</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a><span class="w">    </span><span class="sd">"""Write the report for one ex- or mEx-search run folder; into the project's reports unless</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a><span class="sd">    *out_dir*."""</span>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-619" name="__codelineno-0-619"></a>
+<a id="__codelineno-0-620" name="__codelineno-0-620"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-621" name="__codelineno-0-621"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-622" name="__codelineno-0-622"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">,</span> <span class="n">pm</span><span class="o">.</span><span class="n">leadfields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-623" name="__codelineno-0-623"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]:</span>
+<a id="__codelineno-0-624" name="__codelineno-0-624"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv has no montages"</span><span class="p">)</span>
+<a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"TImax_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">r</span><span class="p">[</span><span class="s2">"TImean_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]):</span>
+<a id="__codelineno-0-626" name="__codelineno-0-626"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-627" name="__codelineno-0-627"></a>            <span class="sa">f</span><span class="s2">"Every montage in </span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv scored 0 in the ROI "</span>
+<a id="__codelineno-0-628" name="__codelineno-0-628"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rec</span><span class="p">[</span><span class="s1">'config'</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'roi_name'</span><span class="p">)</span><span class="si">!r}</span><span class="s2">: the ROI selected no leadfield mesh elements, "</span>
+<a id="__codelineno-0-629" name="__codelineno-0-629"></a>            <span class="s2">"so the ranking is arbitrary and there is no winner to report."</span>
+<a id="__codelineno-0-630" name="__codelineno-0-630"></a>        <span class="p">)</span>
+<a id="__codelineno-0-631" name="__codelineno-0-631"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-632" name="__codelineno-0-632"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
+<a id="__codelineno-0-633" name="__codelineno-0-633"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-634" name="__codelineno-0-634"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-635" name="__codelineno-0-635"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-636" name="__codelineno-0-636"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-637" name="__codelineno-0-637"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-638" name="__codelineno-0-638"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-639" name="__codelineno-0-639"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Ex-search report"</span><span class="p">,</span>
+<a id="__codelineno-0-640" name="__codelineno-0-640"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1426,13 +1441,14 @@ software check, advisory, reported) and citation, and the rules are in
 
         <p>Render the images from <em>vols</em> (:class:<code>~tit.pre.qsi.dti_advisories.DtiVolumes</code>) and write the report.</p>
 <p>Written to <code>derivatives/ti-toolbox/reports/sub-&lt;id&gt;/dti_qc_&lt;timestamp&gt;.html</code> unless <em>out_dir</em>
-is given. Works for a failed gate too: <em>vols</em> holds the tensor that was computed but not written.</p>
+is given, and recorded as a <code>report</code> artifact of the running job (the G6 job's attachment),
+like every other report. Works for a failed gate too: <em>vols</em> holds the tensor that was
+computed but not written.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/dti_qc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-653">653</a></span>
 <span class="normal"><a href="#__codelineno-0-654">654</a></span>
 <span class="normal"><a href="#__codelineno-0-655">655</a></span>
 <span class="normal"><a href="#__codelineno-0-656">656</a></span>
@@ -1467,51 +1483,42 @@ is given. Works for a failed gate too: <em>vols</em> holds the tensor that was c
 <span class="normal"><a href="#__codelineno-0-685">685</a></span>
 <span class="normal"><a href="#__codelineno-0-686">686</a></span>
 <span class="normal"><a href="#__codelineno-0-687">687</a></span>
-<span class="normal"><a href="#__codelineno-0-688">688</a></span>
-<span class="normal"><a href="#__codelineno-0-689">689</a></span>
-<span class="normal"><a href="#__codelineno-0-690">690</a></span>
-<span class="normal"><a href="#__codelineno-0-691">691</a></span>
-<span class="normal"><a href="#__codelineno-0-692">692</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_dti_qc_report</span><span class="p">(</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="n">qc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="n">vols</span><span class="p">,</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="w">    </span><span class="sd">"""Render the images from *vols* (:class:`~tit.pre.qsi.dti_advisories.DtiVolumes`) and write the report.</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">    Written to ``derivatives/ti-toolbox/reports/sub-&lt;id&gt;/dti_qc_&lt;timestamp&gt;.html`` unless *out_dir*</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">    is given. Works for a failed gate too: *vols* holds the tensor that was computed but not written.</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">    """</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.plotting.dti_qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_all</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>    <span class="n">written</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">qc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"failures"</span><span class="p">):</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="n">tensor</span> <span class="o">=</span> <span class="n">m2m</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>            <span class="n">written</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">)</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">qc</span><span class="p">,</span> <span class="n">render_all</span><span class="p">(</span><span class="n">vols</span><span class="p">),</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">tensor_written</span><span class="o">=</span><span class="n">written</span><span class="p">)</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>    <span class="n">out</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>        <span class="n">Path</span><span class="p">(</span><span class="n">out_dir</span><span class="p">)</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>        <span class="k">if</span> <span class="n">out_dir</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>        <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span><span class="o">.</span><span class="n">reports</span><span class="p">())</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a>    <span class="p">)</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a>    <span class="n">out</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">out</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">REPORT_PREFIX</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s1">'%Y%m</span><span class="si">%d</span><span class="s1">_%H%M%S'</span><span class="p">)</span><span class="si">}</span><span class="s2">.html"</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>    <span class="n">path</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span><span class="n">html</span><span class="p">,</span> <span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="n">size</span> <span class="o">=</span> <span class="n">path</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="sa">f</span><span class="s2">"DTI QC report: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB, </span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">t0</span><span class="si">:</span><span class="s2">.0f</span><span class="si">}</span><span class="s2"> s)"</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="p">)</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="k">if</span> <span class="n">size</span> <span class="o">&gt;</span> <span class="n">SIZE_BUDGET</span><span class="p">:</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>            <span class="sa">f</span><span class="s2">"DTI QC report is </span><span class="si">{</span><span class="n">size</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2"> MB, over its </span><span class="si">{</span><span class="n">SIZE_BUDGET</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mf">1e6</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2"> MB budget"</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>        <span class="p">)</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="k">return</span> <span class="n">path</span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_dti_qc_report</span><span class="p">(</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="n">qc</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">vols</span><span class="p">,</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="w">    </span><span class="sd">"""Render the images from *vols* (:class:`~tit.pre.qsi.dti_advisories.DtiVolumes`) and write the report.</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">    Written to ``derivatives/ti-toolbox/reports/sub-&lt;id&gt;/dti_qc_&lt;timestamp&gt;.html`` unless *out_dir*</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">    is given, and recorded as a ``report`` artifact of the running job (the G6 job's attachment),</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">    like every other report. Works for a failed gate too: *vols* holds the tensor that was</span>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">    computed but not written.</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">    """</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.plotting.dti_qc</span><span class="w"> </span><span class="kn">import</span> <span class="n">render_all</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="n">written</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">qc</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"failures"</span><span class="p">):</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>        <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a>        <span class="n">tensor</span> <span class="o">=</span> <span class="n">m2m</span> <span class="o">/</span> <span class="n">const</span><span class="o">.</span><span class="n">FILE_DTI_TENSOR</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="k">if</span> <span class="n">tensor</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a>            <span class="n">written</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">tensor</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">)</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">qc</span><span class="p">,</span> <span class="n">render_all</span><span class="p">(</span><span class="n">vols</span><span class="p">),</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">tensor_written</span><span class="o">=</span><span class="n">written</span><span class="p">)</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a>        <span class="n">html</span><span class="p">,</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"DTI QC report"</span><span class="p">,</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

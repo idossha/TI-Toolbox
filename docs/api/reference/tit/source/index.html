@@ -1091,7 +1091,7 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1112,7 +1112,7 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1196,12 +1196,7 @@ common cortical grid:</p>
   </span>
 
 <a href="#tit.source.ForwardConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ForwardConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ForwardConfig</span><span class="p">(</span><span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'GSN-HydroCel-185'</span><span class="p">,</span> <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">cpus</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1260,14 +1255,7 @@ overwrite : bool
   </span>
 
 <a href="#tit.source.FsavgMapConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FsavgMapConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="k">lambda</span><span class="p">:</span> <span class="n"><span title="tit.source.config.VALID_FSAVG_FIELDS">VALID_FSAVG_FIELDS</span></span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="p">)(),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">workers</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">FsavgMapConfig</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n"><span title="tit.source.config.VALID_FSAVG_FIELDS">VALID_FSAVG_FIELDS</span></span><span class="p">)(),</span> <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">workers</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1284,7 +1272,7 @@ fsaverage_spacing : int
 workers : int
     Number of subjects projected in parallel (1 = serial).
 overwrite : bool
-    Re-project even when a cached <code>.npz</code> already exists.</p>
+    Re-project even when the fsaverage <code>.msh</code> already exists.</p>
 
 
 
@@ -1322,9 +1310,7 @@ overwrite : bool
 
 
 <a href="#tit.source.project_fields_to_fsaverage" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]],</span> <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.FsavgMapConfig" href="config/#tit.source.config.FsavgMapConfig">FsavgMapConfig</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span><span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]],</span> <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.FsavgMapConfig" href="config/#tit.source.config.FsavgMapConfig">FsavgMapConfig</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1342,81 +1328,81 @@ cfg : FsavgMapConfig
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#__codelineno-0-301">301</a></span>
-<span class="normal"><a href="#__codelineno-0-302">302</a></span>
-<span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#__codelineno-0-306">306</a></span>
-<span class="normal"><a href="#__codelineno-0-307">307</a></span>
-<span class="normal"><a href="#__codelineno-0-308">308</a></span>
-<span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span>
-<span class="normal"><a href="#__codelineno-0-312">312</a></span>
-<span class="normal"><a href="#__codelineno-0-313">313</a></span>
-<span class="normal"><a href="#__codelineno-0-314">314</a></span>
-<span class="normal"><a href="#__codelineno-0-315">315</a></span>
-<span class="normal"><a href="#__codelineno-0-316">316</a></span>
-<span class="normal"><a href="#__codelineno-0-317">317</a></span>
-<span class="normal"><a href="#__codelineno-0-318">318</a></span>
-<span class="normal"><a href="#__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#__codelineno-0-322">322</a></span>
-<span class="normal"><a href="#__codelineno-0-323">323</a></span>
-<span class="normal"><a href="#__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#__codelineno-0-325">325</a></span>
-<span class="normal"><a href="#__codelineno-0-326">326</a></span>
-<span class="normal"><a href="#__codelineno-0-327">327</a></span>
-<span class="normal"><a href="#__codelineno-0-328">328</a></span>
-<span class="normal"><a href="#__codelineno-0-329">329</a></span>
-<span class="normal"><a href="#__codelineno-0-330">330</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Project field outputs to fsaverage for many (subject, simulation) pairs.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    subjects : list of (str, str)</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">        ``(subject_id, simulation_name)`` pairs to project.</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    cfg : FsavgMapConfig</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">        Field selection, fsaverage spacing, worker count, overwrite flag.</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    list of (str, str, str)</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        Per-pair ``(subject_id, status, message)`` results.</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">)))</span> <span class="k">if</span> <span class="n">subjects</span> <span class="k">else</span> <span class="mi">1</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Projecting </span><span class="si">%d</span><span class="s2"> simulation(s) with </span><span class="si">%d</span><span class="s2"> worker(s)&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">),</span> <span class="n">workers</span><span class="p">)</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="k">if</span> <span class="n">workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>        <span class="k">for</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>            <span class="n">res</span> <span class="o">=</span> <span class="n">project_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>                <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">project_subject</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span> <span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>                <span class="k">for</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>            <span class="p">}</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>                <span class="n">res</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>                <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="k">return</span> <span class="n">results</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="w">    </span><span class="sd">"""Project field outputs to fsaverage for many (subject, simulation) pairs.</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a><span class="sd">    subjects : list of (str, str)</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="sd">        ``(subject_id, simulation_name)`` pairs to project.</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="sd">    cfg : FsavgMapConfig</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="sd">        Field selection, fsaverage spacing, worker count, overwrite flag.</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">    list of (str, str, str)</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">        Per-pair ``(subject_id, status, message)`` results.</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    """</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a>    <span class="n">workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">)))</span> <span class="k">if</span> <span class="n">subjects</span> <span class="k">else</span> <span class="mi">1</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Projecting </span><span class="si">%d</span><span class="s2"> simulation(s) with </span><span class="si">%d</span><span class="s2"> worker(s)"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">),</span> <span class="n">workers</span><span class="p">)</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>    <span class="k">if</span> <span class="n">workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>        <span class="k">for</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>            <span class="n">res</span> <span class="o">=</span> <span class="n">project_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>            <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>            <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>                <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">project_subject</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span> <span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>                <span class="k">for</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>            <span class="p">}</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>                <span class="n">res</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>                <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1431,63 +1417,71 @@ cfg : FsavgMapConfig
 
 
 <a href="#tit.source.project_subject" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">project_subject</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">sim</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.FsavgMapConfig" href="config/#tit.source.config.FsavgMapConfig">FsavgMapConfig</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">project_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">sim</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.FsavgMapConfig" href="config/#tit.source.config.FsavgMapConfig">FsavgMapConfig</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Project one (subject, simulation) and cache the result as <code>.npz</code>.</p>
+        <p>Project one (subject, simulation) and write it as an fsaverage <code>.msh</code>.</p>
 <p>Returns <code>(subject_id, status, message)</code> where status is one of
 <code>{"ok", "cached", "failed"}</code> so batch runs can record and continue.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#__codelineno-0-290">290</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_subject</span><span class="p">(</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">sim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Project one (subject, simulation) and cache the result as ``.npz``.</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    Returns ``(subject_id, status, message)`` where status is one of</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">    ``{&quot;ok&quot;, &quot;cached&quot;, &quot;failed&quot;}`` so batch runs can record and continue.</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="n">out_path</span> <span class="o">=</span> <span class="n">_output_path</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">)</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="k">if</span> <span class="n">out_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span><span class="p">:</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">&quot;cached&quot;</span><span class="p">,</span> <span class="n">out_path</span><span class="o">.</span><span class="n">name</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="n">maps</span> <span class="o">=</span> <span class="n">_compute_fields</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - record per-subject and continue</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">&quot;failed&quot;</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>    <span class="n">out_path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>    <span class="n">np</span><span class="o">.</span><span class="n">savez_compressed</span><span class="p">(</span><span class="n">out_path</span><span class="p">,</span> <span class="n">subject_id</span><span class="o">=</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="o">=</span><span class="n">sim</span><span class="p">,</span> <span class="o">**</span><span class="n">maps</span><span class="p">)</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>    <span class="n">medians</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> med=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">&quot;ok&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">medians</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-349" name="__codelineno-0-349"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_subject</span><span class="p">(</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">sim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="w">    </span><span class="sd">"""Project one (subject, simulation) and write it as an fsaverage ``.msh``.</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    Returns ``(subject_id, status, message)`` where status is one of</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    ``{"ok", "cached", "failed"}`` so batch runs can record and continue.</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="sd">    """</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">out_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">sim_fsaverage_fields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">))</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="k">if</span> <span class="n">out_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"cached"</span><span class="p">,</span> <span class="n">out_path</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="n">carrier_only</span> <span class="o">=</span> <span class="n">_recorded_carrier_only</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="n">maps</span> <span class="o">=</span> <span class="n">_compute_fields</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">)</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - record per-subject and continue</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"failed"</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="n">write_fsaverage_msh</span><span class="p">(</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>        <span class="n">out_path</span><span class="p">,</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="n">maps</span><span class="p">,</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">,</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">:</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"simulation"</span><span class="p">:</span> <span class="n">sim</span><span class="p">,</span> <span class="s2">"carrier_only"</span><span class="p">:</span> <span class="n">carrier_only</span><span class="p">},</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="p">)</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="n">medians</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> med=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>    <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"ok"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">medians</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1502,12 +1496,7 @@ cfg : FsavgMapConfig
 
 
 <a href="#tit.source.prepare_forward" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_forward</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.ForwardConfig" href="config/#tit.source.config.ForwardConfig">ForwardConfig</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">prepare_forward</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">cfg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.source.config.ForwardConfig" href="config/#tit.source.config.ForwardConfig">ForwardConfig</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1623,12 +1612,12 @@ output_dir : str or pathlib.Path or None
 <a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="o">*</span><span class="p">,</span>
 <a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Rebuild one subject&#39;s forward, source-space, and fsaverage morph files.</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">    </span><span class="sd">"""Rebuild one subject's forward, source-space, and fsaverage morph files.</span>
 <a id="__codelineno-0-305" name="__codelineno-0-305"></a>
 <a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    ----------</span>
 <a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        Subject identifier without the ``sub-`` prefix (e.g. ``&quot;101&quot;``).</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        Subject identifier without the ``sub-`` prefix (e.g. ``"101"``).</span>
 <a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    cfg : ForwardConfig</span>
 <a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        EEG net, fsaverage spacing, FEM worker count, and overwrite flag.</span>
 <a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">    output_dir : str or pathlib.Path or None</span>
@@ -1639,11 +1628,11 @@ output_dir : str or pathlib.Path or None
 <a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">    -------</span>
 <a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">    tuple of pathlib.Path</span>
 <a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">        ``(fwd_path, src_path, morph_path)``.</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    """</span>
 <a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
 <a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
 <a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">m2m_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;m2m directory not found: </span><span class="si">{</span><span class="n">m2m_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"m2m directory not found: </span><span class="si">{</span><span class="n">m2m_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
 <a id="__codelineno-0-325" name="__codelineno-0-325"></a>
 <a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="n">_check_forward_dependencies</span><span class="p">()</span>
 <a id="__codelineno-0-327" name="__codelineno-0-327"></a>
@@ -1652,14 +1641,14 @@ output_dir : str or pathlib.Path or None
 <a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="p">)</span>
 <a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="n">forward_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-332" name="__codelineno-0-332"></a>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">stem</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">_net-</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">stem</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">_net-</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">"</span>
 <a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-fwd.fif&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-src.fif&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-morph.h5&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-fwd.fif"</span><span class="p">,</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-src.fif"</span><span class="p">,</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-morph.h5"</span><span class="p">,</span>
 <a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="p">)</span>
 <a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span> <span class="ow">and</span> <span class="n">_forward_outputs_valid</span><span class="p">(</span><span class="o">*</span><span class="n">expected</span><span class="p">):</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Forward outputs already present for </span><span class="si">%s</span><span class="s2">; skipping.&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Forward outputs already present for </span><span class="si">%s</span><span class="s2">; skipping."</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
 <a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="k">return</span> <span class="n">expected</span>
 <a id="__codelineno-0-342" name="__codelineno-0-342"></a>
 <a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span> <span class="o">=</span> <span class="n">_read_simnibs_montage</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">)</span>
@@ -1667,25 +1656,25 @@ output_dir : str or pathlib.Path or None
 <a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="c1"># Redundancy guard: reuse the FEM leadfield if one is already cached.</span>
 <a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span> <span class="k">else</span> <span class="n">_find_existing_leadfield</span><span class="p">(</span><span class="n">forward_dir</span><span class="p">)</span>
 <a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="k">if</span> <span class="n">leadfield_hdf5</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Reusing cached leadfield: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Reusing cached leadfield: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
 <a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="n">eeg_csv</span> <span class="o">=</span> <span class="n">m2m_dir</span> <span class="o">/</span> <span class="s2">&quot;eeg_positions&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">.csv&quot;</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="n">eeg_csv</span> <span class="o">=</span> <span class="n">m2m_dir</span> <span class="o">/</span> <span class="s2">"eeg_positions"</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">.csv"</span>
 <a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="n">_compute_leadfield</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">forward_dir</span><span class="p">,</span> <span class="n">eeg_csv</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">cpus</span><span class="p">)</span>
 <a id="__codelineno-0-352" name="__codelineno-0-352"></a>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="c1"># The Info is built *after* the leadfield, in the leadfield&#39;s channel order:</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="c1"># SimNIBS&#39;s assembly asserts `info[&quot;ch_names&quot;] == forward[&quot;ch_names&quot;]` element by</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="c1"># element, and the leadfield does not use the net CSV&#39;s order (below).</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="c1"># The Info is built *after* the leadfield, in the leadfield's channel order:</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="c1"># SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="c1"># element, and the leadfield does not use the net CSV's order (below).</span>
 <a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="n">electrodes</span> <span class="o">=</span> <span class="n">_in_leadfield_order</span><span class="p">(</span><span class="n">electrodes</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="p">)</span>
 <a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="n">montage_info</span><span class="p">,</span> <span class="n">trans</span> <span class="o">=</span> <span class="n">_build_montage_info</span><span class="p">(</span><span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span><span class="p">)</span>
 <a id="__codelineno-0-358" name="__codelineno-0-358"></a>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">info_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-info.fif&quot;</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">trans_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-trans.fif&quot;</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">info_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-info.fif"</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">trans_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-trans.fif"</span>
 <a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">RawArray</span><span class="p">(</span>
 <a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">montage_info</span><span class="o">.</span><span class="n">ch_names</span><span class="p">),</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">montage_info</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
 <a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 <a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">write_trans</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span> <span class="n">trans</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-365" name="__codelineno-0-365"></a>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="c1"># Not SimNIBS&#39;s own ``prepare_eeg_forward`` console script: that wrapper runs</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="c1"># Not SimNIBS's own ``prepare_eeg_forward`` console script: that wrapper runs</span>
 <a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="c1"># ``python -E``, so no compatibility shim can reach it, and its MNE/cortech</span>
 <a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="c1"># bridge dies *after* the FEM leadfield above has been paid for. The worker</span>
 <a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="c1"># calls the same ``simnibs.eeg.forward.make_forward`` with the shims applied --</span>
@@ -1694,16 +1683,16 @@ output_dir : str or pathlib.Path or None
 <a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="n">_run</span><span class="p">(</span>
 <a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="p">[</span>
 <a id="__codelineno-0-374" name="__codelineno-0-374"></a>            <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="s2">&quot;-m&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>            <span class="s2">&quot;tit.source._prepare_forward&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="s2">"-m"</span><span class="p">,</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>            <span class="s2">"tit.source._prepare_forward"</span><span class="p">,</span>
 <a id="__codelineno-0-377" name="__codelineno-0-377"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">),</span>
 <a id="__codelineno-0-378" name="__codelineno-0-378"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">leadfield_hdf5</span><span class="p">),</span>
 <a id="__codelineno-0-379" name="__codelineno-0-379"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span>
 <a id="__codelineno-0-380" name="__codelineno-0-380"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>            <span class="s2">&quot;--fsaverage&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>            <span class="s2">"--fsaverage"</span><span class="p">,</span>
 <a id="__codelineno-0-382" name="__codelineno-0-382"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">),</span>
 <a id="__codelineno-0-383" name="__codelineno-0-383"></a>        <span class="p">],</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="sa">f</span><span class="s2">&quot;MNE forward assembly for sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="sa">f</span><span class="s2">"MNE forward assembly for sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
 <a id="__codelineno-0-385" name="__codelineno-0-385"></a>        <span class="n">cwd</span><span class="o">=</span><span class="n">forward_dir</span><span class="p">,</span>
 <a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="p">)</span>
 <a id="__codelineno-0-387" name="__codelineno-0-387"></a>    <span class="k">return</span> <span class="n">_rename_generated_outputs</span><span class="p">(</span><span class="n">forward_dir</span><span class="p">,</span> <span class="n">stem</span><span class="p">)</span>

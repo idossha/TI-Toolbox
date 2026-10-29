@@ -16,7 +16,7 @@
         <link rel="prev" href="../../pipeline/tools/">
       
       
-        <link rel="next" href="analyzer/">
+        <link rel="next" href="_calc_kernel/">
       
       
         
@@ -1100,6 +1100,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.get_path_manager--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.get_path_manager--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.get_path_manager--see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1168,7 +1190,7 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1213,7 +1235,8 @@
         <p>TI-Toolbox: Temporal Interference Brain Stimulation Platform.</p>
 <p>A neuroscience research platform for simulating, optimizing, and analyzing
 temporal interference (TI) stimulation of the brain. Built on top of
-SimNIBS for finite-element modeling and FreeSurfer for cortical reconstruction.</p>
+SimNIBS for finite-element modeling; FastSurfer segments the head by default
+and FreeSurfer reconstruction is optional.</p>
 <h4 id="tit--modules">Modules<a class="headerlink" href="#tit--modules" title="Permanent link">&para;</a></h4>
 <p>sim
     TI/mTI simulation engine (electrode montages, field computation).
@@ -1224,14 +1247,25 @@ analyzer
 stats
     Permutation testing and group-level comparisons.
 pre
-    Preprocessing pipelines (DICOM conversion, FreeSurfer, CHARM).
+    Preprocessing pipelines (DICOM conversion, FastSurfer, CHARM, optional
+    FreeSurfer, QSIPrep/QSIRecon and DTI fit).
+calc
+    TI/mTI envelope (<code>envelope</code>, <code>envelope_max</code>, <code>envelope_mean</code>) and
+    carrier metrics (<code>hf_peak</code>, <code>hf_power</code>).
+source
+    EEG source-forward preparation and fsaverage field mapping.
 server
-    FastAPI HTTP server the v3 desktop app (<code>desktop/</code>) drives; it
-    replaced the former PyQt5 interface.
+    FastAPI HTTP server the v3 desktop app (<code>desktop/</code>) drives.
+jobs
+    The server's job engine: queue, locks, CPU budget and events.
+catalog
+    Project discovery (subjects, simulations, analyses) for the app.
+scene
+    The scene service behind the app's 3D panes.
 cli
-    Command-line tools built on a shared <code>BaseCLI</code> base class.
+    The <code>tit launch</code> console command (<code>tit/cli.py</code>, <code>tit/launch.py</code>).
 reporting
-    HTML report generation with composable reportlets.</p>
+    Self-contained HTML reports (DTI QC, simulation, flex-search, ex-search).</p>
 <h4 id="tit--public-api">Public API<a class="headerlink" href="#tit--public-api" title="Permanent link">&para;</a></h4>
 <p>get_path_manager
     Return the global :class:<code>~tit.paths.PathManager</code> singleton.
@@ -1286,7 +1320,7 @@ No additional setup is required for typical usage.</p>
 
 
 <a href="#tit.setup_logging" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">&#39;INFO&#39;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'INFO'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1314,41 +1348,7 @@ get_event_sink : The sink a JsonEventHandler writes through.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/logger.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-250">250</a></span>
 <span class="normal"><a href="#__codelineno-0-251">251</a></span>
 <span class="normal"><a href="#__codelineno-0-252">252</a></span>
 <span class="normal"><a href="#__codelineno-0-253">253</a></span>
@@ -1360,103 +1360,10 @@ get_event_sink : The sink a JsonEventHandler writes through.</p>
 <span class="normal"><a href="#__codelineno-0-259">259</a></span>
 <span class="normal"><a href="#__codelineno-0-260">260</a></span>
 <span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Configure the ``tit`` logger hierarchy.</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    Sets the log level but adds **no** handlers of its own — file handlers</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    are attached later via :func:`add_file_handler` and GUI handlers via Qt</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    signal bridges. The one exception: when ``$TIT_EVENTS_FILE`` is set, a</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    :class:`JsonEventHandler` is attached to both the ``tit`` and</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    ``simnibs`` loggers (flex/ex/mex/sim already attach their own file</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    handlers to ``simnibs`` -- that is where FEM solver progress goes) so</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    every log record also becomes a ``type: &quot;log&quot;`` line in the job&#39;s</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    ``events.jsonl``, with no per-runner changes needed for plain log</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    output. Structured events (stage/progress/artifact/result/exit) are</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    emitted separately via ``tit.jobs.events``, through the same sink.</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    level : str, optional</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">        Logging level name (e.g., ``&quot;DEBUG&quot;``, ``&quot;INFO&quot;``).  Default is</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">        ``&quot;INFO&quot;``.</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    add_file_handler : Attach a file handler to a named logger.</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    add_stream_handler : Attach a console handler to a named logger.</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    get_event_sink : The sink a JsonEventHandler writes through.</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tit&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">))</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># never bubble to root/terminal</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="c1"># Quiet noisy third-party loggers</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;matplotlib&quot;</span><span class="p">,</span> <span class="s2">&quot;matplotlib.font_manager&quot;</span><span class="p">,</span> <span class="s2">&quot;PIL&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">for</span> <span class="n">logger_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;tit&quot;</span><span class="p">,</span> <span class="s2">&quot;simnibs&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="n">target</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">JsonEventHandler</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">handlers</span><span class="p">):</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>                <span class="n">handler</span> <span class="o">=</span> <span class="n">JsonEventHandler</span><span class="p">(</span><span class="n">sink</span><span class="p">)</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>                <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="n">target</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">&quot;tit.logger&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="sa">f</span><span class="s2">&quot;$</span><span class="si">{</span><span class="n">TIT_EVENTS_FILE_ENV</span><span class="si">}</span><span class="s2"> not set; no JsonEventHandler attached&quot;</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.add_file_handler" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">add_file_handler</span>
-
-
-<a href="#tit.add_file_handler" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_file_handler</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;tit&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="logging.FileHandler" href="https://docs.python.org/3/library/logging.handlers.html#logging.FileHandler">FileHandler</a></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Attach a file handler to a named logger.</p>
-<p>Creates the parent directory if it does not exist.  Returns the handler
-so callers can remove it when the run completes.</p>
-<h5 id="tit.add_file_handler--parameters">Parameters<a class="headerlink" href="#tit.add_file_handler--parameters" title="Permanent link">&para;</a></h5>
-<p>log_file : str or pathlib.Path
-    Path to the log file (opened in append mode).
-level : str, optional
-    Minimum log level for this handler.  Default is <code>"DEBUG"</code> so the
-    file captures everything.
-logger_name : str, optional
-    Logger to attach to.  Default is <code>"tit"</code> (the package root).</p>
-<h5 id="tit.add_file_handler--returns">Returns<a class="headerlink" href="#tit.add_file_handler--returns" title="Permanent link">&para;</a></h5>
-<p>logging.FileHandler
-    The handler for <em>log_file</em> on <em>logger_name</em> -- newly created, or the
-    existing one if this exact (logger, path) pair was already attached
-    (a long-lived process, e.g. one ROI loop calling this per iteration,
-    would otherwise leak one handler -- and one open file descriptor --
-    per call).</p>
-<h5 id="tit.add_file_handler--see-also">See Also<a class="headerlink" href="#tit.add_file_handler--see-also" title="Permanent link">&para;</a></h5>
-<p>setup_logging : Set the package-wide log level.
-add_stream_handler : Attach a console (stdout) handler.
-get_file_only_logger : Create an isolated file-only logger.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/logger.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
 <span class="normal"><a href="#__codelineno-0-266">266</a></span>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
 <span class="normal"><a href="#__codelineno-0-268">268</a></span>
@@ -1487,10 +1394,99 @@ get_file_only_logger : Create an isolated file-only logger.</p>
 <span class="normal"><a href="#__codelineno-0-293">293</a></span>
 <span class="normal"><a href="#__codelineno-0-294">294</a></span>
 <span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="k">def</span><span class="w"> </span><span class="nf">setup_logging</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"INFO"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="w">    </span><span class="sd">"""Configure the ``tit`` logger hierarchy.</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    Sets the log level but adds **no** handlers of its own — file handlers</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    are attached later via :func:`add_file_handler` and GUI handlers via Qt</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">    signal bridges. The one exception: when ``$TIT_EVENTS_FILE`` is set, a</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    :class:`JsonEventHandler` is attached to both the ``tit`` and</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    ``simnibs`` loggers (flex/ex/mex/sim already attach their own file</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    handlers to ``simnibs`` -- that is where FEM solver progress goes) so</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    every log record also becomes a ``type: "log"`` line in the job's</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">    ``events.jsonl``, with no per-runner changes needed for plain log</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    output. Structured events (stage/progress/artifact/result/exit) are</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    emitted separately via ``tit.jobs.events``, through the same sink.</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    level : str, optional</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a><span class="sd">        Logging level name (e.g., ``"DEBUG"``, ``"INFO"``).  Default is</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">        ``"INFO"``.</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">    add_file_handler : Attach a file handler to a named logger.</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">    add_stream_handler : Attach a console handler to a named logger.</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">    get_event_sink : The sink a JsonEventHandler writes through.</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">    """</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"tit"</span><span class="p">)</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">))</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">propagate</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># never bubble to root/terminal</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="c1"># Quiet noisy third-party loggers</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"matplotlib"</span><span class="p">,</span> <span class="s2">"matplotlib.font_manager"</span><span class="p">,</span> <span class="s2">"PIL"</span><span class="p">):</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">ERROR</span><span class="p">)</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="k">for</span> <span class="n">logger_name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"tit"</span><span class="p">,</span> <span class="s2">"simnibs"</span><span class="p">):</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="n">target</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">h</span><span class="p">,</span> <span class="n">JsonEventHandler</span><span class="p">)</span> <span class="k">for</span> <span class="n">h</span> <span class="ow">in</span> <span class="n">target</span><span class="o">.</span><span class="n">handlers</span><span class="p">):</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>                <span class="n">handler</span> <span class="o">=</span> <span class="n">JsonEventHandler</span><span class="p">(</span><span class="n">sink</span><span class="p">)</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>                <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">)</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>                <span class="n">target</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="s2">"tit.logger"</span><span class="p">)</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>            <span class="sa">f</span><span class="s2">"$</span><span class="si">{</span><span class="n">TIT_EVENTS_FILE_ENV</span><span class="si">}</span><span class="s2"> not set; no JsonEventHandler attached"</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.add_file_handler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">add_file_handler</span>
+
+
+<a href="#tit.add_file_handler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_file_handler</span><span class="p">(</span><span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'DEBUG'</span><span class="p">,</span> <span class="n">logger_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'tit'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="logging.FileHandler" href="https://docs.python.org/3/library/logging.handlers.html#logging.FileHandler">FileHandler</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Attach a file handler to a named logger.</p>
+<p>Creates the parent directory if it does not exist.  Returns the handler
+so callers can remove it when the run completes.</p>
+<h5 id="tit.add_file_handler--parameters">Parameters<a class="headerlink" href="#tit.add_file_handler--parameters" title="Permanent link">&para;</a></h5>
+<p>log_file : str or pathlib.Path
+    Path to the log file (opened in append mode).
+level : str, optional
+    Minimum log level for this handler.  Default is <code>"DEBUG"</code> so the
+    file captures everything.
+logger_name : str, optional
+    Logger to attach to.  Default is <code>"tit"</code> (the package root).</p>
+<h5 id="tit.add_file_handler--returns">Returns<a class="headerlink" href="#tit.add_file_handler--returns" title="Permanent link">&para;</a></h5>
+<p>logging.FileHandler
+    The handler for <em>log_file</em> on <em>logger_name</em> -- newly created, or the
+    existing one if this exact (logger, path) pair was already attached
+    (a long-lived process, e.g. one ROI loop calling this per iteration,
+    would otherwise leak one handler -- and one open file descriptor --
+    per call).</p>
+<h5 id="tit.add_file_handler--see-also">See Also<a class="headerlink" href="#tit.add_file_handler--see-also" title="Permanent link">&para;</a></h5>
+<p>setup_logging : Set the package-wide log level.
+add_stream_handler : Attach a console (stdout) handler.
+get_file_only_logger : Create an isolated file-only logger.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/logger.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-299">299</a></span>
 <span class="normal"><a href="#__codelineno-0-300">300</a></span>
 <span class="normal"><a href="#__codelineno-0-301">301</a></span>
 <span class="normal"><a href="#__codelineno-0-302">302</a></span>
@@ -1505,96 +1501,10 @@ get_file_only_logger : Create an isolated file-only logger.</p>
 <span class="normal"><a href="#__codelineno-0-311">311</a></span>
 <span class="normal"><a href="#__codelineno-0-312">312</a></span>
 <span class="normal"><a href="#__codelineno-0-313">313</a></span>
-<span class="normal"><a href="#__codelineno-0-314">314</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_file_handler</span><span class="p">(</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tit&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">:</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Attach a file handler to a named logger.</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="sd">    Creates the parent directory if it does not exist.  Returns the handler</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="sd">    so callers can remove it when the run completes.</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">    log_file : str or pathlib.Path</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">        Path to the log file (opened in append mode).</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">    level : str, optional</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">        Minimum log level for this handler.  Default is ``&quot;DEBUG&quot;`` so the</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">        file captures everything.</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    logger_name : str, optional</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        Logger to attach to.  Default is ``&quot;tit&quot;`` (the package root).</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    logging.FileHandler</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">        The handler for *log_file* on *logger_name* -- newly created, or the</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">        existing one if this exact (logger, path) pair was already attached</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">        (a long-lived process, e.g. one ROI loop calling this per iteration,</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">        would otherwise leak one handler -- and one open file descriptor --</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">        per call).</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    setup_logging : Set the package-wide log level.</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    add_stream_handler : Attach a console (stdout) handler.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    get_file_only_logger : Create an isolated file-only logger.</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">log_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_file</span><span class="p">)</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="n">log_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">log_file</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="k">for</span> <span class="n">existing</span> <span class="ow">in</span> <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="k">if</span> <span class="p">(</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>            <span class="nb">isinstance</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">)</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="s2">&quot;baseFilename&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="n">resolved</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="p">):</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>            <span class="k">return</span> <span class="n">existing</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="n">fh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">log_file</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;a&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">fh</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">))</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="n">fh</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">LOG_FORMAT</span><span class="p">,</span> <span class="n">datefmt</span><span class="o">=</span><span class="n">DATE_FORMAT</span><span class="p">))</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="k">return</span> <span class="n">fh</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.add_stream_handler" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">add_stream_handler</span>
-
-
-<a href="#tit.add_stream_handler" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_stream_handler</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;tit&quot;</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="logging.StreamHandler" href="https://docs.python.org/3/library/logging.handlers.html#logging.StreamHandler">StreamHandler</a></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Attach a stdout handler to a named logger.</p>
-<p>Used by scripts for terminal output and by <code>__main__</code> entry points
-so that <code>BaseProcessThread</code> can capture subprocess stdout for the GUI.</p>
-<h5 id="tit.add_stream_handler--parameters">Parameters<a class="headerlink" href="#tit.add_stream_handler--parameters" title="Permanent link">&para;</a></h5>
-<p>logger_name : str, optional
-    Logger to attach to.  Default is <code>"tit"</code>.
-level : str, optional
-    Minimum log level.  Default is <code>"INFO"</code>.</p>
-<h5 id="tit.add_stream_handler--returns">Returns<a class="headerlink" href="#tit.add_stream_handler--returns" title="Permanent link">&para;</a></h5>
-<p>logging.StreamHandler
-    The newly created handler.</p>
-<h5 id="tit.add_stream_handler--see-also">See Also<a class="headerlink" href="#tit.add_stream_handler--see-also" title="Permanent link">&para;</a></h5>
-<p>setup_logging : Set the package-wide log level.
-add_file_handler : Attach a file handler.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/logger.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
 <span class="normal"><a href="#__codelineno-0-318">318</a></span>
 <span class="normal"><a href="#__codelineno-0-319">319</a></span>
 <span class="normal"><a href="#__codelineno-0-320">320</a></span>
@@ -1625,42 +1535,160 @@ add_file_handler : Attach a file handler.</p>
 <span class="normal"><a href="#__codelineno-0-345">345</a></span>
 <span class="normal"><a href="#__codelineno-0-346">346</a></span>
 <span class="normal"><a href="#__codelineno-0-347">347</a></span>
-<span class="normal"><a href="#__codelineno-0-348">348</a></span>
-<span class="normal"><a href="#__codelineno-0-349">349</a></span>
-<span class="normal"><a href="#__codelineno-0-350">350</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_stream_handler</span><span class="p">(</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tit&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">:</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Attach a stdout handler to a named logger.</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    Used by scripts for terminal output and by ``__main__`` entry points</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    so that ``BaseProcessThread`` can capture subprocess stdout for the GUI.</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">    logger_name : str, optional</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">        Logger to attach to.  Default is ``&quot;tit&quot;``.</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">    level : str, optional</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">        Minimum log level.  Default is ``&quot;INFO&quot;``.</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">    logging.StreamHandler</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">        The newly created handler.</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">    setup_logging : Set the package-wide log level.</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">    add_file_handler : Attach a file handler.</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">))</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="s2">&quot;</span><span class="si">%(message)s</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="k">return</span> <span class="n">handler</span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_file_handler</span><span class="p">(</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"DEBUG"</span><span class="p">,</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"tit"</span><span class="p">,</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">:</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">    </span><span class="sd">"""Attach a file handler to a named logger.</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    Creates the parent directory if it does not exist.  Returns the handler</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    so callers can remove it when the run completes.</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    log_file : str or pathlib.Path</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        Path to the log file (opened in append mode).</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">    level : str, optional</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        Minimum log level for this handler.  Default is ``"DEBUG"`` so the</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        file captures everything.</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">    logger_name : str, optional</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">        Logger to attach to.  Default is ``"tit"`` (the package root).</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">    logging.FileHandler</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">        The handler for *log_file* on *logger_name* -- newly created, or the</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">        existing one if this exact (logger, path) pair was already attached</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">        (a long-lived process, e.g. one ROI loop calling this per iteration,</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">        would otherwise leak one handler -- and one open file descriptor --</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">        per call).</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">    setup_logging : Set the package-wide log level.</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">    add_stream_handler : Attach a console (stdout) handler.</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">    get_file_only_logger : Create an isolated file-only logger.</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">    """</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="n">log_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">log_file</span><span class="p">)</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">log_file</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">log_file</span><span class="o">.</span><span class="n">resolve</span><span class="p">())</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="k">for</span> <span class="n">existing</span> <span class="ow">in</span> <span class="n">logger</span><span class="o">.</span><span class="n">handlers</span><span class="p">:</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="nb">isinstance</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">)</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>            <span class="ow">and</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">existing</span><span class="p">,</span> <span class="s2">"baseFilename"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="o">==</span> <span class="n">resolved</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="p">):</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="k">return</span> <span class="n">existing</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="n">fh</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">FileHandler</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">log_file</span><span class="p">),</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"a"</span><span class="p">)</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="n">fh</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">))</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="n">fh</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="n">LOG_FORMAT</span><span class="p">,</span> <span class="n">datefmt</span><span class="o">=</span><span class="n">DATE_FORMAT</span><span class="p">))</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">fh</span><span class="p">)</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">return</span> <span class="n">fh</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.add_stream_handler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">add_stream_handler</span>
+
+
+<a href="#tit.add_stream_handler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">add_stream_handler</span><span class="p">(</span><span class="n">logger_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'tit'</span><span class="p">,</span> <span class="n">level</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'INFO'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="logging.StreamHandler" href="https://docs.python.org/3/library/logging.handlers.html#logging.StreamHandler">StreamHandler</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Attach a stdout handler to a named logger.</p>
+<p>Used by scripts for terminal output and by <code>__main__</code> entry points
+so that <code>BaseProcessThread</code> can capture subprocess stdout for the GUI.</p>
+<h5 id="tit.add_stream_handler--parameters">Parameters<a class="headerlink" href="#tit.add_stream_handler--parameters" title="Permanent link">&para;</a></h5>
+<p>logger_name : str, optional
+    Logger to attach to.  Default is <code>"tit"</code>.
+level : str, optional
+    Minimum log level.  Default is <code>"INFO"</code>.</p>
+<h5 id="tit.add_stream_handler--returns">Returns<a class="headerlink" href="#tit.add_stream_handler--returns" title="Permanent link">&para;</a></h5>
+<p>logging.StreamHandler
+    The newly created handler.</p>
+<h5 id="tit.add_stream_handler--see-also">See Also<a class="headerlink" href="#tit.add_stream_handler--see-also" title="Permanent link">&para;</a></h5>
+<p>setup_logging : Set the package-wide log level.
+add_file_handler : Attach a file handler.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/logger.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-351" name="__codelineno-0-351"></a><span class="k">def</span><span class="w"> </span><span class="nf">add_stream_handler</span><span class="p">(</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">logger_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"tit"</span><span class="p">,</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="n">level</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"INFO"</span><span class="p">,</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">:</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="w">    </span><span class="sd">"""Attach a stdout handler to a named logger.</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    Used by scripts for terminal output and by ``__main__`` entry points</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="sd">    so that ``BaseProcessThread`` can capture subprocess stdout for the GUI.</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="sd">    logger_name : str, optional</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="sd">        Logger to attach to.  Default is ``"tit"``.</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="sd">    level : str, optional</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a><span class="sd">        Minimum log level.  Default is ``"INFO"``.</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a><span class="sd">    logging.StreamHandler</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a><span class="sd">        The newly created handler.</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a><span class="sd">    setup_logging : Set the package-wide log level.</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a><span class="sd">    add_file_handler : Attach a file handler.</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="sd">    """</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>    <span class="n">handler</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">StreamHandler</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">stdout</span><span class="p">)</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>    <span class="n">handler</span><span class="o">.</span><span class="n">setLevel</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">logging</span><span class="p">,</span> <span class="n">level</span><span class="o">.</span><span class="n">upper</span><span class="p">(),</span> <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">))</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="n">handler</span><span class="o">.</span><span class="n">setFormatter</span><span class="p">(</span><span class="n">logging</span><span class="o">.</span><span class="n">Formatter</span><span class="p">(</span><span class="s2">"</span><span class="si">%(message)s</span><span class="s2">"</span><span class="p">))</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">logger_name</span><span class="p">)</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">addHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>    <span class="k">return</span> <span class="n">handler</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1675,9 +1703,7 @@ add_file_handler : Attach a file handler.</p>
 
 
 <a href="#tit.get_path_manager" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_path_manager</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.paths.PathManager" href="../../pipeline/core/#tit.paths.PathManager">PathManager</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.paths.PathManager" href="../../pipeline/core/#tit.paths.PathManager">PathManager</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1687,70 +1713,141 @@ add_file_handler : Attach a file handler.</p>
 the singleton's :attr:<code>~PathManager.project_dir</code> is (re)set.</p>
 <h5 id="tit.get_path_manager--parameters">Parameters<a class="headerlink" href="#tit.get_path_manager--parameters" title="Permanent link">&para;</a></h5>
 <p>project_dir : str or None, optional
-    Project root directory.  When <em>None</em>, the existing value (or
-    environment auto-detection) is used.</p>
+    Project root directory (the BIDS root holding <code>sub-*</code> and
+    <code>derivatives/</code>).  Must exist.  When <code>None</code> (default), the
+    existing value is kept; if none was set, it is auto-detected from
+    the <code>PROJECT_DIR</code> environment variable or, inside the container,
+    <code>/mnt/&lt;PROJECT_DIR_NAME&gt;</code> -- which is why scripts and notebooks
+    run in the app need no argument.</p>
 <h5 id="tit.get_path_manager--returns">Returns<a class="headerlink" href="#tit.get_path_manager--returns" title="Permanent link">&para;</a></h5>
 <p>PathManager
-    The shared singleton instance.</p>
+    The shared singleton instance.  Every path accessor
+    (<code>pm.m2m(sid)</code>, <code>pm.simulations(sid)</code>, ...) raises
+    <code>RuntimeError("Project directory not set")</code> if no project root
+    could be resolved.</p>
+<h5 id="tit.get_path_manager--raises">Raises<a class="headerlink" href="#tit.get_path_manager--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If <em>project_dir</em> is given but is not an existing directory.</p>
+<h5 id="tit.get_path_manager--examples">Examples<a class="headerlink" href="#tit.get_path_manager--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit import get_path_manager
+pm = get_path_manager("/data/project")  # doctest: +SKIP
+pm.list_simnibs_subjects()  # doctest: +SKIP
+['ernie', '101']
+pm.m2m("ernie")  # doctest: +SKIP
+'/data/project/derivatives/SimNIBS/sub-ernie/m2m_ernie'
+get_path_manager() is pm  # the same singleton on later calls  # doctest: +SKIP
+True</p>
+</blockquote>
+</blockquote>
+</blockquote>
 <h5 id="tit.get_path_manager--see-also">See Also<a class="headerlink" href="#tit.get_path_manager--see-also" title="Permanent link">&para;</a></h5>
 <p>reset_path_manager : Destroy the singleton for testing or re-init.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/paths.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1008">1008</a></span>
-<span class="normal"><a href="#__codelineno-0-1009">1009</a></span>
-<span class="normal"><a href="#__codelineno-0-1010">1010</a></span>
-<span class="normal"><a href="#__codelineno-0-1011">1011</a></span>
-<span class="normal"><a href="#__codelineno-0-1012">1012</a></span>
-<span class="normal"><a href="#__codelineno-0-1013">1013</a></span>
-<span class="normal"><a href="#__codelineno-0-1014">1014</a></span>
-<span class="normal"><a href="#__codelineno-0-1015">1015</a></span>
-<span class="normal"><a href="#__codelineno-0-1016">1016</a></span>
-<span class="normal"><a href="#__codelineno-0-1017">1017</a></span>
-<span class="normal"><a href="#__codelineno-0-1018">1018</a></span>
-<span class="normal"><a href="#__codelineno-0-1019">1019</a></span>
-<span class="normal"><a href="#__codelineno-0-1020">1020</a></span>
-<span class="normal"><a href="#__codelineno-0-1021">1021</a></span>
-<span class="normal"><a href="#__codelineno-0-1022">1022</a></span>
-<span class="normal"><a href="#__codelineno-0-1023">1023</a></span>
-<span class="normal"><a href="#__codelineno-0-1024">1024</a></span>
-<span class="normal"><a href="#__codelineno-0-1025">1025</a></span>
-<span class="normal"><a href="#__codelineno-0-1026">1026</a></span>
-<span class="normal"><a href="#__codelineno-0-1027">1027</a></span>
-<span class="normal"><a href="#__codelineno-0-1028">1028</a></span>
-<span class="normal"><a href="#__codelineno-0-1029">1029</a></span>
-<span class="normal"><a href="#__codelineno-0-1030">1030</a></span>
-<span class="normal"><a href="#__codelineno-0-1031">1031</a></span>
-<span class="normal"><a href="#__codelineno-0-1032">1032</a></span>
-<span class="normal"><a href="#__codelineno-0-1033">1033</a></span>
-<span class="normal"><a href="#__codelineno-0-1034">1034</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1008" name="__codelineno-0-1008"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PathManager</span><span class="p">:</span>
-<a id="__codelineno-0-1009" name="__codelineno-0-1009"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the global :class:`PathManager` singleton.</span>
-<a id="__codelineno-0-1010" name="__codelineno-0-1010"></a>
-<a id="__codelineno-0-1011" name="__codelineno-0-1011"></a><span class="sd">    Creates a new instance on the first call.  If *project_dir* is provided,</span>
-<a id="__codelineno-0-1012" name="__codelineno-0-1012"></a><span class="sd">    the singleton&#39;s :attr:`~PathManager.project_dir` is (re)set.</span>
-<a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>
-<a id="__codelineno-0-1014" name="__codelineno-0-1014"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-1015" name="__codelineno-0-1015"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-1016" name="__codelineno-0-1016"></a><span class="sd">    project_dir : str or None, optional</span>
-<a id="__codelineno-0-1017" name="__codelineno-0-1017"></a><span class="sd">        Project root directory.  When *None*, the existing value (or</span>
-<a id="__codelineno-0-1018" name="__codelineno-0-1018"></a><span class="sd">        environment auto-detection) is used.</span>
-<a id="__codelineno-0-1019" name="__codelineno-0-1019"></a>
-<a id="__codelineno-0-1020" name="__codelineno-0-1020"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-1021" name="__codelineno-0-1021"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-1022" name="__codelineno-0-1022"></a><span class="sd">    PathManager</span>
-<a id="__codelineno-0-1023" name="__codelineno-0-1023"></a><span class="sd">        The shared singleton instance.</span>
-<a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>
-<a id="__codelineno-0-1025" name="__codelineno-0-1025"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-1026" name="__codelineno-0-1026"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-1027" name="__codelineno-0-1027"></a><span class="sd">    reset_path_manager : Destroy the singleton for testing or re-init.</span>
-<a id="__codelineno-0-1028" name="__codelineno-0-1028"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-1029" name="__codelineno-0-1029"></a>    <span class="k">global</span> <span class="n">_path_manager_instance</span>
-<a id="__codelineno-0-1030" name="__codelineno-0-1030"></a>    <span class="k">if</span> <span class="n">_path_manager_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-1031" name="__codelineno-0-1031"></a>        <span class="n">_path_manager_instance</span> <span class="o">=</span> <span class="n">PathManager</span><span class="p">()</span>
-<a id="__codelineno-0-1032" name="__codelineno-0-1032"></a>    <span class="k">if</span> <span class="n">project_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-1033" name="__codelineno-0-1033"></a>        <span class="n">_path_manager_instance</span><span class="o">.</span><span class="n">project_dir</span> <span class="o">=</span> <span class="n">project_dir</span>
-<a id="__codelineno-0-1034" name="__codelineno-0-1034"></a>    <span class="k">return</span> <span class="n">_path_manager_instance</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1379">1379</a></span>
+<span class="normal"><a href="#__codelineno-0-1380">1380</a></span>
+<span class="normal"><a href="#__codelineno-0-1381">1381</a></span>
+<span class="normal"><a href="#__codelineno-0-1382">1382</a></span>
+<span class="normal"><a href="#__codelineno-0-1383">1383</a></span>
+<span class="normal"><a href="#__codelineno-0-1384">1384</a></span>
+<span class="normal"><a href="#__codelineno-0-1385">1385</a></span>
+<span class="normal"><a href="#__codelineno-0-1386">1386</a></span>
+<span class="normal"><a href="#__codelineno-0-1387">1387</a></span>
+<span class="normal"><a href="#__codelineno-0-1388">1388</a></span>
+<span class="normal"><a href="#__codelineno-0-1389">1389</a></span>
+<span class="normal"><a href="#__codelineno-0-1390">1390</a></span>
+<span class="normal"><a href="#__codelineno-0-1391">1391</a></span>
+<span class="normal"><a href="#__codelineno-0-1392">1392</a></span>
+<span class="normal"><a href="#__codelineno-0-1393">1393</a></span>
+<span class="normal"><a href="#__codelineno-0-1394">1394</a></span>
+<span class="normal"><a href="#__codelineno-0-1395">1395</a></span>
+<span class="normal"><a href="#__codelineno-0-1396">1396</a></span>
+<span class="normal"><a href="#__codelineno-0-1397">1397</a></span>
+<span class="normal"><a href="#__codelineno-0-1398">1398</a></span>
+<span class="normal"><a href="#__codelineno-0-1399">1399</a></span>
+<span class="normal"><a href="#__codelineno-0-1400">1400</a></span>
+<span class="normal"><a href="#__codelineno-0-1401">1401</a></span>
+<span class="normal"><a href="#__codelineno-0-1402">1402</a></span>
+<span class="normal"><a href="#__codelineno-0-1403">1403</a></span>
+<span class="normal"><a href="#__codelineno-0-1404">1404</a></span>
+<span class="normal"><a href="#__codelineno-0-1405">1405</a></span>
+<span class="normal"><a href="#__codelineno-0-1406">1406</a></span>
+<span class="normal"><a href="#__codelineno-0-1407">1407</a></span>
+<span class="normal"><a href="#__codelineno-0-1408">1408</a></span>
+<span class="normal"><a href="#__codelineno-0-1409">1409</a></span>
+<span class="normal"><a href="#__codelineno-0-1410">1410</a></span>
+<span class="normal"><a href="#__codelineno-0-1411">1411</a></span>
+<span class="normal"><a href="#__codelineno-0-1412">1412</a></span>
+<span class="normal"><a href="#__codelineno-0-1413">1413</a></span>
+<span class="normal"><a href="#__codelineno-0-1414">1414</a></span>
+<span class="normal"><a href="#__codelineno-0-1415">1415</a></span>
+<span class="normal"><a href="#__codelineno-0-1416">1416</a></span>
+<span class="normal"><a href="#__codelineno-0-1417">1417</a></span>
+<span class="normal"><a href="#__codelineno-0-1418">1418</a></span>
+<span class="normal"><a href="#__codelineno-0-1419">1419</a></span>
+<span class="normal"><a href="#__codelineno-0-1420">1420</a></span>
+<span class="normal"><a href="#__codelineno-0-1421">1421</a></span>
+<span class="normal"><a href="#__codelineno-0-1422">1422</a></span>
+<span class="normal"><a href="#__codelineno-0-1423">1423</a></span>
+<span class="normal"><a href="#__codelineno-0-1424">1424</a></span>
+<span class="normal"><a href="#__codelineno-0-1425">1425</a></span>
+<span class="normal"><a href="#__codelineno-0-1426">1426</a></span>
+<span class="normal"><a href="#__codelineno-0-1427">1427</a></span>
+<span class="normal"><a href="#__codelineno-0-1428">1428</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1379" name="__codelineno-0-1379"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">PathManager</span><span class="p">:</span>
+<a id="__codelineno-0-1380" name="__codelineno-0-1380"></a><span class="w">    </span><span class="sd">"""Return the global :class:`PathManager` singleton.</span>
+<a id="__codelineno-0-1381" name="__codelineno-0-1381"></a>
+<a id="__codelineno-0-1382" name="__codelineno-0-1382"></a><span class="sd">    Creates a new instance on the first call.  If *project_dir* is provided,</span>
+<a id="__codelineno-0-1383" name="__codelineno-0-1383"></a><span class="sd">    the singleton's :attr:`~PathManager.project_dir` is (re)set.</span>
+<a id="__codelineno-0-1384" name="__codelineno-0-1384"></a>
+<a id="__codelineno-0-1385" name="__codelineno-0-1385"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-1386" name="__codelineno-0-1386"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-1387" name="__codelineno-0-1387"></a><span class="sd">    project_dir : str or None, optional</span>
+<a id="__codelineno-0-1388" name="__codelineno-0-1388"></a><span class="sd">        Project root directory (the BIDS root holding ``sub-*`` and</span>
+<a id="__codelineno-0-1389" name="__codelineno-0-1389"></a><span class="sd">        ``derivatives/``).  Must exist.  When ``None`` (default), the</span>
+<a id="__codelineno-0-1390" name="__codelineno-0-1390"></a><span class="sd">        existing value is kept; if none was set, it is auto-detected from</span>
+<a id="__codelineno-0-1391" name="__codelineno-0-1391"></a><span class="sd">        the ``PROJECT_DIR`` environment variable or, inside the container,</span>
+<a id="__codelineno-0-1392" name="__codelineno-0-1392"></a><span class="sd">        ``/mnt/&lt;PROJECT_DIR_NAME&gt;`` -- which is why scripts and notebooks</span>
+<a id="__codelineno-0-1393" name="__codelineno-0-1393"></a><span class="sd">        run in the app need no argument.</span>
+<a id="__codelineno-0-1394" name="__codelineno-0-1394"></a>
+<a id="__codelineno-0-1395" name="__codelineno-0-1395"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-1396" name="__codelineno-0-1396"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-1397" name="__codelineno-0-1397"></a><span class="sd">    PathManager</span>
+<a id="__codelineno-0-1398" name="__codelineno-0-1398"></a><span class="sd">        The shared singleton instance.  Every path accessor</span>
+<a id="__codelineno-0-1399" name="__codelineno-0-1399"></a><span class="sd">        (``pm.m2m(sid)``, ``pm.simulations(sid)``, ...) raises</span>
+<a id="__codelineno-0-1400" name="__codelineno-0-1400"></a><span class="sd">        ``RuntimeError("Project directory not set")`` if no project root</span>
+<a id="__codelineno-0-1401" name="__codelineno-0-1401"></a><span class="sd">        could be resolved.</span>
+<a id="__codelineno-0-1402" name="__codelineno-0-1402"></a>
+<a id="__codelineno-0-1403" name="__codelineno-0-1403"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-1404" name="__codelineno-0-1404"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-1405" name="__codelineno-0-1405"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-1406" name="__codelineno-0-1406"></a><span class="sd">        If *project_dir* is given but is not an existing directory.</span>
+<a id="__codelineno-0-1407" name="__codelineno-0-1407"></a>
+<a id="__codelineno-0-1408" name="__codelineno-0-1408"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-1409" name="__codelineno-0-1409"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-1410" name="__codelineno-0-1410"></a><span class="sd">    &gt;&gt;&gt; from tit import get_path_manager</span>
+<a id="__codelineno-0-1411" name="__codelineno-0-1411"></a><span class="sd">    &gt;&gt;&gt; pm = get_path_manager("/data/project")  # doctest: +SKIP</span>
+<a id="__codelineno-0-1412" name="__codelineno-0-1412"></a><span class="sd">    &gt;&gt;&gt; pm.list_simnibs_subjects()  # doctest: +SKIP</span>
+<a id="__codelineno-0-1413" name="__codelineno-0-1413"></a><span class="sd">    ['ernie', '101']</span>
+<a id="__codelineno-0-1414" name="__codelineno-0-1414"></a><span class="sd">    &gt;&gt;&gt; pm.m2m("ernie")  # doctest: +SKIP</span>
+<a id="__codelineno-0-1415" name="__codelineno-0-1415"></a><span class="sd">    '/data/project/derivatives/SimNIBS/sub-ernie/m2m_ernie'</span>
+<a id="__codelineno-0-1416" name="__codelineno-0-1416"></a><span class="sd">    &gt;&gt;&gt; get_path_manager() is pm  # the same singleton on later calls  # doctest: +SKIP</span>
+<a id="__codelineno-0-1417" name="__codelineno-0-1417"></a><span class="sd">    True</span>
+<a id="__codelineno-0-1418" name="__codelineno-0-1418"></a>
+<a id="__codelineno-0-1419" name="__codelineno-0-1419"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-1420" name="__codelineno-0-1420"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-1421" name="__codelineno-0-1421"></a><span class="sd">    reset_path_manager : Destroy the singleton for testing or re-init.</span>
+<a id="__codelineno-0-1422" name="__codelineno-0-1422"></a><span class="sd">    """</span>
+<a id="__codelineno-0-1423" name="__codelineno-0-1423"></a>    <span class="k">global</span> <span class="n">_path_manager_instance</span>
+<a id="__codelineno-0-1424" name="__codelineno-0-1424"></a>    <span class="k">if</span> <span class="n">_path_manager_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-1425" name="__codelineno-0-1425"></a>        <span class="n">_path_manager_instance</span> <span class="o">=</span> <span class="n">PathManager</span><span class="p">()</span>
+<a id="__codelineno-0-1426" name="__codelineno-0-1426"></a>    <span class="k">if</span> <span class="n">project_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-1427" name="__codelineno-0-1427"></a>        <span class="n">_path_manager_instance</span><span class="o">.</span><span class="n">project_dir</span> <span class="o">=</span> <span class="n">project_dir</span>
+<a id="__codelineno-0-1428" name="__codelineno-0-1428"></a>    <span class="k">return</span> <span class="n">_path_manager_instance</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

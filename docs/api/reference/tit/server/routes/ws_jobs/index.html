@@ -929,7 +929,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -950,7 +950,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1028,7 +1028,8 @@
         <p><code>/ws/jobs</code> — one shared socket multiplexing every job's status plus subscribed jobs' events.</p>
 <p>Server -&gt; client: <code>{"type": "job", "job": &lt;JobStatus&gt;}</code> for <em>every</em> job's transition
 (unconditional — the jobs rail needs this regardless of what's open); <code>{"type": "event",
-"job_id": ..., "event": &lt;Event&gt;}</code> only for jobs the client has subscribed to, in <code>seq</code> order.
+"job_id": ..., "event": &lt;Event&gt;}</code> only for jobs the client has subscribed to, in <code>seq</code> order; <code>{"type": "proposal", "proposal": &lt;Proposal&gt;}</code> whenever an agent proposal is
+created, edited, decided or advances (:mod:<code>tit.server.proposals</code>).
 Client -&gt; server: <code>{"subscribe": {"&lt;job_id&gt;": &lt;since_seq&gt;}}</code> / <code>{"unsubscribe": [job_id, ...]}</code>.</p>
 <p>Follows the exact pattern of <code>tit/server/ws.py</code> (<code>/ws/system</code>): origin check, then auth,
 then accept; <code>run_in_threadpool</code> bridges the manager's thread-safe <code>queue.Queue</code> pub/sub

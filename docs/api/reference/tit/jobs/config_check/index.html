@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/config_check/">
       
       
-        <link rel="prev" href="../client/">
+        <link rel="prev" href="../bootstrap/">
       
       
         <link rel="next" href="../costs/">
@@ -883,6 +883,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.jobs.config_check.runner_view" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        runner_view
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.jobs.config_check.check_job_config" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -946,7 +957,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +978,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1029,15 +1040,20 @@
 <code>sim</code> config. <code>POST /api/jobs</code> accepted it, the manager wrote <code>config.json</code>, and the job
 only failed minutes later inside the runner with</p>
 <div class="highlight"><pre><span></span><code>TypeError: SimulationConfig.__init__() missing 2 required positional arguments:
-&#39;subject_id&#39; and &#39;montages&#39;
+'subject_id' and 'montages'
 </code></pre></div>
 <p>which reaches the user as a dead job with a stack trace rather than a rejected request. The
 runners for these kinds call :func:<code>tit.config_io.deserialize_config</code> directly and have no
 fallback, so exactly the same call made here at submit time turns that into a 422.</p>
-<p>Only kinds whose <code>__main__</code> deserialises one class with no fallback are listed. <code>pre</code>,
-<code>analyzer</code> and <code>source</code> deliberately tolerate a config <code>deserialize_config</code> rejects (they
-fall back to a filtered constructor), so pre-validating them here would reject configs those
-runners can genuinely run.</p>
+<p>Only kinds whose <code>__main__</code> deserialises one class with no fallback are listed. <code>analyzer</code>
+and <code>source</code> deliberately tolerate a config <code>deserialize_config</code> rejects (they fall back to a
+filtered constructor), so pre-validating them here would reject configs those runners can
+genuinely run. <code>pre</code> lost its fallback (it accepted <code>subject_ids: "001"</code> as three subjects).</p>
+<p>The check is strict, as <code>POST /api/validate</code> is: a key that is not a field of the class (or of
+a nested one) is refused instead of silently ignored by the runner. <code>pre</code> keys from before the
+FastSurfer stage are translated first, as its runner does (<code>migrate_legacy_keys</code>). The
+unknown-key rule for the kinds not listed here is
+:func:<code>tit.server.routes.validate.refuse_unknown_keys</code>.</p>
 
 
 
@@ -1060,34 +1076,30 @@ runners can genuinely run.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.jobs.config_check.check_job_config" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">check_job_config</span>
+<h3 id="tit.jobs.config_check.runner_view" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">runner_view</span>
 
 
-<a href="#tit.jobs.config_check.check_job_config" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_job_config</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<a href="#tit.jobs.config_check.runner_view" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">runner_view</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Raise :class:<code>ValueError</code> if <em>config</em> is not a deserialisable config for <em>kind</em>.</p>
-<p>A no-op for a kind with no entry in :data:<code>CONFIG_CLASS_FOR_KIND</code>, and a no-op when the
-config class cannot be imported in this environment (a host without SimNIBS, say) — this is
-a guard against a bad request, never a new hard dependency on the submit path.</p>
+        <p><em>config</em> as the runner of <em>kind</em> reads it, for every door that judges it.</p>
+<p>The manager writes the kind as <code>mode</code> into a flex runner's <code>config.json</code>
+(<code>JobManager._runner_config_path</code>), and FlexConfig's mode/goal and per-mode threshold
+rules depend on it, so :func:<code>check_job_config</code>, <code>POST /api/validate</code> and
+<code>POST /api/plan</code> all judge that config rather than the body without it (before, validate
+and plan called a <code>flex_pareto</code> config with <code>goal='mean'</code> fine and submit refused it).
+A single <code>flex</code> run ignores the adaptive / multi-threshold driver settings, so they are
+cleared: they cannot stand in for the thresholds it needs. Any other kind is returned
+unchanged; <em>config</em> is never mutated.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/config_check.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-44">44</a></span>
 <span class="normal"><a href="#__codelineno-0-45">45</a></span>
 <span class="normal"><a href="#__codelineno-0-46">46</a></span>
 <span class="normal"><a href="#__codelineno-0-47">47</a></span>
@@ -1102,31 +1114,120 @@ a guard against a bad request, never a new hard dependency on the submit path.</
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
 <span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_job_config</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raise :class:`ValueError` if *config* is not a deserialisable config for *kind*.</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    A no-op for a kind with no entry in :data:`CONFIG_CLASS_FOR_KIND`, and a no-op when the</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    config class cannot be imported in this environment (a host without SimNIBS, say) — this is</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    a guard against a bad request, never a new hard dependency on the submit path.</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">class_name</span> <span class="o">=</span> <span class="n">CONFIG_CLASS_FOR_KIND</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="k">if</span> <span class="n">class_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>        <span class="k">return</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">deserialize_config</span><span class="p">,</span> <span class="n">resolve_config_class</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">class_name</span><span class="p">)</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - environment without the runner&#39;s deps</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a>        <span class="k">return</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="c1"># Mirrors the runner: `project_dir` is popped before deserialising, and unknown keys are</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="c1"># ignored (strict=False). What is left is the required/typed-field check.</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">&quot;project_dir&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>        <span class="n">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>            <span class="sa">f</span><span class="s2">&quot;config is not a valid </span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2"> for kind </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="k">def</span><span class="w"> </span><span class="nf">runner_view</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="w">    </span><span class="sd">"""*config* as the runner of *kind* reads it, for every door that judges it.</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    The manager writes the kind as ``mode`` into a flex runner's ``config.json``</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    (``JobManager._runner_config_path``), and FlexConfig's mode/goal and per-mode threshold</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    rules depend on it, so :func:`check_job_config`, ``POST /api/validate`` and</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    ``POST /api/plan`` all judge that config rather than the body without it (before, validate</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    and plan called a ``flex_pareto`` config with ``goal='mean'`` fine and submit refused it).</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    A single ``flex`` run ignores the adaptive / multi-threshold driver settings, so they are</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    cleared: they cannot stand in for the thresholds it needs. Any other kind is returned</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    unchanged; *config* is never mutated.</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    """</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">FLEX_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>        <span class="k">return</span> <span class="n">config</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">config</span><span class="p">,</span> <span class="s2">"mode"</span><span class="p">:</span> <span class="n">kind</span><span class="p">}</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"flex"</span><span class="p">:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>        <span class="n">data</span><span class="p">[</span><span class="s2">"adaptive"</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s2">"pareto"</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="k">return</span> <span class="n">data</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.jobs.config_check.check_job_config" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">check_job_config</span>
+
+
+<a href="#tit.jobs.config_check.check_job_config" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_job_config</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Raise :class:<code>ValueError</code> if <em>config</em> is not a deserialisable config for <em>kind</em>.</p>
+<p>A no-op for a kind with no entry in :data:<code>CONFIG_CLASS_FOR_KIND</code>, and a no-op when the
+config class cannot be imported in this environment (a host without SimNIBS, say) — this is
+a guard against a bad request, never a new hard dependency on the submit path.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/jobs/config_check.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span>
+<span class="normal"><a href="#__codelineno-0-92">92</a></span>
+<span class="normal"><a href="#__codelineno-0-93">93</a></span>
+<span class="normal"><a href="#__codelineno-0-94">94</a></span>
+<span class="normal"><a href="#__codelineno-0-95">95</a></span>
+<span class="normal"><a href="#__codelineno-0-96">96</a></span>
+<span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_job_config</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="w">    </span><span class="sd">"""Raise :class:`ValueError` if *config* is not a deserialisable config for *kind*.</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    A no-op for a kind with no entry in :data:`CONFIG_CLASS_FOR_KIND`, and a no-op when the</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    config class cannot be imported in this environment (a host without SimNIBS, say) — this is</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    a guard against a bad request, never a new hard dependency on the submit path.</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    """</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">class_name</span> <span class="o">=</span> <span class="n">CONFIG_CLASS_FOR_KIND</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="k">if</span> <span class="n">class_name</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="k">return</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">deserialize_config</span><span class="p">,</span> <span class="n">resolve_config_class</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">class_name</span><span class="p">)</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>  <span class="c1"># pragma: no cover - environment without the runner's deps</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>        <span class="k">return</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="c1"># Mirrors the runner: `project_dir` is popped before deserialising. Unlike the runner,</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="c1"># unknown keys are refused (strict=True): the runner would silently ignore them.</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="o">!=</span> <span class="s2">"project_dir"</span><span class="p">}</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.pre.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">migrate_legacy_keys</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">migrate_legacy_keys</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="k">if</span> <span class="s2">"subject_ids"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="c1"># The job's own subjects, which the manager writes into config.json</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="c1"># (`JobManager._runner_config_path`); only the other fields are checked here.</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="n">data</span><span class="p">[</span><span class="s2">"subject_ids"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="s2">"subject"</span><span class="p">]</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">runner_view</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="n">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>            <span class="sa">f</span><span class="s2">"config is not a valid </span><span class="si">{</span><span class="n">class_name</span><span class="si">}</span><span class="s2"> for kind </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

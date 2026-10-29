@@ -894,28 +894,6 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.LogFrameDecoder" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        LogFrameDecoder
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.NdjsonDecoder" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        NdjsonDecoder
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#tit.jobs.docker_engine.DockerEngineClient" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -926,17 +904,6 @@
   
     <nav class="md-nav" aria-label="DockerEngineClient">
       <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.DockerEngineClient.ping" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        ping
-      
-    </span>
-  </a>
-  
-</li>
         
           <li class="md-nav__item">
   <a href="#tit.jobs.docker_engine.DockerEngineClient.system_df" class="md-nav__link">
@@ -954,17 +921,6 @@
     <span class="md-ellipsis">
       
         list_images
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.DockerEngineClient.pull_image" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        pull_image
       
     </span>
   </a>
@@ -992,28 +948,6 @@
     <span class="md-ellipsis">
       
         discover
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.run_job_container" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        run_job_container
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.docker_engine.run_qsiprep_example" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        run_qsiprep_example
       
     </span>
   </a>
@@ -1073,7 +1007,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1094,7 +1028,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1155,7 +1089,7 @@
 <p>The Node-side twin of this module is <code>desktop/src/main/docker/engine.ts</code>; both talk the same
 Docker Engine REST API subset directly over the Unix socket, never the <code>docker</code> CLI and never
 the third-party <code>docker</code> PyPI package (r5-docker-integration.md §5 — that package is not
-installed in <code>idossha/simnibs:v2.5.0</code> today, and adding it would only grow a 19 GB image
+installed in <code>idossha/ti-toolbox:v3.0.0</code> today, and adding it would only grow a 19 GB image
 further for something ~15 lines of stdlib already does).</p>
 <p><strong>Scope, and why it is narrower than the TypeScript client</strong>: this module is used from <em>inside</em>
 the <code>tit</code> container, where QSIPrep/QSIRecon are spawned as sibling containers via
@@ -1176,24 +1110,15 @@ user's host machine is (r5 §5's "the Python client only ever needs the Unix-soc
 <p><strong>API version negotiation</strong>: identical strategy to <code>engine.ts</code> — :meth:<code>DockerEngineClient.version</code>
 hits the always-unversioned <code>GET /version</code>, reads <code>ApiVersion</code> from the response, and every
 later call is prefixed <code>/v&lt;ApiVersion&gt;/...</code>.</p>
-<p><strong>Framing</strong>: :meth:<code>DockerEngineClient.logs</code> demultiplexes the same 8-byte
-<code>[STREAM_TYPE, 0,0,0, SIZE(be32)][SIZE bytes]</code> frames as <code>frames.ts</code>'s <code>LogFrameDecoder</code>
-(mirrored here as :class:<code>LogFrameDecoder</code>, pure and independently unit-tested); pull progress and
-<code>/events</code> are newline-delimited JSON (:class:<code>NdjsonDecoder</code>, mirrors <code>NdjsonDecoder</code>).</p>
-<p><strong>Job-container convenience</strong>: :func:<code>run_job_container</code> always accepts a <code>job_id</code> and sets
-<code>Labels["tit.job_id"]</code> — the exact label <code>tit/jobs/runner.py</code>'s <code>stop_docker_siblings(job_id)</code>
-filters on (<code>docker ps -q --filter label=tit.job_id=&lt;id&gt;</code>). <code>tit/pre/qsi/docker_builder.py</code>'s
-<code>_label_args()</code> now sets this same label on both the <code>qsiprep</code> and <code>qsirecon</code> <code>docker run</code>
-invocations it builds (confirmed: <code>rg -n "tit\.job_id" tit/pre/qsi/docker_builder.py</code> — two
-hits), so <code>stop_docker_siblings</code> already finds its matching containers for QSI jobs today; the
-gap this paragraph used to describe (r5 §1.4 / skeptic-3 claim #3) is closed on the labeling side.
-What is <em>not</em> closed: <code>docker_builder.py</code> still shells out to the <code>docker</code> CLI directly rather
-than through this client (<code>rg -n '"docker"' tit/pre/qsi/docker_builder.py</code>) — migrating it onto
-:func:<code>run_job_container</code> is still open work, out of scope here. Mount/env shape (<code>/data</code>
-read-only BIDS input, <code>/out</code> output, <code>/work</code> scratch) mirrors <code>tit/pre/qsi/docker_builder.py</code>'s
-<code>DockerPaths</code> so the two stay drop-in compatible; see <code>run_qsiprep_example</code> at the bottom of
-this file for the exact call shape a migrated <code>run_qsiprep()</code> would make (documentation only —
-this module is not wired into <code>tit/pre/qsi/*.py</code> yet).</p>
+<p><strong>What it covers</strong>: only the read-and-stop subset production calls --
+:meth:<code>DockerEngineClient.version</code>, :meth:<code>~DockerEngineClient.system_df</code> and
+:meth:<code>~DockerEngineClient.list_images</code> (the System page's Docker panel, <code>tit/server/routes/system.py</code>),
+:meth:<code>~DockerEngineClient.list_containers</code> and :meth:<code>~DockerEngineClient.stop_container</code>
+(<code>tit/jobs/runner.py</code>'s <code>stop_docker_siblings_via_engine</code>, which stops a stranded job's
+QSIPrep/QSIRecon siblings by their <code>tit.job_id</code> label at startup) and
+:meth:<code>~DockerEngineClient.inspect_container</code> (<code>tit/host_path.py</code> and the System page, reading
+the container's own mounts). QSIPrep/QSIRecon themselves are still started through the
+<code>docker</code> CLI by <code>tit/pre/qsi/docker_builder.py</code>, which sets the same <code>tit.job_id</code> label.</p>
 
 
 
@@ -1221,14 +1146,12 @@ this module is not wired into <code>tit/pre/qsi/*.py</code> yet).</p>
 
 
 <a href="#tit.jobs.docker_engine.DockerEngineError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DockerEngineError</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">status_code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DockerEngineError</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">status_code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#Exception">Exception</a></code></p>
+              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#Exception">Exception</a></code></p>
 
 
         <p>Carries a stable <code>kind</code> (mirrors <code>DockerErrorKind</code> in <code>engine.ts</code>) and, for an HTTP-
@@ -1242,115 +1165,13 @@ level failure, the <code>status_code</code> that produced it.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
-<span class="normal"><a href="#__codelineno-0-82">82</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">status_code</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="o">=</span> <span class="n">kind</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
-</code></pre></div></td></tr></table></div>
-                  </details>
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="tit.jobs.docker_engine.LogFrameDecoder" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">LogFrameDecoder</span>
-
-
-<a href="#tit.jobs.docker_engine.LogFrameDecoder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LogFrameDecoder</span><span class="p">()</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-
-        <p>Demultiplexes Docker's <code>[STREAM_TYPE,0,0,0,SIZE(be32)][SIZE bytes]</code> log/attach framing.</p>
-
-
-
-
-
-
-
-                  <details class="quote">
-                    <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_buf</span> <span class="o">=</span> <span class="sa">b</span><span class="s2">&quot;&quot;</span>
-</code></pre></div></td></tr></table></div>
-                  </details>
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-class">
-
-
-
-<h3 id="tit.jobs.docker_engine.NdjsonDecoder" class="doc doc-heading">
-            <span class="doc doc-object-name doc-class-name">NdjsonDecoder</span>
-
-
-<a href="#tit.jobs.docker_engine.NdjsonDecoder" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NdjsonDecoder</span><span class="p">()</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-
-        <p>Splits a byte stream into complete JSON objects, one per newline-delimited line.</p>
-
-
-
-
-
-
-
-                  <details class="quote">
-                    <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-156">156</a></span>
-<span class="normal"><a href="#__codelineno-0-157">157</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_carry</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">status_code</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">kind</span> <span class="o">=</span> <span class="n">kind</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">status_code</span> <span class="o">=</span> <span class="n">status_code</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1383,17 +1204,13 @@ level failure, the <code>status_code</code> that produced it.</p>
 
 
 <a href="#tit.jobs.docker_engine.DockerEngineClient" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DockerEngineClient</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">conn</span><span class="p">:</span> <span class="n"><span title="tit.jobs.docker_engine.DockerConnection">DockerConnection</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="tit.jobs.docker_engine.DEFAULT_TIMEOUT_S">DEFAULT_TIMEOUT_S</span></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">DockerEngineClient</span><span class="p">(</span><span class="n">conn</span><span class="p">:</span> <span class="n"><span title="tit.jobs.docker_engine.DockerConnection">DockerConnection</span></span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="tit.jobs.docker_engine.DEFAULT_TIMEOUT_S">DEFAULT_TIMEOUT_S</span></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
 
-        <p>Covers the endpoints a QSIPrep/QSIRecon DooD spawn needs: pull, create/start/wait/
-stop/kill/remove/inspect, logs (demuxed), events. No exec/attach-hijack (unused, r5 §1.2).</p>
+        <p>Version, disk usage, images, containers (list/inspect/stop) over the Engine REST API.</p>
 
 
 
@@ -1403,17 +1220,17 @@ stop/kill/remove/inspect, logs (demuxed), events. No exec/attach-hijack (unused,
 
                   <details class="quote">
                     <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">DockerConnection</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">DEFAULT_TIMEOUT_S</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span> <span class="o">=</span> <span class="n">conn</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_timeout_s</span> <span class="o">=</span> <span class="n">timeout_s</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">conn</span><span class="p">:</span> <span class="n">DockerConnection</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">DEFAULT_TIMEOUT_S</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_conn</span> <span class="o">=</span> <span class="n">conn</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_timeout_s</span> <span class="o">=</span> <span class="n">timeout_s</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_api_version</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1432,65 +1249,12 @@ stop/kill/remove/inspect, logs (demuxed), events. No exec/attach-hijack (unused,
 <div class="doc doc-object doc-function">
 
 
-<h4 id="tit.jobs.docker_engine.DockerEngineClient.ping" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">ping</span>
-
-
-<a href="#tit.jobs.docker_engine.DockerEngineClient.ping" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ping</span><span class="p">(</span><span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="tit.jobs.docker_engine.SHORT_TIMEOUT_S">SHORT_TIMEOUT_S</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Liveness probe. Bounded by <em>timeout_s</em> (not the client's default): a wedged daemon
-that accepts connections and never answers must report "not reachable" promptly rather
-than block the caller.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span>
-<span class="normal"><a href="#__codelineno-0-386">386</a></span>
-<span class="normal"><a href="#__codelineno-0-387">387</a></span>
-<span class="normal"><a href="#__codelineno-0-388">388</a></span>
-<span class="normal"><a href="#__codelineno-0-389">389</a></span>
-<span class="normal"><a href="#__codelineno-0-390">390</a></span>
-<span class="normal"><a href="#__codelineno-0-391">391</a></span>
-<span class="normal"><a href="#__codelineno-0-392">392</a></span>
-<span class="normal"><a href="#__codelineno-0-393">393</a></span>
-<span class="normal"><a href="#__codelineno-0-394">394</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="k">def</span><span class="w"> </span><span class="nf">ping</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">SHORT_TIMEOUT_S</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Liveness probe. Bounded by *timeout_s* (not the client&#39;s default): a wedged daemon</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">    that accepts connections and never answers must report &quot;not reachable&quot; promptly rather</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    than block the caller.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-387" name="__codelineno-0-387"></a>        <span class="n">status</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span><span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="s2">&quot;/_ping&quot;</span><span class="p">,</span> <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">)</span>
-<a id="__codelineno-0-388" name="__codelineno-0-388"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-389" name="__codelineno-0-389"></a>            <span class="n">resp</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
-<a id="__codelineno-0-390" name="__codelineno-0-390"></a>        <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-391" name="__codelineno-0-391"></a>            <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
-<a id="__codelineno-0-392" name="__codelineno-0-392"></a>        <span class="k">return</span> <span class="n">status</span> <span class="o">==</span> <span class="mi">200</span>
-<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">DockerEngineError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
-<a id="__codelineno-0-394" name="__codelineno-0-394"></a>        <span class="k">return</span> <span class="kc">False</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
 <h4 id="tit.jobs.docker_engine.DockerEngineClient.system_df" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">system_df</span>
 
 
 <a href="#tit.jobs.docker_engine.DockerEngineClient.system_df" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">system_df</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">system_df</span><span class="p">(</span><span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#object">object</a></span> <span class="o">=</span> <span class="s1">'default'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1503,31 +1267,23 @@ multi-second TTL and passes an explicit timeout rather than the client default.<
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-396">396</a></span>
-<span class="normal"><a href="#__codelineno-0-397">397</a></span>
-<span class="normal"><a href="#__codelineno-0-398">398</a></span>
-<span class="normal"><a href="#__codelineno-0-399">399</a></span>
-<span class="normal"><a href="#__codelineno-0-400">400</a></span>
-<span class="normal"><a href="#__codelineno-0-401">401</a></span>
-<span class="normal"><a href="#__codelineno-0-402">402</a></span>
-<span class="normal"><a href="#__codelineno-0-403">403</a></span>
-<span class="normal"><a href="#__codelineno-0-404">404</a></span>
-<span class="normal"><a href="#__codelineno-0-405">405</a></span>
-<span class="normal"><a href="#__codelineno-0-406">406</a></span>
-<span class="normal"><a href="#__codelineno-0-407">407</a></span>
-<span class="normal"><a href="#__codelineno-0-408">408</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="k">def</span><span class="w"> </span><span class="nf">system_df</span><span class="p">(</span>
-<a id="__codelineno-0-397" name="__codelineno-0-397"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
-<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-399" name="__codelineno-0-399"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``GET /system/df`` -- the Engine-API equivalent of ``docker system df``.</span>
-<a id="__codelineno-0-400" name="__codelineno-0-400"></a>
-<a id="__codelineno-0-401" name="__codelineno-0-401"></a><span class="sd">    Read-only, used by the System page&#39;s Docker-health panel. It is a genuinely expensive call</span>
-<a id="__codelineno-0-402" name="__codelineno-0-402"></a><span class="sd">    on the daemon side (it walks the image graph), which is why the caller polls it on a</span>
-<a id="__codelineno-0-403" name="__codelineno-0-403"></a><span class="sd">    multi-second TTL and passes an explicit timeout rather than the client default.</span>
-<a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a>        <span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">&quot;/system/df&quot;</span><span class="p">),</span> <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="k">def</span><span class="w"> </span><span class="nf">system_df</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">"default"</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">    </span><span class="sd">"""``GET /system/df`` -- the Engine-API equivalent of ``docker system df``.</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    Read-only, used by the System page's Docker-health panel. It is a genuinely expensive call</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    on the daemon side (it walks the image graph), which is why the caller polls it on a</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    multi-second TTL and passes an explicit timeout rather than the client default.</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">    """</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span><span class="s2">"GET"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">"/system/df"</span><span class="p">),</span> <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1542,9 +1298,7 @@ multi-second TTL and passes an explicit timeout rather than the client default.<
 
 
 <a href="#tit.jobs.docker_engine.DockerEngineClient.list_images" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_images</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_images</span><span class="p">(</span><span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#object">object</a></span> <span class="o">=</span> <span class="s1">'default'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1554,116 +1308,23 @@ multi-second TTL and passes an explicit timeout rather than the client default.<
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-412">412</a></span>
-<span class="normal"><a href="#__codelineno-0-413">413</a></span>
-<span class="normal"><a href="#__codelineno-0-414">414</a></span>
-<span class="normal"><a href="#__codelineno-0-415">415</a></span>
-<span class="normal"><a href="#__codelineno-0-416">416</a></span>
-<span class="normal"><a href="#__codelineno-0-417">417</a></span>
-<span class="normal"><a href="#__codelineno-0-418">418</a></span>
-<span class="normal"><a href="#__codelineno-0-419">419</a></span>
-<span class="normal"><a href="#__codelineno-0-420">420</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_images</span><span class="p">(</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``GET /images/json`` -- ``docker images``. Read-only; see :meth:`system_df`.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a>        <span class="s2">&quot;GET&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">&quot;/images/json&quot;</span><span class="p">),</span> <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="p">)</span>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">[])</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h4 id="tit.jobs.docker_engine.DockerEngineClient.pull_image" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">pull_image</span>
-
-
-<a href="#tit.jobs.docker_engine.DockerEngineClient.pull_image" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">pull_image</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">image</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">tag</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">on_progress</span><span class="p">:</span> <span class="p">(</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>        <span class="n"><a class="autorefs autorefs-external" title="typing.Callable" href="https://docs.python.org/3/library/typing.html#typing.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="p">)</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p><code>POST /images/create</code> — streams NDJSON progress; raises on a non-2xx status <em>or</em> a
-<code>{"error": ...}</code> object appearing mid-stream (Docker reports some pull failures inside an
-HTTP-200 NDJSON stream, not as an HTTP error status).</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-422">422</a></span>
-<span class="normal"><a href="#__codelineno-0-423">423</a></span>
-<span class="normal"><a href="#__codelineno-0-424">424</a></span>
-<span class="normal"><a href="#__codelineno-0-425">425</a></span>
-<span class="normal"><a href="#__codelineno-0-426">426</a></span>
-<span class="normal"><a href="#__codelineno-0-427">427</a></span>
-<span class="normal"><a href="#__codelineno-0-428">428</a></span>
-<span class="normal"><a href="#__codelineno-0-429">429</a></span>
-<span class="normal"><a href="#__codelineno-0-430">430</a></span>
-<span class="normal"><a href="#__codelineno-0-431">431</a></span>
-<span class="normal"><a href="#__codelineno-0-432">432</a></span>
-<span class="normal"><a href="#__codelineno-0-433">433</a></span>
-<span class="normal"><a href="#__codelineno-0-434">434</a></span>
-<span class="normal"><a href="#__codelineno-0-435">435</a></span>
-<span class="normal"><a href="#__codelineno-0-436">436</a></span>
-<span class="normal"><a href="#__codelineno-0-437">437</a></span>
-<span class="normal"><a href="#__codelineno-0-438">438</a></span>
-<span class="normal"><a href="#__codelineno-0-439">439</a></span>
-<span class="normal"><a href="#__codelineno-0-440">440</a></span>
-<span class="normal"><a href="#__codelineno-0-441">441</a></span>
-<span class="normal"><a href="#__codelineno-0-442">442</a></span>
-<span class="normal"><a href="#__codelineno-0-443">443</a></span>
-<span class="normal"><a href="#__codelineno-0-444">444</a></span>
-<span class="normal"><a href="#__codelineno-0-445">445</a></span>
-<span class="normal"><a href="#__codelineno-0-446">446</a></span>
-<span class="normal"><a href="#__codelineno-0-447">447</a></span>
-<span class="normal"><a href="#__codelineno-0-448">448</a></span>
-<span class="normal"><a href="#__codelineno-0-449">449</a></span>
-<span class="normal"><a href="#__codelineno-0-450">450</a></span>
-<span class="normal"><a href="#__codelineno-0-451">451</a></span>
-<span class="normal"><a href="#__codelineno-0-452">452</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-422" name="__codelineno-0-422"></a><span class="k">def</span><span class="w"> </span><span class="nf">pull_image</span><span class="p">(</span>
-<a id="__codelineno-0-423" name="__codelineno-0-423"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="n">image</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-425" name="__codelineno-0-425"></a>    <span class="n">tag</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="n">on_progress</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-427" name="__codelineno-0-427"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``POST /images/create`` — streams NDJSON progress; raises on a non-2xx status *or* a</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="sd">    ``{&quot;error&quot;: ...}`` object appearing mid-stream (Docker reports some pull failures inside an</span>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a><span class="sd">    HTTP-200 NDJSON stream, not as an HTTP error status).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
-<a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="n">status</span><span class="p">,</span> <span class="n">resp</span><span class="p">,</span> <span class="n">conn</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_request</span><span class="p">(</span>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="s2">&quot;POST&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">&quot;/images/create&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-435" name="__codelineno-0-435"></a>        <span class="n">query</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;fromImage&quot;</span><span class="p">:</span> <span class="n">image</span><span class="p">,</span> <span class="s2">&quot;tag&quot;</span><span class="p">:</span> <span class="n">tag</span><span class="p">},</span>
-<a id="__codelineno-0-436" name="__codelineno-0-436"></a>        <span class="n">timeout_s</span><span class="o">=</span><span class="n">NO_TIMEOUT</span><span class="p">,</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="p">)</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-439" name="__codelineno-0-439"></a>        <span class="k">if</span> <span class="n">status</span> <span class="o">&gt;=</span> <span class="mi">400</span><span class="p">:</span>
-<a id="__codelineno-0-440" name="__codelineno-0-440"></a>            <span class="k">raise</span> <span class="n">_api_error_from_body</span><span class="p">(</span><span class="n">status</span><span class="p">,</span> <span class="n">resp</span><span class="o">.</span><span class="n">read</span><span class="p">())</span>
-<a id="__codelineno-0-441" name="__codelineno-0-441"></a>        <span class="n">decoder</span> <span class="o">=</span> <span class="n">NdjsonDecoder</span><span class="p">()</span>
-<a id="__codelineno-0-442" name="__codelineno-0-442"></a>        <span class="k">while</span> <span class="kc">True</span><span class="p">:</span>
-<a id="__codelineno-0-443" name="__codelineno-0-443"></a>            <span class="n">chunk</span> <span class="o">=</span> <span class="n">resp</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="mi">65536</span><span class="p">)</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">chunk</span><span class="p">:</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a>                <span class="k">break</span>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a>            <span class="k">for</span> <span class="n">event</span> <span class="ow">in</span> <span class="n">decoder</span><span class="o">.</span><span class="n">push</span><span class="p">(</span><span class="n">chunk</span><span class="p">):</span>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a>                <span class="k">if</span> <span class="n">event</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a>                    <span class="k">raise</span> <span class="n">DockerEngineError</span><span class="p">(</span><span class="s2">&quot;unknown&quot;</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">event</span><span class="p">[</span><span class="s2">&quot;error&quot;</span><span class="p">]))</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a>                <span class="k">if</span> <span class="n">on_progress</span><span class="p">:</span>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a>                    <span class="n">on_progress</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a>        <span class="n">conn</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#__codelineno-0-274">274</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_images</span><span class="p">(</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">"default"</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="w">    </span><span class="sd">"""``GET /images/json`` -- ``docker images``. Read-only; see :meth:`system_df`."""</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="s2">"GET"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">"/images/json"</span><span class="p">),</span> <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="p">)</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">[])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1678,12 +1339,7 @@ HTTP-200 NDJSON stream, not as an HTTP error status).</p>
 
 
 <a href="#tit.jobs.docker_engine.DockerEngineClient.list_containers" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_containers</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">filters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">all_containers</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_containers</span><span class="p">(</span><span class="o">*</span><span class="p">,</span> <span class="n">filters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">all_containers</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#object">object</a></span> <span class="o">=</span> <span class="s1">'default'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1696,53 +1352,53 @@ an explicit <em>timeout_s</em> (startup reconciliation must never block on a wed
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-468">468</a></span>
-<span class="normal"><a href="#__codelineno-0-469">469</a></span>
-<span class="normal"><a href="#__codelineno-0-470">470</a></span>
-<span class="normal"><a href="#__codelineno-0-471">471</a></span>
-<span class="normal"><a href="#__codelineno-0-472">472</a></span>
-<span class="normal"><a href="#__codelineno-0-473">473</a></span>
-<span class="normal"><a href="#__codelineno-0-474">474</a></span>
-<span class="normal"><a href="#__codelineno-0-475">475</a></span>
-<span class="normal"><a href="#__codelineno-0-476">476</a></span>
-<span class="normal"><a href="#__codelineno-0-477">477</a></span>
-<span class="normal"><a href="#__codelineno-0-478">478</a></span>
-<span class="normal"><a href="#__codelineno-0-479">479</a></span>
-<span class="normal"><a href="#__codelineno-0-480">480</a></span>
-<span class="normal"><a href="#__codelineno-0-481">481</a></span>
-<span class="normal"><a href="#__codelineno-0-482">482</a></span>
-<span class="normal"><a href="#__codelineno-0-483">483</a></span>
-<span class="normal"><a href="#__codelineno-0-484">484</a></span>
-<span class="normal"><a href="#__codelineno-0-485">485</a></span>
-<span class="normal"><a href="#__codelineno-0-486">486</a></span>
-<span class="normal"><a href="#__codelineno-0-487">487</a></span>
-<span class="normal"><a href="#__codelineno-0-488">488</a></span>
-<span class="normal"><a href="#__codelineno-0-489">489</a></span>
-<span class="normal"><a href="#__codelineno-0-490">490</a></span>
-<span class="normal"><a href="#__codelineno-0-491">491</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_containers</span><span class="p">(</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a>    <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>    <span class="n">all_containers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">&quot;default&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``GET /containers/json`` — the Engine-API equivalent of ``docker ps [--filter …]``.</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    *filters* is the Engine&#39;s own filter map (e.g. ``{&quot;label&quot;: [&quot;tit.job_id=abc&quot;]}``); it is</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    JSON-encoded into the query string by :meth:`_request`. Every caller in this repo passes</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    an explicit *timeout_s* (startup reconciliation must never block on a wedged daemon).</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a>        <span class="s2">&quot;GET&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">&quot;/containers/json&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a>        <span class="n">query</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>            <span class="s2">&quot;all&quot;</span><span class="p">:</span> <span class="s2">&quot;1&quot;</span> <span class="k">if</span> <span class="n">all_containers</span> <span class="k">else</span> <span class="s2">&quot;0&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a>            <span class="s2">&quot;filters&quot;</span><span class="p">:</span> <span class="n">filters</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="p">},</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">,</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="p">)</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">[])</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_containers</span><span class="p">(</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="n">all_containers</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">|</span> <span class="nb">object</span> <span class="o">=</span> <span class="s2">"default"</span><span class="p">,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="w">    </span><span class="sd">"""``GET /containers/json`` — the Engine-API equivalent of ``docker ps [--filter …]``.</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    *filters* is the Engine's own filter map (e.g. ``{"label": ["tit.job_id=abc"]}``); it is</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">    JSON-encoded into the query string by :meth:`_request`. Every caller in this repo passes</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    an explicit *timeout_s* (startup reconciliation must never block on a wedged daemon).</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    """</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_ensure_negotiated</span><span class="p">()</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="n">result</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_json_request</span><span class="p">(</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>        <span class="s2">"GET"</span><span class="p">,</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_vpath</span><span class="p">(</span><span class="s2">"/containers/json"</span><span class="p">),</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">query</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>            <span class="s2">"all"</span><span class="p">:</span> <span class="s2">"1"</span> <span class="k">if</span> <span class="n">all_containers</span> <span class="k">else</span> <span class="s2">"0"</span><span class="p">,</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>            <span class="s2">"filters"</span><span class="p">:</span> <span class="n">filters</span> <span class="ow">or</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="p">},</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="n">timeout_s</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">,</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">result</span> <span class="ow">or</span> <span class="p">[])</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1766,9 +1422,7 @@ an explicit <em>timeout_s</em> (startup reconciliation must never block on a wed
 
 
 <a href="#tit.jobs.docker_engine.discover" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">discover</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tit.jobs.docker_engine.DockerConnection">DockerConnection</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">discover</span><span class="p">(</span><span class="n">env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tit.jobs.docker_engine.DockerConnection">DockerConnection</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1780,215 +1434,27 @@ CLI-assisted search — this module always runs inside a container with a known 
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DockerConnection</span><span class="p">:</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``DOCKER_HOST=unix://...`` if set, else the well-known DooD bind-mount path. See the module</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    docstring for why this is intentionally narrower than ``discover.ts``&#39;s multi-candidate,</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    CLI-assisted search — this module always runs inside a container with a known socket mount.</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">resolved_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span> <span class="k">if</span> <span class="n">env</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">env</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">resolved_env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;DOCKER_HOST&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="k">if</span> <span class="n">host</span> <span class="ow">and</span> <span class="n">host</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;unix://&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">host</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;unix://&quot;</span><span class="p">)</span> <span class="p">:]</span> <span class="ow">or</span> <span class="n">DEFAULT_SOCKET_PATH</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="k">return</span> <span class="n">DockerConnection</span><span class="p">(</span><span class="n">socket_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">return</span> <span class="n">DockerConnection</span><span class="p">(</span><span class="n">socket_path</span><span class="o">=</span><span class="n">DEFAULT_SOCKET_PATH</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.jobs.docker_engine.run_job_container" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">run_job_container</span>
-
-
-<a href="#tit.jobs.docker_engine.run_job_container" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_job_container</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">client</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.jobs.docker_engine.DockerEngineClient" href="#tit.jobs.docker_engine.DockerEngineClient">DockerEngineClient</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">image</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">cmd</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">binds</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">labels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">platform</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">memory_bytes</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">auto_remove</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p><code>create_container</code> + <code>start_container</code>, returning the container id immediately. Always
-sets <code>Labels["tit.job_id"]</code> when <em>job_id</em> is given — see the module docstring for how
-<code>tit/pre/qsi/docker_builder.py</code>'s own <code>_label_args()</code> sets the same label independently
-today, and what migrating it onto this client would still change (the CLI shell-out).</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-605">605</a></span>
-<span class="normal"><a href="#__codelineno-0-606">606</a></span>
-<span class="normal"><a href="#__codelineno-0-607">607</a></span>
-<span class="normal"><a href="#__codelineno-0-608">608</a></span>
-<span class="normal"><a href="#__codelineno-0-609">609</a></span>
-<span class="normal"><a href="#__codelineno-0-610">610</a></span>
-<span class="normal"><a href="#__codelineno-0-611">611</a></span>
-<span class="normal"><a href="#__codelineno-0-612">612</a></span>
-<span class="normal"><a href="#__codelineno-0-613">613</a></span>
-<span class="normal"><a href="#__codelineno-0-614">614</a></span>
-<span class="normal"><a href="#__codelineno-0-615">615</a></span>
-<span class="normal"><a href="#__codelineno-0-616">616</a></span>
-<span class="normal"><a href="#__codelineno-0-617">617</a></span>
-<span class="normal"><a href="#__codelineno-0-618">618</a></span>
-<span class="normal"><a href="#__codelineno-0-619">619</a></span>
-<span class="normal"><a href="#__codelineno-0-620">620</a></span>
-<span class="normal"><a href="#__codelineno-0-621">621</a></span>
-<span class="normal"><a href="#__codelineno-0-622">622</a></span>
-<span class="normal"><a href="#__codelineno-0-623">623</a></span>
-<span class="normal"><a href="#__codelineno-0-624">624</a></span>
-<span class="normal"><a href="#__codelineno-0-625">625</a></span>
-<span class="normal"><a href="#__codelineno-0-626">626</a></span>
-<span class="normal"><a href="#__codelineno-0-627">627</a></span>
-<span class="normal"><a href="#__codelineno-0-628">628</a></span>
-<span class="normal"><a href="#__codelineno-0-629">629</a></span>
-<span class="normal"><a href="#__codelineno-0-630">630</a></span>
-<span class="normal"><a href="#__codelineno-0-631">631</a></span>
-<span class="normal"><a href="#__codelineno-0-632">632</a></span>
-<span class="normal"><a href="#__codelineno-0-633">633</a></span>
-<span class="normal"><a href="#__codelineno-0-634">634</a></span>
-<span class="normal"><a href="#__codelineno-0-635">635</a></span>
-<span class="normal"><a href="#__codelineno-0-636">636</a></span>
-<span class="normal"><a href="#__codelineno-0-637">637</a></span>
-<span class="normal"><a href="#__codelineno-0-638">638</a></span>
-<span class="normal"><a href="#__codelineno-0-639">639</a></span>
-<span class="normal"><a href="#__codelineno-0-640">640</a></span>
-<span class="normal"><a href="#__codelineno-0-641">641</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_job_container</span><span class="p">(</span>
-<a id="__codelineno-0-606" name="__codelineno-0-606"></a>    <span class="n">client</span><span class="p">:</span> <span class="n">DockerEngineClient</span><span class="p">,</span>
-<a id="__codelineno-0-607" name="__codelineno-0-607"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-608" name="__codelineno-0-608"></a>    <span class="n">image</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-609" name="__codelineno-0-609"></a>    <span class="n">cmd</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-0-610" name="__codelineno-0-610"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-611" name="__codelineno-0-611"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-612" name="__codelineno-0-612"></a>    <span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-613" name="__codelineno-0-613"></a>    <span class="n">binds</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">(),</span>
-<a id="__codelineno-0-614" name="__codelineno-0-614"></a>    <span class="n">labels</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-615" name="__codelineno-0-615"></a>    <span class="n">platform</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-616" name="__codelineno-0-616"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-617" name="__codelineno-0-617"></a>    <span class="n">memory_bytes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-618" name="__codelineno-0-618"></a>    <span class="n">auto_remove</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-619" name="__codelineno-0-619"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-620" name="__codelineno-0-620"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``create_container`` + ``start_container``, returning the container id immediately. Always</span>
-<a id="__codelineno-0-621" name="__codelineno-0-621"></a><span class="sd">    sets ``Labels[&quot;tit.job_id&quot;]`` when *job_id* is given — see the module docstring for how</span>
-<a id="__codelineno-0-622" name="__codelineno-0-622"></a><span class="sd">    ``tit/pre/qsi/docker_builder.py``&#39;s own ``_label_args()`` sets the same label independently</span>
-<a id="__codelineno-0-623" name="__codelineno-0-623"></a><span class="sd">    today, and what migrating it onto this client would still change (the CLI shell-out).</span>
-<a id="__codelineno-0-624" name="__codelineno-0-624"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="n">resolved_labels</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">labels</span> <span class="ow">or</span> <span class="p">{})</span>
-<a id="__codelineno-0-626" name="__codelineno-0-626"></a>    <span class="k">if</span> <span class="n">job_id</span><span class="p">:</span>
-<a id="__codelineno-0-627" name="__codelineno-0-627"></a>        <span class="n">resolved_labels</span><span class="p">[</span><span class="s2">&quot;tit.job_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">job_id</span>
-<a id="__codelineno-0-628" name="__codelineno-0-628"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">ContainerCreateSpec</span><span class="p">(</span>
-<a id="__codelineno-0-629" name="__codelineno-0-629"></a>        <span class="n">image</span><span class="o">=</span><span class="n">image</span><span class="p">,</span>
-<a id="__codelineno-0-630" name="__codelineno-0-630"></a>        <span class="n">cmd</span><span class="o">=</span><span class="n">cmd</span><span class="p">,</span>
-<a id="__codelineno-0-631" name="__codelineno-0-631"></a>        <span class="n">env</span><span class="o">=</span><span class="n">env</span> <span class="ow">or</span> <span class="p">{},</span>
-<a id="__codelineno-0-632" name="__codelineno-0-632"></a>        <span class="n">labels</span><span class="o">=</span><span class="n">resolved_labels</span><span class="p">,</span>
-<a id="__codelineno-0-633" name="__codelineno-0-633"></a>        <span class="n">platform</span><span class="o">=</span><span class="n">platform</span><span class="p">,</span>
-<a id="__codelineno-0-634" name="__codelineno-0-634"></a>        <span class="n">binds</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">binds</span><span class="p">),</span>
-<a id="__codelineno-0-635" name="__codelineno-0-635"></a>        <span class="n">auto_remove</span><span class="o">=</span><span class="n">auto_remove</span><span class="p">,</span>
-<a id="__codelineno-0-636" name="__codelineno-0-636"></a>        <span class="n">nano_cpus</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">cpus</span> <span class="o">*</span> <span class="mf">1e9</span><span class="p">)</span> <span class="k">if</span> <span class="n">cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-637" name="__codelineno-0-637"></a>        <span class="n">memory_bytes</span><span class="o">=</span><span class="n">memory_bytes</span><span class="p">,</span>
-<a id="__codelineno-0-638" name="__codelineno-0-638"></a>    <span class="p">)</span>
-<a id="__codelineno-0-639" name="__codelineno-0-639"></a>    <span class="n">container_id</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">create_container</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-640" name="__codelineno-0-640"></a>    <span class="n">client</span><span class="o">.</span><span class="n">start_container</span><span class="p">(</span><span class="n">container_id</span><span class="p">)</span>
-<a id="__codelineno-0-641" name="__codelineno-0-641"></a>    <span class="k">return</span> <span class="n">container_id</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.jobs.docker_engine.run_qsiprep_example" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">run_qsiprep_example</span>
-
-
-<a href="#tit.jobs.docker_engine.run_qsiprep_example" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_qsiprep_example</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">client</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.jobs.docker_engine.DockerEngineClient" href="#tit.jobs.docker_engine.DockerEngineClient">DockerEngineClient</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">host_project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Documentation only (not called by production code): the call shape a
-<code>tit/pre/qsi/docker_builder.py</code> migration would make, using the exact same
-<code>/data</code>:ro / <code>/out</code> / <code>/work</code> mount points as today's <code>DockerPaths</code> dataclass, and the
-same <code>tit.job_id</code> label <code>build_qsiprep_cmd</code> already sets via <code>_label_args</code> — the
-migration this documents is about the CLI shell-out, not the label.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/docker_engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-644">644</a></span>
-<span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
-<span class="normal"><a href="#__codelineno-0-647">647</a></span>
-<span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
-<span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
-<span class="normal"><a href="#__codelineno-0-657">657</a></span>
-<span class="normal"><a href="#__codelineno-0-658">658</a></span>
-<span class="normal"><a href="#__codelineno-0-659">659</a></span>
-<span class="normal"><a href="#__codelineno-0-660">660</a></span>
-<span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
-<span class="normal"><a href="#__codelineno-0-663">663</a></span>
-<span class="normal"><a href="#__codelineno-0-664">664</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_qsiprep_example</span><span class="p">(</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a>    <span class="n">client</span><span class="p">:</span> <span class="n">DockerEngineClient</span><span class="p">,</span> <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">host_project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Documentation only (not called by production code): the call shape a</span>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    ``tit/pre/qsi/docker_builder.py`` migration would make, using the exact same</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">    ``/data``:ro / ``/out`` / ``/work`` mount points as today&#39;s ``DockerPaths`` dataclass, and the</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    same ``tit.job_id`` label ``build_qsiprep_cmd`` already sets via ``_label_args`` — the</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="sd">    migration this documents is about the CLI shell-out, not the label.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a>    <span class="k">return</span> <span class="n">run_job_container</span><span class="p">(</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a>        <span class="n">client</span><span class="p">,</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a>        <span class="n">image</span><span class="o">=</span><span class="s2">&quot;pennlinc/qsiprep:26.0.0&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a>        <span class="n">cmd</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;/data&quot;</span><span class="p">,</span> <span class="s2">&quot;/out&quot;</span><span class="p">,</span> <span class="s2">&quot;participant&quot;</span><span class="p">,</span> <span class="s2">&quot;--participant-label&quot;</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">],</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>        <span class="n">job_id</span><span class="o">=</span><span class="n">job_id</span><span class="p">,</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>        <span class="n">env</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;OMP_NUM_THREADS&quot;</span><span class="p">:</span> <span class="s2">&quot;4&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a>        <span class="n">binds</span><span class="o">=</span><span class="p">[</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a>            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">host_project_dir</span><span class="si">}</span><span class="s2">:/data:ro&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a>            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">host_project_dir</span><span class="si">}</span><span class="s2">/derivatives/qsiprep:/out&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">host_project_dir</span><span class="si">}</span><span class="s2">/derivatives/.qsiprep_work:/work&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a>        <span class="p">],</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a>        <span class="n">platform</span><span class="o">=</span><span class="s2">&quot;linux/amd64&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="k">def</span><span class="w"> </span><span class="nf">discover</span><span class="p">(</span><span class="n">env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">DockerConnection</span><span class="p">:</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="w">    </span><span class="sd">"""``DOCKER_HOST=unix://...`` if set, else the well-known DooD bind-mount path. See the module</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    docstring for why this is intentionally narrower than ``discover.ts``'s multi-candidate,</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">    CLI-assisted search — this module always runs inside a container with a known socket mount.</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    """</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="n">resolved_env</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span> <span class="k">if</span> <span class="n">env</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">env</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">resolved_env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"DOCKER_HOST"</span><span class="p">)</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="k">if</span> <span class="n">host</span> <span class="ow">and</span> <span class="n">host</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"unix://"</span><span class="p">):</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">host</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">"unix://"</span><span class="p">)</span> <span class="p">:]</span> <span class="ow">or</span> <span class="n">DEFAULT_SOCKET_PATH</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="k">return</span> <span class="n">DockerConnection</span><span class="p">(</span><span class="n">socket_path</span><span class="o">=</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="k">return</span> <span class="n">DockerConnection</span><span class="p">(</span><span class="n">socket_path</span><span class="o">=</span><span class="n">DEFAULT_SOCKET_PATH</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

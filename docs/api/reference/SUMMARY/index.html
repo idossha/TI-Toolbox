@@ -877,18 +877,21 @@
 
 <ul>
 <li><a href="../tit/">tit</a><ul>
+<li><a href="../tit/_calc_kernel/">_calc_kernel</a></li>
 <li><a href="../tit/analyzer/">analyzer</a><ul>
 <li><a href="../tit/analyzer/analyzer/">analyzer</a></li>
 <li><a href="../tit/analyzer/config/">config</a></li>
 <li><a href="../tit/analyzer/field_selector/">field_selector</a></li>
 <li><a href="../tit/analyzer/group/">group</a></li>
 <li><a href="../tit/analyzer/masks/">masks</a></li>
-<li><a href="../tit/analyzer/spheres/">spheres</a></li>
+<li><a href="../tit/analyzer/scene/">scene</a></li>
 <li><a href="../tit/analyzer/visualizer/">visualizer</a></li>
 </ul>
 </li>
 <li><a href="../tit/atlas/">atlas</a><ul>
 <li><a href="../tit/atlas/constants/">constants</a></li>
+<li><a href="../tit/atlas/islands/">islands</a></li>
+<li><a href="../tit/atlas/manifest/">manifest</a></li>
 <li><a href="../tit/atlas/mesh/">mesh</a></li>
 <li><a href="../tit/atlas/overlap/">overlap</a></li>
 <li><a href="../tit/atlas/segstats/">segstats</a></li>
@@ -896,15 +899,23 @@
 </ul>
 </li>
 <li><a href="../tit/calc/">calc</a></li>
+<li><a href="../tit/caps/">caps</a></li>
 <li><a href="../tit/catalog/">catalog</a></li>
+<li><a href="../tit/certs/">certs</a></li>
+<li><a href="../tit/charm_options/">charm_options</a></li>
 <li><a href="../tit/cli/">cli</a></li>
 <li><a href="../tit/config_io/">config_io</a></li>
 <li><a href="../tit/constants/">constants</a></li>
+<li><a href="../tit/cpu/">cpu</a></li>
+<li><a href="../tit/examples/">examples</a></li>
+<li><a href="../tit/figures/">figures</a><ul>
+<li><a href="../tit/figures/roi_plate/">roi_plate</a></li>
+</ul>
+</li>
+<li><a href="../tit/host_path/">host_path</a></li>
 <li><a href="../tit/jobs/">jobs</a><ul>
 <li><a href="../tit/jobs/api/">api</a></li>
-
 <li><a href="../tit/jobs/bootstrap/">bootstrap</a></li>
-<li><a href="../tit/jobs/client/">client</a></li>
 <li><a href="../tit/jobs/config_check/">config_check</a></li>
 <li><a href="../tit/jobs/costs/">costs</a></li>
 <li><a href="../tit/jobs/docker_engine/">docker_engine</a></li>
@@ -914,6 +925,7 @@
 <li><a href="../tit/jobs/locks/">locks</a></li>
 <li><a href="../tit/jobs/manager/">manager</a></li>
 <li><a href="../tit/jobs/plans/">plans</a></li>
+<li><a href="../tit/jobs/preflight/">preflight</a></li>
 <li><a href="../tit/jobs/processes/">processes</a></li>
 <li><a href="../tit/jobs/registry/">registry</a></li>
 <li><a href="../tit/jobs/runner/">runner</a></li>
@@ -924,7 +936,9 @@
 </li>
 <li><a href="../tit/launch/">launch</a></li>
 <li><a href="../tit/logger/">logger</a></li>
+<li><a href="../tit/mesh_identity/">mesh_identity</a></li>
 <li><a href="../tit/opt/">opt</a><ul>
+<li><a href="../tit/opt/candidate_catalog/">candidate_catalog</a></li>
 <li><a href="../tit/opt/config/">config</a></li>
 <li><a href="../tit/opt/ex/">ex</a><ul>
 <li><a href="../tit/opt/ex/buckets/">buckets</a></li>
@@ -939,11 +953,13 @@
 </li>
 <li><a href="../tit/opt/flex/">flex</a><ul>
 <li><a href="../tit/opt/flex/builder/">builder</a></li>
+<li><a href="../tit/opt/flex/candidates/">candidates</a></li>
 <li><a href="../tit/opt/flex/drivers/">drivers</a></li>
 <li><a href="../tit/opt/flex/flex/">flex</a></li>
 <li><a href="../tit/opt/flex/manifest/">manifest</a></li>
 <li><a href="../tit/opt/flex/objectives/">objectives</a></li>
 <li><a href="../tit/opt/flex/pareto/">pareto</a></li>
+<li><a href="../tit/opt/flex/runtime/">runtime</a></li>
 <li><a href="../tit/opt/flex/skin_visualization/">skin_visualization</a></li>
 <li><a href="../tit/opt/flex/utils/">utils</a></li>
 </ul>
@@ -962,20 +978,20 @@
 </ul>
 </li>
 <li><a href="../tit/paths/">paths</a></li>
-
 <li><a href="../tit/plotting/">plotting</a><ul>
 <li><a href="../tit/plotting/_common/">_common</a></li>
 <li><a href="../tit/plotting/dti_qc/">dti_qc</a></li>
 <li><a href="../tit/plotting/nilearn/">nilearn</a><ul>
+<li><a href="../tit/plotting/nilearn/atlases/">atlases</a></li>
 <li><a href="../tit/plotting/nilearn/config/">config</a></li>
 <li><a href="../tit/plotting/nilearn/cutoffs/">cutoffs</a></li>
-<li><a href="../tit/plotting/nilearn/html_report/">html_report</a></li>
 <li><a href="../tit/plotting/nilearn/img_glass/">img_glass</a></li>
 <li><a href="../tit/plotting/nilearn/img_slices/">img_slices</a></li>
 <li><a href="../tit/plotting/nilearn/surface/">surface</a></li>
 <li><a href="../tit/plotting/nilearn/visualizer/">visualizer</a></li>
 </ul>
 </li>
+<li><a href="../tit/plotting/slices/">slices</a></li>
 <li><a href="../tit/plotting/stats/">stats</a></li>
 <li><a href="../tit/plotting/ti_metrics/">ti_metrics</a></li>
 </ul>
@@ -986,13 +1002,16 @@
 <li><a href="../tit/pre/dicom2nifti/">dicom2nifti</a></li>
 <li><a href="../tit/pre/fastsurfer/">fastsurfer</a></li>
 <li><a href="../tit/pre/freesurfer/">freesurfer</a></li>
+<li><a href="../tit/pre/native_fastsurfer/">native_fastsurfer</a></li>
 <li><a href="../tit/pre/preflight/">preflight</a></li>
 <li><a href="../tit/pre/qsi/">qsi</a><ul>
 <li><a href="../tit/pre/qsi/config/">config</a></li>
 <li><a href="../tit/pre/qsi/docker_builder/">docker_builder</a></li>
+<li><a href="../tit/pre/qsi/dti_advisories/">dti_advisories</a></li>
 <li><a href="../tit/pre/qsi/dti_extractor/">dti_extractor</a></li>
 <li><a href="../tit/pre/qsi/qsiprep/">qsiprep</a></li>
 <li><a href="../tit/pre/qsi/qsirecon/">qsirecon</a></li>
+<li><a href="../tit/pre/qsi/tensor_math/">tensor_math</a></li>
 <li><a href="../tit/pre/qsi/utils/">utils</a></li>
 </ul>
 </li>
@@ -1022,7 +1041,9 @@
 <li><a href="../tit/reporting/references/">references</a></li>
 </ul>
 </li>
+<li><a href="../tit/roi_confirmation/">roi_confirmation</a></li>
 <li><a href="../tit/scene/">scene</a><ul>
+<li><a href="../tit/scene/build/">build</a></li>
 <li><a href="../tit/scene/cache/">cache</a></li>
 <li><a href="../tit/scene/gifti/">gifti</a></li>
 <li><a href="../tit/scene/guide/">guide</a></li>
@@ -1030,20 +1051,26 @@
 <li><a href="../tit/scene/simplify/">simplify</a></li>
 <li><a href="../tit/scene/target_preview/">target_preview</a></li>
 <li><a href="../tit/scene/tvsc/">tvsc</a></li>
+<li><a href="../tit/scene/volume_surfaces/">volume_surfaces</a></li>
 </ul>
 </li>
 <li><a href="../tit/server/">server</a><ul>
 <li><a href="../tit/server/access_log/">access_log</a></li>
 <li><a href="../tit/server/app/">app</a></li>
+<li><a href="../tit/server/app_defaults/">app_defaults</a></li>
 <li><a href="../tit/server/auth/">auth</a></li>
-<li><a href="../tit/server/host_path/">host_path</a></li>
+<li><a href="../tit/server/job_outputs/">job_outputs</a></li>
 <li><a href="../tit/server/kernels/">kernels</a></li>
 <li><a href="../tit/server/notebooks/">notebooks</a></li>
 <li><a href="../tit/server/overwrite_policy/">overwrite_policy</a></li>
+<li><a href="../tit/server/proposals/">proposals</a></li>
 <li><a href="../tit/server/routes/">routes</a><ul>
 <li><a href="../tit/server/routes/capabilities/">capabilities</a></li>
+<li><a href="../tit/server/routes/caps/">caps</a></li>
 <li><a href="../tit/server/routes/catalog/">catalog</a></li>
 <li><a href="../tit/server/routes/catalog_v1/">catalog_v1</a></li>
+<li><a href="../tit/server/routes/cpu_limit/">cpu_limit</a></li>
+<li><a href="../tit/server/routes/example_data/">example_data</a></li>
 <li><a href="../tit/server/routes/files/">files</a></li>
 <li><a href="../tit/server/routes/guide/">guide</a></li>
 <li><a href="../tit/server/routes/health/">health</a></li>
@@ -1052,13 +1079,14 @@
 <li><a href="../tit/server/routes/notebooks/">notebooks</a></li>
 <li><a href="../tit/server/routes/openapi/">openapi</a></li>
 <li><a href="../tit/server/routes/overview/">overview</a></li>
-
 <li><a href="../tit/server/routes/plan/">plan</a></li>
 <li><a href="../tit/server/routes/project/">project</a></li>
 <li><a href="../tit/server/routes/project_summary/">project_summary</a></li>
+<li><a href="../tit/server/routes/proposals/">proposals</a></li>
 <li><a href="../tit/server/routes/scene/">scene</a></li>
 <li><a href="../tit/server/routes/schema/">schema</a></li>
 <li><a href="../tit/server/routes/settings/">settings</a></li>
+<li><a href="../tit/server/routes/surfer_settings/">surfer_settings</a></li>
 <li><a href="../tit/server/routes/system/">system</a></li>
 <li><a href="../tit/server/routes/target_preview/">target_preview</a></li>
 <li><a href="../tit/server/routes/validate/">validate</a></li>
@@ -1101,13 +1129,12 @@
 <li><a href="../tit/stats/permutation/">permutation</a></li>
 <li><a href="../tit/stats/reporting/">reporting</a></li>
 <li><a href="../tit/stats/surface/">surface</a></li>
-<li><a href="../tit/stats/visualization/">visualization</a></li>
 </ul>
 </li>
 <li><a href="../tit/storage/">storage</a></li>
+<li><a href="../tit/surfer_settings/">surfer_settings</a></li>
 <li><a href="../tit/telemetry/">telemetry</a></li>
 <li><a href="../tit/tools/">tools</a><ul>
-<li><a href="../tit/tools/check_for_update/">check_for_update</a></li>
 <li><a href="../tit/tools/electrode_overlay/">electrode_overlay</a></li>
 <li><a href="../tit/tools/extract_labels/">extract_labels</a></li>
 <li><a href="../tit/tools/field_extract/">field_extract</a></li>
@@ -1116,7 +1143,6 @@
 <li><a href="../tit/tools/mesh2nii/">mesh2nii</a></li>
 <li><a href="../tit/tools/montage_visualizer/">montage_visualizer</a></li>
 <li><a href="../tit/tools/nifti_to_mesh/">nifti_to_mesh</a></li>
-
 <li><a href="../tit/tools/read_annot/">read_annot</a></li>
 </ul>
 </li>

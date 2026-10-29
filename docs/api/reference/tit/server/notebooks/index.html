@@ -883,6 +883,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.server.notebooks--the-worked-example" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The worked example
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.server.notebooks.NotebookError" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -964,17 +975,6 @@
     <span class="md-ellipsis">
       
         starter_source
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.server.notebooks.example_notebook" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        example_notebook
       
     </span>
   </a>
@@ -1067,7 +1067,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1088,7 +1088,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1153,10 +1153,19 @@ disagree about whitespace. SUNA reimplements nbformat's serializer in
 TypeScript because its notebook model lives in the renderer; here the file
 never leaves the container, so <code>nbformat</code> itself does the reading and
 writing and the question does not arise.</p>
-<p>Everything lives in one directory, <code>&lt;project&gt;/code/ti-toolbox/notebooks</code>,
-which is also where the pipeline's exported notebooks land. Names are a
-single path segment: there are no subdirectories, because a flat list is what
+<p>Everything lives in one directory, <code>&lt;project&gt;/code/ti-toolbox/notebooks</code>.
+Names are a single path segment: there are no subdirectories, because a flat list is what
 the UI shows and a traversal is the only thing a name could otherwise buy.</p>
+<h4 id="tit.server.notebooks--the-worked-example">The worked example<a class="headerlink" href="#tit.server.notebooks--the-worked-example" title="Permanent link">&para;</a></h4>
+<p><code>examples/example_workflow.ipynb</code> is a byte-for-byte copy of the packaged
+<code>tit/server/examples/example_workflow.ipynb</code> (the repository's
+<code>examples/notebooks/example_workflow.ipynb</code> is a symlink to that same file, so
+there is exactly one source). :func:<code>seed_example</code> writes it on the first
+listing and records the packaged file's sha256 in <code>examples/.seeded</code>. On later
+listings it re-copies the notebook only when the packaged file has changed
+<em>and</em> the project's copy still matches the hash that was recorded — a copy the
+user edited is theirs and is never overwritten. A deleted example is not given
+back: deleting it writes <code>deleted</code> into the stamp instead of a hash.</p>
 
 
 
@@ -1184,12 +1193,12 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
 
 
 <a href="#tit.server.notebooks.NotebookError" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NotebookError</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NotebookError</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code></p>
 
 
         <p>A notebook could not be named, found, read or written.</p>
@@ -1202,13 +1211,13 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">code</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">code</span> <span class="o">=</span> <span class="n">code</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1245,12 +1254,7 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
   </span>
 
 <a href="#tit.server.notebooks.NotebookEntry" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NotebookEntry</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">size</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">modified</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">example</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NotebookEntry</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">size</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">modified</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">example</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1294,7 +1298,7 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
 
 
 <a href="#tit.server.notebooks.notebooks_dir" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1304,19 +1308,19 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The notebook directory for a project (not created).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">project_root</span><span class="p">)</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">NOTEBOOK_SUBDIR</span><span class="p">))</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="k">if</span> <span class="n">directory</span> <span class="o">==</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">directory</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">):</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span><span class="s2">&quot;bad-name&quot;</span><span class="p">,</span> <span class="s2">&quot;Notebook directory resolves outside the project.&quot;</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">"""The notebook directory for a project (not created)."""</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">project_root</span><span class="p">)</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">NOTEBOOK_SUBDIR</span><span class="p">))</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="k">if</span> <span class="n">directory</span> <span class="o">==</span> <span class="n">root</span> <span class="ow">or</span> <span class="n">directory</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">rstrip</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">)</span> <span class="o">+</span> <span class="n">os</span><span class="o">.</span><span class="n">sep</span><span class="p">):</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="k">return</span> <span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span><span class="s2">"bad-name"</span><span class="p">,</span> <span class="s2">"Notebook directory resolves outside the project."</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1331,63 +1335,63 @@ the UI shows and a traversal is the only thing a name could otherwise buy.</p>
 
 
 <a href="#tit.server.notebooks.normalise_name" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>A caller's name as the file name it maps to, or raise.</p>
 <p><code>analysis</code>, <code>analysis.ipynb</code>, <code>Analysis 2.ipynb</code> and
-<code>examples/getting-started.ipynb</code> are all fine; <code>../escape</code>, <code>a/b</code> and
+<code>examples/example_workflow.ipynb</code> are all fine; <code>../escape</code>, <code>a/b</code> and
 <code>.hidden</code> are not. The <code>examples/</code> prefix is the only directory a name
 may carry (:data:<code>EXAMPLES_DIR</code>).</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
-<span class="normal"><a href="#__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#__codelineno-0-85">85</a></span>
-<span class="normal"><a href="#__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#__codelineno-0-87">87</a></span>
-<span class="normal"><a href="#__codelineno-0-88">88</a></span>
-<span class="normal"><a href="#__codelineno-0-89">89</a></span>
-<span class="normal"><a href="#__codelineno-0-90">90</a></span>
-<span class="normal"><a href="#__codelineno-0-91">91</a></span>
-<span class="normal"><a href="#__codelineno-0-92">92</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A caller&#39;s name as the file name it maps to, or raise.</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    ``analysis``, ``analysis.ipynb``, ``Analysis 2.ipynb`` and</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">    ``examples/getting-started.ipynb`` are all fine; ``../escape``, ``a/b`` and</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    ``.hidden`` are not. The ``examples/`` prefix is the only directory a name</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    may carry (:data:`EXAMPLES_DIR`).</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">candidate</span> <span class="o">=</span> <span class="p">(</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="k">if</span> <span class="n">candidate</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/&quot;</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">if</span> <span class="n">candidate</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">NOTEBOOK_SUFFIX</span><span class="p">):</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">NOTEBOOK_SUFFIX</span><span class="p">)]</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_SAFE_NAME</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">candidate</span><span class="p">):</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="s2">&quot;bad-name&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a usable notebook name. Use letters, digits, spaces, &quot;</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="sa">f</span><span class="s2">&quot;&#39;.&#39;, &#39;_&#39; or &#39;-&#39;, and no directory separators.&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="p">)</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">return</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">candidate</span> <span class="o">+</span> <span class="n">NOTEBOOK_SUFFIX</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="k">def</span><span class="w"> </span><span class="nf">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">    </span><span class="sd">"""A caller's name as the file name it maps to, or raise.</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    ``analysis``, ``analysis.ipynb``, ``Analysis 2.ipynb`` and</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">    ``examples/example_workflow.ipynb`` are all fine; ``../escape``, ``a/b`` and</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    ``.hidden`` are not. The ``examples/`` prefix is the only directory a name</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    may carry (:data:`EXAMPLES_DIR`).</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    """</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="n">candidate</span> <span class="o">=</span> <span class="p">(</span><span class="n">name</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="n">prefix</span> <span class="o">=</span> <span class="s2">""</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="k">if</span> <span class="n">candidate</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/"</span><span class="p">):</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>        <span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/"</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">prefix</span><span class="p">)</span> <span class="p">:]</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="k">if</span> <span class="n">candidate</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">NOTEBOOK_SUFFIX</span><span class="p">):</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">candidate</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">NOTEBOOK_SUFFIX</span><span class="p">)]</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_SAFE_NAME</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="n">candidate</span><span class="p">):</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>            <span class="s2">"bad-name"</span><span class="p">,</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2"> is not a usable notebook name. Use letters, digits, spaces, "</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>            <span class="sa">f</span><span class="s2">"'.', '_' or '-', and no directory separators."</span><span class="p">,</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>        <span class="p">)</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="k">return</span> <span class="n">prefix</span> <span class="o">+</span> <span class="n">candidate</span> <span class="o">+</span> <span class="n">NOTEBOOK_SUFFIX</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1402,7 +1406,7 @@ may carry (:data:<code>EXAMPLES_DIR</code>).</p>
 
 
 <a href="#tit.server.notebooks.notebook_path" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1412,11 +1416,11 @@ may carry (:data:<code>EXAMPLES_DIR</code>).</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-95">95</a></span>
-<span class="normal"><a href="#__codelineno-0-96">96</a></span>
-<span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Where a notebook of this name lives. Never outside the directory.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="k">return</span> <span class="n">_checked_notebook_entry</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="k">def</span><span class="w"> </span><span class="nf">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="w">    </span><span class="sd">"""Where a notebook of this name lives. Never outside the directory."""</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="k">return</span> <span class="n">_checked_notebook_entry</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">normalise_name</span><span class="p">(</span><span class="n">name</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1431,75 +1435,28 @@ may carry (:data:<code>EXAMPLES_DIR</code>).</p>
 
 
 <a href="#tit.server.notebooks.seed_example" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">seed_example</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">seed_example</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">=</span> <span class="n"><span title="tit.server.notebooks.EXAMPLE_SOURCE">EXAMPLE_SOURCE</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Write the example notebook if it is not there. True when it was written.</p>
-<p>Seeded on first listing rather than shipped in the image, because it names
-<em>this</em> project: the cells resolve the project's own subjects and plot the
-first TI field it actually has. A user who deletes it is not given it back
-— it reappears only in a project that has never had one.</p>
+        <p>Copy the packaged example into the project. True when it was written.</p>
+<p>Written when absent, and re-written when <em>source</em> has changed since the
+hash recorded in <code>examples/.seeded</code> <strong>and</strong> the project's copy is still
+byte-identical to that recorded hash (i.e. the user never edited it). A
+copy the user edited, or one seeded before the stamp carried a hash, is
+left alone; a deleted example stays deleted (see the module docstring).</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-137">137</a></span>
-<span class="normal"><a href="#__codelineno-0-138">138</a></span>
-<span class="normal"><a href="#__codelineno-0-139">139</a></span>
-<span class="normal"><a href="#__codelineno-0-140">140</a></span>
-<span class="normal"><a href="#__codelineno-0-141">141</a></span>
-<span class="normal"><a href="#__codelineno-0-142">142</a></span>
-<span class="normal"><a href="#__codelineno-0-143">143</a></span>
-<span class="normal"><a href="#__codelineno-0-144">144</a></span>
-<span class="normal"><a href="#__codelineno-0-145">145</a></span>
-<span class="normal"><a href="#__codelineno-0-146">146</a></span>
-<span class="normal"><a href="#__codelineno-0-147">147</a></span>
-<span class="normal"><a href="#__codelineno-0-148">148</a></span>
-<span class="normal"><a href="#__codelineno-0-149">149</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="k">def</span><span class="w"> </span><span class="nf">seed_example</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write the example notebook if it is not there. True when it was written.</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    Seeded on first listing rather than shipped in the image, because it names</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="sd">    *this* project: the cells resolve the project&#39;s own subjects and plot the</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">    first TI field it actually has. A user who deletes it is not given it back</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    — it reappears only in a project that has never had one.</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">EXAMPLE_NAME</span><span class="p">)</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">or</span> <span class="n">_example_was_deleted</span><span class="p">(</span><span class="n">project_root</span><span class="p">):</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="n">write_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">EXAMPLE_NAME</span><span class="p">,</span> <span class="n">example_notebook</span><span class="p">())</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="k">return</span> <span class="kc">True</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.server.notebooks.list_notebooks" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">list_notebooks</span>
-
-
-<a href="#tit.server.notebooks.list_notebooks" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_notebooks</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.server.notebooks.NotebookEntry" href="#tit.server.notebooks.NotebookEntry">NotebookEntry</a></span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Every notebook, newest first. Missing dir → empty.</p>
-<p>Two levels: the flat directory the user writes into, and <code>examples/</code>.
-Nothing recurses further, because :func:<code>normalise_name</code> cannot name
-anything deeper and a listing that shows what cannot be opened is a lie.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-160">160</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
 <span class="normal"><a href="#__codelineno-0-161">161</a></span>
 <span class="normal"><a href="#__codelineno-0-162">162</a></span>
 <span class="normal"><a href="#__codelineno-0-163">163</a></span>
@@ -1517,49 +1474,31 @@ anything deeper and a listing that shows what cannot be opened is a lie.</p>
 <span class="normal"><a href="#__codelineno-0-175">175</a></span>
 <span class="normal"><a href="#__codelineno-0-176">176</a></span>
 <span class="normal"><a href="#__codelineno-0-177">177</a></span>
-<span class="normal"><a href="#__codelineno-0-178">178</a></span>
-<span class="normal"><a href="#__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#__codelineno-0-182">182</a></span>
-<span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#__codelineno-0-186">186</a></span>
-<span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#__codelineno-0-189">189</a></span>
-<span class="normal"><a href="#__codelineno-0-190">190</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_notebooks</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">NotebookEntry</span><span class="p">]:</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Every notebook, newest first. Missing dir → empty.</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    Two levels: the flat directory the user writes into, and ``examples/``.</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    Nothing recurses further, because :func:`normalise_name` cannot name</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    anything deeper and a listing that shows what cannot be opened is a lie.</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">)</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">directory</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a>        <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="n">paths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">directory</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;*</span><span class="si">{</span><span class="n">NOTEBOOK_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="n">paths</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">directory</span> <span class="o">/</span> <span class="n">EXAMPLES_DIR</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;*</span><span class="si">{</span><span class="n">NOTEBOOK_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">NotebookEntry</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a>        <span class="n">name</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>            <span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span> <span class="o">==</span> <span class="n">directory</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>        <span class="p">)</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a>            <span class="n">info</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">NotebookError</span><span class="p">):</span>  <span class="c1"># stale file or outward leaf/parent link</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="n">entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>            <span class="n">NotebookEntry</span><span class="p">(</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>                <span class="n">size</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">st_size</span><span class="p">,</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>                <span class="n">modified</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>                <span class="n">example</span><span class="o">=</span><span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>            <span class="p">)</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="p">)</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="n">entries</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">entry</span><span class="p">:</span> <span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">example</span><span class="p">,</span> <span class="o">-</span><span class="n">entry</span><span class="o">.</span><span class="n">modified</span><span class="p">))</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="k">return</span> <span class="n">entries</span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="k">def</span><span class="w"> </span><span class="nf">seed_example</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">source</span><span class="p">:</span> <span class="n">Path</span> <span class="o">=</span> <span class="n">EXAMPLE_SOURCE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="w">    </span><span class="sd">"""Copy the packaged example into the project. True when it was written.</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    Written when absent, and re-written when *source* has changed since the</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    hash recorded in ``examples/.seeded`` **and** the project's copy is still</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    byte-identical to that recorded hash (i.e. the user never edited it). A</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">    copy the user edited, or one seeded before the stamp carried a hash, is</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    left alone; a deleted example stays deleted (see the module docstring).</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    """</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">EXAMPLE_NAME</span><span class="p">)</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>    <span class="n">stamp</span> <span class="o">=</span> <span class="n">_example_stamp</span><span class="p">(</span><span class="n">project_root</span><span class="p">)</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">recorded</span> <span class="o">=</span> <span class="n">stamp</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">if</span> <span class="n">stamp</span><span class="o">.</span><span class="n">is_file</span><span class="p">()</span> <span class="k">else</span> <span class="kc">None</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="k">if</span> <span class="n">recorded</span> <span class="o">==</span> <span class="n">_DELETED</span><span class="p">:</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="n">packaged</span> <span class="o">=</span> <span class="n">source</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">()</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>    <span class="n">digest</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">packaged</span><span class="p">)</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>        <span class="k">if</span> <span class="n">recorded</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">recorded</span> <span class="o">==</span> <span class="n">digest</span><span class="p">:</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>            <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="k">if</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span> <span class="o">!=</span> <span class="n">recorded</span><span class="p">:</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>            <span class="k">return</span> <span class="kc">False</span>  <span class="c1"># the user edited their copy</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="n">_atomic_text_write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">packaged</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="n">_atomic_text_write</span><span class="p">(</span><span class="n">stamp</span><span class="p">,</span> <span class="n">digest</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="k">return</span> <span class="kc">True</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1569,32 +1508,33 @@ anything deeper and a listing that shows what cannot be opened is a lie.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.server.notebooks.starter_source" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">starter_source</span>
+<h3 id="tit.server.notebooks.list_notebooks" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">list_notebooks</span>
 
 
-<a href="#tit.server.notebooks.starter_source" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">starter_source</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
+<a href="#tit.server.notebooks.list_notebooks" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_notebooks</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.server.notebooks.NotebookEntry" href="#tit.server.notebooks.NotebookEntry">NotebookEntry</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The first cell of a new notebook.</p>
-<p>The maintainer's ask was that "the TI-Toolbox environment is automatically
-loaded". It is — the kernel is SimNIBS Python with <code>tit</code> importable — but
-a blank first cell would leave the author to discover that. So a new
-notebook opens holding a cell that <em>demonstrates</em> it and runs green: the
-path manager, the project's subjects, the SimNIBS version, and the two
-module imports every scripted workflow starts from.</p>
-<p>Every name in here is checked by <code>tests/test_notebook_files.py</code> against
-the real <code>tit</code> API, because the first version of this cell called
-<code>pm.project_root</code>, which does not exist — a starter cell that raises on
-its first run is worse than no starter cell at all.</p>
+        <p>Every notebook, newest first. Missing dir → empty.</p>
+<p>Two levels: the flat directory the user writes into, and <code>examples/</code>.
+Nothing recurses further, because :func:<code>normalise_name</code> cannot name
+anything deeper and a listing that shows what cannot be opened is a lie.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-193">193</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
 <span class="normal"><a href="#__codelineno-0-194">194</a></span>
 <span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span>
@@ -1616,49 +1556,37 @@ its first run is worse than no starter cell at all.</p>
 <span class="normal"><a href="#__codelineno-0-212">212</a></span>
 <span class="normal"><a href="#__codelineno-0-213">213</a></span>
 <span class="normal"><a href="#__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="k">def</span><span class="w"> </span><span class="nf">starter_source</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The first cell of a new notebook.</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    The maintainer&#39;s ask was that &quot;the TI-Toolbox environment is automatically</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    loaded&quot;. It is — the kernel is SimNIBS Python with ``tit`` importable — but</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    a blank first cell would leave the author to discover that. So a new</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    notebook opens holding a cell that *demonstrates* it and runs green: the</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    path manager, the project&#39;s subjects, the SimNIBS version, and the two</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    module imports every scripted workflow starts from.</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    Every name in here is checked by ``tests/test_notebook_files.py`` against</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    the real ``tit`` API, because the first version of this cell called</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    ``pm.project_root``, which does not exist — a starter cell that raises on</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    its first run is worse than no starter cell at all.</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="s2">&quot;# TI-Toolbox is already on this kernel&#39;s path — this cell proves it,</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="s2">&quot;# and it is the block every scripted workflow starts from.</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="s2">&quot;import simnibs</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="s2">&quot;from tit import catalog, get_path_manager</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>        <span class="s2">&quot;from tit.analyzer import Analyzer</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="s2">&quot;from tit.sim import SimulationConfig</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="s2">&quot;pm = get_path_manager()</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>        <span class="s2">&quot;subjects = catalog.subject_ids(pm)</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>        <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>        <span class="s2">&quot;print(&#39;project &#39;, pm.project_dir)</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>        <span class="s2">&quot;print(&#39;simnibs &#39;, simnibs.__version__)</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>        <span class="s2">&quot;print(&#39;subjects&#39;, subjects)</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="s2">&quot;for sid in subjects:</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="s2">&quot;    print(f&#39;  </span><span class="si">{sid}</span><span class="s2">: {pm.list_simulations(sid)}&#39;)</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_notebooks</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">NotebookEntry</span><span class="p">]:</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="w">    </span><span class="sd">"""Every notebook, newest first. Missing dir → empty.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    Two levels: the flat directory the user writes into, and ``examples/``.</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    Nothing recurses further, because :func:`normalise_name` cannot name</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    anything deeper and a listing that shows what cannot be opened is a lie.</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    """</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">notebooks_dir</span><span class="p">(</span><span class="n">project_root</span><span class="p">)</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">directory</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="n">paths</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">directory</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"*</span><span class="si">{</span><span class="n">NOTEBOOK_SUFFIX</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="n">paths</span> <span class="o">+=</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">directory</span> <span class="o">/</span> <span class="n">EXAMPLES_DIR</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="sa">f</span><span class="s2">"*</span><span class="si">{</span><span class="n">NOTEBOOK_SUFFIX</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="n">entries</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">NotebookEntry</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="n">name</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="n">path</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="n">path</span><span class="o">.</span><span class="n">parent</span> <span class="o">==</span> <span class="n">directory</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="p">)</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>            <span class="n">info</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">NotebookError</span><span class="p">):</span>  <span class="c1"># stale file or outward leaf/parent link</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">entries</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>            <span class="n">NotebookEntry</span><span class="p">(</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>                <span class="n">name</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>                <span class="n">size</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">st_size</span><span class="p">,</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>                <span class="n">modified</span><span class="o">=</span><span class="n">info</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>                <span class="n">example</span><span class="o">=</span><span class="n">name</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">EXAMPLES_DIR</span><span class="si">}</span><span class="s2">/"</span><span class="p">),</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>            <span class="p">)</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="p">)</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="n">entries</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">entry</span><span class="p">:</span> <span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">example</span><span class="p">,</span> <span class="o">-</span><span class="n">entry</span><span class="o">.</span><span class="n">modified</span><span class="p">))</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>    <span class="k">return</span> <span class="n">entries</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1668,28 +1596,42 @@ its first run is worse than no starter cell at all.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.server.notebooks.example_notebook" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">example_notebook</span>
+<h3 id="tit.server.notebooks.starter_source" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">starter_source</span>
 
 
-<a href="#tit.server.notebooks.example_notebook" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">example_notebook</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<a href="#tit.server.notebooks.starter_source" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">starter_source</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The worked example: <code>examples/getting-started.ipynb</code>.</p>
-<p>Four code cells, each proving something the previous one could not. It ends
-on a matplotlib figure and two DataFrames deliberately: a notebook whose
-only output is printed text has not shown that rich outputs work, and rich
-outputs are half of why a notebook beats a script.</p>
-<p>Every cell is asserted to run green in the container by
-<code>tests/e2e/real/notebooks.spec.ts</code>.</p>
+        <p>The first cell of a new notebook.</p>
+<p>The maintainer's ask was that "the TI-Toolbox environment is automatically
+loaded". It is — the kernel is SimNIBS Python with <code>tit</code> importable — but
+a blank first cell would leave the author to discover that. So a new
+notebook opens holding a cell that <em>demonstrates</em> it and runs green: the
+path manager, the project's subjects, the SimNIBS version, and the two
+module imports every scripted workflow starts from.</p>
+<p>Every name in here is checked by <code>tests/test_notebook_files.py</code> against
+the real <code>tit</code> API, because the first version of this cell called
+<code>pm.project_root</code>, which does not exist — a starter cell that raises on
+its first run is worse than no starter cell at all.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-228">228</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
 <span class="normal"><a href="#__codelineno-0-229">229</a></span>
 <span class="normal"><a href="#__codelineno-0-230">230</a></span>
 <span class="normal"><a href="#__codelineno-0-231">231</a></span>
@@ -1711,29 +1653,39 @@ outputs are half of why a notebook beats a script.</p>
 <span class="normal"><a href="#__codelineno-0-247">247</a></span>
 <span class="normal"><a href="#__codelineno-0-248">248</a></span>
 <span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="k">def</span><span class="w"> </span><span class="nf">example_notebook</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The worked example: `examples/getting-started.ipynb`.</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    Four code cells, each proving something the previous one could not. It ends</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    on a matplotlib figure and two DataFrames deliberately: a notebook whose</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    only output is printed text has not shown that rich outputs work, and rich</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    outputs are half of why a notebook beats a script.</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    Every cell is asserted to run green in the container by</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    ``tests/e2e/real/notebooks.spec.ts``.</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_notebook</span><span class="p">()</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_METADATA</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">&quot;cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_markdown_cell</span><span class="p">(</span><span class="n">EXAMPLE_INTRO</span><span class="p">),</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_code_cell</span><span class="p">(</span><span class="n">EXAMPLE_ENV</span><span class="p">),</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_code_cell</span><span class="p">(</span><span class="n">EXAMPLE_TABLE</span><span class="p">),</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_code_cell</span><span class="p">(</span><span class="n">EXAMPLE_CALC</span><span class="p">),</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_code_cell</span><span class="p">(</span><span class="n">EXAMPLE_PLOT</span><span class="p">),</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="p">]</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="k">def</span><span class="w"> </span><span class="nf">starter_source</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="w">    </span><span class="sd">"""The first cell of a new notebook.</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    The maintainer's ask was that "the TI-Toolbox environment is automatically</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    loaded". It is — the kernel is SimNIBS Python with ``tit`` importable — but</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    a blank first cell would leave the author to discover that. So a new</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    notebook opens holding a cell that *demonstrates* it and runs green: the</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    path manager, the project's subjects, the SimNIBS version, and the two</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    module imports every scripted workflow starts from.</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    Every name in here is checked by ``tests/test_notebook_files.py`` against</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    the real ``tit`` API, because the first version of this cell called</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    ``pm.project_root``, which does not exist — a starter cell that raises on</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    its first run is worse than no starter cell at all.</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    """</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="s2">"# TI-Toolbox is already on this kernel's path — this cell proves it,</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>        <span class="s2">"# and it is the block every scripted workflow starts from.</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="s2">"import simnibs</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="s2">"from tit import catalog, get_path_manager</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="s2">"from tit.analyzer import Analyzer</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="s2">"from tit.sim import SimulationConfig</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="s2">"pm = get_path_manager()</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="s2">"subjects = catalog.subject_ids(pm)</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="s2">"print('project ', pm.project_dir)</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="s2">"print('simnibs ', simnibs.__version__)</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="s2">"print('subjects', subjects)</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="s2">"for sid in subjects:</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="s2">"    print(f'  </span><span class="si">{sid}</span><span class="s2">: {pm.list_simulations(sid)}')</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1748,9 +1700,7 @@ outputs are half of why a notebook beats a script.</p>
 
 
 <a href="#tit.server.notebooks.new_notebook" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">new_notebook</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">new_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1777,18 +1727,18 @@ outputs are half of why a notebook beats a script.</p>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
 <span class="normal"><a href="#__codelineno-0-268">268</a></span>
 <span class="normal"><a href="#__codelineno-0-269">269</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="k">def</span><span class="w"> </span><span class="nf">new_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;An empty nbformat v4 notebook with the starter cell already in it.&quot;&quot;&quot;</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="w">    </span><span class="sd">"""An empty nbformat v4 notebook with the starter cell already in it."""</span>
 <a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
 <a id="__codelineno-0-256" name="__codelineno-0-256"></a>
 <a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_notebook</span><span class="p">()</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">&quot;metadata&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_METADATA</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">&quot;cells&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">"metadata"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_METADATA</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="n">notebook</span><span class="p">[</span><span class="s2">"cells"</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span>
 <a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_markdown_cell</span><span class="p">(</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="s2">&quot;# New TI-Toolbox notebook</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="s2">&quot;This kernel is the container&#39;s **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, &quot;</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>            <span class="s2">&quot;`nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.</span><span class="se">\n\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>            <span class="s2">&quot;Run the cell below with **⇧↵**. For a worked example — a real field summarised, &quot;</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>            <span class="s2">&quot;plotted and tabulated — open `examples/getting-started.ipynb`.&quot;</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="s2">"# New TI-Toolbox notebook</span><span class="se">\n\n</span><span class="s2">"</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="s2">"This kernel is the container's **SimNIBS Python**, so `tit`, `simnibs`, `numpy`, "</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>            <span class="s2">"`nibabel`, `pandas` and `matplotlib` are all importable with nothing to install.</span><span class="se">\n\n</span><span class="s2">"</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>            <span class="s2">"Run the cell below with **⇧↵**. For a worked example — a real field summarised, "</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>            <span class="s2">"plotted and tabulated — open `examples/example_workflow.ipynb`."</span>
 <a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="p">),</span>
 <a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">v4</span><span class="o">.</span><span class="n">new_code_cell</span><span class="p">(</span><span class="n">starter_source</span><span class="p">()),</span>
 <a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="p">]</span>
@@ -1807,9 +1757,7 @@ outputs are half of why a notebook beats a script.</p>
 
 
 <a href="#tit.server.notebooks.read_notebook" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_notebook</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">read_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1830,18 +1778,22 @@ outputs are half of why a notebook beats a script.</p>
 <span class="normal"><a href="#__codelineno-0-280">280</a></span>
 <span class="normal"><a href="#__codelineno-0-281">281</a></span>
 <span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Read one notebook as plain JSON-able nbformat v4.&quot;&quot;&quot;</span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="w">    </span><span class="sd">"""Read one notebook as plain JSON-able nbformat v4."""</span>
 <a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
 <a id="__codelineno-0-275" name="__codelineno-0-275"></a>
 <a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
 <a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">path</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span><span class="s2">&quot;not-found&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;No notebook named </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">.&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span><span class="s2">"not-found"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"No notebook named </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">."</span><span class="p">)</span>
 <a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="k">try</span><span class="p">:</span>
 <a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span> <span class="n">as_version</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 <a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span><span class="s2">&quot;bad-notebook&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a readable notebook: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="s2">"bad-notebook"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> is not a readable notebook: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="k">return</span> <span class="nb">dict</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1856,11 +1808,7 @@ outputs are half of why a notebook beats a script.</p>
 
 
 <a href="#tit.server.notebooks.write_notebook" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_notebook</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">write_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1874,9 +1822,7 @@ Better to reject the save than to write the file that breaks them.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/notebooks.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-288">288</a></span>
 <span class="normal"><a href="#__codelineno-0-289">289</a></span>
 <span class="normal"><a href="#__codelineno-0-290">290</a></span>
 <span class="normal"><a href="#__codelineno-0-291">291</a></span>
@@ -1899,32 +1845,38 @@ Better to reject the save than to write the file that breaks them.</p>
 <span class="normal"><a href="#__codelineno-0-308">308</a></span>
 <span class="normal"><a href="#__codelineno-0-309">309</a></span>
 <span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_notebook</span><span class="p">(</span><span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write one notebook, validating it first.</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    Validation is not ceremony: what arrives here came from a browser, and a</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    notebook that fails ``nbformat.validate`` is one every other tool in the</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    project — Jupyter, nbconvert, git&#39;s diff driver — will then refuse to open.</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    Better to reject the save than to write the file that breaks them.</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="c1"># `examples/` is a real directory the write may be the first to need.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="s2">&quot;invalid&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;That is not a valid notebook: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="c1"># Match nbformat.write&#39;s trailing newline without opening an untrusted temp path.</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="n">content</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">writes</span><span class="p">(</span><span class="n">notebook</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">content</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="n">content</span> <span class="o">+=</span> <span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="n">_atomic_text_write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="k">return</span> <span class="n">path</span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_notebook</span><span class="p">(</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>    <span class="n">project_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="w">    </span><span class="sd">"""Write one notebook, validating it first.</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    Validation is not ceremony: what arrives here came from a browser, and a</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    notebook that fails ``nbformat.validate`` is one every other tool in the</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    project — Jupyter, nbconvert, git's diff driver — will then refuse to open.</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    Better to reject the save than to write the file that breaks them.</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    """</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nbformat</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">notebook_path</span><span class="p">(</span><span class="n">project_root</span><span class="p">,</span> <span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="c1"># `examples/` is a real directory the write may be the first to need.</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="n">notebook</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">from_dict</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="n">nbformat</span><span class="o">.</span><span class="n">validate</span><span class="p">(</span><span class="n">notebook</span><span class="p">)</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="k">raise</span> <span class="n">NotebookError</span><span class="p">(</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>            <span class="s2">"invalid"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"That is not a valid notebook: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="c1"># Match nbformat.write's trailing newline without opening an untrusted temp path.</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">content</span> <span class="o">=</span> <span class="n">nbformat</span><span class="o">.</span><span class="n">writes</span><span class="p">(</span><span class="n">notebook</span><span class="p">,</span> <span class="n">version</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">content</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">):</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="n">content</span> <span class="o">+=</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">_atomic_text_write</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">content</span><span class="p">)</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="k">return</span> <span class="n">path</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

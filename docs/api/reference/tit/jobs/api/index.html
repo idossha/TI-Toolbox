@@ -16,6 +16,9 @@
         <link rel="prev" href="../">
       
       
+        <link rel="next" href="../bootstrap/">
+      
+      
         
       
       
@@ -901,17 +904,6 @@
   
 </li>
         
-          <li class="md-nav__item">
-  <a href="#tit.jobs.api.get_status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        get_status
-      
-    </span>
-  </a>
-  
-</li>
-        
       </ul>
     </nav>
   
@@ -965,7 +957,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -986,7 +978,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1043,9 +1035,9 @@
 
     <div class="doc doc-contents first">
 
-        <p>Stable interface between the job manager (owner: B1) and the rest of <code>tit.server</code>.</p>
-<p>Other modules (viewers, plan routes) call ONLY these functions; B1 replaces the bodies with the
-real implementation without changing the signatures. Shapes follow <code>contracts/openapi.yaml</code>
+        <p>The job manager's interface for the rest of <code>tit.server</code>.</p>
+<p>The plan and project routes submit jobs and ask for lock conflicts through these two functions
+rather than holding the manager themselves. Shapes follow <code>contracts/openapi.yaml</code>
 (<code>JobStatus</code>, <code>LockConflict</code>).</p>
 
 
@@ -1074,7 +1066,7 @@ real implementation without changing the signatures. Shapes follow <code>contrac
 
 
 <a href="#tit.jobs.api.submit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">submit</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">submit</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1102,21 +1094,21 @@ real implementation without changing the signatures. Shapes follow <code>contrac
 <span class="normal"><a href="#__codelineno-0-29">29</a></span>
 <span class="normal"><a href="#__codelineno-0-30">30</a></span>
 <span class="normal"><a href="#__codelineno-0-31">31</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-15" name="__codelineno-0-15"></a><span class="k">def</span><span class="w"> </span><span class="nf">submit</span><span class="p">(</span><span class="n">spec</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Submit one job. ``spec`` = ``{kind, config, subject_ids, after?, tags?, env?, created_by}``.</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="w">    </span><span class="sd">"""Submit one job. ``spec`` = ``{kind, config, subject_ids, after?, tags?, env?, created_by}``.</span>
 <a id="__codelineno-0-17" name="__codelineno-0-17"></a>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">    Returns the job&#39;s ``JobStatus`` dict (state ``queued`` or ``running``).</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">    Returns the job's ``JobStatus`` dict (state ``queued`` or ``running``).</span>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">    """</span>
 <a id="__codelineno-0-20" name="__codelineno-0-20"></a>    <span class="n">manager</span> <span class="o">=</span> <span class="n">get_manager</span><span class="p">()</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21"></a>    <span class="k">return</span> <span class="n">manager</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a>        <span class="n">spec</span><span class="p">[</span><span class="s2">&quot;kind&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a>        <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;config&quot;</span><span class="p">,</span> <span class="p">{}),</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a>        <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subject_ids&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>        <span class="n">after</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;after&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="n">tags</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;tags&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>        <span class="n">env</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;env&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a>        <span class="n">created_by</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;created_by&quot;</span><span class="p">,</span> <span class="s2">&quot;api&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>        <span class="n">group_id</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;group_id&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>        <span class="n">overwrite</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;overwrite&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a>        <span class="n">spec</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">],</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a>        <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"config"</span><span class="p">,</span> <span class="p">{}),</span>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a>        <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject_ids"</span><span class="p">,</span> <span class="p">[]),</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a>        <span class="n">after</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"after"</span><span class="p">),</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="n">tags</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"tags"</span><span class="p">),</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a>        <span class="n">env</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"env"</span><span class="p">),</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>        <span class="n">created_by</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"created_by"</span><span class="p">,</span> <span class="s2">"api"</span><span class="p">),</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>        <span class="n">group_id</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"group_id"</span><span class="p">),</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>        <span class="n">overwrite</span><span class="o">=</span><span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"overwrite"</span><span class="p">,</span> <span class="kc">False</span><span class="p">),</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1132,7 +1124,7 @@ real implementation without changing the signatures. Shapes follow <code>contrac
 
 
 <a href="#tit.jobs.api.lock_conflicts" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">lock_conflicts</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">lock_conflicts</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1145,37 +1137,8 @@ real implementation without changing the signatures. Shapes follow <code>contrac
               <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
 <span class="normal"><a href="#__codelineno-0-35">35</a></span>
 <span class="normal"><a href="#__codelineno-0-36">36</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="k">def</span><span class="w"> </span><span class="nf">lock_conflicts</span><span class="p">(</span><span class="n">keys</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Lock keys currently held by other jobs, as ``LockConflict`` dicts (may be empty).&quot;&quot;&quot;</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="w">    </span><span class="sd">"""Lock keys currently held by other jobs, as ``LockConflict`` dicts (may be empty)."""</span>
 <a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">return</span> <span class="n">get_manager</span><span class="p">()</span><span class="o">.</span><span class="n">lock_conflicts</span><span class="p">(</span><span class="n">keys</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.jobs.api.get_status" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">get_status</span>
-
-
-<a href="#tit.jobs.api.get_status" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p><code>JobStatus</code> for <code>job_id</code> or <code>None</code> when unknown.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/api.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_status</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``JobStatus`` for ``job_id`` or ``None`` when unknown.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="k">return</span> <span class="n">get_manager</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">job_id</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

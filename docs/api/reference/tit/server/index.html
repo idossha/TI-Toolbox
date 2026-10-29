@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/server/">
       
       
-        <link rel="prev" href="../scene/tvsc/">
+        <link rel="prev" href="../scene/volume_surfaces/">
       
       
         <link rel="next" href="access_log/">
@@ -929,7 +929,7 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -950,7 +950,7 @@
     
     
       <li class="md-path__item">
-        <a href="../" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -991,10 +991,10 @@
 
         <p>TI-Toolbox job server (<code>tit.server</code>).</p>
 <p>FastAPI application that runs inside the SimNIBS container and exposes the
-toolbox to the Electron/browser UI over HTTP + WebSocket.  Phase-0 walking
-skeleton: health, version, capabilities, project, catalog and a live system
-stream.  Scientific and path logic stays in <code>tit</code> (PathManager); this
-package is plumbing only.</p>
+toolbox to the Electron/browser UI over HTTP + WebSocket: the job engine,
+project and catalog reads, plan/validate preflight, scene and viewer routes,
+notebooks, settings and the live job/system streams.  Scientific and path
+logic stays in <code>tit</code> (PathManager); this package is plumbing only.</p>
 <p>Run with <code>simnibs_python -m tit.server --project /mnt/&lt;project&gt;</code>.</p>
 
 

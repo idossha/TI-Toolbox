@@ -949,6 +949,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tit.opt.leadfield_config.LeadfieldConfig.electrode_record" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        electrode_record
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1007,7 +1018,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1028,7 +1039,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1046,7 +1057,7 @@
     
     
       <li class="md-path__item">
-        <a href="../config/" class="md-path__link">
+        <a href="../candidate_catalog/" class="md-path__link">
           
   <span class="md-ellipsis">
     opt
@@ -1088,11 +1099,10 @@
         <p>Configuration dataclass for leadfield generation.</p>
 <p>Pure Python -- no SimNIBS dependency. Mirrors the constructor and
 <code>generate()</code> parameters of :class:<code>tit.opt.leadfield.LeadfieldGenerator</code>
-so :mod:<code>tit.config_io</code> can generate a JSON Schema for it and a future
+so :mod:<code>tit.config_io</code> can generate a JSON Schema for it and
 <code>POST /api/jobs</code> (kind <code>"leadfield"</code>) can validate a request body before
-submitting the job. This module does not change <code>LeadfieldGenerator</code> --
-see <code>LeadfieldConfig</code>'s Notes for the two things it models that the
-generator does not implement today.</p>
+submitting the job. See <code>LeadfieldConfig</code>'s Notes for the things it models
+that the generator does not implement today.</p>
 <h4 id="tit.opt.leadfield_config--see-also">See Also<a class="headerlink" href="#tit.opt.leadfield_config--see-also" title="Permanent link">&para;</a></h4>
 <p>tit.opt.leadfield.LeadfieldGenerator : Consumes these values as separate
     constructor / method arguments (not this dataclass).</p>
@@ -1127,13 +1137,7 @@ generator does not implement today.</p>
   </span>
 
 <a href="#tit.opt.leadfield_config.LeadfieldConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LeadfieldConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;GSN-HydroCel-185&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">tissues</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])(),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">interpolation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">LeadfieldConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'GSN-HydroCel-185'</span><span class="p">,</span> <span class="n">tissues</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">])(),</span> <span class="n">interpolation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'ellipse'</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1153,22 +1157,35 @@ interpolation : str or None
     interpolation.
 overwrite : bool
     Recompute even when a leadfield for this (<em>subject_id</em>, <em>eeg_net</em>)
-    already exists.</p>
+    already exists.
+electrode_shape : str
+    <code>"ellipse"</code> or <code>"rect"</code>: the electrode SimNIBS places at every
+    position of the cap.  Default <code>"ellipse"</code>.
+electrode_dimensions : list of float
+    <code>[width, height]</code> of that electrode in mm.  Default <code>[8.0, 8.0]</code>.
+gel_thickness : float
+    Saline-gel layer between skin and rubber, in mm.  Default <code>1.0</code>.
+rubber_thickness : float
+    Silicone-rubber layer on the gel, in mm.  Default <code>2.0</code>.</p>
+<p>The four electrode fields are :class:<code>~tit.sim.config.SimulationConfig</code>'s
+names and defaults: a leadfield is the field of one electrode model at
+every cap position, so a different size is a different leadfield.
+:meth:<code>~tit.opt.leadfield.LeadfieldGenerator.generate</code> records them in a
+<code>&lt;sid&gt;_leadfield_&lt;net&gt;.json</code> sidecar beside the HDF5.</p>
 <h5 id="tit.opt.leadfield_config.LeadfieldConfig--raises">Raises<a class="headerlink" href="#tit.opt.leadfield_config.LeadfieldConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>eeg_net</em> is empty, or <em>tissues</em> is empty or contains a value
-    other than 1 or 2.</p>
+    If <em>eeg_net</em> is empty, <em>tissues</em> is empty or contains a value other
+    than 1 or 2, the shape is not <code>"ellipse"</code>/<code>"rect"</code>, or a
+    dimension or thickness is not a positive number.</p>
 <h5 id="tit.opt.leadfield_config.LeadfieldConfig--notes">Notes<a class="headerlink" href="#tit.opt.leadfield_config.LeadfieldConfig--notes" title="Permanent link">&para;</a></h5>
 <p>Two fields this dataclass models that
 :meth:<code>~tit.opt.leadfield.LeadfieldGenerator.generate</code> does not
-implement today, reported rather than silently patched into
-<code>tit/opt/leadfield.py</code> (not owned by this track):</p>
+implement today:</p>
 <ul>
 <li><code>generate(tissues=...)</code> immediately overwrites its own parameter
   with a hardcoded <code>tissues = [1, 2]</code> before building the SimNIBS
   <code>TDCSLEADFIELD</code> -- the argument (and, by extension, this dataclass's
-  <em>tissues</em> field) has no effect today. This looks like a genuine bug
-  in <code>tit/opt/leadfield.py</code> rather than intentional behavior.</li>
+  <em>tissues</em> field) has no effect today.</li>
 <li><code>interpolation</code> is hardcoded to <code>None</code> in <code>generate()</code>; there is
   no parameter to set it.</li>
 <li>There is no <code>overwrite</code> parameter on <code>LeadfieldGenerator</code> at all;
@@ -1197,6 +1214,45 @@ implement today, reported rather than silently patched into
 
 
 
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="tit.opt.leadfield_config.LeadfieldConfig.electrode_record" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">electrode_record</span>
+
+
+<a href="#tit.opt.leadfield_config.LeadfieldConfig.electrode_record" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">electrode_record</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The electrode fields, as the leadfield's sidecar records them.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/opt/leadfield_config.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="k">def</span><span class="w"> </span><span class="nf">electrode_record</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="w">    </span><span class="sd">"""The electrode fields, as the leadfield's sidecar records them."""</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>        <span class="s2">"electrode_shape"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">electrode_shape</span><span class="p">,</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="s2">"electrode_dimensions"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">electrode_dimensions</span><span class="p">),</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>        <span class="s2">"gel_thickness"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">gel_thickness</span><span class="p">,</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>        <span class="s2">"rubber_thickness"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">rubber_thickness</span><span class="p">,</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

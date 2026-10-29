@@ -13,6 +13,9 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/plan/">
       
       
+        <link rel="prev" href="../overview/">
+      
+      
         <link rel="next" href="../project/">
       
       
@@ -901,6 +904,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tit.server.routes.plan.plan_jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plan_jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -954,7 +968,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -975,7 +989,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1087,22 +1101,27 @@ fails validation here fails with the same <code>ValueError</code>/<code>TypeErro
 <code>leadfield</code>
     Existing leadfield lookup via <code>LeadfieldGenerator.list_leadfields</code> (no SimNIBS import).
 <code>analyzer</code>
-    <code>config.output_dir</code> when set, else :meth:<code>PathManager.analysis_output_dir</code>.
+    <code>config.output_dir</code> when set, else :meth:<code>PathManager.analysis_output_dir</code> with the
+    same arguments the Analyzer passes (field and tissue included; an atlas analysis named
+    by its regions as requested). A <code>group</code> run plans each subject's own default folder
+    (output_dir never reaches them) plus one project-level job (<code>subject=""</code>) for the
+    group summary folder: <code>output_dir</code>, or the timestamped
+    <code>group_analysis/&lt;name&gt;_&lt;YYYYmmdd_HHMMSS&gt;</code> a run started now would name.
 <code>pre</code>
     :func:<code>tit.jobs.plans.plan_preprocessing</code>'s <code>G1</code>-<code>G6</code>/<code>report</code> DAG, flattened to one
     :class:<code>PlanJob</code> per <em>stage</em> per subject (not one per subject) -- exactly the granularity
     <code>POST /api/jobs/groups</code> submits. Each stage's <code>output_dir</code> is a best-effort mapping to
-    the directory that stage's flag writes to (see :func:<code>_pre_stage_output_dir</code>) -- several
-    stages share a directory with other content (e.g. <code>G2a</code> and <code>G6</code> both touch
-    <code>m2m_&lt;subject&gt;/</code>), so <code>exists</code>/<code>will_overwrite</code> there are coarser than for the
-    single-output kinds above. The request's <code>parallel_subjects</code> (mirrors
-    <code>JobGroupRequest.parallel_subjects</code>, not yet in the frozen <code>PlanRequest</code> schema -- see
-    :class:<code>PlanRequest</code>) is echoed back clamped to <code>resolved.parallel_subjects</code> and scales
-    the cost estimate, so a plan preview reflects the concurrency the matching group
-    submission would actually use.
+    the directory that stage's flag writes to (see :func:<code>_pre_stage_output_dir</code>); its
+    <code>exists</code> is :func:<code>tit.pre.preflight.existing_outputs_for_step</code> for that stage -- the
+    output the run's skip/replace policy acts on -- not the directory's existence (<code>G2a</code>
+    and <code>G6</code> both touch <code>m2m_&lt;subject&gt;/</code>). Under "skip", a stage whose output an
+    interrupted run left incomplete gets a warning naming the subject and the stage. The
+    stages run one at a time (one job per product), so the ETA is their sum and the cost is
+    one stage's.
 <code>source</code>
     <code>forward</code> mode: :meth:<code>PathManager.forward</code> per subject. <code>fsavg_map</code> mode:
-    :meth:<code>PathManager.sim_fsaverage</code> per <code>(subject, simulation)</code> pair.
+    :meth:<code>PathManager.sim_fsaverage</code> per <code>(subject, simulation)</code> pair; it exists when
+    that spacing's projection does, and is overwritten only with <code>fsavg_map.overwrite</code>.
 <code>stats</code>
     Project-level (<code>PlanJob.subject</code> is <code>""</code>): :meth:<code>PathManager.stats_output</code> with the
     literal <code>analysis_type</code> <code>tit.stats.permutation</code> itself uses (<code>"group_comparison"</code> /
@@ -1183,6 +1202,215 @@ fails validation here fails with the same <code>ValueError</code>/<code>TypeErro
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.routes.plan.plan_jobs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">plan_jobs</span>
+
+
+<a href="#tit.server.routes.plan.plan_jobs" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">plan_jobs</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n"><span title="tit.server.routes.plan.PlanRequest">PlanRequest</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><span title="tit.server.routes.plan.PlanJob">PlanJob</span></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The per-kind planners' answer for <em>body</em>: <code>(jobs, resolved, warnings)</code>.</p>
+<p><code>None</code> when the kind has no config schema to plan from. Raises :class:<code>HTTPException</code>
+(404 unknown kind, 422 a config that does not deserialize or an output outside the
+project) exactly as <code>POST /api/plan/{kind}</code> answers. This is the folder resolution alone;
+:func:<code>plan</code> adds the cost estimate and the lock conflicts. The Jobs API reuses it to name a
+job's output folder (:func:<code>tit.server.job_outputs.job_output_dir</code>), so the two cannot
+disagree.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/routes/plan.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-956"> 956</a></span>
+<span class="normal"><a href="#__codelineno-0-957"> 957</a></span>
+<span class="normal"><a href="#__codelineno-0-958"> 958</a></span>
+<span class="normal"><a href="#__codelineno-0-959"> 959</a></span>
+<span class="normal"><a href="#__codelineno-0-960"> 960</a></span>
+<span class="normal"><a href="#__codelineno-0-961"> 961</a></span>
+<span class="normal"><a href="#__codelineno-0-962"> 962</a></span>
+<span class="normal"><a href="#__codelineno-0-963"> 963</a></span>
+<span class="normal"><a href="#__codelineno-0-964"> 964</a></span>
+<span class="normal"><a href="#__codelineno-0-965"> 965</a></span>
+<span class="normal"><a href="#__codelineno-0-966"> 966</a></span>
+<span class="normal"><a href="#__codelineno-0-967"> 967</a></span>
+<span class="normal"><a href="#__codelineno-0-968"> 968</a></span>
+<span class="normal"><a href="#__codelineno-0-969"> 969</a></span>
+<span class="normal"><a href="#__codelineno-0-970"> 970</a></span>
+<span class="normal"><a href="#__codelineno-0-971"> 971</a></span>
+<span class="normal"><a href="#__codelineno-0-972"> 972</a></span>
+<span class="normal"><a href="#__codelineno-0-973"> 973</a></span>
+<span class="normal"><a href="#__codelineno-0-974"> 974</a></span>
+<span class="normal"><a href="#__codelineno-0-975"> 975</a></span>
+<span class="normal"><a href="#__codelineno-0-976"> 976</a></span>
+<span class="normal"><a href="#__codelineno-0-977"> 977</a></span>
+<span class="normal"><a href="#__codelineno-0-978"> 978</a></span>
+<span class="normal"><a href="#__codelineno-0-979"> 979</a></span>
+<span class="normal"><a href="#__codelineno-0-980"> 980</a></span>
+<span class="normal"><a href="#__codelineno-0-981"> 981</a></span>
+<span class="normal"><a href="#__codelineno-0-982"> 982</a></span>
+<span class="normal"><a href="#__codelineno-0-983"> 983</a></span>
+<span class="normal"><a href="#__codelineno-0-984"> 984</a></span>
+<span class="normal"><a href="#__codelineno-0-985"> 985</a></span>
+<span class="normal"><a href="#__codelineno-0-986"> 986</a></span>
+<span class="normal"><a href="#__codelineno-0-987"> 987</a></span>
+<span class="normal"><a href="#__codelineno-0-988"> 988</a></span>
+<span class="normal"><a href="#__codelineno-0-989"> 989</a></span>
+<span class="normal"><a href="#__codelineno-0-990"> 990</a></span>
+<span class="normal"><a href="#__codelineno-0-991"> 991</a></span>
+<span class="normal"><a href="#__codelineno-0-992"> 992</a></span>
+<span class="normal"><a href="#__codelineno-0-993"> 993</a></span>
+<span class="normal"><a href="#__codelineno-0-994"> 994</a></span>
+<span class="normal"><a href="#__codelineno-0-995"> 995</a></span>
+<span class="normal"><a href="#__codelineno-0-996"> 996</a></span>
+<span class="normal"><a href="#__codelineno-0-997"> 997</a></span>
+<span class="normal"><a href="#__codelineno-0-998"> 998</a></span>
+<span class="normal"><a href="#__codelineno-0-999"> 999</a></span>
+<span class="normal"><a href="#__codelineno-0-1000">1000</a></span>
+<span class="normal"><a href="#__codelineno-0-1001">1001</a></span>
+<span class="normal"><a href="#__codelineno-0-1002">1002</a></span>
+<span class="normal"><a href="#__codelineno-0-1003">1003</a></span>
+<span class="normal"><a href="#__codelineno-0-1004">1004</a></span>
+<span class="normal"><a href="#__codelineno-0-1005">1005</a></span>
+<span class="normal"><a href="#__codelineno-0-1006">1006</a></span>
+<span class="normal"><a href="#__codelineno-0-1007">1007</a></span>
+<span class="normal"><a href="#__codelineno-0-1008">1008</a></span>
+<span class="normal"><a href="#__codelineno-0-1009">1009</a></span>
+<span class="normal"><a href="#__codelineno-0-1010">1010</a></span>
+<span class="normal"><a href="#__codelineno-0-1011">1011</a></span>
+<span class="normal"><a href="#__codelineno-0-1012">1012</a></span>
+<span class="normal"><a href="#__codelineno-0-1013">1013</a></span>
+<span class="normal"><a href="#__codelineno-0-1014">1014</a></span>
+<span class="normal"><a href="#__codelineno-0-1015">1015</a></span>
+<span class="normal"><a href="#__codelineno-0-1016">1016</a></span>
+<span class="normal"><a href="#__codelineno-0-1017">1017</a></span>
+<span class="normal"><a href="#__codelineno-0-1018">1018</a></span>
+<span class="normal"><a href="#__codelineno-0-1019">1019</a></span>
+<span class="normal"><a href="#__codelineno-0-1020">1020</a></span>
+<span class="normal"><a href="#__codelineno-0-1021">1021</a></span>
+<span class="normal"><a href="#__codelineno-0-1022">1022</a></span>
+<span class="normal"><a href="#__codelineno-0-1023">1023</a></span>
+<span class="normal"><a href="#__codelineno-0-1024">1024</a></span>
+<span class="normal"><a href="#__codelineno-0-1025">1025</a></span>
+<span class="normal"><a href="#__codelineno-0-1026">1026</a></span>
+<span class="normal"><a href="#__codelineno-0-1027">1027</a></span>
+<span class="normal"><a href="#__codelineno-0-1028">1028</a></span>
+<span class="normal"><a href="#__codelineno-0-1029">1029</a></span>
+<span class="normal"><a href="#__codelineno-0-1030">1030</a></span>
+<span class="normal"><a href="#__codelineno-0-1031">1031</a></span>
+<span class="normal"><a href="#__codelineno-0-1032">1032</a></span>
+<span class="normal"><a href="#__codelineno-0-1033">1033</a></span>
+<span class="normal"><a href="#__codelineno-0-1034">1034</a></span>
+<span class="normal"><a href="#__codelineno-0-1035">1035</a></span>
+<span class="normal"><a href="#__codelineno-0-1036">1036</a></span>
+<span class="normal"><a href="#__codelineno-0-1037">1037</a></span>
+<span class="normal"><a href="#__codelineno-0-1038">1038</a></span>
+<span class="normal"><a href="#__codelineno-0-1039">1039</a></span>
+<span class="normal"><a href="#__codelineno-0-1040">1040</a></span>
+<span class="normal"><a href="#__codelineno-0-1041">1041</a></span>
+<span class="normal"><a href="#__codelineno-0-1042">1042</a></span>
+<span class="normal"><a href="#__codelineno-0-1043">1043</a></span>
+<span class="normal"><a href="#__codelineno-0-1044">1044</a></span>
+<span class="normal"><a href="#__codelineno-0-1045">1045</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-956" name="__codelineno-0-956"></a><span class="k">def</span><span class="w"> </span><span class="nf">plan_jobs</span><span class="p">(</span>
+<a id="__codelineno-0-957" name="__codelineno-0-957"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n">PlanRequest</span>
+<a id="__codelineno-0-958" name="__codelineno-0-958"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="n">PlanJob</span><span class="p">],</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-959" name="__codelineno-0-959"></a><span class="w">    </span><span class="sd">"""The per-kind planners' answer for *body*: ``(jobs, resolved, warnings)``.</span>
+<a id="__codelineno-0-960" name="__codelineno-0-960"></a>
+<a id="__codelineno-0-961" name="__codelineno-0-961"></a><span class="sd">    ``None`` when the kind has no config schema to plan from. Raises :class:`HTTPException`</span>
+<a id="__codelineno-0-962" name="__codelineno-0-962"></a><span class="sd">    (404 unknown kind, 422 a config that does not deserialize or an output outside the</span>
+<a id="__codelineno-0-963" name="__codelineno-0-963"></a><span class="sd">    project) exactly as ``POST /api/plan/{kind}`` answers. This is the folder resolution alone;</span>
+<a id="__codelineno-0-964" name="__codelineno-0-964"></a><span class="sd">    :func:`plan` adds the cost estimate and the lock conflicts. The Jobs API reuses it to name a</span>
+<a id="__codelineno-0-965" name="__codelineno-0-965"></a><span class="sd">    job's output folder (:func:`tit.server.job_outputs.job_output_dir`), so the two cannot</span>
+<a id="__codelineno-0-966" name="__codelineno-0-966"></a><span class="sd">    disagree.</span>
+<a id="__codelineno-0-967" name="__codelineno-0-967"></a><span class="sd">    """</span>
+<a id="__codelineno-0-968" name="__codelineno-0-968"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">deserialize_config</span>
+<a id="__codelineno-0-969" name="__codelineno-0-969"></a>
+<a id="__codelineno-0-970" name="__codelineno-0-970"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALL_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-971" name="__codelineno-0-971"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"unknown kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-972" name="__codelineno-0-972"></a>    <span class="k">if</span> <span class="n">body</span><span class="o">.</span><span class="n">created_by</span> <span class="o">==</span> <span class="s2">"agent"</span><span class="p">:</span>
+<a id="__codelineno-0-973" name="__codelineno-0-973"></a>        <span class="n">body</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">with_app_defaults</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">body</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-974" name="__codelineno-0-974"></a>
+<a id="__codelineno-0-975" name="__codelineno-0-975"></a>    <span class="n">warnings</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-976" name="__codelineno-0-976"></a>
+<a id="__codelineno-0-977" name="__codelineno-0-977"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-978" name="__codelineno-0-978"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="n">cls_for</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">body</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-979" name="__codelineno-0-979"></a>    <span class="k">except</span> <span class="n">KindNotConfigurable</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-980" name="__codelineno-0-980"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-981" name="__codelineno-0-981"></a>
+<a id="__codelineno-0-982" name="__codelineno-0-982"></a>    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-983" name="__codelineno-0-983"></a>        <span class="k">return</span> <span class="kc">None</span>
+<a id="__codelineno-0-984" name="__codelineno-0-984"></a>
+<a id="__codelineno-0-985" name="__codelineno-0-985"></a>    <span class="n">config_dict</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">config</span>
+<a id="__codelineno-0-986" name="__codelineno-0-986"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-987" name="__codelineno-0-987"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.pre.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">migrate_legacy_keys</span>
+<a id="__codelineno-0-988" name="__codelineno-0-988"></a>
+<a id="__codelineno-0-989" name="__codelineno-0-989"></a>        <span class="n">config_dict</span> <span class="o">=</span> <span class="n">migrate_legacy_keys</span><span class="p">(</span><span class="n">config_dict</span><span class="p">,</span> <span class="n">warnings</span><span class="o">=</span><span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-990" name="__codelineno-0-990"></a>
+<a id="__codelineno-0-991" name="__codelineno-0-991"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs.config_check</span><span class="w"> </span><span class="kn">import</span> <span class="n">runner_view</span>
+<a id="__codelineno-0-992" name="__codelineno-0-992"></a>
+<a id="__codelineno-0-993" name="__codelineno-0-993"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-994" name="__codelineno-0-994"></a>        <span class="n">config</span> <span class="o">=</span> <span class="n">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">runner_view</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config_dict</span><span class="p">))</span>
+<a id="__codelineno-0-995" name="__codelineno-0-995"></a>        <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="p">{</span><span class="s2">"ex"</span><span class="p">,</span> <span class="s2">"mex"</span><span class="p">,</span> <span class="s2">"flex"</span><span class="p">,</span> <span class="s2">"flex_adaptive"</span><span class="p">,</span> <span class="s2">"flex_pareto"</span><span class="p">}:</span>
+<a id="__codelineno-0-996" name="__codelineno-0-996"></a>            <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_paths</span>
+<a id="__codelineno-0-997" name="__codelineno-0-997"></a>
+<a id="__codelineno-0-998" name="__codelineno-0-998"></a>            <span class="n">validate_mask_paths</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-999" name="__codelineno-0-999"></a>        <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"analyzer"</span><span class="p">:</span>
+<a id="__codelineno-0-1000" name="__codelineno-0-1000"></a>            <span class="kn">from</span><span class="w"> </span><span class="nn">tit.analyzer.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_path</span>
+<a id="__codelineno-0-1001" name="__codelineno-0-1001"></a>
+<a id="__codelineno-0-1002" name="__codelineno-0-1002"></a>            <span class="n">validate_mask_path</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-1003" name="__codelineno-0-1003"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-1004" name="__codelineno-0-1004"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-1005" name="__codelineno-0-1005"></a>
+<a id="__codelineno-0-1006" name="__codelineno-0-1006"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-1007" name="__codelineno-0-1007"></a>    <span class="n">subject_ids</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">body</span><span class="o">.</span><span class="n">subject_ids</span> <span class="ow">or</span> <span class="p">[])</span>
+<a id="__codelineno-0-1008" name="__codelineno-0-1008"></a>
+<a id="__codelineno-0-1009" name="__codelineno-0-1009"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-1010" name="__codelineno-0-1010"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_pre</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1011" name="__codelineno-0-1011"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"sim"</span><span class="p">:</span>
+<a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_sim</span><span class="p">(</span>
+<a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>            <span class="n">kind</span><span class="p">,</span>
+<a id="__codelineno-0-1014" name="__codelineno-0-1014"></a>            <span class="n">pm</span><span class="p">,</span>
+<a id="__codelineno-0-1015" name="__codelineno-0-1015"></a>            <span class="n">config</span><span class="p">,</span>
+<a id="__codelineno-0-1016" name="__codelineno-0-1016"></a>            <span class="n">body</span><span class="o">.</span><span class="n">config</span><span class="p">,</span>
+<a id="__codelineno-0-1017" name="__codelineno-0-1017"></a>            <span class="n">subject_ids</span><span class="p">,</span>
+<a id="__codelineno-0-1018" name="__codelineno-0-1018"></a>            <span class="n">warnings</span><span class="p">,</span>
+<a id="__codelineno-0-1019" name="__codelineno-0-1019"></a>            <span class="n">montage_sources_field</span><span class="o">=</span><span class="n">body</span><span class="o">.</span><span class="n">montage_sources</span><span class="p">,</span>
+<a id="__codelineno-0-1020" name="__codelineno-0-1020"></a>        <span class="p">)</span>
+<a id="__codelineno-0-1021" name="__codelineno-0-1021"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"flex"</span><span class="p">,</span> <span class="s2">"flex_adaptive"</span><span class="p">,</span> <span class="s2">"flex_pareto"</span><span class="p">):</span>
+<a id="__codelineno-0-1022" name="__codelineno-0-1022"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_flex</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1023" name="__codelineno-0-1023"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"ex"</span><span class="p">:</span>
+<a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_ex</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1025" name="__codelineno-0-1025"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"mex"</span><span class="p">:</span>
+<a id="__codelineno-0-1026" name="__codelineno-0-1026"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_mex</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1027" name="__codelineno-0-1027"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"leadfield"</span><span class="p">:</span>
+<a id="__codelineno-0-1028" name="__codelineno-0-1028"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_leadfield</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1029" name="__codelineno-0-1029"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"analyzer"</span><span class="p">:</span>
+<a id="__codelineno-0-1030" name="__codelineno-0-1030"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_analyzer</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1031" name="__codelineno-0-1031"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"source"</span><span class="p">:</span>
+<a id="__codelineno-0-1032" name="__codelineno-0-1032"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_source</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1033" name="__codelineno-0-1033"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"stats"</span><span class="p">:</span>
+<a id="__codelineno-0-1034" name="__codelineno-0-1034"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_stats</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-1035" name="__codelineno-0-1035"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"blender"</span><span class="p">:</span>
+<a id="__codelineno-0-1036" name="__codelineno-0-1036"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_blender</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">warnings</span><span class="p">)</span>
+<a id="__codelineno-0-1037" name="__codelineno-0-1037"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"nifti_average"</span><span class="p">:</span>
+<a id="__codelineno-0-1038" name="__codelineno-0-1038"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_nifti_average</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-1039" name="__codelineno-0-1039"></a>    <span class="k">elif</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"nilearn"</span><span class="p">:</span>
+<a id="__codelineno-0-1040" name="__codelineno-0-1040"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="n">_plan_nilearn</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-1041" name="__codelineno-0-1041"></a>    <span class="k">else</span><span class="p">:</span>  <span class="c1"># pragma: no cover - ALL_KINDS/NO_SCHEMA_KINDS covers everything else</span>
+<a id="__codelineno-0-1042" name="__codelineno-0-1042"></a>        <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span> <span class="o">=</span> <span class="p">[],</span> <span class="kc">None</span>
+<a id="__codelineno-0-1043" name="__codelineno-0-1043"></a>
+<a id="__codelineno-0-1044" name="__codelineno-0-1044"></a>    <span class="n">_require_outputs_inside_project</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">jobs</span><span class="p">)</span>
+<a id="__codelineno-0-1045" name="__codelineno-0-1045"></a>    <span class="k">return</span> <span class="n">jobs</span><span class="p">,</span> <span class="n">resolved</span><span class="p">,</span> <span class="n">warnings</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

@@ -1096,7 +1096,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1117,7 +1117,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1186,8 +1186,8 @@ load_group_data_ti_toolbox
 load_grouped_subjects_ti_toolbox
     Load multiple subjects organized by named groups.</p>
 <h4 id="tit.stats.nifti--see-also">See Also<a class="headerlink" href="#tit.stats.nifti--see-also" title="Permanent link">&para;</a></h4>
-<p>tit.stats.comparison : Voxelwise group comparison pipeline.
-tit.stats.correlation : Voxelwise correlation pipeline.</p>
+<p>tit.stats.permutation.run_group_comparison : Voxelwise group comparison pipeline.
+tit.stats.permutation.run_correlation : Voxelwise correlation pipeline.</p>
 
 
 
@@ -1215,12 +1215,7 @@ tit.stats.correlation : Voxelwise correlation pipeline.</p>
 
 
 <a href="#tit.stats.nifti.load_subject_nifti_ti_toolbox" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">,</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'grey_</span><span class="si">{simulation_name}</span><span class="s1">_TI_MNI_MNI_TI_max.nii.gz'</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">,</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1233,7 +1228,9 @@ simulation_name : str
     Simulation folder name (e.g. <code>'ICP_RHIPPO'</code>).
 nifti_file_pattern : str, optional
     Filename pattern with <code>{subject_id}</code> / <code>{simulation_name}</code>
-    placeholders.
+    placeholders, in the 2-pair spelling; an mTI simulation's file is read
+    from <code>mTI/niftis/</code> (see
+    :func:<code>tit.analyzer.field_selector.simulation_nifti_path</code>).
 dtype : numpy dtype, optional
     Data type for the returned array.  Default is <code>np.float32</code>.</p>
 <h5 id="tit.stats.nifti.load_subject_nifti_ti_toolbox--returns">Returns<a class="headerlink" href="#tit.stats.nifti.load_subject_nifti_ti_toolbox--returns" title="Permanent link">&para;</a></h5>
@@ -1316,89 +1313,73 @@ filepath : str
 <span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
 <span class="normal"><a href="#__codelineno-0-100">100</a></span>
 <span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
 <a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
 <a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load a single subject&#39;s NIfTI file from TI-Toolbox BIDS structure.</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="w">    </span><span class="sd">"""Load a single subject's NIfTI file from TI-Toolbox BIDS structure.</span>
 <a id="__codelineno-0-43" name="__codelineno-0-43"></a>
 <a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    ----------</span>
 <a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        Subject identifier (e.g. ``&#39;070&#39;``).</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        Subject identifier (e.g. ``'070'``).</span>
 <a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    simulation_name : str</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        Simulation folder name (e.g. ``&#39;ICP_RHIPPO&#39;``).</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        Simulation folder name (e.g. ``'ICP_RHIPPO'``).</span>
 <a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    nifti_file_pattern : str, optional</span>
 <a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">        Filename pattern with ``{subject_id}`` / ``{simulation_name}``</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        placeholders.</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    dtype : numpy dtype, optional</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        Data type for the returned array.  Default is ``np.float32``.</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    data : numpy.ndarray</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        3-D array of voxel values.</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    img : nibabel.Nifti1Image</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        The loaded NIfTI image (useful for affine / header).</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    filepath : str</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        Absolute path of the loaded file.</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    FileNotFoundError</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">        If the resolved NIfTI path does not exist.</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">nifti_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">),</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="s2">&quot;TI&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="s2">&quot;niftis&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="p">)</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="c1"># Format the filename pattern</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="n">filename</span> <span class="o">=</span> <span class="n">nifti_file_pattern</span><span class="o">.</span><span class="n">format</span><span class="p">(</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>        <span class="n">subject_id</span><span class="o">=</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="o">=</span><span class="n">simulation_name</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="p">)</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">filepath</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="c1"># Load the file (inline basic loading)</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="c1"># Provide extra context to make debugging path/layout issues easier</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">):</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">))</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>            <span class="n">preview</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[:</span><span class="mi">20</span><span class="p">]</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">):</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>                <span class="n">suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot; (showing first </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="si">}</span><span class="s2">)&quot;</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>                <span class="sa">f</span><span class="s2">&quot;NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">. &quot;</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>                <span class="sa">f</span><span class="s2">&quot;Directory exists: </span><span class="si">{</span><span class="n">nifti_dir</span><span class="si">}</span><span class="s2">. &quot;</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>                <span class="sa">f</span><span class="s2">&quot;Files in directory: </span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>            <span class="p">)</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="c1"># Ensure 3D data (squeeze out extra dimensions if present)</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">while</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        placeholders, in the 2-pair spelling; an mTI simulation's file is read</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        from ``mTI/niftis/`` (see</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        :func:`tit.analyzer.field_selector.simulation_nifti_path`).</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    dtype : numpy dtype, optional</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        Data type for the returned array.  Default is ``np.float32``.</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    data : numpy.ndarray</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        3-D array of voxel values.</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    img : nibabel.Nifti1Image</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        The loaded NIfTI image (useful for affine / header).</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    filepath : str</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        Absolute path of the loaded file.</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    FileNotFoundError</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">        If the resolved NIfTI path does not exist.</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    """</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="c1"># TI/niftis/ for a 2-pair run, mTI/niftis/ (mTI file names) for an mTI run.</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">simulation_nifti_path</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">)</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="n">nifti_dir</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="c1"># Load the file (inline basic loading)</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="c1"># Provide extra context to make debugging path/layout issues easier</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">):</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">))</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>            <span class="n">preview</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[:</span><span class="mi">20</span><span class="p">]</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">""</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">):</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>                <span class="n">suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" (showing first </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>                <span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">. "</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>                <span class="sa">f</span><span class="s2">"Directory exists: </span><span class="si">{</span><span class="n">nifti_dir</span><span class="si">}</span><span class="s2">. "</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>                <span class="sa">f</span><span class="s2">"Files in directory: </span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>            <span class="p">)</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>    <span class="n">img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="c1"># Ensure 3D data (squeeze out extra dimensions if present)</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="k">while</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1413,11 +1394,7 @@ filepath : str
 
 
 <a href="#tit.stats.nifti.load_group_data_ti_toolbox" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">,</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">],</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'grey_</span><span class="si">{simulation_name}</span><span class="s1">_TI_MNI_MNI_TI_max.nii.gz'</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">,</span> <span class="n">reference</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">,</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1430,7 +1407,11 @@ filepath : str
 nifti_file_pattern : str, optional
     Filename pattern forwarded to :func:<code>load_subject_nifti_ti_toolbox</code>.
 dtype : numpy dtype, optional
-    Data type for the returned arrays.  Default is <code>np.float32</code>.</p>
+    Data type for the returned arrays.  Default is <code>np.float32</code>.
+reference : tuple or None, optional
+    <code>(shape, affine, where)</code> of a grid every subject must be on -- another
+    group's, when two groups are compared voxel by voxel; <em>where</em> names it in
+    the error. <code>None</code> (default) makes the first subject the reference.</p>
 <h5 id="tit.stats.nifti.load_group_data_ti_toolbox--returns">Returns<a class="headerlink" href="#tit.stats.nifti.load_group_data_ti_toolbox--returns" title="Permanent link">&para;</a></h5>
 <p>data_4d : numpy.ndarray
     Shape <code>(X, Y, Z, n_subjects)</code>.
@@ -1446,7 +1427,15 @@ subject_ids : list of str
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/nifti.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-187">187</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
 <span class="normal"><a href="#__codelineno-0-190">190</a></span>
@@ -1525,54 +1514,62 @@ subject_ids : list of str
 <span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and stack multiple subjects into a 4-D array.</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    subject_configs : list of dict</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        Each dict must contain ``&#39;subject_id&#39;`` and ``&#39;simulation_name&#39;``</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        keys (e.g. ``{&#39;subject_id&#39;: &#39;070&#39;, &#39;simulation_name&#39;: &#39;ICP_RHIPPO&#39;}``).</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">    nifti_file_pattern : str, optional</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    dtype : numpy dtype, optional</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">        Data type for the returned arrays.  Default is ``np.float32``.</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    data_4d : numpy.ndarray</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">        Shape ``(X, Y, Z, n_subjects)``.</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    template_img : nibabel.Nifti1Image</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">        Image from the first subject (affine / header reference).</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    subject_ids : list of str</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">        Subject identifiers in the same order as the last axis of</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">        *data_4d*.</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">        If no subjects could be loaded.</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No subjects could be loaded successfully&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">data_4d</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>    <span class="n">template_affine</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="n">template_header</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>    <span class="n">reference_path</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">):</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="n">subject_id</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;subject_id&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="n">simulation_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;simulation_name&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>        <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="n">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>            <span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">reference</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="w">    </span><span class="sd">"""Load and stack multiple subjects into a 4-D array.</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    subject_configs : list of dict</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">        Each dict must contain ``'subject_id'`` and ``'simulation_name'``</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">        keys (e.g. ``{'subject_id': '070', 'simulation_name': 'ICP_RHIPPO'}``).</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    nifti_file_pattern : str, optional</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    dtype : numpy dtype, optional</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        Data type for the returned arrays.  Default is ``np.float32``.</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    reference : tuple or None, optional</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        ``(shape, affine, where)`` of a grid every subject must be on -- another</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        group's, when two groups are compared voxel by voxel; *where* names it in</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        the error. ``None`` (default) makes the first subject the reference.</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    data_4d : numpy.ndarray</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        Shape ``(X, Y, Z, n_subjects)``.</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    template_img : nibabel.Nifti1Image</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">        Image from the first subject (affine / header reference).</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    subject_ids : list of str</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">        Subject identifiers in the same order as the last axis of</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">        *data_4d*.</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">        If no subjects could be loaded.</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    """</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No subjects could be loaded successfully"</span><span class="p">)</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="n">data_4d</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="n">template_affine</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">template_header</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="n">reference_path</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">):</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">subject_id</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="n">simulation_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="n">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>            <span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="p">)</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>            <span class="n">_check_same_grid</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="o">*</span><span class="n">reference</span><span class="p">)</span>
 <a id="__codelineno-0-235" name="__codelineno-0-235"></a>
 <a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">if</span> <span class="n">data_4d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="n">template_affine</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -1619,13 +1616,7 @@ subject_ids : list of str
 
 
 <a href="#tit.stats.nifti.load_grouped_subjects_ti_toolbox" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_grouped_subjects_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">],</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]]</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_grouped_subjects_ti_toolbox</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">],</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'grey_</span><span class="si">{simulation_name}</span><span class="s1">_TI_MNI_MNI_TI_max.nii.gz'</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float32" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float32">float32</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.ndarray" href="https://numpy.org/doc/stable/reference/generated/numpy.ndarray.html#numpy.ndarray">ndarray</a></span><span class="p">],</span> <span class="n"><span title="nibabel.Nifti1Image">Nifti1Image</span></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1708,22 +1699,33 @@ groups_ids : dict of str to list of str
 <span class="normal"><a href="#__codelineno-0-321">321</a></span>
 <span class="normal"><a href="#__codelineno-0-322">322</a></span>
 <span class="normal"><a href="#__codelineno-0-323">323</a></span>
-<span class="normal"><a href="#__codelineno-0-324">324</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_grouped_subjects_ti_toolbox</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_grouped_subjects_ti_toolbox</span><span class="p">(</span>
 <a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
 <a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
 <a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]]:</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load subjects organized by named groups.</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="w">    </span><span class="sd">"""Load subjects organized by named groups.</span>
 <a id="__codelineno-0-275" name="__codelineno-0-275"></a>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    Each config dict must include a ``&#39;group&#39;`` key in addition to the</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="sd">    Each config dict must include a ``'group'`` key in addition to the</span>
 <a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="sd">    fields required by :func:`load_group_data_ti_toolbox`.  Configs</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">    without a ``&#39;group&#39;`` key are assigned to the ``&#39;default&#39;`` group.</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="sd">    without a ``'group'`` key are assigned to the ``'default'`` group.</span>
 <a id="__codelineno-0-279" name="__codelineno-0-279"></a>
 <a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">    Parameters</span>
 <a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    ----------</span>
 <a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    subject_configs : list of dict</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        Each dict must contain ``&#39;subject_id&#39;``, ``&#39;simulation_name&#39;``,</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">        and ``&#39;group&#39;`` (e.g. ``&#39;Responders&#39;``).</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">        Each dict must contain ``'subject_id'``, ``'simulation_name'``,</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">        and ``'group'`` (e.g. ``'Responders'``).</span>
 <a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    nifti_file_pattern : str, optional</span>
 <a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.</span>
 <a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    dtype : numpy dtype, optional</span>
@@ -1737,33 +1739,44 @@ groups_ids : dict of str to list of str
 <a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">        Image from the first loaded subject.</span>
 <a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    groups_ids : dict of str to list of str</span>
 <a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">        Mapping from group name to ordered list of subject identifiers.</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    """</span>
 <a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="c1"># Organize configs by group</span>
 <a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">groups</span> <span class="o">=</span> <span class="p">{}</span>
 <a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="k">for</span> <span class="n">config</span> <span class="ow">in</span> <span class="n">subject_configs</span><span class="p">:</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">group_name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="s2">&quot;default&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">group_name</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"group"</span><span class="p">,</span> <span class="s2">"default"</span><span class="p">)</span>
 <a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="k">if</span> <span class="n">group_name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">groups</span><span class="p">:</span>
 <a id="__codelineno-0-304" name="__codelineno-0-304"></a>            <span class="n">groups</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
 <a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="n">groups</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 <a id="__codelineno-0-306" name="__codelineno-0-306"></a>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="c1"># Load each group</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="n">groups_data</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>    <span class="n">groups_ids</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="n">template_img</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">for</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">group_configs</span> <span class="ow">in</span> <span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="n">data_4d</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">subject_ids</span> <span class="o">=</span> <span class="n">load_group_data_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>            <span class="n">group_configs</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>        <span class="p">)</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>        <span class="n">groups_data</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_4d</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="n">groups_ids</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">subject_ids</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="c1"># Use first group&#39;s image as template</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="k">if</span> <span class="n">template_img</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="n">template_img</span> <span class="o">=</span> <span class="n">img</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="k">return</span> <span class="n">groups_data</span><span class="p">,</span> <span class="n">template_img</span><span class="p">,</span> <span class="n">groups_ids</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="c1"># Load each group. Every group after the first is held to the first group's</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="c1"># grid: averages and differences are taken voxel by voxel and saved with the</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>    <span class="c1"># first group's affine, so a group on another grid (even with an equal shape)</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="c1"># would give a map of voxels that are not the same points.</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">groups_data</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="n">groups_ids</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">template_img</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">reference</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="k">for</span> <span class="n">group_name</span><span class="p">,</span> <span class="n">group_configs</span> <span class="ow">in</span> <span class="n">groups</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>            <span class="n">data_4d</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">subject_ids</span> <span class="o">=</span> <span class="n">load_group_data_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>                <span class="n">group_configs</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>            <span class="p">)</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>            <span class="n">template_img</span> <span class="o">=</span> <span class="n">img</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="n">reference</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>                <span class="n">data_4d</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>                <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>                <span class="sa">f</span><span class="s2">"group </span><span class="si">{</span><span class="n">group_name</span><span class="si">!r}</span><span class="s2"> (subject </span><span class="si">{</span><span class="n">subject_ids</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="p">)</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="n">data_4d</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">subject_ids</span> <span class="o">=</span> <span class="n">load_group_data_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>                <span class="n">group_configs</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">,</span> <span class="n">reference</span><span class="o">=</span><span class="n">reference</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>            <span class="p">)</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="n">groups_data</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">data_4d</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>        <span class="n">groups_ids</span><span class="p">[</span><span class="n">group_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">subject_ids</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="k">return</span> <span class="n">groups_data</span><span class="p">,</span> <span class="n">template_img</span><span class="p">,</span> <span class="n">groups_ids</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

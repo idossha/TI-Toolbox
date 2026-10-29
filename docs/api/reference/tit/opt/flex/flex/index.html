@@ -939,6 +939,39 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.opt.flex.flex.run_flex_search--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.flex.flex.run_flex_search--notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Notes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.flex.flex.run_flex_search--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.opt.flex.flex.run_flex_search--see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -951,6 +984,28 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.flex.flex.clear_previous_run" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        clear_previous_run
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.flex.flex.confirm_roi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        confirm_roi
+      
+    </span>
+  </a>
   
 </li>
         
@@ -1007,7 +1062,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1028,7 +1083,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1046,7 +1101,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../config/" class="md-path__link">
+        <a href="../../candidate_catalog/" class="md-path__link">
           
   <span class="md-ellipsis">
     opt
@@ -1140,7 +1195,7 @@ tit.opt.flex.builder : SimNIBS object construction used internally.</p>
 
 
 <a href="#tit.opt.flex.flex.run_flex_search" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.opt.config.FlexConfig" href="../../../../../pipeline/optimization/#tit.opt.config.FlexConfig">FlexConfig</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.opt.config.FlexResult" href="../../../../../pipeline/optimization/#tit.opt.config.FlexResult">FlexResult</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.opt.config.FlexConfig" href="../../../../../pipeline/optimization/#tit.opt.config.FlexConfig">FlexConfig</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.opt.config.FlexResult" href="../../../../../pipeline/optimization/#tit.opt.config.FlexResult">FlexResult</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1152,14 +1207,51 @@ field strength, peak intensity, or focality in a target ROI.</p>
 <p>Multiple independent restarts (controlled by
 <code>config.n_multistart</code>) are executed sequentially; the best run's
 output is promoted to the base output folder.</p>
+<p>An existing <code>output_folder</code> is re-used in place: the outputs a
+previous run wrote there (:data:<code>RUN_OUTPUTS</code>) are removed first, so
+the folder describes exactly this run; other files are left alone.</p>
 <h5 id="tit.opt.flex.flex.run_flex_search--parameters">Parameters<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--parameters" title="Permanent link">&para;</a></h5>
 <p>config : FlexConfig
     Fully specified optimization configuration including subject,
-    ROI definition, electrode geometry, and DE hyperparameters.</p>
+    ROI definition, electrode geometry, and DE hyperparameters.
+report : bool, optional
+    Write the flex-search report (default). The adaptive and Pareto
+    drivers pass <code>False</code> for their intermediate steps and write one
+    report for the job's own folder.</p>
 <h5 id="tit.opt.flex.flex.run_flex_search--returns">Returns<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--returns" title="Permanent link">&para;</a></h5>
 <p>FlexResult
-    Optimization outcomes including best montage, objective value,
-    and convergence diagnostics.</p>
+    <code>success</code>, <code>output_folder</code> (the run directory under the
+    subject's <code>flex-search/</code>), per-restart <code>function_values</code>,
+    <code>best_value</code> and <code>best_run_index</code>.</p>
+<h5 id="tit.opt.flex.flex.run_flex_search--raises">Raises<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If the subject's m2m directory or head mesh is missing, a
+    referenced ROI/atlas/EEG-net file is missing, <code>cpus</code> or
+    <code>n_multistart</code> is below 1, <code>min_electrode_distance</code> is not
+    positive, <code>enable_mapping</code> is set without <code>eeg_net</code>, or an
+    <code>"ellipse"</code> electrode has unequal dimensions (flex-search
+    supports circular electrodes only).</p>
+<h5 id="tit.opt.flex.flex.run_flex_search--notes">Notes<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--notes" title="Permanent link">&para;</a></h5>
+<p>When every restart fails the function does not raise: it returns a
+:class:<code>FlexResult</code> with <code>success=False</code>, <code>best_value=inf</code> and
+<code>best_run_index=-1</code>.  Always check <code>result.success</code>.</p>
+<h5 id="tit.opt.flex.flex.run_flex_search--examples">Examples<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit.opt import FlexConfig, run_flex_search
+cfg = FlexConfig(
+...     subject_id="ernie", goal="mean", postproc="max_TI", current_mA=1.0,
+...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
+...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),
+...     n_multistart=3, output_folder="insula_mean",
+... )
+res = run_flex_search(cfg)  # doctest: +SKIP
+res.success, res.best_run_index, len(res.function_values)  # doctest: +SKIP
+(True, 1, 3)</p>
+</blockquote>
+</blockquote>
+</blockquote>
 <h5 id="tit.opt.flex.flex.run_flex_search--see-also">See Also<a class="headerlink" href="#tit.opt.flex.flex.run_flex_search--see-also" title="Permanent link">&para;</a></h5>
 <p>FlexConfig : Configuration dataclass for flex-search.
 FlexResult : Result container with per-restart function values.
@@ -1168,81 +1260,304 @@ tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/flex/flex.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span>
-<span class="normal"><a href="#__codelineno-0-45">45</a></span>
-<span class="normal"><a href="#__codelineno-0-46">46</a></span>
-<span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span>
-<span class="normal"><a href="#__codelineno-0-50">50</a></span>
-<span class="normal"><a href="#__codelineno-0-51">51</a></span>
-<span class="normal"><a href="#__codelineno-0-52">52</a></span>
-<span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span>
-<span class="normal"><a href="#__codelineno-0-56">56</a></span>
-<span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">FlexConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlexResult</span><span class="p">:</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run differential-evolution electrode placement optimization.</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    Uses ``scipy.optimize.differential_evolution`` (via SimNIBS</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    ``TesFlexOptimization``) to find electrode positions that maximize</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    field strength, peak intensity, or focality in a target ROI.</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    Multiple independent restarts (controlled by</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">    ``config.n_multistart``) are executed sequentially; the best run&#39;s</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">    output is promoted to the base output folder.</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    config : FlexConfig</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">        Fully specified optimization configuration including subject,</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        ROI definition, electrode geometry, and DE hyperparameters.</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-36"> 36</a></span>
+<span class="normal"><a href="#__codelineno-0-37"> 37</a></span>
+<span class="normal"><a href="#__codelineno-0-38"> 38</a></span>
+<span class="normal"><a href="#__codelineno-0-39"> 39</a></span>
+<span class="normal"><a href="#__codelineno-0-40"> 40</a></span>
+<span class="normal"><a href="#__codelineno-0-41"> 41</a></span>
+<span class="normal"><a href="#__codelineno-0-42"> 42</a></span>
+<span class="normal"><a href="#__codelineno-0-43"> 43</a></span>
+<span class="normal"><a href="#__codelineno-0-44"> 44</a></span>
+<span class="normal"><a href="#__codelineno-0-45"> 45</a></span>
+<span class="normal"><a href="#__codelineno-0-46"> 46</a></span>
+<span class="normal"><a href="#__codelineno-0-47"> 47</a></span>
+<span class="normal"><a href="#__codelineno-0-48"> 48</a></span>
+<span class="normal"><a href="#__codelineno-0-49"> 49</a></span>
+<span class="normal"><a href="#__codelineno-0-50"> 50</a></span>
+<span class="normal"><a href="#__codelineno-0-51"> 51</a></span>
+<span class="normal"><a href="#__codelineno-0-52"> 52</a></span>
+<span class="normal"><a href="#__codelineno-0-53"> 53</a></span>
+<span class="normal"><a href="#__codelineno-0-54"> 54</a></span>
+<span class="normal"><a href="#__codelineno-0-55"> 55</a></span>
+<span class="normal"><a href="#__codelineno-0-56"> 56</a></span>
+<span class="normal"><a href="#__codelineno-0-57"> 57</a></span>
+<span class="normal"><a href="#__codelineno-0-58"> 58</a></span>
+<span class="normal"><a href="#__codelineno-0-59"> 59</a></span>
+<span class="normal"><a href="#__codelineno-0-60"> 60</a></span>
+<span class="normal"><a href="#__codelineno-0-61"> 61</a></span>
+<span class="normal"><a href="#__codelineno-0-62"> 62</a></span>
+<span class="normal"><a href="#__codelineno-0-63"> 63</a></span>
+<span class="normal"><a href="#__codelineno-0-64"> 64</a></span>
+<span class="normal"><a href="#__codelineno-0-65"> 65</a></span>
+<span class="normal"><a href="#__codelineno-0-66"> 66</a></span>
+<span class="normal"><a href="#__codelineno-0-67"> 67</a></span>
+<span class="normal"><a href="#__codelineno-0-68"> 68</a></span>
+<span class="normal"><a href="#__codelineno-0-69"> 69</a></span>
+<span class="normal"><a href="#__codelineno-0-70"> 70</a></span>
+<span class="normal"><a href="#__codelineno-0-71"> 71</a></span>
+<span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
+<span class="normal"><a href="#__codelineno-0-73"> 73</a></span>
+<span class="normal"><a href="#__codelineno-0-74"> 74</a></span>
+<span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
+<span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
+<span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
+<span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
+<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
+<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
+<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
+<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
+<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
+<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
+<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
+<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
+<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
+<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
+<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">FlexConfig</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlexResult</span><span class="p">:</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="w">    </span><span class="sd">"""Run differential-evolution electrode placement optimization.</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    Uses ``scipy.optimize.differential_evolution`` (via SimNIBS</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    ``TesFlexOptimization``) to find electrode positions that maximize</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    field strength, peak intensity, or focality in a target ROI.</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">    Multiple independent restarts (controlled by</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    ``config.n_multistart``) are executed sequentially; the best run's</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    output is promoted to the base output folder.</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    An existing ``output_folder`` is re-used in place: the outputs a</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    previous run wrote there (:data:`RUN_OUTPUTS`) are removed first, so</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    the folder describes exactly this run; other files are left alone.</span>
 <a id="__codelineno-0-50" name="__codelineno-0-50"></a>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    FlexResult</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        Optimization outcomes including best montage, objective value,</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        and convergence diagnostics.</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    FlexConfig : Configuration dataclass for flex-search.</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    FlexResult : Result container with per-restart function values.</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_paths</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    config : FlexConfig</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        Fully specified optimization configuration including subject,</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        ROI definition, electrode geometry, and DE hyperparameters.</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    report : bool, optional</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        Write the flex-search report (default). The adaptive and Pareto</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        drivers pass ``False`` for their intermediate steps and write one</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        report for the job's own folder.</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    FlexResult</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">        ``success``, ``output_folder`` (the run directory under the</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        subject's ``flex-search/``), per-restart ``function_values``,</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">        ``best_value`` and ``best_run_index``.</span>
 <a id="__codelineno-0-67" name="__codelineno-0-67"></a>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="n">validate_mask_paths</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="n">_validate_flex_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_FLEX_SEARCH</span><span class="p">):</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="k">return</span> <span class="n">_run_flex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">        If the subject's m2m directory or head mesh is missing, a</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">        referenced ROI/atlas/EEG-net file is missing, ``cpus`` or</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">        ``n_multistart`` is below 1, ``min_electrode_distance`` is not</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">        positive, ``enable_mapping`` is set without ``eeg_net``, or an</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">        ``"ellipse"`` electrode has unequal dimensions (flex-search</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">        supports circular electrodes only).</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    Notes</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    -----</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    When every restart fails the function does not raise: it returns a</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    :class:`FlexResult` with ``success=False``, ``best_value=inf`` and</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    ``best_run_index=-1``.  Always check ``result.success``.</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    &gt;&gt;&gt; from tit.opt import FlexConfig, run_flex_search</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    &gt;&gt;&gt; cfg = FlexConfig(</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    ...     subject_id="ernie", goal="mean", postproc="max_TI", current_mA=1.0,</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    ...     n_multistart=3, output_folder="insula_mean",</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    ... )</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    &gt;&gt;&gt; res = run_flex_search(cfg)  # doctest: +SKIP</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="sd">    &gt;&gt;&gt; res.success, res.best_run_index, len(res.function_values)  # doctest: +SKIP</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    (True, 1, 3)</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    FlexConfig : Configuration dataclass for flex-search.</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    FlexResult : Result container with per-restart function values.</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    """</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_paths</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>    <span class="n">validate_mask_paths</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">_validate_flex_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_FLEX_SEARCH</span><span class="p">):</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="k">return</span> <span class="n">_run_flex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">report</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.opt.flex.flex.clear_previous_run" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">clear_previous_run</span>
+
+
+<a href="#tit.opt.flex.flex.clear_previous_run" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">clear_previous_run</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Remove a previous run's :data:<code>RUN_OUTPUTS</code> from <em>folder</em>, leaving anything else.</p>
+<p>Without this a re-run into the same folder crashed on an aborted run's <code>00/candidates.csv</code>
+(the recorder creates it exclusively) and, after a finished run, kept its extra
+<code>candidate_history/NN</code>, <code>electrode_mapping_&lt;net&gt;.json</code> and <code>final_sim_*</code> beside the new
+manifest. The server asks before a job replaces an existing run folder.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/opt/flex/flex.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
+<span class="normal"><a href="#__codelineno-0-148">148</a></span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span>
+<span class="normal"><a href="#__codelineno-0-151">151</a></span>
+<span class="normal"><a href="#__codelineno-0-152">152</a></span>
+<span class="normal"><a href="#__codelineno-0-153">153</a></span>
+<span class="normal"><a href="#__codelineno-0-154">154</a></span>
+<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+<span class="normal"><a href="#__codelineno-0-156">156</a></span>
+<span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="k">def</span><span class="w"> </span><span class="nf">clear_previous_run</span><span class="p">(</span><span class="n">folder</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="w">    </span><span class="sd">"""Remove a previous run's :data:`RUN_OUTPUTS` from *folder*, leaving anything else.</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    Without this a re-run into the same folder crashed on an aborted run's ``00/candidates.csv``</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    (the recorder creates it exclusively) and, after a finished run, kept its extra</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    ``candidate_history/NN``, ``electrode_mapping_&lt;net&gt;.json`` and ``final_sim_*`` beside the new</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    manifest. The server asks before a job replaces an existing run folder.</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    """</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="n">removed</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="c1"># Listed up front: readdir after a removal is unspecified on some (bind-mount, FUSE) filesystems.</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">scandir</span><span class="p">(</span><span class="n">folder</span><span class="p">)):</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>        <span class="n">name</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="p">(</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>            <span class="n">name</span><span class="o">.</span><span class="n">isdigit</span><span class="p">()</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">fnmatch</span><span class="o">.</span><span class="n">fnmatchcase</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">RUN_OUTPUTS</span><span class="p">)</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="p">):</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>        <span class="k">if</span> <span class="n">entry</span><span class="o">.</span><span class="n">is_dir</span><span class="p">(</span><span class="n">follow_symlinks</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>            <span class="n">shutil</span><span class="o">.</span><span class="n">rmtree</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">entry</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>        <span class="n">removed</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="k">if</span> <span class="n">removed</span> <span class="ow">and</span> <span class="n">logger</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>            <span class="sa">f</span><span class="s2">"Replaced the previous run in </span><span class="si">{</span><span class="n">folder</span><span class="si">}</span><span class="s2">: removed </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">removed</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.opt.flex.flex.confirm_roi" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">confirm_roi</span>
+
+
+<a href="#tit.opt.flex.flex.confirm_roi" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">confirm_roi</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Write the ROI plate for this search's volume target, in whatever space.</p>
+<p>Subject space is not exempt: an atlas label with detached islands or a mask
+off by a slice fails the same way an MNI transform does, and neither is
+visible in any number the search produces.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/opt/flex/flex.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="k">def</span><span class="w"> </span><span class="nf">confirm_roi</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">:</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="w">    </span><span class="sd">"""Write the ROI plate for this search's volume target, in whatever space.</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    Subject space is not exempt: an atlas label with detached islands or a mask</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    off by a slice fails the same way an MNI transform does, and neither is</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    visible in any number the search produces.</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    """</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.roi_confirmation</span><span class="w"> </span><span class="kn">import</span> <span class="n">confirm_rois</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">roi</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="s2">"roi"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">if</span> <span class="n">roi</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">roi</span><span class="p">,</span> <span class="s2">"atlas_path"</span><span class="p">,</span> <span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="n">space</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">roi</span><span class="p">,</span> <span class="s2">"atlas_space"</span><span class="p">,</span> <span class="s2">"subject"</span><span class="p">))</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">paths</span> <span class="o">=</span> <span class="n">roi</span><span class="o">.</span><span class="n">atlas_path</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">roi</span><span class="o">.</span><span class="n">atlas_path</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">roi</span><span class="o">.</span><span class="n">atlas_path</span><span class="p">]</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="n">labels</span> <span class="o">=</span> <span class="n">roi</span><span class="o">.</span><span class="n">label</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">roi</span><span class="o">.</span><span class="n">label</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="p">[</span><span class="n">roi</span><span class="o">.</span><span class="n">label</span><span class="p">]</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">paths</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="n">paths</span> <span class="o">=</span> <span class="n">paths</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="n">entries</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="p">{</span><span class="s2">"atlas_path"</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="n">label</span><span class="p">,</span> <span class="s2">"space"</span><span class="p">:</span> <span class="n">space</span><span class="p">}</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">for</span> <span class="n">path</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">paths</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="p">]</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="k">return</span> <span class="n">confirm_rois</span><span class="p">(</span><span class="n">entries</span><span class="p">,</span> <span class="n">m2m</span><span class="o">=</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">),</span> <span class="n">out_dir</span><span class="o">=</span><span class="n">out_dir</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

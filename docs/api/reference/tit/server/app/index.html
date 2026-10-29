@@ -16,7 +16,7 @@
         <link rel="prev" href="../access_log/">
       
       
-        <link rel="next" href="../auth/">
+        <link rel="next" href="../app_defaults/">
       
       
         
@@ -979,7 +979,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1000,7 +1000,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1101,9 +1101,9 @@
 
                   <details class="quote">
                     <summary>Source code in <code>tit/server/app.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-53">53</a></span>
-<span class="normal"><a href="#__codelineno-0-54">54</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">ASGIApp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">:</span> <span class="n">ASGIApp</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1136,7 +1136,7 @@
 
 
 <a href="#tit.server.app.allowed_hosts" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.server.settings.ServerSettings" href="../settings/#tit.server.settings.ServerSettings">ServerSettings</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.server.settings.ServerSettings" href="../settings/#tit.server.settings.ServerSettings">ServerSettings</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1146,19 +1146,19 @@
 
             <details class="quote">
               <summary>Source code in <code>tit/server/app.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#__codelineno-0-85">85</a></span>
-<span class="normal"><a href="#__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#__codelineno-0-87">87</a></span>
-<span class="normal"><a href="#__codelineno-0-88">88</a></span>
-<span class="normal"><a href="#__codelineno-0-89">89</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="k">def</span><span class="w"> </span><span class="nf">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">ServerSettings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``127.0.0.1``/``localhost`` plus ``--allow-host`` / ``TIT_ALLOW_HOSTS`` entries.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="n">hosts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">DEFAULT_ALLOWED_HOSTS</span><span class="p">)</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">for</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">settings</span><span class="o">.</span><span class="n">allow_hosts</span><span class="p">:</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="k">if</span> <span class="n">host</span> <span class="ow">and</span> <span class="n">host</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">hosts</span><span class="p">:</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="n">hosts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">host</span><span class="p">)</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">return</span> <span class="n">hosts</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="k">def</span><span class="w"> </span><span class="nf">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">ServerSettings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="w">    </span><span class="sd">"""``127.0.0.1``/``localhost`` plus ``--allow-host`` / ``TIT_ALLOW_HOSTS`` entries."""</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="n">hosts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">DEFAULT_ALLOWED_HOSTS</span><span class="p">)</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="k">for</span> <span class="n">host</span> <span class="ow">in</span> <span class="n">settings</span><span class="o">.</span><span class="n">allow_hosts</span><span class="p">:</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>        <span class="k">if</span> <span class="n">host</span> <span class="ow">and</span> <span class="n">host</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">hosts</span><span class="p">:</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>            <span class="n">hosts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">host</span><span class="p">)</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">return</span> <span class="n">hosts</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1182,12 +1182,124 @@
 
     <div class="doc doc-contents ">
 
-        <p>Reconcile stranded jobs, start the background Tetravox check, clean up on shutdown.</p>
+        <p>Reconcile stranded jobs and clean up notebook kernels on shutdown.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/app.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-240">240</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="nd">@contextlib</span><span class="o">.</span><span class="n">asynccontextmanager</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lifespan</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">FastAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="w">    </span><span class="sd">"""Reconcile stranded jobs and clean up notebook kernels on shutdown."""</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="c1"># Startup reconciliation (tit/jobs/manager.py::_reconcile_all) runs when the job manager is</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="c1"># first constructed, and blocks until it is done. Doing that here, rather than lazily on the</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="c1"># first jobs request, is what the maintainer's rule ("a restart should not automatically keep</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="c1"># running jobs") needs: any runner or sibling container left over from the previous server</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="c1"># life is stopped and its job failed *before* this server answers anything. Best-effort: a</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="c1"># server started without a project directory has no store to reconcile.</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs.bootstrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_manager</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">get_manager</span><span class="p">,</span> <span class="n">app</span><span class="p">)</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>        <span class="k">yield</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="c1"># Every kernel this process started is this process's to end. A</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="c1"># notebook kernel is a full SimNIBS Python interpreter; leaking one</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="c1"># per server restart is how a container ends up out of memory.</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>            <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.kernels</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_kernel_registry</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="n">get_kernel_registry</span><span class="p">()</span><span class="o">.</span><span class="n">shutdown_all</span><span class="p">()</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.app.create_app" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">create_app</span>
+
+
+<a href="#tit.server.app.create_app" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_app</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.server.settings.ServerSettings" href="../settings/#tit.server.settings.ServerSettings">ServerSettings</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="fastapi.FastAPI">FastAPI</span></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Build the application; sets the PathManager singleton from <em>settings</em>.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/app.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span>
+<span class="normal"><a href="#__codelineno-0-209">209</a></span>
+<span class="normal"><a href="#__codelineno-0-210">210</a></span>
+<span class="normal"><a href="#__codelineno-0-211">211</a></span>
+<span class="normal"><a href="#__codelineno-0-212">212</a></span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span>
+<span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
 <span class="normal"><a href="#__codelineno-0-241">241</a></span>
 <span class="normal"><a href="#__codelineno-0-242">242</a></span>
 <span class="normal"><a href="#__codelineno-0-243">243</a></span>
@@ -1213,58 +1325,10 @@
 <span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="nd">@contextlib</span><span class="o">.</span><span class="n">asynccontextmanager</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">lifespan</span><span class="p">(</span><span class="n">app</span><span class="p">:</span> <span class="n">FastAPI</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">AsyncIterator</span><span class="p">[</span><span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Reconcile stranded jobs, start the background Tetravox check, clean up on shutdown.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="c1"># Startup reconciliation (tit/jobs/manager.py::_reconcile_all) runs when the job manager is</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="c1"># first constructed, and blocks until it is done. Doing that here, rather than lazily on the</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="c1"># first jobs request, is what the maintainer&#39;s rule (&quot;a restart should not automatically keep</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="c1"># running jobs&quot;) needs: any runner or sibling container left over from the previous server</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="c1"># life is stopped and its job failed *before* this server answers anything. Best-effort: a</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="c1"># server started without a project directory has no store to reconcile.</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs.bootstrap</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_manager</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">get_manager</span><span class="p">,</span> <span class="n">app</span><span class="p">)</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="n">task</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">create_task</span><span class="p">(</span><span class="n">_tetravox_auto_update</span><span class="p">(</span><span class="n">app</span><span class="p">))</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="k">yield</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="n">task</span><span class="o">.</span><span class="n">cancel</span><span class="p">()</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">CancelledError</span><span class="p">,</span> <span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>            <span class="k">await</span> <span class="n">task</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="c1"># Every kernel this process started is this process&#39;s to end. A</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="c1"># notebook kernel is a full SimNIBS Python interpreter; leaking one</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="c1"># per server restart is how a container ends up out of memory.</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="k">with</span> <span class="n">contextlib</span><span class="o">.</span><span class="n">suppress</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>            <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.kernels</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_kernel_registry</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>            <span class="n">get_kernel_registry</span><span class="p">()</span><span class="o">.</span><span class="n">shutdown_all</span><span class="p">()</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.server.app.create_app" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">create_app</span>
-
-
-<a href="#tit.server.app.create_app" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">create_app</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.server.settings.ServerSettings" href="../settings/#tit.server.settings.ServerSettings">ServerSettings</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="fastapi.FastAPI">FastAPI</span></span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Build the application; sets the PathManager singleton from <em>settings</em>.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/server/app.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
 <span class="normal"><a href="#__codelineno-0-270">270</a></span>
 <span class="normal"><a href="#__codelineno-0-271">271</a></span>
 <span class="normal"><a href="#__codelineno-0-272">272</a></span>
@@ -1278,165 +1342,93 @@
 <span class="normal"><a href="#__codelineno-0-280">280</a></span>
 <span class="normal"><a href="#__codelineno-0-281">281</a></span>
 <span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#__codelineno-0-301">301</a></span>
-<span class="normal"><a href="#__codelineno-0-302">302</a></span>
-<span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#__codelineno-0-306">306</a></span>
-<span class="normal"><a href="#__codelineno-0-307">307</a></span>
-<span class="normal"><a href="#__codelineno-0-308">308</a></span>
-<span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span>
-<span class="normal"><a href="#__codelineno-0-312">312</a></span>
-<span class="normal"><a href="#__codelineno-0-313">313</a></span>
-<span class="normal"><a href="#__codelineno-0-314">314</a></span>
-<span class="normal"><a href="#__codelineno-0-315">315</a></span>
-<span class="normal"><a href="#__codelineno-0-316">316</a></span>
-<span class="normal"><a href="#__codelineno-0-317">317</a></span>
-<span class="normal"><a href="#__codelineno-0-318">318</a></span>
-<span class="normal"><a href="#__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#__codelineno-0-322">322</a></span>
-<span class="normal"><a href="#__codelineno-0-323">323</a></span>
-<span class="normal"><a href="#__codelineno-0-324">324</a></span>
-<span class="normal"><a href="#__codelineno-0-325">325</a></span>
-<span class="normal"><a href="#__codelineno-0-326">326</a></span>
-<span class="normal"><a href="#__codelineno-0-327">327</a></span>
-<span class="normal"><a href="#__codelineno-0-328">328</a></span>
-<span class="normal"><a href="#__codelineno-0-329">329</a></span>
-<span class="normal"><a href="#__codelineno-0-330">330</a></span>
-<span class="normal"><a href="#__codelineno-0-331">331</a></span>
-<span class="normal"><a href="#__codelineno-0-332">332</a></span>
-<span class="normal"><a href="#__codelineno-0-333">333</a></span>
-<span class="normal"><a href="#__codelineno-0-334">334</a></span>
-<span class="normal"><a href="#__codelineno-0-335">335</a></span>
-<span class="normal"><a href="#__codelineno-0-336">336</a></span>
-<span class="normal"><a href="#__codelineno-0-337">337</a></span>
-<span class="normal"><a href="#__codelineno-0-338">338</a></span>
-<span class="normal"><a href="#__codelineno-0-339">339</a></span>
-<span class="normal"><a href="#__codelineno-0-340">340</a></span>
-<span class="normal"><a href="#__codelineno-0-341">341</a></span>
-<span class="normal"><a href="#__codelineno-0-342">342</a></span>
-<span class="normal"><a href="#__codelineno-0-343">343</a></span>
-<span class="normal"><a href="#__codelineno-0-344">344</a></span>
-<span class="normal"><a href="#__codelineno-0-345">345</a></span>
-<span class="normal"><a href="#__codelineno-0-346">346</a></span>
-<span class="normal"><a href="#__codelineno-0-347">347</a></span>
-<span class="normal"><a href="#__codelineno-0-348">348</a></span>
-<span class="normal"><a href="#__codelineno-0-349">349</a></span>
-<span class="normal"><a href="#__codelineno-0-350">350</a></span>
-<span class="normal"><a href="#__codelineno-0-351">351</a></span>
-<span class="normal"><a href="#__codelineno-0-352">352</a></span>
-<span class="normal"><a href="#__codelineno-0-353">353</a></span>
-<span class="normal"><a href="#__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#__codelineno-0-355">355</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_app</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">ServerSettings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build the application; sets the PathManager singleton from *settings*.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="k">if</span> <span class="n">settings</span><span class="o">.</span><span class="n">project_dir</span><span class="p">:</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="n">get_path_manager</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="n">title</span><span class="o">=</span><span class="s2">&quot;TI-Toolbox job server (tit.server)&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">version</span><span class="o">=</span><span class="n">tit</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;server API </span><span class="si">{</span><span class="n">SERVER_API</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="n">docs_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="n">redoc_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="n">openapi_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="n">lifespan</span><span class="o">=</span><span class="n">lifespan</span><span class="p">,</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="p">)</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="n">settings</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">started_at</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>    <span class="c1"># Live cookie sessions (random ids, never the token). In-memory only: a</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="c1"># restart forgets them all and the UI falls back to the launcher.</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>    <span class="n">psutil</span><span class="o">.</span><span class="n">cpu_percent</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># prime: the first sample is always 0.0</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="c1"># Middleware: last added = outermost. TrustedHost runs before everything.</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">CSPMiddleware</span><span class="p">)</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">TrustedHostMiddleware</span><span class="p">,</span> <span class="n">allowed_hosts</span><span class="o">=</span><span class="n">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">))</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="s2">&quot;/auth/session&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Token → cookie exchange (called by the launcher once)&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="n">status_code</span><span class="o">=</span><span class="mi">303</span><span class="p">,</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="n">responses</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>            <span class="mi">303</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;cookie set, redirect to /&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="mi">401</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;bad token&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="p">},</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="n">response_class</span><span class="o">=</span><span class="n">RedirectResponse</span><span class="p">,</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="p">)</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_session</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RedirectResponse</span><span class="p">:</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">_token_matches</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">token</span><span class="p">):</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Unauthorized&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>        <span class="n">session_id</span> <span class="o">=</span> <span class="n">new_session_id</span><span class="p">()</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>        <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">RedirectResponse</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">303</span><span class="p">)</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>        <span class="n">response</span><span class="o">.</span><span class="n">set_cookie</span><span class="p">(</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>            <span class="n">COOKIE_NAME</span><span class="p">,</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>            <span class="n">session_id</span><span class="p">,</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>            <span class="n">httponly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>            <span class="n">samesite</span><span class="o">=</span><span class="s2">&quot;strict&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>            <span class="n">secure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>            <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>        <span class="p">)</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="k">return</span> <span class="n">response</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="s2">&quot;/auth/logout&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>        <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;End the cookie session (cookie or Bearer auth required)&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="n">status_code</span><span class="o">=</span><span class="mi">204</span><span class="p">,</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="n">dependencies</span><span class="o">=</span><span class="p">[</span><span class="n">Depends</span><span class="p">(</span><span class="n">require_auth</span><span class="p">)],</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="n">responses</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="mi">204</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;cookie cleared, session forgotten&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="mi">401</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Unauthorized&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="p">},</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="n">response_class</span><span class="o">=</span><span class="n">Response</span><span class="p">,</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="p">)</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_logout</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">COOKIE_NAME</span><span class="p">))</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">204</span><span class="p">)</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="n">response</span><span class="o">.</span><span class="n">delete_cookie</span><span class="p">(</span><span class="n">COOKIE_NAME</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">httponly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">samesite</span><span class="o">=</span><span class="s2">&quot;strict&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="k">return</span> <span class="n">response</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">protected</span> <span class="o">=</span> <span class="p">[</span><span class="n">Depends</span><span class="p">(</span><span class="n">require_auth</span><span class="p">)]</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="k">for</span> <span class="p">(</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>        <span class="n">module</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="p">)</span> <span class="ow">in</span> <span class="n">iter_route_modules</span><span class="p">():</span>  <span class="c1"># auto-discovered; see tit/server/routes/__init__.py</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="n">name</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="n">router</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;router&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="k">if</span> <span class="n">router</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">OPEN_MODULES</span><span class="p">:</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>                <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">)</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>            <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>                <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="n">dependencies</span><span class="o">=</span><span class="n">protected</span><span class="p">)</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="n">ws_router</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">&quot;ws_router&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="k">if</span> <span class="n">ws_router</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>            <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">ws_router</span><span class="p">)</span>  <span class="c1"># authorises inside the handshake</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">ws</span><span class="o">.</span><span class="n">router</span><span class="p">)</span>  <span class="c1"># /ws/system, authorises inside the handshake</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">static</span><span class="o">.</span><span class="n">router</span><span class="p">)</span>  <span class="c1"># catch-all, must be last</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="n">app</span><span class="o">.</span><span class="n">openapi</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_custom_openapi</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>  <span class="c1"># type: ignore[method-assign]</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">return</span> <span class="n">app</span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_app</span><span class="p">(</span><span class="n">settings</span><span class="p">:</span> <span class="n">ServerSettings</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FastAPI</span><span class="p">:</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="w">    </span><span class="sd">"""Build the application; sets the PathManager singleton from *settings*."""</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="k">if</span> <span class="n">settings</span><span class="o">.</span><span class="n">project_dir</span><span class="p">:</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="n">get_path_manager</span><span class="p">(</span><span class="n">settings</span><span class="o">.</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>    <span class="n">app</span> <span class="o">=</span> <span class="n">FastAPI</span><span class="p">(</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="n">title</span><span class="o">=</span><span class="s2">"TI-Toolbox job server (tit.server)"</span><span class="p">,</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="n">version</span><span class="o">=</span><span class="n">tit</span><span class="o">.</span><span class="n">__version__</span><span class="p">,</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>        <span class="n">description</span><span class="o">=</span><span class="sa">f</span><span class="s2">"server API </span><span class="si">{</span><span class="n">SERVER_API</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">docs_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="n">redoc_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="n">openapi_url</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="n">lifespan</span><span class="o">=</span><span class="n">lifespan</span><span class="p">,</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>    <span class="p">)</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">settings</span> <span class="o">=</span> <span class="n">settings</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">started_at</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">monotonic</span><span class="p">()</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="c1"># Live cookie sessions (random ids, never the token). In-memory only: a</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="c1"># restart forgets them all and the UI falls back to the launcher.</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>    <span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="n">psutil</span><span class="o">.</span><span class="n">cpu_percent</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>  <span class="c1"># prime: the first sample is always 0.0</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>    <span class="c1"># Middleware: last added = outermost. TrustedHost runs before everything.</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">CSPMiddleware</span><span class="p">)</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">app</span><span class="o">.</span><span class="n">add_middleware</span><span class="p">(</span><span class="n">TrustedHostMiddleware</span><span class="p">,</span> <span class="n">allowed_hosts</span><span class="o">=</span><span class="n">allowed_hosts</span><span class="p">(</span><span class="n">settings</span><span class="p">))</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="s2">"/auth/session"</span><span class="p">,</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="n">summary</span><span class="o">=</span><span class="s2">"Token → cookie exchange (called by the launcher once)"</span><span class="p">,</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="n">status_code</span><span class="o">=</span><span class="mi">303</span><span class="p">,</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">responses</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>            <span class="mi">303</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"cookie set, redirect to /"</span><span class="p">},</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="mi">401</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"bad token"</span><span class="p">},</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="p">},</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="n">response_class</span><span class="o">=</span><span class="n">RedirectResponse</span><span class="p">,</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="p">)</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_session</span><span class="p">(</span><span class="n">token</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">RedirectResponse</span><span class="p">:</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">_token_matches</span><span class="p">(</span><span class="n">token</span><span class="p">,</span> <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">settings</span><span class="o">.</span><span class="n">token</span><span class="p">):</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">401</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Unauthorized"</span><span class="p">)</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>        <span class="n">session_id</span> <span class="o">=</span> <span class="n">new_session_id</span><span class="p">()</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">session_id</span><span class="p">)</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">RedirectResponse</span><span class="p">(</span><span class="n">url</span><span class="o">=</span><span class="s2">"/"</span><span class="p">,</span> <span class="n">status_code</span><span class="o">=</span><span class="mi">303</span><span class="p">)</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="n">response</span><span class="o">.</span><span class="n">set_cookie</span><span class="p">(</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="n">COOKIE_NAME</span><span class="p">,</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="n">session_id</span><span class="p">,</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="n">httponly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>            <span class="n">samesite</span><span class="o">=</span><span class="s2">"strict"</span><span class="p">,</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="n">secure</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>            <span class="n">path</span><span class="o">=</span><span class="s2">"/"</span><span class="p">,</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="p">)</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="k">return</span> <span class="n">response</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="s2">"/auth/logout"</span><span class="p">,</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="n">summary</span><span class="o">=</span><span class="s2">"End the cookie session (cookie or Bearer auth required)"</span><span class="p">,</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="n">status_code</span><span class="o">=</span><span class="mi">204</span><span class="p">,</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">dependencies</span><span class="o">=</span><span class="p">[</span><span class="n">Depends</span><span class="p">(</span><span class="n">require_auth</span><span class="p">)],</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="n">responses</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="mi">204</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"cookie cleared, session forgotten"</span><span class="p">},</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="mi">401</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"Unauthorized"</span><span class="p">},</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="p">},</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="n">response_class</span><span class="o">=</span><span class="n">Response</span><span class="p">,</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="p">)</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">auth_logout</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">sessions</span><span class="o">.</span><span class="n">discard</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">cookies</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">COOKIE_NAME</span><span class="p">))</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="n">response</span> <span class="o">=</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">204</span><span class="p">)</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="n">response</span><span class="o">.</span><span class="n">delete_cookie</span><span class="p">(</span><span class="n">COOKIE_NAME</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="s2">"/"</span><span class="p">,</span> <span class="n">httponly</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">samesite</span><span class="o">=</span><span class="s2">"strict"</span><span class="p">)</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="k">return</span> <span class="n">response</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">protected</span> <span class="o">=</span> <span class="p">[</span><span class="n">Depends</span><span class="p">(</span><span class="n">require_auth</span><span class="p">)]</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="k">for</span> <span class="p">(</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="n">module</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="p">)</span> <span class="ow">in</span> <span class="n">iter_route_modules</span><span class="p">():</span>  <span class="c1"># auto-discovered; see tit/server/routes/__init__.py</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="n">name</span> <span class="o">=</span> <span class="n">module</span><span class="o">.</span><span class="vm">__name__</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="n">router</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">"router"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="k">if</span> <span class="n">router</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>            <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">OPEN_MODULES</span><span class="p">:</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>                <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">)</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>                <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">router</span><span class="p">,</span> <span class="n">dependencies</span><span class="o">=</span><span class="n">protected</span><span class="p">)</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">ws_router</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="s2">"ws_router"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="k">if</span> <span class="n">ws_router</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>            <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">ws_router</span><span class="p">)</span>  <span class="c1"># authorises inside the handshake</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">ws</span><span class="o">.</span><span class="n">router</span><span class="p">)</span>  <span class="c1"># /ws/system, authorises inside the handshake</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">static</span><span class="o">.</span><span class="n">router</span><span class="p">)</span>  <span class="c1"># catch-all, must be last</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="n">app</span><span class="o">.</span><span class="n">openapi</span> <span class="o">=</span> <span class="k">lambda</span><span class="p">:</span> <span class="n">_custom_openapi</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>  <span class="c1"># type: ignore[method-assign]</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="k">return</span> <span class="n">app</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

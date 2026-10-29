@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/plotting/nilearn/config/">
       
       
-        <link rel="prev" href="../">
+        <link rel="prev" href="../atlases/">
       
       
         <link rel="next" href="../cutoffs/">
@@ -1018,7 +1018,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1039,7 +1039,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1075,7 +1075,7 @@
     
     
       <li class="md-path__item">
-        <a href="./" class="md-path__link">
+        <a href="../atlases/" class="md-path__link">
           
   <span class="md-ellipsis">
     nilearn
@@ -1158,9 +1158,7 @@ NilearnConfig
   </span>
 
 <a href="#tit.plotting.nilearn.config.NilearnSubjectSimulation" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NilearnSubjectSimulation</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NilearnSubjectSimulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1208,19 +1206,7 @@ NilearnConfig
   </span>
 
 <a href="#tit.plotting.nilearn.config.NilearnConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NilearnConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_simulation_pairs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>        <span class="n"><a class="autorefs autorefs-internal" title="tit.plotting.nilearn.config.NilearnSubjectSimulation" href="#tit.plotting.nilearn.config.NilearnSubjectSimulation">NilearnSubjectSimulation</a></span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">min_cutoff</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">max_cutoff</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">atlas_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;harvard_oxford_sub&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">selected_regions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">subdir_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;nilearn_visuals&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">use_percentiles</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">create_glass_brain</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">glass_brain_cmap</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;hot&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">NilearnConfig</span><span class="p">(</span><span class="n">subject_simulation_pairs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.plotting.nilearn.config.NilearnSubjectSimulation" href="#tit.plotting.nilearn.config.NilearnSubjectSimulation">NilearnSubjectSimulation</a></span><span class="p">],</span> <span class="n">min_cutoff</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">max_cutoff</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">atlas_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'harvard_oxford_sub'</span><span class="p">,</span> <span class="n">selected_regions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">subdir_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'nilearn_visuals'</span><span class="p">,</span> <span class="n">use_percentiles</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">create_glass_brain</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">glass_brain_cmap</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'hot'</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1233,16 +1219,17 @@ NilearnConfig
 min_cutoff : float or None, optional
     Minimum threshold (V/m, or a percentile when <em>use_percentiles</em> is
     true). <code>None</code> -- the default -- is data-driven: the 95th
-    percentile of the averaged field's non-zero voxels, the same
-    display floor <code>tit.reporting</code> already uses for its own field
-    figures. A fixed default in V/m cannot work here: a real TI field
+    percentile of the averaged field's non-zero voxels, the display
+    floor the former simulation report derived from real TI fields.
+    A fixed default in V/m cannot work here: a real TI field
     peaks around 0.1 V/m, so the former <code>0.3</code> was above every voxel
     of every run and the job died inside matplotlib.
 max_cutoff : float or None, optional
     Maximum threshold; <code>None</code> (the default) uses the 99.9th
     percentile of the averaged data.
 atlas_name : str, optional
-    Atlas used for region contours on the slice PDF.
+    Atlas used for region contours on the slice PDF: a key of
+    :data:<code>tit.plotting.nilearn.atlases.ATLASES</code>, the atlases the image bundles.
 selected_regions : list of int or None, optional
     0-indexed region indices to include; <code>None</code> includes all.
 subdir_name : str, optional
@@ -1257,8 +1244,8 @@ glass_brain_cmap : str, optional
     Colormap for the glass-brain render.</p>
 <h5 id="tit.plotting.nilearn.config.NilearnConfig--raises">Raises<a class="headerlink" href="#tit.plotting.nilearn.config.NilearnConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>subject_simulation_pairs</em> is empty, or <em>use_percentiles</em> is set
-    with a cutoff outside <code>[0, 100]</code>.</p>
+    If <em>subject_simulation_pairs</em> is empty, <em>use_percentiles</em> is set
+    with a cutoff outside <code>[0, 100]</code>, or <em>atlas_name</em> is not a bundled atlas.</p>
 <h5 id="tit.plotting.nilearn.config.NilearnConfig--see-also">See Also<a class="headerlink" href="#tit.plotting.nilearn.config.NilearnConfig--see-also" title="Permanent link">&para;</a></h5>
 <p>tit.plotting.nilearn.<strong>main</strong>.main : Consumes this config.
 tit.plotting.nilearn.cutoffs.resolve_cutoffs : Turns these fields into

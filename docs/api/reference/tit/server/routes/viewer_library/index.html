@@ -883,17 +883,6 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tit.server.routes.viewer_library.surfaces_supported" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        surfaces_supported
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
   <a href="#tit.server.routes.viewer_library.viewer_tree" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -905,10 +894,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.server.routes.viewer_library.save_composition" class="md-nav__link">
+  <a href="#tit.server.routes.viewer_library.list_scenes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        save_composition
+        list_scenes
       
     </span>
   </a>
@@ -916,10 +905,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.server.routes.viewer_library.list_scenes" class="md-nav__link">
+  <a href="#tit.server.routes.viewer_library.native_scene_destination" class="md-nav__link">
     <span class="md-ellipsis">
       
-        list_scenes
+        native_scene_destination
       
     </span>
   </a>
@@ -1001,7 +990,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1022,7 +1011,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1097,27 +1086,19 @@
 
     <div class="doc doc-contents first">
 
-        <p>Saved <strong>compositions</strong> and saved <strong>scenes</strong> — the Viewer's two kinds of "get this back".</p>
+        <p>The Viewer's composition tree and its saved <strong>scenes</strong>.</p>
 <p>Maintainer, 2026-09-07: <em>"At the end they could choose to save it as a JSON for future
 reproducibility. Also we should be integrating scene saving where users can essentially save
 scenes — not only the input selection but also the scene for the user — and we should be very
 opinionated about that and save it in the Tetravox [scene format]."</em></p>
-<p>Those are two different artefacts and this module keeps them apart on purpose, because they answer
-different questions and age differently:</p>
-<p><strong>A composition</strong> (<code>compositions/&lt;slug&gt;.json</code>) is <em>what a person chose</em>: a subject, a space, and
-the inputs ticked in the Menu's tree, by stable id. It is small, it is diffable, and it survives a
-re-run of the pipeline — reloading it next month re-resolves today's choices against whatever is on
-disk then, and reports what has gone missing rather than failing. This is the reproducibility
-artefact: "show me the same thing, from the current data".</p>
-<p><strong>A scene</strong> (<code>scenes/&lt;slug&gt;.tetravox.json</code>) is <em>what a person was looking at</em>: the embed's own
+<p><strong>A scene</strong> (<code>scenes/&lt;slug&gt;.tetravox.json</code>) is <em>what a person was looking at</em>: the native viewer's
 serialized <code>ViewSpec</code> — camera, layout, per-layer window, threshold, colormap, opacity, cursor —
 after they had adjusted it. It names concrete files. This is the record artefact: "show me exactly
 this picture again". It is written in the app's own format, suffix and all, so the standalone
 Tetravox app opens it by double-click; a PNG thumbnail is written beside it under the same stem.</p>
-<p>Both live in the project (<code>&lt;project&gt;/code/ti-toolbox/viewer/</code>) rather than in browser storage or a
-home directory, for the reason the presets already do: the project is the unit people copy, archive
-and hand on, and a saved view that did not travel with it would be lost exactly when the work it
-describes was passed to someone else.</p>
+<p>Scenes live in the project (<code>&lt;project&gt;/code/ti-toolbox/viewer/</code>) rather than in browser storage or
+a home directory: the project is the unit people copy, archive and hand on, and a saved view that
+did not travel with it would be lost exactly when the work it describes was passed to someone else.</p>
 <p><strong>Why the suffix is not negotiable.</strong> <code>.tetravox.json</code> is what the Tetravox app classifies as a
 scene; a file ending in anything else — the working name <code>.tvx.json</code> included — is classified as
 <em>data</em> and the app tries to read the JSON as a volume, silently, at the last step
@@ -1145,28 +1126,36 @@ under any other suffix rather than trust a caller to remember that.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.server.routes.viewer_library.surfaces_supported" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">surfaces_supported</span>
+<h3 id="tit.server.routes.viewer_library.viewer_tree" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">viewer_tree</span>
 
 
-<a href="#tit.server.routes.viewer_library.surfaces_supported" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">surfaces_supported</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<a href="#tit.server.routes.viewer_library.viewer_tree" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">viewer_tree</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.SubjectId">SubjectId</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="n">simulations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Can the <strong>installed</strong> embed draw a surface as its own layer kind?</p>
-<p>Asked as a feature name and never as a version comparison, which is the whole point of E1
-(:mod:<code>tit.tetravox.protocol</code>): an embed installed through Settings after this build shipped
-can declare <code>surfaces</code> in its own manifest and be believed.</p>
-<p><code>True</code> when there is no embed at all. A dev checkout with nothing installed should draw the
-tree it will draw once one is, rather than a tree with every surface greyed out for a reason
-that is not the reason.</p>
+        <p>Anatomy, simulations and analyses for <em>subject</em>, as the Menu draws them.</p>
+<p><em>simulations</em> repeats (<code>?simulations=a&amp;simulations=b</code>) and says which ones are expanded, so
+analyses are listed only for those. Everything is <code>os.listdir</code> and <code>os.stat</code>; no voxel is read,
+because this is redrawn as a person clicks.</p>
+<p>Each node carries the <code>kind</code> :func:<code>tit.catalog.classify_view_file</code> decided -- <code>volume</code>,
+<code>label-volume</code>, <code>surface</code>, <code>mesh</code> -- and a surface carries its <code>attachments</code>. Surface
+rows retain their surface kind; they are never re-labelled as meshes.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-135">135</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
 <span class="normal"><a href="#__codelineno-0-136">136</a></span>
 <span class="normal"><a href="#__codelineno-0-137">137</a></span>
 <span class="normal"><a href="#__codelineno-0-138">138</a></span>
@@ -1180,175 +1169,31 @@ that is not the reason.</p>
 <span class="normal"><a href="#__codelineno-0-146">146</a></span>
 <span class="normal"><a href="#__codelineno-0-147">147</a></span>
 <span class="normal"><a href="#__codelineno-0-148">148</a></span>
-<span class="normal"><a href="#__codelineno-0-149">149</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="k">def</span><span class="w"> </span><span class="nf">surfaces_supported</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Can the **installed** embed draw a surface as its own layer kind?</span>
+<span class="normal"><a href="#__codelineno-0-149">149</a></span>
+<span class="normal"><a href="#__codelineno-0-150">150</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="s2">"/api/viewer/tree"</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">"What one subject offers the Menu's composition tree"</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="p">)</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_tree</span><span class="p">(</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="n">simulations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a><span class="w">    </span><span class="sd">"""Anatomy, simulations and analyses for *subject*, as the Menu draws them.</span>
 <a id="__codelineno-0-137" name="__codelineno-0-137"></a>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    Asked as a feature name and never as a version comparison, which is the whole point of E1</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    (:mod:`tit.tetravox.protocol`): an embed installed through Settings after this build shipped</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    can declare ``surfaces`` in its own manifest and be believed.</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    *simulations* repeats (``?simulations=a&amp;simulations=b``) and says which ones are expanded, so</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    analyses are listed only for those. Everything is `os.listdir` and `os.stat`; no voxel is read,</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    because this is redrawn as a person clicks.</span>
 <a id="__codelineno-0-141" name="__codelineno-0-141"></a>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">    ``True`` when there is no embed at all. A dev checkout with nothing installed should draw the</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    tree it will draw once one is, rather than a tree with every surface greyed out for a reason</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    that is not the reason.</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="n">embed</span> <span class="o">=</span> <span class="n">probe_capabilities</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="n">request</span><span class="o">.</span><span class="n">app</span><span class="o">.</span><span class="n">state</span><span class="o">.</span><span class="n">settings</span><span class="p">)</span><span class="o">.</span><span class="n">tetravox_embed</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">embed</span><span class="o">.</span><span class="n">available</span><span class="p">:</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="k">return</span> <span class="s2">&quot;surfaces&quot;</span> <span class="ow">in</span> <span class="p">(</span><span class="n">embed</span><span class="o">.</span><span class="n">features</span> <span class="ow">or</span> <span class="p">[])</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.server.routes.viewer_library.viewer_tree" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">viewer_tree</span>
-
-
-<a href="#tit.server.routes.viewer_library.viewer_tree" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">viewer_tree</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">simulations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Anatomy, simulations and analyses for <em>subject</em>, as the Menu draws them.</p>
-<p><em>simulations</em> repeats (<code>?simulations=a&amp;simulations=b</code>) and says which ones are expanded, so
-analyses are listed only for those. Everything is <code>os.listdir</code> and <code>os.stat</code>; no voxel is read,
-because this is redrawn as a person clicks.</p>
-<p>Each node carries the <code>kind</code> :func:<code>tit.catalog.classify_view_file</code> decided -- <code>volume</code>,
-<code>label-volume</code>, <code>surface</code>, <code>mesh</code> -- and a surface carries its <code>attachments</code>. Surface
-rows are disabled with a reason when the installed embed is too old to draw one
-(:func:<code>surfaces_supported</code>); they are never re-labelled as meshes to get them through.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-152">152</a></span>
-<span class="normal"><a href="#__codelineno-0-153">153</a></span>
-<span class="normal"><a href="#__codelineno-0-154">154</a></span>
-<span class="normal"><a href="#__codelineno-0-155">155</a></span>
-<span class="normal"><a href="#__codelineno-0-156">156</a></span>
-<span class="normal"><a href="#__codelineno-0-157">157</a></span>
-<span class="normal"><a href="#__codelineno-0-158">158</a></span>
-<span class="normal"><a href="#__codelineno-0-159">159</a></span>
-<span class="normal"><a href="#__codelineno-0-160">160</a></span>
-<span class="normal"><a href="#__codelineno-0-161">161</a></span>
-<span class="normal"><a href="#__codelineno-0-162">162</a></span>
-<span class="normal"><a href="#__codelineno-0-163">163</a></span>
-<span class="normal"><a href="#__codelineno-0-164">164</a></span>
-<span class="normal"><a href="#__codelineno-0-165">165</a></span>
-<span class="normal"><a href="#__codelineno-0-166">166</a></span>
-<span class="normal"><a href="#__codelineno-0-167">167</a></span>
-<span class="normal"><a href="#__codelineno-0-168">168</a></span>
-<span class="normal"><a href="#__codelineno-0-169">169</a></span>
-<span class="normal"><a href="#__codelineno-0-170">170</a></span>
-<span class="normal"><a href="#__codelineno-0-171">171</a></span>
-<span class="normal"><a href="#__codelineno-0-172">172</a></span>
-<span class="normal"><a href="#__codelineno-0-173">173</a></span>
-<span class="normal"><a href="#__codelineno-0-174">174</a></span>
-<span class="normal"><a href="#__codelineno-0-175">175</a></span>
-<span class="normal"><a href="#__codelineno-0-176">176</a></span>
-<span class="normal"><a href="#__codelineno-0-177">177</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>    <span class="s2">&quot;/api/viewer/tree&quot;</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;What one subject offers the Menu&#39;s composition tree&quot;</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="p">)</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_tree</span><span class="p">(</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>    <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="n">simulations</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Anatomy, simulations and analyses for *subject*, as the Menu draws them.</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    *simulations* repeats (``?simulations=a&amp;simulations=b``) and says which ones are expanded, so</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    analyses are listed only for those. Everything is `os.listdir` and `os.stat`; no voxel is read,</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    because this is redrawn as a person clicks.</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    Each node carries the ``kind`` :func:`tit.catalog.classify_view_file` decided -- ``volume``,</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    ``label-volume``, ``surface``, ``mesh`` -- and a surface carries its ``attachments``. Surface</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    rows are disabled with a reason when the installed embed is too old to draw one</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    (:func:`surfaces_supported`); they are never re-labelled as meshes to get them through.</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="k">return</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">viewer_tree</span><span class="p">(</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="n">subject</span><span class="p">,</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a>        <span class="n">space</span><span class="p">,</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>        <span class="nb">list</span><span class="p">(</span><span class="n">simulations</span><span class="p">)</span> <span class="k">if</span> <span class="n">simulations</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>        <span class="n">surfaces_supported</span><span class="o">=</span><span class="n">surfaces_supported</span><span class="p">(</span><span class="n">request</span><span class="p">),</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.server.routes.viewer_library.save_composition" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">save_composition</span>
-
-
-<a href="#tit.server.routes.viewer_library.save_composition" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_composition</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Body">Body</span></span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Store <em>body</em> as this composition.</p>
-<p>The shape is the client's — a subject, a space and the chosen input ids — and this route does
-not validate it beyond "it is an object". That is deliberate: the tree's vocabulary is going to
-grow, and a server that rejected an unknown key would make every Menu change a two-repository
-change. What it does own is the <em>name</em>, the timestamp and the atomic write.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-202">202</a></span>
-<span class="normal"><a href="#__codelineno-0-203">203</a></span>
-<span class="normal"><a href="#__codelineno-0-204">204</a></span>
-<span class="normal"><a href="#__codelineno-0-205">205</a></span>
-<span class="normal"><a href="#__codelineno-0-206">206</a></span>
-<span class="normal"><a href="#__codelineno-0-207">207</a></span>
-<span class="normal"><a href="#__codelineno-0-208">208</a></span>
-<span class="normal"><a href="#__codelineno-0-209">209</a></span>
-<span class="normal"><a href="#__codelineno-0-210">210</a></span>
-<span class="normal"><a href="#__codelineno-0-211">211</a></span>
-<span class="normal"><a href="#__codelineno-0-212">212</a></span>
-<span class="normal"><a href="#__codelineno-0-213">213</a></span>
-<span class="normal"><a href="#__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="nd">@router</span><span class="o">.</span><span class="n">put</span><span class="p">(</span><span class="s2">&quot;/api/viewer/compositions/</span><span class="si">{name}</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Save one Viewer composition&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_composition</span><span class="p">(</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Body</span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Store *body* as this composition.</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    The shape is the client&#39;s — a subject, a space and the chosen input ids — and this route does</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    not validate it beyond &quot;it is an object&quot;. That is deliberate: the tree&#39;s vocabulary is going to</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    grow, and a server that rejected an unknown key would make every Menu change a two-repository</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    change. What it does own is the *name*, the timestamp and the atomic write.</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="n">document</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">body</span> <span class="ow">or</span> <span class="p">{})</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="n">document</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">name</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>    <span class="n">document</span><span class="p">[</span><span class="s2">&quot;saved_at&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_now</span><span class="p">()</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="n">document</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">&quot;version&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>    <span class="n">_write_json</span><span class="p">(</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">composition_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_slug</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="si">}{</span><span class="n">_COMPOSITION_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">),</span> <span class="n">document</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="p">)</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="k">return</span> <span class="n">document</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">    Each node carries the ``kind`` :func:`tit.catalog.classify_view_file` decided -- ``volume``,</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    ``label-volume``, ``surface``, ``mesh`` -- and a surface carries its ``attachments``. Surface</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    rows retain their surface kind; they are never re-labelled as meshes.</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    """</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="k">return</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">viewer_tree</span><span class="p">(</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="n">subject</span><span class="p">,</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="n">space</span><span class="p">,</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="nb">list</span><span class="p">(</span><span class="n">simulations</span><span class="p">)</span> <span class="k">if</span> <span class="n">simulations</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1363,7 +1208,7 @@ change. What it does own is the <em>name</em>, the timestamp and the atomic writ
 
 
 <a href="#tit.server.routes.viewer_library.list_scenes" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_scenes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">list_scenes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1375,115 +1220,18 @@ draw a row. <code>GET /api/viewer/scenes/{name}</code> is the read.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#__codelineno-0-269">269</a></span>
-<span class="normal"><a href="#__codelineno-0-270">270</a></span>
-<span class="normal"><a href="#__codelineno-0-271">271</a></span>
-<span class="normal"><a href="#__codelineno-0-272">272</a></span>
-<span class="normal"><a href="#__codelineno-0-273">273</a></span>
-<span class="normal"><a href="#__codelineno-0-274">274</a></span>
-<span class="normal"><a href="#__codelineno-0-275">275</a></span>
-<span class="normal"><a href="#__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#__codelineno-0-301">301</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/viewer/scenes&quot;</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Saved Tetravox scenes&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_scenes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Every saved scene, newest first, with whether it has a thumbnail.</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a><span class="sd">    The scene documents themselves are not returned — one is megabytes and the Menu only needs to</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a><span class="sd">    draw a row. `GET /api/viewer/scenes/{name}` is the read.</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">saved_scene_dir</span><span class="p">()</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="n">names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">directory</span><span class="p">))</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="n">out</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">_SCENE_SUFFIX</span><span class="p">):</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="n">stem</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">_SCENE_SUFFIX</span><span class="p">)]</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">):</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.meta.json&quot;</span><span class="p">))</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="p">{</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;name&quot;</span><span class="p">,</span> <span class="n">stem</span><span class="p">),</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>                <span class="s2">&quot;slug&quot;</span><span class="p">:</span> <span class="n">stem</span><span class="p">,</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>                <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>                <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="n">st</span><span class="o">.</span><span class="n">st_size</span><span class="p">,</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>                <span class="s2">&quot;saved_at&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;saved_at&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>                <span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subject&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>                <span class="s2">&quot;simulation&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;simulation&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>                <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;field&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>                <span class="s2">&quot;has_thumbnail&quot;</span><span class="p">:</span> <span class="n">_has_thumbnail</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">)),</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="p">}</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="p">)</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">out</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;saved_at&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;slug&quot;</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;scenes&quot;</span><span class="p">:</span> <span class="n">out</span><span class="p">}</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.server.routes.viewer_library.save_scene" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">save_scene</span>
-
-
-<a href="#tit.server.routes.viewer_library.save_scene" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_scene</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Body">Body</span></span><span class="p">(</span><span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Write <em>body</em>'s <code>scene</code> as <code>scenes/&lt;slug&gt;.tetravox.json</code>, plus a thumbnail and metadata.</p>
-<p><code>scene</code> is the embed's own <code>serialize</code> reply — the live <code>ViewSpec</code>, with the camera the
-person left it at and every layer's current window. It is written <strong>verbatim</strong>: the whole point
-of saving a scene rather than a composition is that it is a record of a picture, and a server
-that re-derived any part of it would be recording something else.</p>
-<p>Three files share one stem, so a person moving the scene knows what belongs with it:
-<code>&lt;slug&gt;.tetravox.json</code> (the app opens this), <code>&lt;slug&gt;.png</code> (the Menu's row), and
-<code>&lt;slug&gt;.meta.json</code> (what it was of, and when).</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-315">315</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
 <span class="normal"><a href="#__codelineno-0-316">316</a></span>
 <span class="normal"><a href="#__codelineno-0-317">317</a></span>
 <span class="normal"><a href="#__codelineno-0-318">318</a></span>
@@ -1523,10 +1271,83 @@ that re-derived any part of it would be recording something else.</p>
 <span class="normal"><a href="#__codelineno-0-352">352</a></span>
 <span class="normal"><a href="#__codelineno-0-353">353</a></span>
 <span class="normal"><a href="#__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#__codelineno-0-355">355</a></span>
-<span class="normal"><a href="#__codelineno-0-356">356</a></span>
-<span class="normal"><a href="#__codelineno-0-357">357</a></span>
-<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/api/viewer/scenes"</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">"Saved Tetravox scenes"</span><span class="p">)</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="k">def</span><span class="w"> </span><span class="nf">list_scenes</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="w">    </span><span class="sd">"""Every saved scene, newest first, with whether it has a thumbnail.</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    The scene documents themselves are not returned — one is megabytes and the Menu only needs to</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    draw a row. `GET /api/viewer/scenes/{name}` is the read.</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    """</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">saved_scene_dir</span><span class="p">()</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="n">names</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">directory</span><span class="p">))</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>        <span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">out</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">names</span><span class="p">:</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">entry</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">_SCENE_SUFFIX</span><span class="p">):</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="n">stem</span> <span class="o">=</span> <span class="n">entry</span><span class="p">[:</span> <span class="o">-</span><span class="nb">len</span><span class="p">(</span><span class="n">_SCENE_SUFFIX</span><span class="p">)]</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">entry</span><span class="p">)</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>            <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">stat</span><span class="p">(</span><span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="n">HTTPException</span><span class="p">):</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">_read_json</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.meta.json"</span><span class="p">))</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="n">saved_at</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"saved_at"</span><span class="p">)</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">saved_at</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">saved_at</span><span class="p">:</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>            <span class="n">saved_at</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>            <span class="p">{</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>                <span class="s2">"name"</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="n">stem</span><span class="p">),</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>                <span class="s2">"slug"</span><span class="p">:</span> <span class="n">stem</span><span class="p">,</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>                <span class="s2">"path"</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>                <span class="s2">"bytes"</span><span class="p">:</span> <span class="n">st</span><span class="o">.</span><span class="n">st_size</span><span class="p">,</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>                <span class="s2">"saved_at"</span><span class="p">:</span> <span class="n">saved_at</span><span class="p">,</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>                <span class="s2">"modified_at"</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>                    <span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>                <span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>                <span class="s2">"created_at"</span><span class="p">:</span> <span class="p">(</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>                    <span class="n">datetime</span><span class="o">.</span><span class="n">fromtimestamp</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_birthtime</span><span class="p">,</span> <span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">isoformat</span><span class="p">()</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>                    <span class="k">if</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">st</span><span class="p">,</span> <span class="s2">"st_birthtime"</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>                    <span class="k">else</span> <span class="kc">None</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>                <span class="p">),</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>                <span class="s2">"subject"</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">),</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>                <span class="s2">"simulation"</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"simulation"</span><span class="p">),</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>                <span class="s2">"field"</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"field"</span><span class="p">),</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>                <span class="s2">"has_thumbnail"</span><span class="p">:</span> <span class="n">_has_thumbnail</span><span class="p">(</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>                    <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">.png"</span><span class="p">),</span> <span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>                <span class="p">),</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>                <span class="o">**</span><span class="n">_scene_health</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="p">}</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>        <span class="p">)</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="n">out</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">row</span><span class="p">:</span> <span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"saved_at"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">,</span> <span class="n">row</span><span class="p">[</span><span class="s2">"slug"</span><span class="p">]),</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"scenes"</span><span class="p">:</span> <span class="n">out</span><span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.routes.viewer_library.native_scene_destination" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">native_scene_destination</span>
+
+
+<a href="#tit.server.routes.viewer_library.native_scene_destination" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">native_scene_destination</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Choose the canonical project destination without writing a substitute scene.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-358">358</a></span>
 <span class="normal"><a href="#__codelineno-0-359">359</a></span>
 <span class="normal"><a href="#__codelineno-0-360">360</a></span>
 <span class="normal"><a href="#__codelineno-0-361">361</a></span>
@@ -1541,89 +1362,22 @@ that re-derived any part of it would be recording something else.</p>
 <span class="normal"><a href="#__codelineno-0-370">370</a></span>
 <span class="normal"><a href="#__codelineno-0-371">371</a></span>
 <span class="normal"><a href="#__codelineno-0-372">372</a></span>
-<span class="normal"><a href="#__codelineno-0-373">373</a></span>
-<span class="normal"><a href="#__codelineno-0-374">374</a></span>
-<span class="normal"><a href="#__codelineno-0-375">375</a></span>
-<span class="normal"><a href="#__codelineno-0-376">376</a></span>
-<span class="normal"><a href="#__codelineno-0-377">377</a></span>
-<span class="normal"><a href="#__codelineno-0-378">378</a></span>
-<span class="normal"><a href="#__codelineno-0-379">379</a></span>
-<span class="normal"><a href="#__codelineno-0-380">380</a></span>
-<span class="normal"><a href="#__codelineno-0-381">381</a></span>
-<span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="nd">@router</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="s2">&quot;/api/viewer/scenes/</span><span class="si">{name}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Save the scene the viewer is showing&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="c1"># Declared rather than merely raised: `dev/contracts_check.py` holds the server&#39;s own OpenAPI</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="c1"># to being a superset of `contracts/openapi.yaml`, and a status a client is told to expect but</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="c1"># the document never mentions is exactly the drift that gate exists to catch.</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">413</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Scene document is implausibly large&quot;</span><span class="p">}},</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="p">)</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_scene</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Body</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Write *body*&#39;s ``scene`` as ``scenes/&lt;slug&gt;.tetravox.json``, plus a thumbnail and metadata.</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    ``scene`` is the embed&#39;s own ``serialize`` reply — the live ``ViewSpec``, with the camera the</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    person left it at and every layer&#39;s current window. It is written **verbatim**: the whole point</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">    of saving a scene rather than a composition is that it is a record of a picture, and a server</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">    that re-derived any part of it would be recording something else.</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">    Three files share one stem, so a person moving the scene knows what belongs with it:</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">    ``&lt;slug&gt;.tetravox.json`` (the app opens this), ``&lt;slug&gt;.png`` (the Menu&#39;s row), and</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">    ``&lt;slug&gt;.meta.json`` (what it was of, and when).</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">body</span> <span class="ow">or</span> <span class="p">{})</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;scene&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">scene</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;layers&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;A scene must be the embed&#39;s serialized ViewSpec, with at least one layer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="p">)</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>    <span class="n">encoded</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">_MAX_SCENE_BYTES</span><span class="p">:</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Scene document is implausibly large&quot;</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="p">)</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="n">slug</span> <span class="o">=</span> <span class="n">_slug</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">saved_scene_dir</span><span class="p">()</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">slug</span><span class="si">}{</span><span class="n">_SCENE_SUFFIX</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">thumb_path</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">slug</span><span class="si">}</span><span class="s2">.png&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">meta_path</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">slug</span><span class="si">}</span><span class="s2">.meta.json&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="n">thumbnail</span> <span class="o">=</span> <span class="n">_thumbnail_bytes</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;thumbnail&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="k">if</span> <span class="n">thumbnail</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">thumb_path</span><span class="p">,</span> <span class="n">thumbnail</span><span class="p">)</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="s2">&quot;slug&quot;</span><span class="p">:</span> <span class="n">slug</span><span class="p">,</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="s2">&quot;saved_at&quot;</span><span class="p">:</span> <span class="n">_now</span><span class="p">(),</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a>        <span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subject&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="s2">&quot;simulation&quot;</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;simulation&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="s2">&quot;field&quot;</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;field&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="s2">&quot;space&quot;</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;space&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="p">}</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">meta_path</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="n">container_root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="n">host_root</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">container_root</span><span class="p">)</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>    <span class="n">host_path</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>    <span class="k">if</span> <span class="n">host_root</span> <span class="ow">and</span> <span class="n">container_root</span> <span class="ow">and</span> <span class="n">target</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">container_root</span><span class="p">):</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="n">host_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">host_root</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">relpath</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">container_root</span><span class="p">))</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>        <span class="o">**</span><span class="n">meta</span><span class="p">,</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a>        <span class="s2">&quot;host_path&quot;</span><span class="p">:</span> <span class="n">host_path</span><span class="p">,</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a>        <span class="s2">&quot;has_thumbnail&quot;</span><span class="p">:</span> <span class="n">thumbnail</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>        <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)),</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="s2">"/api/viewer/scenes/</span><span class="si">{name}</span><span class="s2">/native-destination"</span><span class="p">,</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Prepare the active project's native scene save destination"</span><span class="p">,</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">409</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"A scene with this name already exists"</span><span class="p">}},</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a><span class="p">)</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="k">def</span><span class="w"> </span><span class="nf">native_scene_destination</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a><span class="w">    </span><span class="sd">"""Choose the canonical project destination without writing a substitute scene."""</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">saved_scene_dir</span><span class="p">(),</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_slug</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="si">}{</span><span class="n">_SCENE_SUFFIX</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="p">)</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">lexists</span><span class="p">(</span><span class="n">target</span><span class="p">):</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">409</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"A scene with this name already exists"</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="p">)</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1633,28 +1387,54 @@ that re-derived any part of it would be recording something else.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.server.routes.viewer_library.suggest_scene_name" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">suggest_scene_name</span>
+<h3 id="tit.server.routes.viewer_library.save_scene" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">save_scene</span>
 
 
-<a href="#tit.server.routes.viewer_library.suggest_scene_name" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">suggest_scene_name</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<a href="#tit.server.routes.viewer_library.save_scene" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_scene</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Body">Body</span></span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p><code>&lt;subject&gt;_&lt;sim&gt;_&lt;field&gt;_&lt;date&gt;</code> — what the Save field is pre-filled with.</p>
-<p>Server-side so the name a scene gets does not depend on which client saved it, and so the
-date is the project's clock rather than a browser's.</p>
+        <p>Write <em>body</em>'s <code>scene</code> as <code>scenes/&lt;slug&gt;.tetravox.json</code>, plus a thumbnail and metadata.</p>
+<p><code>scene</code> is the native viewer's <code>serialize</code> reply — the live <code>ViewSpec</code>, with the camera the
+person left it at and every layer's current window. It is written <strong>verbatim</strong>: the whole point
+of saving a scene rather than a composition is that it is a record of a picture, and a server
+that re-derived any part of it would be recording something else.</p>
+<p>Three files share one stem, so a person moving the scene knows what belongs with it:
+<code>&lt;slug&gt;.tetravox.json</code> (the app opens this), <code>&lt;slug&gt;.png</code> (the Menu's row), and
+<code>&lt;slug&gt;.meta.json</code> (what it was of, and when).</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-412">412</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
 <span class="normal"><a href="#__codelineno-0-413">413</a></span>
 <span class="normal"><a href="#__codelineno-0-414">414</a></span>
 <span class="normal"><a href="#__codelineno-0-415">415</a></span>
@@ -1671,24 +1451,170 @@ date is the project's clock rather than a browser's.</p>
 <span class="normal"><a href="#__codelineno-0-426">426</a></span>
 <span class="normal"><a href="#__codelineno-0-427">427</a></span>
 <span class="normal"><a href="#__codelineno-0-428">428</a></span>
-<span class="normal"><a href="#__codelineno-0-429">429</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/viewer/scenes/suggest/name&quot;</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;A default name for a new scene&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a><span class="k">def</span><span class="w"> </span><span class="nf">suggest_scene_name</span><span class="p">(</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a>    <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="n">field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;``&lt;subject&gt;_&lt;sim&gt;_&lt;field&gt;_&lt;date&gt;`` — what the Save field is pre-filled with.</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a><span class="sd">    Server-side so the name a scene gets does not depend on which client saved it, and so the</span>
-<a id="__codelineno-0-421" name="__codelineno-0-421"></a><span class="sd">    date is the project&#39;s clock rather than a browser&#39;s.</span>
-<a id="__codelineno-0-422" name="__codelineno-0-422"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-423" name="__codelineno-0-423"></a>    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="p">]</span>
-<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">&quot;%Y%m</span><span class="si">%d</span><span class="s2">&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-425" name="__codelineno-0-425"></a>    <span class="n">name</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-426" name="__codelineno-0-426"></a>        <span class="n">_DEFAULT_NAME_SAFE</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">,</span> <span class="s2">&quot;_&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">&quot;-_&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-427" name="__codelineno-0-427"></a>        <span class="ow">or</span> <span class="s2">&quot;scene&quot;</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="p">)</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">name</span><span class="p">[:</span><span class="mi">80</span><span class="p">]}</span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="nd">@router</span><span class="o">.</span><span class="n">put</span><span class="p">(</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="s2">"/api/viewer/scenes/</span><span class="si">{name}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Save the scene the viewer is showing"</span><span class="p">,</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="c1"># Declared rather than merely raised: `dev/contracts_check.py` holds the server's own OpenAPI</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>    <span class="c1"># to being a superset of `contracts/openapi.yaml`, and a status a client is told to expect but</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>    <span class="c1"># the document never mentions is exactly the drift that gate exists to catch.</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">413</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"Scene document is implausibly large"</span><span class="p">}},</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="p">)</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_scene</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Body</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="w">    </span><span class="sd">"""Write *body*'s ``scene`` as ``scenes/&lt;slug&gt;.tetravox.json``, plus a thumbnail and metadata.</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">    ``scene`` is the native viewer's ``serialize`` reply — the live ``ViewSpec``, with the camera the</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a><span class="sd">    person left it at and every layer's current window. It is written **verbatim**: the whole point</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a><span class="sd">    of saving a scene rather than a composition is that it is a record of a picture, and a server</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a><span class="sd">    that re-derived any part of it would be recording something else.</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a><span class="sd">    Three files share one stem, so a person moving the scene knows what belongs with it:</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="sd">    ``&lt;slug&gt;.tetravox.json`` (the app opens this), ``&lt;slug&gt;.png`` (the Menu's row), and</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="sd">    ``&lt;slug&gt;.meta.json`` (what it was of, and when).</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a><span class="sd">    """</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">body</span> <span class="ow">or</span> <span class="p">{})</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scene"</span><span class="p">)</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">scene</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layers"</span><span class="p">):</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>            <span class="n">detail</span><span class="o">=</span><span class="s2">"A scene must be a ViewSpec, with at least one layer"</span><span class="p">,</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>        <span class="p">)</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="n">encoded</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span> <span class="o">&gt;</span> <span class="n">_MAX_SCENE_BYTES</span><span class="p">:</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene document is implausibly large"</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>        <span class="p">)</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="n">slug</span> <span class="o">=</span> <span class="n">_slug</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">saved_scene_dir</span><span class="p">()</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">slug</span><span class="si">}{</span><span class="n">_SCENE_SUFFIX</span><span class="si">}</span><span class="s2">"</span><span class="p">))</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="n">thumb_path</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">slug</span><span class="si">}</span><span class="s2">.png"</span><span class="p">))</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>    <span class="n">meta_path</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">slug</span><span class="si">}</span><span class="s2">.meta.json"</span><span class="p">))</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="n">thumbnail</span> <span class="o">=</span> <span class="n">_thumbnail_bytes</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"thumbnail"</span><span class="p">))</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="k">if</span> <span class="n">thumbnail</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>        <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">thumb_path</span><span class="p">,</span> <span class="n">thumbnail</span><span class="p">)</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="n">meta</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>        <span class="s2">"slug"</span><span class="p">:</span> <span class="n">slug</span><span class="p">,</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>        <span class="s2">"saved_at"</span><span class="p">:</span> <span class="n">_now</span><span class="p">(),</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>        <span class="s2">"subject"</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">),</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>        <span class="s2">"simulation"</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"simulation"</span><span class="p">),</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>        <span class="s2">"field"</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"field"</span><span class="p">),</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>        <span class="s2">"space"</span><span class="p">:</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"space"</span><span class="p">),</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="p">}</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">meta_path</span><span class="p">,</span> <span class="n">meta</span><span class="p">)</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span><span class="p">,</span> <span class="n">to_host</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>    <span class="n">container_root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="n">host_root</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">container_root</span><span class="p">)</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="n">host_path</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>    <span class="k">if</span> <span class="n">host_root</span> <span class="ow">and</span> <span class="n">container_root</span><span class="p">:</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>        <span class="n">host_path</span> <span class="o">=</span> <span class="n">to_host</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>        <span class="o">**</span><span class="n">meta</span><span class="p">,</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>        <span class="s2">"path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>        <span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>        <span class="s2">"host_path"</span><span class="p">:</span> <span class="n">host_path</span><span class="p">,</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>        <span class="s2">"has_thumbnail"</span><span class="p">:</span> <span class="n">thumbnail</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>        <span class="s2">"bytes"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">encoded</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">)),</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>    <span class="p">}</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.routes.viewer_library.suggest_scene_name" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">suggest_scene_name</span>
+
+
+<a href="#tit.server.routes.viewer_library.suggest_scene_name" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">suggest_scene_name</span><span class="p">(</span><span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.SubjectId">SubjectId</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.EntityName">EntityName</span></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p><code>&lt;subject&gt;_&lt;sim&gt;_&lt;field&gt;_&lt;date&gt;</code> — what the Save field is pre-filled with.</p>
+<p>Server-side so the name a scene gets does not depend on which client saved it, and so the
+date is the project's clock rather than a browser's.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/routes/viewer_library.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span>
+<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span>
+<span class="normal"><a href="#__codelineno-0-502">502</a></span>
+<span class="normal"><a href="#__codelineno-0-503">503</a></span>
+<span class="normal"><a href="#__codelineno-0-504">504</a></span>
+<span class="normal"><a href="#__codelineno-0-505">505</a></span>
+<span class="normal"><a href="#__codelineno-0-506">506</a></span>
+<span class="normal"><a href="#__codelineno-0-507">507</a></span>
+<span class="normal"><a href="#__codelineno-0-508">508</a></span>
+<span class="normal"><a href="#__codelineno-0-509">509</a></span>
+<span class="normal"><a href="#__codelineno-0-510">510</a></span>
+<span class="normal"><a href="#__codelineno-0-511">511</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-494" name="__codelineno-0-494"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/api/viewer/scenes/suggest/name"</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">"A default name for a new scene"</span><span class="p">)</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a><span class="k">def</span><span class="w"> </span><span class="nf">suggest_scene_name</span><span class="p">(</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">EntityName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>    <span class="n">field</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a><span class="w">    </span><span class="sd">"""``&lt;subject&gt;_&lt;sim&gt;_&lt;field&gt;_&lt;date&gt;`` — what the Save field is pre-filled with.</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="sd">    Server-side so the name a scene gets does not depend on which client saved it, and so the</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="sd">    date is the project's clock rather than a browser's.</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a><span class="sd">    """</span>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a>    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">field</span><span class="p">)</span> <span class="k">if</span> <span class="n">p</span><span class="p">]</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a>    <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">(</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%Y%m</span><span class="si">%d</span><span class="s2">"</span><span class="p">))</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a>    <span class="n">name</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a>        <span class="n">_DEFAULT_NAME_SAFE</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="s2">"-"</span><span class="p">,</span> <span class="s2">"_"</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">))</span><span class="o">.</span><span class="n">strip</span><span class="p">(</span><span class="s2">"-_"</span><span class="p">)</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a>        <span class="ow">or</span> <span class="s2">"scene"</span>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a>    <span class="p">)</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">[:</span><span class="mi">80</span><span class="p">]}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

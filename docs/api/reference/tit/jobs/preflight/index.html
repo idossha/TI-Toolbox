@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/analyzer/spheres/">
+        <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/preflight/">
       
       
-        <link rel="prev" href="../masks/">
+        <link rel="prev" href="../plans/">
       
       
-        <link rel="next" href="../visualizer/">
+        <link rel="next" href="../processes/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>spheres - TI-Toolbox API Reference</title>
+        <title>preflight - TI-Toolbox API Reference</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#tit.analyzer.spheres" class="md-skip">
+        <a href="#tit.jobs.preflight" class="md-skip">
           Skip to content
         </a>
       
@@ -114,7 +114,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              spheres
+              preflight
             
           </span>
         </div>
@@ -871,22 +871,22 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres" class="md-nav__link">
+  <a href="#tit.jobs.preflight" class="md-nav__link">
     <span class="md-ellipsis">
       
-        spheres
+        preflight
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="spheres">
+    <nav class="md-nav" aria-label="preflight">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres--see-also" class="md-nav__link">
+  <a href="#tit.jobs.preflight.MissingInput" class="md-nav__link">
     <span class="md-ellipsis">
       
-        See Also
+        MissingInput
       
     </span>
   </a>
@@ -894,102 +894,13 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_row" class="md-nav__link">
+  <a href="#tit.jobs.preflight.preflight" class="md-nav__link">
     <span class="md-ellipsis">
       
-        parse_sphere_row
+        preflight
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="parse_sphere_row">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_row--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_row--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Returns
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_row--raises" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Raises
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_rows" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        parse_sphere_rows
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="parse_sphere_rows">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_rows--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_rows--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Returns
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.analyzer.spheres.parse_sphere_rows--raises" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Raises
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -1046,7 +957,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1067,7 +978,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1085,10 +996,10 @@
     
     
       <li class="md-path__item">
-        <a href="../analyzer/" class="md-path__link">
+        <a href="../api/" class="md-path__link">
           
   <span class="md-ellipsis">
-    analyzer
+    jobs
   </span>
 
         </a>
@@ -1110,25 +1021,75 @@
   
 
 
-  <h1>spheres</h1>
+  <h1>preflight</h1>
 
 <div class="doc doc-object doc-module">
 
 
 
-<h2 id="tit.analyzer.spheres" class="doc doc-heading">
-            <span class="doc doc-object-name doc-module-name">tit.analyzer.spheres</span>
+<h2 id="tit.jobs.preflight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-module-name">tit.jobs.preflight</span>
 
 
-<a href="#tit.analyzer.spheres" class="headerlink" title="Permanent link">&para;</a></h2>
+<a href="#tit.jobs.preflight" class="headerlink" title="Permanent link">&para;</a></h2>
 
     <div class="doc doc-contents first">
 
-        <p>Parsing of spherical ROI specifications.</p>
-<p>The desktop app collects spheres as <code>"x,y,z,r"</code> rows. Parsing lives here,
-not in the UI, so it is exercised by the Python test suite.</p>
-<h4 id="tit.analyzer.spheres--see-also">See Also<a class="headerlink" href="#tit.analyzer.spheres--see-also" title="Permanent link">&para;</a></h4>
-<p>tit.analyzer.analyzer.Analyzer.analyze_sphere : Consumes one parsed sphere.</p>
+        <p>Refuse a job whose required inputs are not on disk, at submission instead of minutes later.</p>
+<p>Background: an analyzer job in voxel space with a cortical <code>DK40</code> target was accepted,
+queued, started, and only then died with <code>FileNotFoundError: Atlas 'DK40' not found in
+.../fastsurfer/sub-101/mri, ...</code> because that subject had no FastSurfer/recon-all volume
+parcellation. Nothing about that needed a running job to find out.</p>
+<p>:func:<code>preflight</code> runs one small checker per job kind. Every check is a filesystem existence
+or name-correctness test built on :class:<code>tit.paths.PathManager</code> and the <em>same</em> resolution
+rules the runner uses (the analyzer's own :func:<code>~tit.analyzer.field_selector.select_field_file</code>
+and :attr:<code>~tit.analyzer.analyzer.Analyzer._SURFACE_ATLAS_VOLUMES</code>, <code>tit.opt.flex.utils.
+eeg_net_csv_path</code>, ...), so the check and the runner cannot disagree about where an input
+lives. No SimNIBS import, no mesh or volume is loaded; a config the checker cannot read
+(missing keys, wrong shapes) yields nothing here -- that is :mod:<code>tit.jobs.config_check</code>'s job.</p>
+<p>Each finding is a :class:<code>MissingInput</code>: what is missing, the named path it was expected at,
+and how to produce it ("run FastSurfer for sub-101", "run the L_Insula simulation first",
+"analyze in mesh space instead"). <code>POST /api/jobs</code> and <code>POST /api/jobs/groups</code> answer 422
+with the list and create no job record.</p>
+
+
+
+
+
+
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="tit.jobs.preflight.MissingInput" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">MissingInput</span>
+
+
+  <span class="doc doc-labels">
+      <small class="doc doc-label doc-label-dataclass"><code>dataclass</code></small>
+  </span>
+
+<a href="#tit.jobs.preflight.MissingInput" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">MissingInput</span><span class="p">(</span><span class="n">what</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">expected_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">how_to_fix</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+        <p>One input a job needs that is not on disk.</p>
+
 
 
 
@@ -1148,140 +1109,36 @@ not in the UI, so it is exercised by the Python test suite.</p>
 
 
 
-<div class="doc doc-object doc-function">
 
 
-<h3 id="tit.analyzer.spheres.parse_sphere_row" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">parse_sphere_row</span>
+  </div>
 
-
-<a href="#tit.analyzer.spheres.parse_sphere_row" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_sphere_row</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">text</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Parse a single <code>"x,y,z,r"</code> row.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_row--parameters">Parameters<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_row--parameters" title="Permanent link">&para;</a></h5>
-<p>text : str
-    Comma-separated centre and radius.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_row--returns">Returns<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_row--returns" title="Permanent link">&para;</a></h5>
-<p>tuple of float
-    <code>(x, y, z, r)</code>.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_row--raises">Raises<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_row--raises" title="Permanent link">&para;</a></h5>
-<p>ValueError
-    If <em>text</em> is empty, does not hold exactly four values, holds a
-    non-numeric value, or gives a non-positive radius.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/analyzer/spheres.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-13">13</a></span>
-<span class="normal"><a href="#__codelineno-0-14">14</a></span>
-<span class="normal"><a href="#__codelineno-0-15">15</a></span>
-<span class="normal"><a href="#__codelineno-0-16">16</a></span>
-<span class="normal"><a href="#__codelineno-0-17">17</a></span>
-<span class="normal"><a href="#__codelineno-0-18">18</a></span>
-<span class="normal"><a href="#__codelineno-0-19">19</a></span>
-<span class="normal"><a href="#__codelineno-0-20">20</a></span>
-<span class="normal"><a href="#__codelineno-0-21">21</a></span>
-<span class="normal"><a href="#__codelineno-0-22">22</a></span>
-<span class="normal"><a href="#__codelineno-0-23">23</a></span>
-<span class="normal"><a href="#__codelineno-0-24">24</a></span>
-<span class="normal"><a href="#__codelineno-0-25">25</a></span>
-<span class="normal"><a href="#__codelineno-0-26">26</a></span>
-<span class="normal"><a href="#__codelineno-0-27">27</a></span>
-<span class="normal"><a href="#__codelineno-0-28">28</a></span>
-<span class="normal"><a href="#__codelineno-0-29">29</a></span>
-<span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
-<span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span>
-<span class="normal"><a href="#__codelineno-0-34">34</a></span>
-<span class="normal"><a href="#__codelineno-0-35">35</a></span>
-<span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
-<span class="normal"><a href="#__codelineno-0-41">41</a></span>
-<span class="normal"><a href="#__codelineno-0-42">42</a></span>
-<span class="normal"><a href="#__codelineno-0-43">43</a></span>
-<span class="normal"><a href="#__codelineno-0-44">44</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_sphere_row</span><span class="p">(</span><span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse a single ``&quot;x,y,z,r&quot;`` row.</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15"></a>
-<a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">    text : str</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">        Comma-separated centre and radius.</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">    tuple of float</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="sd">        ``(x, y, z, r)``.</span>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">        If *text* is empty, does not hold exactly four values, holds a</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">        non-numeric value, or gives a non-positive radius.</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="n">text</span> <span class="o">=</span> <span class="p">(</span><span class="n">text</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">text</span><span class="p">:</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please enter coordinates and radius as x,y,z,r.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="n">parts</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)]</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">4</span> <span class="ow">or</span> <span class="nb">any</span><span class="p">(</span><span class="n">p</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">):</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Enter exactly 4 values: x,y,z,r.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>        <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">)</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;All values must be numeric: x,y,z,r.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="k">if</span> <span class="n">r</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Radius must be positive.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">r</span><span class="p">)</span>
-</code></pre></div></td></tr></table></div>
-            </details>
     </div>
 
 </div>
 
+
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.analyzer.spheres.parse_sphere_rows" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">parse_sphere_rows</span>
+<h3 id="tit.jobs.preflight.preflight" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">preflight</span>
 
 
-<a href="#tit.analyzer.spheres.parse_sphere_rows" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">parse_sphere_rows</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">texts</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]]</span>
+<a href="#tit.jobs.preflight.preflight" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">preflight</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.jobs.preflight.MissingInput" href="#tit.jobs.preflight.MissingInput">MissingInput</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Parse several <code>"x,y,z,r"</code> rows.</p>
-<p>A one-element sequence reproduces single-sphere behaviour exactly, including
-its error messages -- the row number is only prefixed when there is more
-than one row, so a single malformed sphere reads the way it always did.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_rows--parameters">Parameters<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_rows--parameters" title="Permanent link">&para;</a></h5>
-<p>texts : sequence of str
-    One <code>"x,y,z,r"</code> string per sphere.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_rows--returns">Returns<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_rows--returns" title="Permanent link">&para;</a></h5>
-<p>list of tuple of float
-    One <code>(x, y, z, r)</code> per input row, in order.</p>
-<h5 id="tit.analyzer.spheres.parse_sphere_rows--raises">Raises<a class="headerlink" href="#tit.analyzer.spheres.parse_sphere_rows--raises" title="Permanent link">&para;</a></h5>
-<p>ValueError
-    If <em>texts</em> is empty or any row is malformed.</p>
+        <p>Every input a <em>kind</em> job with <em>config</em> needs that is not on disk under <em>project_dir</em>.</p>
+<p>An empty list means the sweep found nothing missing (not that the job will succeed).
+Unknown kinds and kinds with nothing to check return <code>[]</code>.</p>
 
 
             <details class="quote">
-              <summary>Source code in <code>tit/analyzer/spheres.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-47">47</a></span>
-<span class="normal"><a href="#__codelineno-0-48">48</a></span>
-<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+              <summary>Source code in <code>tit/jobs/preflight.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-49">49</a></span>
 <span class="normal"><a href="#__codelineno-0-50">50</a></span>
 <span class="normal"><a href="#__codelineno-0-51">51</a></span>
 <span class="normal"><a href="#__codelineno-0-52">52</a></span>
@@ -1293,57 +1150,19 @@ than one row, so a single malformed sphere reads the way it always did.</p>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span>
 <span class="normal"><a href="#__codelineno-0-59">59</a></span>
 <span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_sphere_rows</span><span class="p">(</span><span class="n">texts</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]:</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Parse several ``&quot;x,y,z,r&quot;`` rows.</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    A one-element sequence reproduces single-sphere behaviour exactly, including</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    its error messages -- the row number is only prefixed when there is more</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    than one row, so a single malformed sphere reads the way it always did.</span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="k">def</span><span class="w"> </span><span class="nf">preflight</span><span class="p">(</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">MissingInput</span><span class="p">]:</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="w">    </span><span class="sd">"""Every input a *kind* job with *config* needs that is not on disk under *project_dir*.</span>
 <a id="__codelineno-0-53" name="__codelineno-0-53"></a>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    texts : sequence of str</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        One ``&quot;x,y,z,r&quot;`` string per sphere.</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    list of tuple of float</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">        One ``(x, y, z, r)`` per input row, in order.</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">        If *texts* is empty or any row is malformed.</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">texts</span><span class="p">:</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Please enter coordinates and radius as x,y,z,r.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">spheres</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">text</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">texts</span><span class="p">):</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>            <span class="n">spheres</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">parse_sphere_row</span><span class="p">(</span><span class="n">text</span><span class="p">))</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">texts</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>                <span class="k">raise</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Row </span><span class="si">{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="k">return</span> <span class="n">spheres</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    An empty list means the sweep found nothing missing (not that the job will succeed).</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    Unknown kinds and kinds with nothing to check return ``[]``.</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    """</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>    <span class="n">checker</span> <span class="o">=</span> <span class="n">_CHECKERS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="k">if</span> <span class="n">checker</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="k">return</span> <span class="n">checker</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
