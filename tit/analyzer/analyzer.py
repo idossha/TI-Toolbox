@@ -111,6 +111,37 @@ def weighted_percentiles(
     ]
 
 
+def rms_from_hf_sar(hf_sar: np.ndarray) -> np.ndarray:
+    """RMS carrier field ``E_rms`` (V/m) from the on-disk ``hf_sar`` field, in (V/m)^2.
+
+    ``hf_sar`` is ``sum_c |E_c|^2 = 2 * tit.calc.hf_power`` (``tit/sim/base.py``), and
+    ``E_rms = sqrt(hf_power) = sqrt(hf_sar / 2)``. This is the one place the factor 2 lives:
+    when ``hf_sar`` is renamed ``hf_power`` on disk (pending), it becomes ``sqrt(hf_power)``.
+    """
+    return np.sqrt(np.asarray(hf_sar, dtype=np.float64) / 2.0)
+
+
+#: The modulation (envelope) fields: an analysis of one of them also reports the carrier
+#: metrics (``hf_focality``, ``rms_focality``, ``ti_selectivity``, ``hf_focality_*_area``).
+MODULATION_FIELDS = const.get_field_names(const.FIELD_KIND_FUNCTIONAL)
+
+#: The ``AnalysisResult`` fields :meth:`Analyzer._carrier_metrics` fills.
+CARRIER_RESULT_KEYS = (
+    "hf_roi_mean",
+    "hf_gm_mean",
+    "hf_focality",
+    "rms_roi_mean",
+    "rms_gm_mean",
+    "rms_focality",
+    "ti_selectivity",
+    "hf_focality_50_area",
+    "hf_focality_75_area",
+    "hf_focality_90_area",
+    "hf_focality_95_area",
+    "carrier_note",
+)
+
+
 #: Nodes per element for the Gmsh element types a SimNIBS mesh holds (line, triangle,
 #: quadrangle, tetrahedron, hexahedron, prism, pyramid, point).
 _GMSH_NODES_PER_ELEMENT = {1: 2, 2: 3, 3: 4, 4: 4, 5: 8, 6: 6, 7: 5, 15: 1}
@@ -243,6 +274,27 @@ class AnalysisResult:
     total_area_or_volume : float
         Total surface area (mm^2) or volume (mm^3) of positive-valued ROI
         elements.
+    hf_roi_mean, hf_gm_mean : float or None
+        Area/volume-weighted mean ``hf_peak`` (peak carrier field, V/m) over
+        the same ROI and GM elements as ``roi_mean`` / ``gm_mean``.
+    hf_focality : float or None
+        ``hf_roi_mean / hf_gm_mean``: focality of the stimulation (carrier)
+        intensity, the carrier counterpart of ``roi_focality``.
+    rms_roi_mean, rms_gm_mean : float or None
+        Weighted mean RMS carrier field ``E_rms = sqrt(hf_power)`` (V/m) over
+        the same elements; read as ``sqrt(hf_sar / 2)`` (:func:`rms_from_hf_sar`).
+    rms_focality : float or None
+        ``rms_roi_mean / rms_gm_mean``.
+    ti_selectivity : float or None
+        ``roi_focality / hf_focality``: above 1 the modulation is more focal
+        than the stimulation, at or below 1 a plain kHz field targets as well.
+    hf_focality_50_area ... hf_focality_95_area : float or None
+        ``focality_*_area`` computed on ``hf_peak`` (same units, same
+        99.9th-percentile convention, same GM elements).
+    carrier_note : str or None
+        Why a carrier metric is ``None``: the analysed field is itself a
+        carrier field, or the simulation did not write ``hf_peak`` /
+        ``hf_sar``. ``None`` when every carrier metric is present.
 
     See Also
     --------
@@ -272,6 +324,18 @@ class AnalysisResult:
     focality_95_area: float | None = None
     n_elements: int = 0
     total_area_or_volume: float = 0.0
+    hf_roi_mean: float | None = None
+    hf_gm_mean: float | None = None
+    hf_focality: float | None = None  # hf_peak mean ROI / mean GM
+    rms_roi_mean: float | None = None
+    rms_gm_mean: float | None = None
+    rms_focality: float | None = None  # E_rms mean ROI / mean GM
+    ti_selectivity: float | None = None  # roi_focality / hf_focality
+    hf_focality_50_area: float | None = None
+    hf_focality_75_area: float | None = None
+    hf_focality_90_area: float | None = None
+    hf_focality_95_area: float | None = None
+    carrier_note: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1043,6 +1107,14 @@ class Analyzer:
 
         focality = self._compute_focality_metrics(surface_pos, surface_areas)
         normal = self._get_normal_stats(roi_mask, node_areas)
+        carrier = self._carrier_metrics(
+            roi_focality,
+            self._mesh_carriers(surface),
+            roi_mask & (values > 0),
+            surface_pos_mask,
+            roi_areas,
+            surface_areas,
+        )
 
         out_dir = self._resolve_output_dir(
             analysis_type=analysis_type,
@@ -1067,6 +1139,7 @@ class Analyzer:
             n_elements=int(roi_pos.size),
             total_area_or_volume=float(np.sum(roi_areas)),
             **focality,
+            **carrier,
         )
 
         if visualize:
@@ -1130,6 +1203,15 @@ class Analyzer:
         focality = self._compute_focality_metrics(
             tissue_values, tissue_weights, weight_to_cm=1000.0
         )
+        carrier = self._carrier_metrics(
+            roi_focality,
+            self._voxel_carriers(field_arr.shape),
+            roi_mask,
+            analysis_mask,
+            np.full(roi_values.size, voxel_vol),
+            tissue_weights,
+            weight_to_cm=1000.0,
+        )
 
         out_dir = self._resolve_output_dir(
             analysis_type=analysis_type,
@@ -1151,6 +1233,7 @@ class Analyzer:
             n_elements=int(np.sum(roi_mask)),
             total_area_or_volume=float(np.sum(roi_mask)) * voxel_vol,
             **focality,
+            **carrier,
         )
 
         if visualize:
@@ -1331,6 +1414,150 @@ class Analyzer:
             "focality_90_area": foc_values[2],
             "focality_95_area": foc_values[3],
         }
+
+    # ------------------------------------------------------------------
+    # Carrier (stimulation-intensity) metrics
+    # ------------------------------------------------------------------
+
+    def _mesh_carriers(self, surface) -> dict | None:
+        """``hf_peak`` / ``hf_sar`` node values on the central surface, or why each is absent.
+
+        Read from the surface the analysed field is on: ``msh2cortex`` maps every field of
+        the TI/mTI mesh onto it, so the carrier fields went through the same interpolation as
+        the modulation field. ``None`` when the analysed field is not a modulation field.
+        """
+        if self.field_name not in MODULATION_FIELDS:
+            return None
+        out: dict = {}
+        for name in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR):
+            if name in surface.field:
+                out[name] = np.asarray(surface.field[name].value, dtype=np.float64)
+            else:
+                out[name] = (
+                    f"{name} is not on the central surface {self._surface_mesh_path} "
+                    "(the simulation did not write it)"
+                )
+        return out
+
+    def _voxel_carriers(self, shape: tuple) -> dict | None:
+        """``hf_peak`` / ``hf_sar`` arrays on the analysed field's grid, or why each is absent.
+
+        mesh2nii names every field of one mesh ``<mesh stem>_<field>.nii.gz`` in one folder,
+        so the carrier NIfTI of the same tissue is the analysed file with its field suffix
+        swapped -- the same grid, written by the same conversion. ``None`` when the analysed
+        field is not a modulation field.
+        """
+        if self.field_name not in MODULATION_FIELDS:
+            return None
+        import nibabel as nib
+
+        name = self.field_path.name
+        out: dict = {}
+        for carrier in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR):
+            suffix = next(
+                (
+                    f"_{self.field_name}{ext}"
+                    for ext in (".nii.gz", ".nii")
+                    if name.endswith(f"_{self.field_name}{ext}")
+                ),
+                None,
+            )
+            if suffix is None:
+                out[carrier] = (
+                    f"{name} is not named <mesh>_{self.field_name}.nii.gz, so its "
+                    f"{carrier} NIfTI cannot be identified"
+                )
+                continue
+            ext = suffix[len(self.field_name) + 1 :]
+            path = self.field_path.with_name(f"{name[: -len(suffix)]}_{carrier}{ext}")
+            if not path.is_file():
+                out[carrier] = (
+                    f"{carrier} was not written by this simulation ({path.name} "
+                    "does not exist)"
+                )
+                continue
+            arr = self._squeeze_4d(np.asarray(nib.load(str(path)).get_fdata()))
+            if arr.shape[:3] != tuple(shape[:3]):
+                out[carrier] = (
+                    f"{path.name} has grid {arr.shape[:3]}, not the {tuple(shape[:3])} "
+                    f"of {name}"
+                )
+                continue
+            out[carrier] = arr
+        return out
+
+    def _carrier_metrics(
+        self,
+        roi_focality: float,
+        carriers: dict | None,
+        roi_sel: np.ndarray,
+        gm_sel: np.ndarray,
+        roi_weights: np.ndarray,
+        gm_weights: np.ndarray,
+        weight_to_cm: float = 100.0,
+    ) -> dict:
+        """The carrier metrics of :class:`AnalysisResult`, on the modulation statistics' elements.
+
+        *roi_sel* / *gm_sel* select the same elements ``roi_mean`` / ``gm_mean`` averaged
+        (ROI and GM where the analysed field is positive), in the same order as
+        *roi_weights* / *gm_weights*, so each carrier ratio is taken over exactly the
+        elements of ``roi_focality``. ``E_rms`` is used for the RMS ratio, not ``hf_power``:
+        a ratio of mean squares would be a ratio of squared fields, not comparable with the
+        linear ``roi_focality``. *carriers* maps ``hf_peak`` / ``hf_sar`` to their values or
+        to the reason they are absent (:meth:`_mesh_carriers`, :meth:`_voxel_carriers`);
+        ``None`` means the analysed field is a carrier field itself. Every metric that cannot
+        be computed is ``None`` and ``carrier_note`` says why.
+        """
+        out: dict = dict.fromkeys(CARRIER_RESULT_KEYS)
+        if carriers is None:
+            out["carrier_note"] = (
+                f"{self.field_name} is not a modulation field; the carrier metrics are "
+                f"reported for {', '.join(MODULATION_FIELDS)} analyses"
+            )
+            return out
+
+        def means(values: np.ndarray) -> tuple[float, float, float]:
+            roi = float(np.average(values[roi_sel], weights=roi_weights))
+            gm = float(np.average(values[gm_sel], weights=gm_weights))
+            return roi, gm, roi / gm
+
+        notes = []
+        peak = carriers[const.FIELD_HF_PEAK]
+        if isinstance(peak, str):
+            notes.append(peak)
+        else:
+            roi, gm, hf_focality = means(peak)
+            areas = self._compute_focality_metrics(
+                peak[gm_sel], gm_weights, weight_to_cm
+            )
+            out.update(
+                hf_roi_mean=roi,
+                hf_gm_mean=gm,
+                hf_focality=hf_focality,
+                ti_selectivity=roi_focality / hf_focality,
+                **{
+                    f"hf_{key}": areas[key]
+                    for key in (
+                        "focality_50_area",
+                        "focality_75_area",
+                        "focality_90_area",
+                        "focality_95_area",
+                    )
+                },
+            )
+        sar = carriers[const.FIELD_HF_SAR]
+        if isinstance(sar, str):
+            notes.append(sar)
+        else:
+            roi, gm, rms_focality = means(rms_from_hf_sar(sar))
+            out.update(rms_roi_mean=roi, rms_gm_mean=gm, rms_focality=rms_focality)
+        if notes:
+            out["carrier_note"] = (
+                "; ".join(notes) + ". Re-run the simulation with hf_peak and hf_sar "
+                "among its output fields to get every carrier metric."
+            )
+            logger.warning("Carrier metrics incomplete: %s", out["carrier_note"])
+        return out
 
     # ------------------------------------------------------------------
     # Visualization helpers
