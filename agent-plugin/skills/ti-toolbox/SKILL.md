@@ -108,7 +108,7 @@ SimNIBS CHARM head mesh `m2m_<id>`) → **Optimize** electrode positions
 (**flex-search**: differential evolution over the scalp, a *local* optimum;
 **ex-search**: exhaustive over a leadfield and candidate pool, a global optimum
 *within the discretisation it was given*; **mex-search**: multipolar variant) →
-**Simulate** a montage (2 pairs = TI, 4+ even = mTI; fields `TI_max`, optional
+**Simulate** a montage (2 channels = TI, 4+ even = mTI; fields `TI_max`, optional
 `TI_avg`/`TI_normal`, exposure `hf_peak`/`hf_sar`/`hf_power_density`) → **Analyze** (spherical or atlas
 ROI stats in mesh or voxel space, group analysis) → **Stats** (cluster-based
 permutation, volumetric MNI or fsaverage surface). The head model, DTI, every simulation and
@@ -138,7 +138,7 @@ Simulator is not an optimiser; say so when a user treats it as one.
                                          segmentation/, surfaces/, stim_configs/)
       leadfields/                        for ex-search
       Simulations/<montage>/TI/{mesh,niftis} + Analyses/{Mesh,Voxel}/ + fsaverage/
-      Simulations/<montage>/mTI/{mesh,niftis}  4+ pairs: the mTI result
+      Simulations/<montage>/mTI/{mesh,niftis}  4+ channels: the mTI result
       flex-search/<run>/ , ex-search/<run>/ , m-ex-search/<run>/
     ti-toolbox/{reports,stats,logs,tissue_analysis}/
 ```

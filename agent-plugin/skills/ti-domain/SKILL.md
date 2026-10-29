@@ -29,7 +29,7 @@ Temporal interference is a non-invasive brain stimulation technique that can rea
 
 3. **At the deep target, the two electric fields superpose.** Where both fields overlap in space, they create an amplitude-modulated (AM) waveform. The envelope of this AM signal oscillates at the **difference frequency** (2010 - 2000 = 10 Hz). This 10 Hz modulation falls within the range that neurons *can* follow, so it drives neural activity at the target.
 
-4. **Superficial regions see only the high-frequency carriers** (each pair's field dominates near its own electrodes), so they are not stimulated. Only where both fields have comparable magnitude — typically at depth — does meaningful interference occur.
+4. **Superficial regions see only the high-frequency carriers** (each channel's field dominates near its own electrodes), so they are not stimulated. Only where both fields have comparable magnitude — typically at depth — does meaningful interference occur.
 
 ### Foundational Reference
 
@@ -84,30 +84,30 @@ This equals `2 · min(|E1|, |E2|)` when the fields point in the same direction. 
 
 ## 2. Multi-polar Temporal Interference (mTI)
 
-### Extension to N Electrode Pairs
+### Extension to N Channels
 
-Standard TI uses 2 channels. Multi-polar TI (mTI) extends this to N channels — in the current TI-Toolbox implementation, typically **4 channels** (E1± to E4±).
+Standard TI uses 2 channels on one carrier. Multi-polar TI (mTI) uses `2K` channels on
+`K` carriers — in TI-Toolbox any even number of channels from 4 (E1± to E4±, `K = 2`)
+up to 26; the optimizers' mEx-search uses exactly 4.
 
-### How mTI Works
+### How mTI Works (the model TI-Toolbox computes)
 
-1. Each channel operates at a distinct carrier frequency. For example:
-   - Channel 1: 2000 Hz
-   - Channel 2: 2010 Hz
-   - Channel 3: 2020 Hz
-   - Channel 4: 2030 Hz
+1. **Channels are paired positionally:** channels `2k-1` and `2k` share carrier `k` and
+   differ by the same small difference frequency on every carrier — for `K = 2`, e.g.
+   2.000/2.010 kHz and 4.000/4.010 kHz. Every carrier beats at one common Δf, and the
+   beats are phase-aligned.
+2. The carrier bands are far enough apart that low-pass filtering removes their cross
+   terms, so the carriers add **in power**: the joint envelope along `n` is
+   `E_AM(n) = | |S n| - |D n| |` (section 8), and `mTI_max` is its maximum over `n`
+   (`tit.calc.envelope_max` over all `2K` channel fields at once).
+3. Two shortcuts give different and wrong numbers and are not offered: adding the
+   per-carrier envelopes (carriers add in power, not amplitude) and feeding per-carrier
+   envelopes back into the two-channel formula (TI-of-TI).
+4. Per channel, the currents and positions are the free parameters; there is no phase
+   parameter (beats are assumed phase-aligned) and no carrier-regrouping choice.
 
-2. Multiple interference patterns form simultaneously. With 4 channels, there are C(4,2) = 6 pairwise interference terms, each producing a different beat frequency (10, 20, 30 Hz, etc.).
-
-3. **Phase optimization** is a key additional degree of freedom. By adjusting the relative starting phases between pairs, the spatiotemporal field pattern can be controlled more precisely. This is not available in standard 2-pair TI.
-
-4. The result is **more focal stimulation** and **better steering** to deep targets compared to standard TI.
-
-### mTI Field Calculation
-
-The mTI field computation is more complex than standard TI:
-- Must consider all pairwise interference terms between the N pairs
-- Phase relationships between pairs affect the spatiotemporal envelope
-- The optimization search space is larger (more electrodes, more intensities, plus phases)
+The physics and the accuracy of each quantity are on the wiki's Analyzer page
+(`read_wiki_page("analyzer")`, "More carriers: multipolar TI").
 
 ### Key References
 
@@ -118,17 +118,17 @@ square root) in prose, pp. 4–5, which is what `tit.calc` cites it for.
 
 ### Codebase Detection
 
-mTI vs standard TI is auto-detected from the montage's pair count. The rule is
+mTI vs standard TI is auto-detected from the montage's channel count. The rule is
 stated once, in `tit.constants.is_valid_pair_count`, and enforced in
 `Montage.simulation_mode` and `tit.calc` (every envelope function):
 
-> an **even** number of electrode pairs, **at least two** — 2 = TI, 4 or more = mTI.
+> an **even** number of channels (electrode pairs), **at least two** — 2 = TI, 4 or more = mTI.
 
 So 2, 4, 6, 8, 12, 16 … are legal and 1, 3, 5 are not: an odd count leaves a
-channel with nothing to beat against, and a single pair is tACS, not TI.
+channel with nothing to beat against, and a single channel is tACS, not TI.
 
-- **2 electrode pairs** → standard TI pathway (`tit/sim/TI.py`)
-- **4+ (even) electrode pairs** → mTI pathway (`tit/sim/mTI.py`)
+- **2 channels** → standard TI pathway (`tit/sim/TI.py`)
+- **4+ (even) channels** → mTI pathway (`tit/sim/mTI.py`)
 
 Note the capitalisation of both filenames — the container's filesystem is
 case-sensitive.
@@ -136,8 +136,9 @@ case-sensitive.
 ### The envelope API — and what was removed
 
 `tit.calc` exposes exactly **five** public functions. The envelope functions take a
-*list* of `2K` field arrays paired **positionally** (each two consecutive fields
-share one carrier); the carrier functions take any number of fields, one per pair:
+*list* of `2K` field arrays, one per channel, paired **positionally** (each two
+consecutive channels share one carrier); the carrier functions take any number of
+channel fields:
 
 ```python
 envelope(fields, direction)                     # (N,) envelope along a direction -> TI_normal
@@ -154,7 +155,7 @@ Methods: `envelope` is exact for every K. `envelope_max` is an exact closed form
 root-find with a Newton polish (none of 1e4 random elements per K = 2, 3, 4 and
 4e5 real grey-matter elements more than 1e-6 below a dense reference), and the
 in-plane maximum is exact (degree-6 polynomial roots). `envelope_mean` is exact at
-`K = 1` (`|E1| + |E2| - (|E1+E2| + |E1-E2|)/2`) and a 4096-direction quadrature
+`K = 1` (`|E1| + |E2| - (|E1+E2| + |E1-E2|)/2`) and a 4096-direction sphere quadrature (2048 hemisphere directions)
 (~7e-4) at `K >= 2`. `hf_peak` is exact for any number of fields.
 
 **Removed — never emit or describe these:** any `tit.calc` name other than the
@@ -164,8 +165,8 @@ argument are gone, as is the separate carrier-fields module with its `hf_sar`
 recursive `TI(TI(E1,E2), TI(E3,E4))` algorithm, which is simply wrong for
 `N >= 4`), `get_mTI_vectors` / `get_mTI_dir`, `get_magnitude_am`, and the
 `channels=` carrier-regrouping parameter. There is no `montage.channels` and no
-separate "carrier wiring" control: **wiring is positional — one field is one
-carrier**.
+separate "carrier wiring" control: **wiring is positional — one field per channel,
+two channels per carrier**.
 
 ---
 
@@ -173,13 +174,13 @@ carrier**.
 
 ### What Is a Montage?
 
-A montage is the assignment of electrodes to pairs, specifying the anode (current source) and cathode (current sink) for each pair. In the codebase, a montage is represented as:
+A montage is the assignment of electrodes to channels, specifying Ek+ (current source) and Ek- (current sink) for each channel k. In the codebase (`electrode_pairs`, one pair per channel), a montage is represented as:
 
 ```python
-# Standard TI (2 pairs):
+# Standard TI (2 channels):
 [[anode1, cathode1], [anode2, cathode2]]
 
-# mTI (4 pairs):
+# mTI (4 channels):
 [[anode1, cathode1], [anode2, cathode2], [anode3, cathode3], [anode4, cathode4]]
 ```
 
@@ -211,13 +212,13 @@ Each electrode has physical properties that affect the simulation:
 
 ### Current Intensity
 
-- Each electrode pair delivers current at a specified intensity, typically **1–2 mA** (milliamperes)
-- Current flows from anode → through tissue → to cathode for each pair
+- Each channel delivers current at a specified intensity, typically **1–2 mA** (milliamperes)
+- Current flows from Ek+ → through tissue → to Ek- for each channel
 - The sum of all injected currents must satisfy Kirchhoff's current law (what goes in must come out)
 
 ### Unipolar Montages
 
-In unipolar montages, each pair has one "active" electrode near the target and one "reference" electrode placed far from the region of interest. This is a common configuration in the TI-Toolbox montage system.
+In unipolar montages, each channel has one "active" electrode near the target and one "reference" electrode placed far from the region of interest. This is a common configuration in the TI-Toolbox montage system.
 
 ### Montage JSON Format
 
@@ -334,9 +335,8 @@ Differential evolution (DE) is a **stochastic global optimization** algorithm. I
 3. Repeat for up to **max_iterations** (~500) or until convergence (tolerance met)
 
 **Search variables:**
-- Electrode positions (selected from allowed electrode set)
-- Current intensities per pair
-- Phases (for mTI only)
+- Electrode positions (continuous on the valid scalp; EEG-net mapping is a post-step)
+- Optionally the split of the total current between the two channels
 
 **Objective function options:**
 - Maximize mean field in ROI
@@ -345,7 +345,7 @@ Differential evolution (DE) is a **stochastic global optimization** algorithm. I
 
 **Multi-start strategy:** Run N independent DE optimizations with different random seeds, then take the best result. This mitigates the risk of getting trapped in local optima.
 
-**Speed:** Uses the leadfield matrix, so each objective function evaluation is a fast matrix operation — no FEM solve needed.
+**Speed:** Each candidate is a full FEM solve (SimNIBS's flex optimizer), so flex-search is slow; only ex-search and mEx-search use the leadfield matrix.
 
 **Key parameters:**
 - `population_size`: number of candidate solutions per generation (~13)
@@ -360,7 +360,7 @@ Brute-force enumeration of all possible montage combinations from a defined elec
 
 **How it works:**
 1. Define a pool of candidate electrodes
-2. Enumerate all valid combinations of electrode assignments to pairs
+2. Enumerate all valid combinations of electrode assignments to channels
 3. For each combination, compute the field using the leadfield matrix
 4. Return the combination with the best objective value
 
@@ -630,8 +630,9 @@ For 3D vector fields E1(x) and E2(x), find the orientation unit vector **n** tha
 TI_max(x) = max_n | |n · (E1 + E2)| - |n · (E1 - E2)| |
 ```
 
-For `K = 1` carrier pair this has an exact closed form. For `K >= 2` (mTI), with
-`a_k = E_ka . n`, `b_k = E_kb . n` and `S`, `D` the `K x 3` matrices with rows
+For `K = 1` carrier (two channels) this has an exact closed form. For `K >= 2` (mTI), with
+`a_k = E_ka . n`, `b_k = E_kb . n` (`E_ka`, `E_kb` = carrier `k`'s two channel
+fields, i.e. channels `2k-1` and `2k`) and `S`, `D` the `K x 3` matrices with rows
 `E_ka + E_kb` and `E_ka - E_kb`, the envelope along `n` is
 
 ```
@@ -690,7 +691,7 @@ Where I_k is the current at electrode k and L(x, k) is the precomputed leadfield
 These safety parameters are embedded in the codebase's validation and constraint systems:
 
 ### Current Limits
-- **Total injected current per pair**: typically capped at **2 mA** (milliamperes)
+- **Total injected current per channel**: typically capped at **2 mA** (milliamperes)
 - **Current density at electrode-skin interface**: must stay below **2 mA/cm²** to prevent skin irritation or burns
 - Larger electrodes spread the same current over more area, reducing current density
 
@@ -708,8 +709,8 @@ written to.
 **The engine is quasi-static.** An FEM field `E` is a **phasor amplitude** vector
 in V/m — a **peak**, not an RMS — and there is no time axis anywhere in the
 toolbox. Every peak quantity is therefore a **worst case over the unknown
-relative phases** of the carriers: equal to the time-domain definition when that
-worst phase is actually attained (which it is, for incommensurate carriers), and an
+relative phases** of the channels: equal to the time-domain definition when that
+worst phase is actually attained (which it is, for incommensurate frequencies), and an
 upper bound otherwise.
 
 **Peak vs RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes
@@ -718,13 +719,13 @@ for zero-to-peak channel currents; `hf_power` is the time-averaged mean square
 IEEE C95.1-2019 limit the RMS in-situ E-field at 1–10 kHz, not SAR; their SAR
 limits start at 100 kHz), or `hf_peak` with `sqrt(2)` times the limit.
 
-**How carriers combine** (Cassarà Part II, p. 8, verbatim): *"coherent field
+**How channel fields combine** (Cassarà Part II, p. 8, verbatim): *"coherent field
 superposition was used for identical frequencies, and incoherent superposition
 (i.e., SAR addition) was used when the frequencies differed."* So fields at the
-same frequency sum **as vectors** first, and distinct carriers then combine
-**incoherently** — in power for `hf_sar`, and by worst-case sign enumeration for
-`hf_peak`. Under the toolbox's shipped **positional wiring** one field *is* one
-carrier, so with `E_c` the field of carrier `c`:
+same frequency sum **as vectors** first, and fields at distinct frequencies then
+combine **incoherently** — in power for `hf_sar`, and by worst-case sign enumeration
+for `hf_peak`. No two channels of a TI or mTI montage share a frequency, so every
+channel field enters on its own; with `E_c` the field of channel `c`:
 
 ```
 hf_peak  = max over signs s_c in {+1,-1} of  | sum_c  s_c * E_c |    (V/m)
@@ -737,7 +738,7 @@ hf_power_density = (1/2) sum_c E_c^T sigma E_c                       (W/m^3)
   values with overrides; each element's DTI tensor under `vn`/`dir`/`mc`), so
   `SAR = hf_power_density / rho` in W/kg (IEEE C95.1-2019 p. 35). It is a volume
   field only (not projected to fsaverage). `rho` is not applied.
-- `hf_peak` is **exact** for any number of carriers (zonotope vertices: the sign
+- `hf_peak` is **exact** for any number of channels (zonotope vertices: the sign
   patterns around the directions `E_i x E_j`).
 - Cassarà's Table 3 (p. 15) limits are **peak** values, not RMS: brain 16 mA /
   30 V/m below 2.5 kHz, scaling as `f / 2.5 kHz` above; skin 7 mA / 200 V/m. The
@@ -746,12 +747,12 @@ hf_power_density = (1/2) sum_c E_c^T sigma E_c                       (W/m^3)
 - `TI_max`, `TI_avg`, `TI_normal` and everything downstream in the analyzer and
   statistics were never affected by the carrier-grouping question.
 - **Carrier-only control (ΔF = 0).** `SimulationConfig(carrier_only=True)` models
-  both pairs at the *same* frequency and in phase (each pair's first electrode +I
-  at the same instant): one fixed field, no beat, no envelope. The carriers then add
-  coherently — `hf_peak = |E1+E2|`, `hf_sar = |E1+E2|^2`, `hf_power_density` from
+  both channels at the *same* frequency and in phase (each channel's Ek+ at +I
+  at the same instant): one fixed field, no beat, no envelope. The two channel fields
+  then add coherently — `hf_peak = |E1+E2|`, `hf_sar = |E1+E2|^2`, `hf_power_density` from
   `E1+E2` (`coherent=True`) — rather than the TI worst case. Only `hf_peak`/`hf_sar`/
   `hf_power_density` may be requested; `TI_max`,
-  `TI_avg`, `TI_normal` are undefined and not computed; 2-pair TI only. Example
+  `TI_avg`, `TI_normal` are undefined and not computed; two-channel TI only. Example
   |E1| = 1, |E2| = 0.8 at 120°: TI worst case 1.56, carrier-only 0.92.
 
 **Deliberately not computed** (do not claim the toolbox reports them): current
@@ -801,7 +802,7 @@ project_root/
 │   │   │   └── {montage_name}/          # Per-montage results
 │   │   │       ├── TI/{mesh,niftis}/    # TI_max (+TI_avg/TI_normal) meshes and NIfTIs
 │   │   │       ├── mTI/{mesh,niftis}/   # mTI only: {montage}_mTI.msh + its NIfTIs
-│   │   │       ├── high_Frequency/      # per-carrier fields (hf_peak/hf_sar inputs)
+│   │   │       ├── high_Frequency/      # per-channel fields (hf_peak/hf_sar inputs)
 │   │   │       └── Analyses/{Mesh,Voxel}/   # ROI analyses of this simulation
 │   │   ├── flex-search/{run}/           # optimisation runs (the run name is the dir)
 │   │   ├── ex-search/{run}/
@@ -854,8 +855,8 @@ Subject IDs follow BIDS convention: `sub-{id}` where `{id}` is typically a zero-
 | **GM** | Gray matter — brain tissue containing neuronal cell bodies |
 | **Leadfield** | Precomputed field-per-electrode matrix enabling fast montage evaluation |
 | **MNI space** | Montreal Neurological Institute standard coordinate system for brain imaging |
-| **Montage** | Configuration of electrode positions and pair assignments |
-| **mTI** | Multi-polar temporal interference (4+ electrode pairs) |
+| **Montage** | Configuration of electrode positions and their channel assignments |
+| **mTI** | Multi-polar temporal interference (4 or more channels, 2 per carrier) |
 | **NIfTI** | Neuroimaging file format (.nii/.nii.gz) |
 | **Parcellation** | Division of cortical surface into labeled anatomical regions |
 | **ROI** | Region of interest — the stimulation target |
@@ -875,8 +876,7 @@ Subject IDs follow BIDS convention: `sub-{id}` where `{id}` is typically a zero-
 
 ### Multi-polar TI (mTI) & Multi-channel
 - Lee, S., Lee, C., Park, J., & Im, C.H. (2020). **Individually customized transcranial temporal interference stimulation for focused modulation of deep brain structures: a simulation study with different head models.** *Scientific Reports*, 10, 11730. — Extended TI to individually optimized configurations; showed subject-specific anatomy matters.
-- Botzanowski, B., Donahue, M.J., Giannopoulos, G., Gomez, L.J., & Bhatt, D.K. (2022). **Multi-channel temporal interference stimulation for focal deep brain modulation.** — Demonstrated advantages of 4+ electrode pair configurations for improved focality.
-- Cao, J. & Bhatt, D.K. (2020). **Stimulus waveform design for multi-channel transcranial temporal interference stimulation.** — Phase optimization for mTI; showed how relative phase between pairs controls field steering.
+- Botzanowski, B. et al. (2025). **Focal control of non-invasive deep brain stimulation using multipolar temporal interference.** *Bioelectronic Medicine*, 11(1), 7. doi:10.1186/s42234-025-00169-6 — the mTI envelope (square, low-pass, square root, pp. 4–5) that `tit.calc` implements.
 - von Conta, J., Kasten, F.H., Curio, G., Villringer, A., & Herrmann, C.S. (2022). **Interindividual variability of electric fields during transcranial temporal interference stimulation (tTIS).** *Scientific Reports*, 12, 1598. — Documented how anatomical variation affects TI fields across individuals.
 
 ### FEM & Head Modeling

@@ -66,7 +66,7 @@ from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 `tit.calc` has **five** public functions. The three envelope functions take a
 **list** of `2K` arrays of shape `(N, 3)`, **paired positionally**: each two
 consecutive fields are the two channels sharing one carrier. The two carrier
-functions take any number (>= 1) of fields, one per electrode pair.
+functions take any number (>= 1) of fields, one per channel.
 
 ```python
 envelope(fields, direction)                    # (N,) envelope along direction ((3,) or (N, 3)) -> TI_normal
@@ -78,13 +78,13 @@ hf_peak(fields)                                # (N,) peak carrier field max_s |
 hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = E_rms^2, (V/m)^2
 
 envelope_max([E1, E2])                         # K = 1: exact closed form
-envelope_max([E1a, E1b, E2a, E2b])             # K = 2 carriers (mTI)
+envelope_max([E1, E2, E3, E4])                 # K = 2 carriers, 4 channels (mTI)
 ```
-`coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. A carrier with no
-beating partner is a pair with a zero field in the envelope functions,
-`[E1a, E1b, Eu, np.zeros_like(Eu)]` (it lowers the envelope), and one more field
+`coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. A channel with no
+beating partner gets a zero field as its partner in the envelope functions,
+`[E1, E2, Eu, np.zeros_like(Eu)]` (it lowers the envelope), and one more field
 in `hf_peak`/`hf_power`. `hf_peak(coherent=True)` is `|sum E_c|`, the phase-aligned
-"peak HF"; the default worst case over carrier signs is the safety value. The
+"peak HF"; the default worst case over channel signs is the safety value. The
 on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
 `sigma * hf_power` in W/m^3 with the solve's own conductivity.
 
@@ -92,9 +92,9 @@ on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
 (the older vector/average/direction functions, their `psi` argument, and the
 separate carrier-fields module with its `hf_sar` *function*), `get_nTI_vectors`, `get_mTI_vectors`, `get_mTI_dir`,
 `get_magnitude_am`, and the `channels=` carrier-regrouping parameter. There is no
-`montage.channels`: **wiring is positional — one field is one carrier**.
+`montage.channels`: **wiring is positional — one field per channel, two channels per carrier**.
 
-**Pair count**: an even number of electrode pairs, at least two —
+**Channel count**: an even number of channels (electrode pairs), at least two —
 2 = TI, 4 or more (even) = mTI (`tit.constants.is_valid_pair_count`).
 
 ## Preprocessing
@@ -116,18 +116,18 @@ Montage(name="Custom", mode=MontageMode.NET,
 cfg = SimulationConfig(
     subject_id="101", montages=montages,
     conductivity="scalar",              # scalar | vn | dir | mc  (vn/dir/mc need DTI)
-    intensities=[1.0, 1.0],             # mA per pair
+    intensities=[1.0, 1.0],             # mA per channel
     electrode_shape="ellipse", electrode_dimensions=[8.0, 8.0],
     gel_thickness=1.0, rubber_thickness=2.0,
     map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
     output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar", "hf_power_density"
 run_simulation(cfg)
-# ΔF = 0 carrier-only control (2-pair TI; coherent carriers, no envelope fields):
+# ΔF = 0 carrier-only control (two-channel TI; coherent sum, no envelope fields):
 # SimulationConfig(..., carrier_only=True, output_fields=["hf_peak", "hf_sar"])
 # (hf_power_density is a carrier field too and may be added)
 ```
-2 pairs → TI, 4+ (even) → mTI, detected automatically. Outputs:
+2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs:
 `Simulations/<name>/TI/{mesh,niftis}` plus MNI-space NIfTIs. `TI_normal` is written
 to `<montage>_mTI_normal.msh` for mTI runs (via `envelope` along the cortical
 normals) and is **mesh-only** — asking for it in voxel space is an error by design.

@@ -130,7 +130,7 @@ these are the facts that changed:
   and `hf_power(fields, *, coherent=False)` — each taking a *list* of fields
   paired positionally. `get_nTI_vectors`, `get_mTI_vectors`/`get_mTI_dir`,
   `get_magnitude_am` and the `channels=` carrier-regrouping parameter are gone;
-  carrier wiring is always positional, one field per carrier.
+  wiring is always positional, one field per channel and two channels per carrier.
 - **Numerical migration guidance** lives in the [release notes](../docs/releases/v3.0.0.md#scientific-corrections).
   Domain skills describe current behavior and link to that guidance.
 - **`get_toolbox_version` reads `tit/__init__.py` and `desktop/package.json`** and

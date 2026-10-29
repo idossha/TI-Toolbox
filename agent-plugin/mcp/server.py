@@ -1114,25 +1114,29 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "not .json)",
         },
         "science_rules": {
-            "pair_count": "tit.constants.is_valid_pair_count — an even number of electrode "
-            "pairs, at least 2. 2 pairs = TI, 4 or more (even) = mTI. Odd counts leave a "
-            "channel with nothing to beat against; a single pair is tACS, not TI.",
+            "pair_count": "tit.constants.is_valid_pair_count — an even number of channels "
+            "(electrode pairs; channel k is electrodes Ek+ and Ek-), at least 2. 2 channels "
+            "= TI, 4 or more (even) = mTI. Odd counts leave a channel with nothing to beat "
+            "against; a single channel is tACS, not TI.",
             "envelope_api": "tit.calc exposes exactly five functions: "
             "envelope(fields, direction) -> TI_normal; envelope_max(fields, *, "
             "perpendicular_to=None, return_direction=False) -> TI_max/mTI_max, or the "
             "tangential maximum within the plane perpendicular_to the normals; "
             "envelope_mean(fields) -> TI_avg; hf_peak(fields, *, coherent=False); "
             "hf_power(fields, *, coherent=False) = (1/2) sum |E_c|^2. Envelope `fields` is "
-            "a LIST of 2K arrays paired positionally. get_nTI_vectors, "
+            "a LIST of 2K arrays, one per channel, paired positionally (channels 2k-1 and 2k "
+            "share carrier k). get_nTI_vectors, "
             "get_mTI_vectors/get_mTI_dir, get_magnitude_am and the channels= parameter "
             "do not exist.",
-            "carrier_model": "Positional wiring: one field is one carrier "
-            "(tit.calc.hf_peak(fields) / hf_power(fields)). There is no montage.channels.",
+            "carrier_model": "Positional wiring: one field per channel, each two "
+            "consecutive channels share a carrier; hf_peak(fields) / hf_power(fields) take "
+            "every channel field on its own. There is no montage.channels.",
             "exposure_metrics": "Quasi-static: E is a phasor AMPLITUDE (V/m, peak, not RMS), "
             "no time axis; every exposure quantity is a worst case over unknown relative "
             "phases. Per Cassara et al. 2025 Part II p.8, fields at identical frequencies "
-            "superpose COHERENTLY (vector sum within a channel) and different frequencies "
-            "INCOHERENTLY (SAR addition across carriers). hf_power = (1/2) sum_c |E_c|^2 "
+            "superpose COHERENTLY (vector sum) and different frequencies -- every channel "
+            "of a TI/mTI montage -- INCOHERENTLY (power addition). "
+            "hf_power = (1/2) sum_c |E_c|^2 "
             "= E_rms^2 in (V/m)^2; the on-disk field hf_sar stores sum_c |E_c|^2 = "
             "2*hf_power; the on-disk field hf_power_density = (1/2) sum_c E_c^T sigma E_c "
             "in W/m^3 with the solve's own conductivity (tensor under DTI models), so "
@@ -1140,9 +1144,9 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "for zero-to-peak channel currents; compare sqrt(hf_power) with RMS standards "
             "tables (ICNIRP 2010 / IEEE C95.1-2019 limit the RMS in-situ E-field at "
             "1-10 kHz, not SAR), or hf_peak with sqrt(2) times the limit. "
-            "hf_peak = max over signs |sum_c s_c E_c|, exact for any number of carriers. "
-            "Carrier-only control (SimulationConfig(carrier_only=True), 2-pair TI only): "
-            "both pairs at one frequency and in phase (dF = 0), no envelope, so "
+            "hf_peak = max over signs |sum_c s_c E_c|, exact for any number of channels. "
+            "Carrier-only control (SimulationConfig(carrier_only=True), two-channel TI "
+            "only): both channels at one frequency and in phase (dF = 0), no envelope, so "
             "hf_peak = |E1+E2| and hf_sar = |E1+E2|^2 (coherent=True) and output_fields "
             "may only be hf_peak/hf_sar/hf_power_density; TI_max/TI_avg/TI_normal are not "
             "computed.",
