@@ -599,7 +599,7 @@ class TestPrepareForwardWorker:
         monkeypatch.setattr(
             fwd,
             "_build_montage_info",
-            lambda *a: (_MagicMock(ch_names=["Cz"]), object()),
+            lambda *a, **k: (_MagicMock(ch_names=["Cz"]), object()),
         )
         monkeypatch.setattr(fwd, "_compute_leadfield", lambda *a: m2m / "lf.hdf5")
         monkeypatch.setattr(fwd, "_leadfield_channel_order", lambda p: ["Cz"])
@@ -672,7 +672,7 @@ class TestLeadfieldChannelOrder:
         monkeypatch.setattr(
             fwd,
             "_build_montage_info",
-            lambda electrodes, fids: (
+            lambda electrodes, fids, **k: (
                 seen.append(list(electrodes)) or (_MagicMock(ch_names=["x"]), object())
             ),
         )
@@ -730,6 +730,194 @@ class TestLeadfieldChannelOrder:
         monkeypatch.setattr(sys.modules["h5py"], "File", h5file)
 
         assert fwd._leadfield_channel_order(tmp_path / "lf.hdf5") == ["Cz", "Fp1"]
+
+
+class TestRecordingGeometry:
+    """A recording's fiducials or an explicit head->MRI trans set the head frame.
+
+    mne is mocked on the host, so these pin which geometry reaches
+    ``coregister_fiducials`` (or bypasses it), not the transform's numbers.
+    """
+
+    _ELECTRODES = {"Cz": [0.0, 0.0, 0.1]}
+    _FIDUCIALS = {"LPA": [-0.07, 0, 0], "Nz": [0, 0.09, 0], "RPA": [0.07, 0, 0]}
+
+    def _coreg(self, monkeypatch):
+        from tit.source import forward as fwd
+
+        coreg = _MagicMock(return_value={"from": 4, "to": 5})
+        monkeypatch.setattr(fwd.mne.coreg, "coregister_fiducials", coreg)
+        return fwd, coreg
+
+    def test_default_coregisters_the_nets_own_fiducials(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+
+        _, trans = fwd._build_montage_info(self._ELECTRODES, self._FIDUCIALS)
+
+        coreg.assert_called_once()
+        assert coreg.call_args.args[0] is fwd.mne.create_info.return_value
+        assert trans is coreg.return_value
+
+    @staticmethod
+    def _recording(fwd, *points):
+        """A minimal Info stand-in: only ``dig``, as MNE's DigPoint dicts.
+
+        ``points`` are ``(kind, ident, r)``; the default is a digitization with
+        three cardinals at unequal distances (as a real head never is
+        symmetric) plus one EEG point, all in the head frame.
+        """
+        fiff = fwd.mne.io.constants.FIFF
+        if not points:
+            card = fiff.FIFFV_POINT_CARDINAL
+            points = (
+                (card, fiff.FIFFV_POINT_LPA, (-0.071, 0.0, 0.0)),
+                (card, fiff.FIFFV_POINT_NASION, (0.0, 0.093, 0.0)),
+                (card, fiff.FIFFV_POINT_RPA, (0.075, 0.0, 0.0)),
+                (fiff.FIFFV_POINT_EEG, 1, (0.002, 0.01, 0.098)),
+            )
+        return {
+            "dig": [
+                {"kind": k, "ident": i, "r": r, "coord_frame": fiff.FIFFV_COORD_HEAD}
+                for k, i, r in points
+            ]
+        }
+
+    def test_recording_info_is_coregistered(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+        recording = self._recording(fwd)
+        fwd._check_recording_geometry(recording, None)
+
+        fwd._build_montage_info(self._ELECTRODES, self._FIDUCIALS, info=recording)
+
+        assert coreg.call_args.args[0] is recording
+
+    def test_explicit_trans_is_used_as_is(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+        given = {"from": 4, "to": 5}
+        fwd._check_recording_geometry(None, given)
+
+        _, trans = fwd._build_montage_info(
+            self._ELECTRODES, self._FIDUCIALS, trans=given
+        )
+
+        coreg.assert_not_called()
+        assert trans is given
+
+    def test_trans_in_the_wrong_frames_raises(self):
+        from tit.source import forward as fwd
+
+        with pytest.raises(ValueError, match="head"):
+            fwd._check_recording_geometry(None, {"from": 5, "to": 4})
+
+    def test_info_and_trans_together_raise(self):
+        from tit.source import forward as fwd
+
+        with pytest.raises(ValueError, match="not both"):
+            fwd._check_recording_geometry(self._recording(fwd), {"from": 4, "to": 5})
+
+    @pytest.mark.parametrize("dig", [None, []])
+    def test_info_without_dig_raises(self, dig):
+        """MNE would fail later with an unclear TypeError."""
+        from tit.source import forward as fwd
+
+        with pytest.raises(ValueError, match="LPA, Nasion and RPA"):
+            fwd._check_recording_geometry({"dig": dig}, None)
+
+    def test_info_without_all_three_cardinals_raises(self):
+        """MNE would silently substitute default cardinals: a wrong transform."""
+        from tit.source import forward as fwd
+
+        fiff = fwd.mne.io.constants.FIFF
+        card = fiff.FIFFV_POINT_CARDINAL
+        eeg_only = self._recording(fwd, (fiff.FIFFV_POINT_EEG, 1, (0, 0, 0.1)))
+        two_cardinals = self._recording(
+            fwd,
+            (card, fiff.FIFFV_POINT_LPA, (-0.07, 0, 0)),
+            (card, fiff.FIFFV_POINT_RPA, (0.07, 0, 0)),
+        )
+        for info in (eeg_only, two_cardinals):
+            with pytest.raises(ValueError, match="LPA, Nasion and RPA"):
+                fwd._check_recording_geometry(info, None)
+
+    @pytest.mark.parametrize("filled", ["all", "lpa_rpa"])
+    def test_cardinals_filled_in_by_mne_raise(self, filled):
+        """``set_montage`` without fiducials appends them at axis * R.
+
+        R is the mean norm of the head-frame points present before the fill
+        (``mne.channels.montage._ensure_fiducials_head``, mne 1.11); real MNE
+        confirms ``set_montage`` produces exactly this dig.
+        """
+        import numpy as np
+
+        from tit.source import forward as fwd
+
+        fiff = fwd.mne.io.constants.FIFF
+        card = fiff.FIFFV_POINT_CARDINAL
+        eeg = [(0.0, 0.0, 0.1), (0.0, 0.06, 0.08), (0.05, 0.0, 0.085)]
+        nasion = (0.0, 0.095, 0.0)
+        present = eeg + ([nasion] if filled == "lpa_rpa" else [])
+        radius = np.mean([np.linalg.norm(r) for r in present])
+        if filled == "all":
+            nasion = (0.0, radius, 0.0)
+        points = [
+            (card, fiff.FIFFV_POINT_LPA, (-radius, 0.0, 0.0)),
+            (card, fiff.FIFFV_POINT_NASION, nasion),
+            (card, fiff.FIFFV_POINT_RPA, (radius, 0.0, 0.0)),
+        ] + [(fiff.FIFFV_POINT_EEG, n, r) for n, r in enumerate(eeg, 1)]
+
+        with pytest.raises(ValueError, match="filled in by MNE"):
+            fwd._check_recording_geometry(self._recording(fwd, *points), None)
+
+    def test_prepare_forward_refuses_before_any_work(self, monkeypatch):
+        from tit.source import forward as fwd
+        from tit.source.config import ForwardConfig
+
+        monkeypatch.setattr(
+            fwd, "get_path_manager", _MagicMock(side_effect=AssertionError)
+        )
+        with pytest.raises(ValueError, match="LPA, Nasion and RPA"):
+            fwd.prepare_forward("001", ForwardConfig(), info={"dig": None})
+
+    def _stub_cached(self, monkeypatch, tmp_project):
+        fwd, _ = TestLeadfieldChannelOrder()._stub(
+            monkeypatch, tmp_project, ["Cz"], ["Cz"]
+        )
+        monkeypatch.setattr(fwd, "_forward_outputs_valid", lambda *a: True)
+        built = []
+        monkeypatch.setattr(
+            fwd,
+            "_build_montage_info",
+            lambda e, f, **k: built.append(k) or (_MagicMock(ch_names=["x"]), None),
+        )
+        return fwd, built
+
+    def test_prepare_forward_threads_info_and_skips_the_cache(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, built = self._stub_cached(monkeypatch, tmp_project)
+        recording = self._recording(fwd)
+
+        fwd.prepare_forward("001", ForwardConfig(eeg_net="net"), info=recording)
+
+        assert built == [{"info": recording, "trans": None}]
+
+    def test_default_prepare_forward_returns_a_valid_cache(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, built = self._stub_cached(monkeypatch, tmp_project)
+
+        paths = fwd.prepare_forward("001", ForwardConfig(eeg_net="net"))
+
+        assert built == []
+        assert [p.name for p in paths] == [
+            "sub-001_net-net-fwd.fif",
+            "sub-001_net-net-src.fif",
+            "sub-001_net-net-morph.h5",
+        ]
 
 
 class TestForwardDependencyPreflight:
