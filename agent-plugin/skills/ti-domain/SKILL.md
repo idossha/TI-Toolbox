@@ -33,7 +33,7 @@ Temporal interference is a non-invasive brain stimulation technique that can rea
 
 ### Foundational Reference
 
-Grossman, N., Bono, D., Bhatt, N. et al. (2017). "Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields." *Cell*, 169(6), 1029–1041. This paper demonstrated TI stimulation in living mice, showing selective deep-brain activation without superficial cortex engagement.
+Grossman, N., Bono, D., Dedic, N. et al. (2017). "Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields." *Cell*, 169(6), 1029–1041.e16, doi:10.1016/j.cell.2017.05.024. This paper demonstrated TI stimulation in living mice, showing selective deep-brain activation without superficial cortex engagement.
 
 ### Key Field Quantities
 
@@ -86,28 +86,35 @@ This equals `2 · min(|E1|, |E2|)` when the fields point in the same direction. 
 
 ### Extension to N Channels
 
-Standard TI uses 2 channels on one carrier. Multi-polar TI (mTI) uses `2K` channels on
-`K` carriers — in TI-Toolbox any even number of channels from 4 (E1± to E4±, `K = 2`)
-up to 26; the optimizers' mEx-search uses exactly 4.
+Standard TI is one beating pair: two channels at slightly different carrier
+frequencies that beat at Δf. Multi-polar TI (mTI) uses `2K` channels in `K` beating
+pairs — 4 or more channels, beating in pairs at a common Δf. TI-Toolbox accepts any
+even number of channels from 4 (E1± to E4±, `K = 2`) up to 26; the optimizers'
+mEx-search uses exactly 4.
 
 ### How mTI Works (the model TI-Toolbox computes)
 
-1. **Channels are paired positionally:** channels `2k-1` and `2k` share carrier `k` and
-   differ by the same small difference frequency on every carrier — for `K = 2`, e.g.
-   2.000/2.010 kHz and 4.000/4.010 kHz. Every carrier beats at one common Δf, and the
-   beats are phase-aligned.
-2. The carrier bands are far enough apart that low-pass filtering removes their cross
-   terms, so the carriers add **in power**: the joint envelope along `n` is
-   `E_AM(n) = | |S n| - |D n| |` (section 8), and `mTI_max` is its maximum over `n`
-   (`tit.calc.envelope_max` over all `2K` channel fields at once).
+1. **Channels are paired positionally:** every channel runs at its own carrier
+   frequency, and channels `2k-1` and `2k` form beating pair `k` (carriers `f_k` and
+   `f_k + Δf`) — for `K = 2`, e.g. 2.000/2.010 kHz and 4.000/4.010 kHz. Every pair
+   beats at the same Δf, and the beats are phase-aligned.
+2. The pairs' carrier bands are far enough apart that low-pass filtering removes the
+   cross terms between pairs. Along a direction `n`, with `a_k = E_{2k-1} . n` and
+   `b_k = E_{2k} . n` the two channels of pair `k`, the squared, low-passed signal is
+   the power envelope `p(t) = P + Q cos(2π Δf t)` with `P = (1/2) sum_k (a_k^2 + b_k^2)`
+   and `Q = sum_k a_k b_k`: each pair contributes its own terms to `P` and `Q`, so the
+   pairs add in power. The modulation depth of the amplitude envelope `sqrt(2 p(t))` is
+   `E_AM(n) = | sqrt(sum_k (a_k + b_k)^2) - sqrt(sum_k (a_k - b_k)^2) | = | |S n| - |D n| |`
+   (section 8), and `mTI_max` is its maximum over `n` (`tit.calc.envelope_max` over all
+   `2K` channel fields at once).
 3. Two shortcuts give different and wrong numbers and are not offered: adding the
-   per-carrier envelopes (carriers add in power, not amplitude) and feeding per-carrier
-   envelopes back into the two-channel formula (TI-of-TI).
+   per-pair envelope amplitudes (the pairs add in power, not amplitude) and feeding
+   per-pair envelopes back into the two-channel formula (TI-of-TI).
 4. Per channel, the currents and positions are the free parameters; there is no phase
-   parameter (beats are assumed phase-aligned) and no carrier-regrouping choice.
+   parameter (beats are assumed phase-aligned) and no channel-regrouping choice.
 
 The physics and the accuracy of each quantity are on the wiki's Analyzer page
-(`read_wiki_page("analyzer")`, "More carriers: multipolar TI").
+(`read_wiki_page("analyzer")`, "More beating pairs: multipolar TI").
 
 ### Key References
 
@@ -136,8 +143,8 @@ case-sensitive.
 ### The envelope API — and what was removed
 
 `tit.calc` exposes exactly **five** public functions. The envelope functions take a
-*list* of `2K` field arrays, one per channel, paired **positionally** (each two
-consecutive channels share one carrier); the carrier functions take any number of
+*list* of `2K` field arrays, one per channel, paired **positionally** (channels
+`2k-1` and `2k` form beating pair `k`); the carrier functions take any number of
 channel fields:
 
 ```python
@@ -166,7 +173,7 @@ recursive `TI(TI(E1,E2), TI(E3,E4))` algorithm, which is simply wrong for
 `N >= 4`), `get_mTI_vectors` / `get_mTI_dir`, `get_magnitude_am`, and the
 `channels=` carrier-regrouping parameter. There is no `montage.channels` and no
 separate "carrier wiring" control: **wiring is positional — one field per channel,
-two channels per carrier**.
+two channels per beating pair**.
 
 ---
 
@@ -630,8 +637,8 @@ For 3D vector fields E1(x) and E2(x), find the orientation unit vector **n** tha
 TI_max(x) = max_n | |n · (E1 + E2)| - |n · (E1 - E2)| |
 ```
 
-For `K = 1` carrier (two channels) this has an exact closed form. For `K >= 2` (mTI), with
-`a_k = E_ka . n`, `b_k = E_kb . n` (`E_ka`, `E_kb` = carrier `k`'s two channel
+For `K = 1` (one beating pair, two channels) this has an exact closed form. For `K >= 2` (mTI), with
+`a_k = E_ka . n`, `b_k = E_kb . n` (`E_ka`, `E_kb` = beating pair `k`'s two channel
 fields, i.e. channels `2k-1` and `2k`) and `S`, `D` the `K x 3` matrices with rows
 `E_ka + E_kb` and `E_ka - E_kb`, the envelope along `n` is
 
@@ -856,7 +863,7 @@ Subject IDs follow BIDS convention: `sub-{id}` where `{id}` is typically a zero-
 | **Leadfield** | Precomputed field-per-electrode matrix enabling fast montage evaluation |
 | **MNI space** | Montreal Neurological Institute standard coordinate system for brain imaging |
 | **Montage** | Configuration of electrode positions and their channel assignments |
-| **mTI** | Multi-polar temporal interference (4 or more channels, 2 per carrier) |
+| **mTI** | Multi-polar temporal interference (4 or more channels, beating in pairs at a common Δf) |
 | **NIfTI** | Neuroimaging file format (.nii/.nii.gz) |
 | **Parcellation** | Division of cortical surface into labeled anatomical regions |
 | **ROI** | Region of interest — the stimulation target |
@@ -870,14 +877,13 @@ Subject IDs follow BIDS convention: `sub-{id}` where `{id}` is typically a zero-
 ## 12. Key References
 
 ### Temporal Interference — Foundational
-- Grossman, N., Bono, D., Dedic, N., Kodandaramaiah, S.B., Rudenko, A., Suk, H.J., Cassara, A.M., Neufeld, E., Kuster, N., Tsai, L.H., Bhatt, D.K., Bhatt, N., Pascual-Leone, A., & Bhatt, D.K. (2017). **Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields.** *Cell*, 169(6), 1029–1041. — The foundational paper demonstrating TI in mice, showing selective hippocampal stimulation without cortical engagement.
+- Grossman, N., Bono, D., Dedic, N., Kodandaramaiah, S.B., Rudenko, A., Suk, H.-J., Cassara, A.M., Neufeld, E., Kuster, N., Tsai, L.-H., Pascual-Leone, A., & Boyden, E.S. (2017). **Noninvasive Deep Brain Stimulation via Temporally Interfering Electric Fields.** *Cell*, 169(6), 1029–1041. — The foundational paper demonstrating TI in mice, showing selective hippocampal stimulation without cortical engagement.
 - Rampersad, S., Roig-Solvas, B., Yarossi, M., Kulkarni, P.P., Santarnecchi, E., Dorval, A.D., & Brooks, D.H. (2019). **Prospects for transcranial temporal interference stimulation in humans: A computational study.** *NeuroImage*, 202, 116124. — First computational modeling of TI in realistic human head models; showed practical feasibility and identified challenges.
-- Huang, Y. & Bhatt, D.K. (2020). **An analytical model for temporal interference stimulation.** *Physics in Medicine & Biology*, 65(12), 125001. — Mathematical framework for understanding TI field distributions analytically.
 
 ### Multi-polar TI (mTI) & Multi-channel
 - Lee, S., Lee, C., Park, J., & Im, C.H. (2020). **Individually customized transcranial temporal interference stimulation for focused modulation of deep brain structures: a simulation study with different head models.** *Scientific Reports*, 10, 11730. — Extended TI to individually optimized configurations; showed subject-specific anatomy matters.
 - Botzanowski, B. et al. (2025). **Focal control of non-invasive deep brain stimulation using multipolar temporal interference.** *Bioelectronic Medicine*, 11(1), 7. doi:10.1186/s42234-025-00169-6 — the mTI envelope (square, low-pass, square root, pp. 4–5) that `tit.calc` implements.
-- von Conta, J., Kasten, F.H., Curio, G., Villringer, A., & Herrmann, C.S. (2022). **Interindividual variability of electric fields during transcranial temporal interference stimulation (tTIS).** *Scientific Reports*, 12, 1598. — Documented how anatomical variation affects TI fields across individuals.
+- von Conta, J., Kasten, F.H., Ćurčić-Blake, B., Aleman, A., Thielscher, A., & Herrmann, C.S. (2021). **Interindividual variability of electric fields during transcranial temporal interference stimulation (tTIS).** *Scientific Reports*, 11, 20357. doi:10.1038/s41598-021-99749-0. — Documented how anatomical variation affects TI fields across individuals.
 
 ### FEM & Head Modeling
 - Thielscher, A., Antunes, A., & Saturnino, G.B. (2015). **Field modeling for transcranial magnetic stimulation: A useful tool to understand the physiological effects of TMS?** *IEEE EMBS*, 222–225. — SimNIBS original paper; describes the FEM approach for brain stimulation modeling.
@@ -919,12 +925,11 @@ Subject IDs follow BIDS convention: `sub-{id}` where `{id}` is typically a zero-
 ### Safety & Dosimetry
 - Bikson, M., Grossman, P., Thomas, C., Zannou, A.L., Jiang, J., Adnan, T., ... & Woods, A.J. (2016). **Safety of transcranial direct current stimulation: Evidence based update 2016.** *Brain Stimulation*, 9(5), 641–661. — Comprehensive safety review for transcranial electrical stimulation; current density limits, thermal effects, contraindications.
 - Antal, A., Alekseichuk, I., Bikson, M., Brockmöller, J., Brunoni, A.R., Chen, R., ... & Paulus, W. (2017). **Low intensity transcranial electric stimulation: Safety, ethical, legal regulatory and application guidelines.** *Clinical Neurophysiology*, 128(9), 1774–1809. — Regulatory guidelines for transcranial stimulation safety.
-- Esmaeilpour, Z., Kronberg, G., Reato, D., Parra, L.C., & Bhatt, D.K. (2020). **Temporal interference stimulation targets deep brain regions by modulating neural oscillations.** *Brain Stimulation*, 14(1), 55–65. — Safety and efficacy analysis specific to TI; SAR considerations for kHz-range stimulation.
+- Esmaeilpour, Z., Kronberg, G., Reato, D., Parra, L.C., & Bikson, M. (2021). **Temporal interference stimulation targets deep brain regions by modulating neural oscillations.** *Brain Stimulation*, 14(1), 55–65. — Safety and efficacy analysis specific to TI; SAR considerations for kHz-range stimulation.
 
 ### BIDS Standard
 - Gorgolewski, K.J., Auer, T., Calhoun, V.D., Craddock, R.C., Das, S., Duff, E.P., ... & Poldrack, R.A. (2016). **The brain imaging data structure, a format for organizing and describing outputs of neuroimaging experiments.** *Scientific Data*, 3, 160044. — The BIDS specification; directory structure and naming conventions used by TI-Toolbox.
 
 ### Review Articles & Broader Context
-- Deng, Z.D., Lisanby, S.H., & Bhatt, D.K. (2013). **Electric field depth-focality tradeoff in transcranial current stimulation: simulation comparison of 50 electrode montages.** *Brain Stimulation*, 6(1), 1–13. — Demonstrated the fundamental depth-focality tradeoff that TI aims to overcome.
-- Voroslakos, M., Takeuchi, Y., Brinyiczki, K., Zombori, T., Oliva, A., Fernandez-Ruiz, A., ... & Bhatt, D.K. (2018). **Direct effects of transcranial electric stimulation on brain circuits in rats and humans.** *Nature Communications*, 9, 483. — In vivo evidence of how transcranial stimulation affects neural circuits.
-- Alekseichuk, I., Mantell, K., Shirinpour, S., & Bhatt, D.K. (2019). **Comparative modeling of transcranial direct current stimulation (tDCS) and temporal interference stimulation (TIS).** *Brain Stimulation*, 12(2), 536. — Direct comparison of tDCS vs TI field distributions in the same head models.
+- Deng, Z.-D., Lisanby, S.H., & Peterchev, A.V. (2013). **Electric field depth–focality tradeoff in transcranial magnetic stimulation: Simulation comparison of 50 coil designs.** *Brain Stimulation*, 6(1), 1–13. doi:10.1016/j.brs.2012.02.005 — The depth–focality tradeoff for TMS coils; TI is one way around the same tradeoff for electric stimulation.
+- Vöröslakos, M., Takeuchi, Y., Brinyiczki, K., Zombori, T., Oliva, A., Fernandez-Ruiz, A., ... & Berényi, A. (2018). **Direct effects of transcranial electric stimulation on brain circuits in rats and humans.** *Nature Communications*, 9, 483. — In vivo evidence of how transcranial stimulation affects neural circuits.
