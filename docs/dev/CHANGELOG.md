@@ -28,7 +28,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 #### EEG forward model
 
-- **Added: build a forward model in a recording's head frame** — from Python, `prepare_forward(subject, cfg, info=raw.info)` coregisters the head model to a recording's digitized fiducials instead of the EEG net's template ones, and `trans=` takes an explicit head→MRI transform as is (it must map MNE head to MRI coordinates). Either one rebuilds the forward and reuses the cached FEM leadfield. Without them the forward is built exactly as before; the **Source** extension and JSON configs are unchanged.
+- **Added: build a forward model in a recording's head frame** — from Python, `prepare_forward(subject, cfg, info=raw.info)` coregisters the head model to a recording's digitized fiducials instead of the EEG net's template ones, and `trans=` takes an explicit head→MRI transform as is (it must map MNE head to MRI coordinates); pass one or the other. An `info` without digitized LPA, Nasion and RPA, or whose fiducials MNE filled in itself, is refused before any computation instead of producing a wrong transform. Either one rebuilds the forward and reuses the cached FEM leadfield. Without them the forward is built exactly as before; the **Source** extension and JSON configs are unchanged.
 
 ---
 ### v3.1.2 — October 22, 2026 <span class="release-pill">Latest</span> {#v312--october-22-2026}

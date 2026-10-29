@@ -92,6 +92,65 @@ def _read_simnibs_montage(
     return electrodes, fiducials
 
 
+def _check_recording_geometry(
+    info: mne.Info | None, trans: mne.transforms.Transform | None
+) -> None:
+    """Refuse a recording geometry that would give a wrong or unclear transform.
+
+    Run before any FEM work.  An ``info`` without the three cardinal points
+    would fail deep inside MNE, and one whose cardinals MNE filled in itself
+    would coregister silently to the wrong head frame.
+    """
+    if info is not None and trans is not None:
+        raise ValueError("pass info or trans, not both")
+    if trans is not None and (trans["from"] != 4 or trans["to"] != 5):
+        raise ValueError("trans must map MNE head (4) to MRI (5) coordinates")
+    if info is None:
+        return
+    fiff = mne.io.constants.FIFF
+    dig = info["dig"] or ()
+    axis = {
+        fiff.FIFFV_POINT_LPA: (-1.0, 0.0, 0.0),
+        fiff.FIFFV_POINT_NASION: (0.0, 1.0, 0.0),
+        fiff.FIFFV_POINT_RPA: (1.0, 0.0, 0.0),
+    }
+    fids = {
+        d["ident"]: np.asarray(d["r"], float)
+        for d in dig
+        if d["kind"] == fiff.FIFFV_POINT_CARDINAL and d["ident"] in axis
+    }
+    if len(fids) < 3:
+        raise ValueError(
+            "info must carry digitized LPA, Nasion and RPA cardinal points "
+            "in info['dig']"
+        )
+    # set_montage on a montage without fiducials appends the missing ones at
+    # axis * R, R the mean radius of the head-frame points already there; a
+    # real digitization never lands exactly on that radius.
+    radii = [
+        float(np.linalg.norm(d["r"]))
+        for d in dig
+        if d["kind"] != fiff.FIFFV_POINT_CARDINAL
+        and d["coord_frame"] == fiff.FIFFV_COORD_HEAD
+        and not np.isnan(d["r"]).any()
+    ]
+    for n in (1, 2, 3):
+        for filled in itertools.combinations(axis, n):
+            kept = [float(np.linalg.norm(fids[i])) for i in axis if i not in filled]
+            if not radii + kept:
+                continue
+            radius = np.mean(radii + kept)
+            if all(
+                np.allclose(fids[i], np.multiply(axis[i], radius), rtol=0, atol=1e-6)
+                for i in filled
+            ):
+                raise ValueError(
+                    "info's LPA, Nasion and RPA cardinal points were filled in by "
+                    "MNE, not digitized: set a montage that carries the "
+                    "recording's own fiducials"
+                )
+
+
 def _build_montage_info(
     electrodes: dict[str, np.ndarray],
     fiducials: dict[str, np.ndarray],
@@ -106,8 +165,9 @@ def _build_montage_info(
     head<->MRI transform is therefore (near-)identity: the forward is built with
     electrodes at their true subject-space locations, with no dependency on an
     actual EEG recording.  Supplying ``info`` instead coregisters from the
-    recording's digitized fiducials, preserving its head frame.  An explicit
-    head->MRI ``trans`` takes precedence and is never re-estimated.
+    recording's digitized fiducials, preserving its head frame; an explicit
+    head->MRI ``trans`` is used as is.  Both are validated beforehand by
+    :func:`_check_recording_geometry`.
     """
     # An Info whose montage carries the net's own fiducials, used only to derive
     # the head frame that coregister_fiducials aligns to the MRI fiducials.
@@ -130,8 +190,6 @@ def _build_montage_info(
         trans = mne.coreg.coregister_fiducials(
             seed_info if info is None else info, fid_list, tol=1e-1
         )
-    elif trans["from"] != 4 or trans["to"] != 5:
-        raise ValueError("trans must map MNE head (4) to MRI (5) coordinates")
     mri_to_head = mne.transforms.invert_transform(trans)
 
     ch_names = list(electrodes)
@@ -325,18 +383,20 @@ def prepare_forward(
         Destination directory.  Defaults to ``pm.forward(subject_id)``
         (``derivatives/SimNIBS/sub-<id>/forward/``).
     info : mne.Info or None
-        A recording's Info with digitized fiducials.  When given, the head<->MRI
-        transform is coregistered from them, so the forward is in the
-        recording's head frame.  Default: the net's own template fiducials.
+        A recording's Info whose ``dig`` carries the LPA, Nasion and RPA
+        cardinal points.  The head<->MRI transform is coregistered from them,
+        so the forward is in the recording's head frame.  Default: the net's
+        own template fiducials.
     trans : mne.transforms.Transform or None
         An explicit head->MRI transform (MNE head -> MRI frames); used as is,
-        never re-estimated, and takes precedence over ``info``.
+        never re-estimated.  Pass ``info`` or ``trans``, not both.
 
     Returns
     -------
     tuple of pathlib.Path
         ``(fwd_path, src_path, morph_path)``.
     """
+    _check_recording_geometry(info, trans)
     pm = get_path_manager()
     m2m_dir = Path(pm.m2m(subject_id))
     if not m2m_dir.is_dir():

@@ -69,8 +69,11 @@ fwd, src, morph = prepare_forward("101", cfg, info=raw.info)
 # or: prepare_forward("101", cfg, trans=mne.read_trans("sub-101-trans.fif"))
 ```
 
-`info` is coregistered to the head model's fiducials; `trans` (MNE head → MRI) is used as is and
-takes precedence. Either one always rebuilds the forward, reusing the cached FEM leadfield.
+Pass one or the other, not both. `info` must carry the recording's own digitized LPA, Nasion and
+RPA points (`info["dig"]`); its head frame is coregistered to the head model's fiducials. An
+`info` with no digitization, or whose fiducials MNE filled in itself (`set_montage` with a montage
+that has none), is refused before any computation. `trans` must map MNE head → MRI coordinates
+and is used as is. Either one always rebuilds the forward, reusing the cached FEM leadfield.
 
 ## fsaverage mapping (Simulator and API)
 
