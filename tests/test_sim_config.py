@@ -330,7 +330,7 @@ class TestSimulationConfig:
             electrode_pairs=[("C3", "C4"), ("F3", "F4"), ("P3", "P4"), ("O1", "O2")],
             eeg_net="net.csv",
         )
-        with pytest.raises(ValueError, match="2-pair TI"):
+        with pytest.raises(ValueError, match="two-channel TI"):
             SimulationConfig(
                 subject_id="001",
                 montages=[m],
