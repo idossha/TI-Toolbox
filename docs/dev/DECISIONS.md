@@ -3839,3 +3839,17 @@ Ranking Ex candidates on selectivity: not asked for, and it would change every r
 **Revisit if.** `hf_sar` is renamed `hf_power` on disk (`rms_from_hf_sar` becomes √hf_power), or
 users ask for carrier metrics on runs that did not write the carrier fields often enough to make
 the default output include them.
+
+## 2026-10-29 — Candidate metrics are `number | null` in the contract's own (3.1) syntax
+
+**Decision.** `OptimizationCandidate.metrics.additionalProperties` is `{ type: [number, 'null'] }`
+(`contracts/openapi.yaml`, `contracts/CHANGES.md` 2026-10-29), and the two known violations
+`tests/test_contract_response_conformance.py` carried for it are deleted. ARCHITECTURE §5.
+
+**Why.** The document is OpenAPI 3.1, where `nullable: true` means nothing, so the contract said
+"number" while the server sent null for every metric a run does not have (ex p99.9/p95, and now
+`hf_focality` / `ti_selectivity` of a flex run or an older CSV). Null is the intent; the contract
+was wrong, not the server.
+
+**Alternatives rejected.** Widening the known-violation pattern for the new keys: it keeps a
+contract everyone knows is wrong and grows with every optional metric.

@@ -3788,7 +3788,7 @@ components:
         objective_direction: { type: string, enum: [minimize, maximize] }
         metrics:
           type: object
-          additionalProperties: { type: number, nullable: true }
+          additionalProperties: { type: [number, 'null'] }
         metric_labels:
           type: object
           additionalProperties: { type: string }

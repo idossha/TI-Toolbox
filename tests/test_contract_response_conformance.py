@@ -24,10 +24,10 @@ free-hand configs, caps) and validated with ``jsonschema``'s Draft 2020-12 valid
   project, and a pending agent proposal, so ``JobStatus``, ``JobDetail``, ``Event``,
   ``JobOutputs`` and ``Proposal`` items are validated, not empty lists.
 * Violations found and left open are listed in ``KNOWN_VIOLATIONS`` with why and who
-  fixes them (2026-10-22: the contract's OpenAPI 3.0 ``nullable: true`` on candidate
-  metrics, ``/api/system``'s null optional blocks, and ``PipelineConfig``'s ``oneOf``
-  that every job config matches more than once); an entry that stops occurring fails,
-  so the list only shrinks.
+  fixes them (``/api/system``'s null optional blocks, and ``PipelineConfig``'s ``oneOf``
+  that every job config matches more than once; the candidate metrics' OpenAPI 3.0
+  ``nullable: true`` was fixed to ``type: [number, 'null']`` on 2026-10-29); an entry that
+  stops occurring fails, so the list only shrinks.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_contract_response_conformance.py -q``.
 The scene routes' bodies are validated in ``tests/test_scene_routes.py`` (they need
@@ -204,17 +204,6 @@ EXEMPT: dict[str, str] = {
 #: An entry is a regex over "<location>: <message>" lines; one that stops matching any
 #: error fails the test, so this list shrinks when the fix lands and cannot rot.
 KNOWN_VIOLATIONS: dict[str, tuple[str, str]] = {
-    "/api/catalog/optimization-candidates": (
-        r"candidates/\d+/metrics/(roi_p99_9|background_p95|hf_focality|ti_selectivity): None is not of type 'number'",
-        "contract: OptimizationCandidate.metrics says `nullable: true`, an OpenAPI 3.0 keyword "
-        "that this 3.1 document ignores; an ex run has no p99.9/p95 so the server's null is "
-        "the intent (and an mEx or older ex CSV has no HF_Focality/TI_Selectivity). Fix the contract to "
-        "`type: [number, 'null']` (contracts owner).",
-    ),
-    "/api/catalog/optimization-candidates/{candidate_id}": (
-        r"candidate/metrics/(roi_p99_9|background_p95|hf_focality|ti_selectivity): None is not of type 'number'",
-        "same `nullable: true` contract defect as the candidate page",
-    ),
     "/api/jobs/{id}": (
         r"spec/config: \{'subject_id': '101'.* is valid under each of .*",
         "contract: JobSpec.config is PipelineConfig, a `oneOf` of 19 placeholder members "
