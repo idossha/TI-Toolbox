@@ -6,8 +6,11 @@ What this pins
     ``hf_focality`` = mean_ROI(hf_peak) / mean_GM(hf_peak), ``rms_focality`` on
     E_rms = sqrt(hf_sar / 2), ``ti_selectivity`` = roi_focality / hf_focality and the
     ``hf_focality_*_area`` hot-spot extents on hf_peak. A carrier field the simulation did
-    not write leaves its metrics ``None`` with ``carrier_note`` naming the missing field; an
-    analysis of a carrier field reports none of them, with a note saying why.
+    not write leaves its metrics ``None`` with ``carrier_note`` naming what to tick, in one
+    warning per analysis; a carrier with NaN/inf on the analysed elements, a reference mean of
+    0, or a voxel carrier on another grid (shape or affine) leaves its metrics ``None`` with the
+    reason, and never touches the modulation statistics; an analysis of a carrier field reports
+    none of them, with a note saying why.
 
 Where the expectations come from
     Hand arithmetic on authored fields, written out beside each assertion: piecewise-constant
@@ -151,16 +154,49 @@ def test_a_missing_hf_sar_leaves_only_the_rms_metrics_out(tmp_path: Path) -> Non
     r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=HF))
     assert r.hf_focality == pytest.approx(57 / 39)
     assert r.rms_roi_mean is r.rms_gm_mean is r.rms_focality is None
-    assert "hf_sar is not on the central surface" in r.carrier_note
+    assert r.carrier_note == (
+        "this simulation did not write hf_sar: tick hf_sar (for the rms_* statistics) "
+        "among its Output fields and re-run it."
+    )
     assert _csv(tmp_path)["carrier_note"] == r.carrier_note
 
 
-def test_no_carrier_fields_means_every_carrier_metric_is_none(tmp_path: Path) -> None:
-    r = _sphere(_mesh(tmp_path, TI_max=TI))
+def test_no_carrier_fields_is_one_warning_naming_both_fields_to_tick(
+    tmp_path: Path, caplog
+) -> None:
+    with caplog.at_level("WARNING", logger="tit.analyzer.analyzer"):
+        r = _sphere(_mesh(tmp_path, TI_max=TI))
     assert all(getattr(r, k) is None for k in CARRIER_RESULT_KEYS[:-1])
-    assert "hf_peak" in r.carrier_note and "hf_sar" in r.carrier_note
-    assert "output fields" in r.carrier_note
+    assert r.carrier_note == (
+        "this simulation did not write hf_peak or hf_sar: tick hf_peak (for hf_focality, "
+        "ti_selectivity and the carrier hot spot) and hf_sar (for the rms_* statistics) "
+        "among its Output fields and re-run it."
+    )
+    warnings = [rec for rec in caplog.records if rec.levelname == "WARNING"]
+    assert len(warnings) == 1 and r.carrier_note in warnings[0].getMessage()
     assert r.roi_focality == pytest.approx(38 / 29)  # the TI statistics are unaffected
+
+
+def test_a_non_finite_carrier_is_no_metric_and_never_a_nan(tmp_path: Path) -> None:
+    hf = HF.copy()
+    hf[2] = np.nan  # an ROI node
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=hf, hf_sar=HF_SAR))
+    assert r.hf_focality is r.ti_selectivity is r.hf_focality_50_area is None
+    assert r.rms_focality == pytest.approx(76 / 49)  # hf_sar is fine
+    assert "hf_peak has NaN or inf values" in r.carrier_note
+    values = {k: v for k, v in _csv(tmp_path).items() if k != "carrier_note"}
+    assert "hf_focality" not in values and "nan" not in {
+        v.lower() for v in values.values()
+    }
+    assert r.roi_focality == pytest.approx(38 / 29)
+
+
+def test_a_zero_reference_carrier_has_no_focality(tmp_path: Path) -> None:
+    zero = np.zeros(10)
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=zero, hf_sar=zero))
+    assert r.hf_focality is None and r.rms_focality is None
+    assert "hf_peak's mean over the reference elements is 0" in r.carrier_note
+    assert "E_rms from hf_sar's mean over the reference elements is 0" in r.carrier_note
 
 
 def test_a_carrier_field_analysis_has_no_carrier_metrics(tmp_path: Path) -> None:
@@ -176,7 +212,12 @@ def test_a_carrier_field_analysis_has_no_carrier_metrics(tmp_path: Path) -> None
 VOXEL = np.diag([2.0, 2.0, 2.0, 1.0])  # 8 mm^3 voxels
 
 
-def _voxel(tmp_path: Path, written=("hf_peak", "hf_sar"), shape=(10, 1, 1)):
+def _voxel(
+    tmp_path: Path,
+    written=("hf_peak", "hf_sar"),
+    shape=(10, 1, 1),
+    carrier_affine=VOXEL,
+):
     analyzer = object.__new__(Analyzer)
     analyzer.space = "voxel"
     analyzer.field_name = "TI_max"
@@ -186,30 +227,34 @@ def _voxel(tmp_path: Path, written=("hf_peak", "hf_sar"), shape=(10, 1, 1)):
     analyzer._pm = SimpleNamespace(ensure=lambda p: Path(p).mkdir(parents=True) or p)
     analyzer._surface_mesh = None
     analyzer._is_mti = False
-    images = {analyzer.field_path.name: TI}
+    images = {analyzer.field_path.name: (TI, VOXEL)}
     for name, values in (("hf_peak", HF), ("hf_sar", HF_SAR)):
         if name in written:
             path = tmp_path / f"grey_sim_TI_subject_{name}.nii.gz"
             path.touch()
-            images[path.name] = values if shape == (10, 1, 1) else np.ones(shape)
+            data = values if shape == (10, 1, 1) else np.ones(shape)
+            images[path.name] = (data, carrier_affine)
 
     def load(path):
-        data = images[Path(path).name]
+        data, affine = images[Path(path).name]
         return SimpleNamespace(
             get_fdata=lambda: np.asarray(data, dtype=float).reshape(
                 data.shape if data.ndim == 3 else (10, 1, 1)
             ),
-            affine=VOXEL,
+            affine=affine,
         )
 
     return analyzer, load
 
 
-def test_voxel_path_uses_the_same_voxels_and_volumes(tmp_path: Path) -> None:
-    analyzer, load = _voxel(tmp_path)
-    # Voxel i sits at x = 2i mm; the sphere about x = 3, r = 3.5 holds voxels 0..3, the ROI.
+def _voxel_sphere(analyzer, load):
     with patch("nibabel.load", load):
-        r = analyzer.analyze_sphere((3.0, 0.0, 0.0), 3.5)
+        return analyzer.analyze_sphere((3.0, 0.0, 0.0), 3.5)
+
+
+def test_voxel_path_uses_the_same_voxels_and_volumes(tmp_path: Path) -> None:
+    # Voxel i sits at x = 2i mm; the sphere about x = 3, r = 3.5 holds voxels 0..3, the ROI.
+    r = _voxel_sphere(*_voxel(tmp_path))
     # Equal 8 mm^3 voxels: ROI 4 voxels, rest 5 positive voxels (voxel 9 has TI = 0).
     assert r.roi_focality == pytest.approx(2.0 / (13 / 9))
     assert r.hf_focality == pytest.approx(3.0 / (17 / 9))
@@ -220,17 +265,23 @@ def test_voxel_path_uses_the_same_voxels_and_volumes(tmp_path: Path) -> None:
     assert r.carrier_note is None
 
 
-def test_voxel_missing_carrier_nifti_is_named(tmp_path: Path) -> None:
-    analyzer, load = _voxel(tmp_path, written=("hf_peak",))
-    with patch("nibabel.load", load):
-        r = analyzer.analyze_sphere((3.0, 0.0, 0.0), 3.5)
+def test_voxel_missing_carrier_nifti_names_what_to_tick(tmp_path: Path) -> None:
+    r = _voxel_sphere(*_voxel(tmp_path, written=("hf_peak",)))
     assert r.hf_focality is not None and r.rms_focality is None
-    assert "grey_sim_TI_subject_hf_sar.nii.gz does not exist" in r.carrier_note
+    assert "did not write hf_sar: tick hf_sar" in r.carrier_note
 
 
-def test_voxel_carrier_on_another_grid_is_refused_by_name(tmp_path: Path) -> None:
-    analyzer, load = _voxel(tmp_path, shape=(5, 2, 1))
-    with patch("nibabel.load", load):
-        r = analyzer.analyze_sphere((3.0, 0.0, 0.0), 3.5)
+def test_voxel_carrier_of_another_shape_is_refused_by_name(tmp_path: Path) -> None:
+    r = _voxel_sphere(*_voxel(tmp_path, shape=(5, 2, 1)))
     assert r.hf_focality is None and r.rms_focality is None
-    assert "has grid (5, 2, 1), not the (10, 1, 1)" in r.carrier_note
+    assert "grey_sim_TI_subject_hf_peak.nii.gz is not on the grid of" in r.carrier_note
+    assert "(5, 2, 1) vs (10, 1, 1)" in r.carrier_note
+
+
+def test_voxel_carrier_with_another_affine_is_refused(tmp_path: Path) -> None:
+    shifted = VOXEL.copy()
+    shifted[0, 3] = 2.0  # same shape, one voxel along x: not the same points
+    r = _voxel_sphere(*_voxel(tmp_path, carrier_affine=shifted))
+    assert r.hf_focality is None and r.rms_focality is None
+    assert "grey_sim_TI_subject_hf_sar.nii.gz is not on the grid of" in r.carrier_note
+    assert r.roi_focality == pytest.approx(2.0 / (13 / 9))

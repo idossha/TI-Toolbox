@@ -1205,7 +1205,7 @@ class Analyzer:
         )
         carrier = self._carrier_metrics(
             roi_focality,
-            self._voxel_carriers(field_arr.shape),
+            self._voxel_carriers(field_arr.shape, affine),
             roi_mask,
             analysis_mask,
             np.full(roi_values.size, voxel_vol),
@@ -1420,48 +1420,49 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _mesh_carriers(self, surface) -> dict | None:
-        """``hf_peak`` / ``hf_sar`` node values on the central surface, or why each is absent.
+        """``hf_peak`` / ``hf_sar`` node values on the central surface (``None``: not written).
 
         Read from the surface the analysed field is on: ``msh2cortex`` maps every field of
         the TI/mTI mesh onto it, so the carrier fields went through the same interpolation as
-        the modulation field. ``None`` when the analysed field is not a modulation field.
+        the modulation field. Returns ``None`` when the analysed field is not a modulation
+        field.
         """
         if self.field_name not in MODULATION_FIELDS:
             return None
-        out: dict = {}
-        for name in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR):
-            if name in surface.field:
-                out[name] = np.asarray(surface.field[name].value, dtype=np.float64)
-            else:
-                out[name] = (
-                    f"{name} is not on the central surface {self._surface_mesh_path} "
-                    "(the simulation did not write it)"
-                )
-        return out
+        return {
+            name: (
+                np.asarray(surface.field[name].value, dtype=np.float64)
+                if name in surface.field
+                else None
+            )
+            for name in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR)
+        }
 
-    def _voxel_carriers(self, shape: tuple) -> dict | None:
-        """``hf_peak`` / ``hf_sar`` arrays on the analysed field's grid, or why each is absent.
+    def _voxel_carriers(self, shape: tuple, affine: np.ndarray) -> dict | None:
+        """``hf_peak`` / ``hf_sar`` on the analysed field's grid: an array, ``None`` (not
+        written) or the reason it cannot be used.
 
         mesh2nii names every field of one mesh ``<mesh stem>_<field>.nii.gz`` in one folder,
         so the carrier NIfTI of the same tissue is the analysed file with its field suffix
-        swapped -- the same grid, written by the same conversion. ``None`` when the analysed
-        field is not a modulation field.
+        swapped -- the same grid, written by the same conversion; a file on another grid
+        (shape or affine) is refused by name. Returns ``None`` when the analysed field is not
+        a modulation field.
         """
         if self.field_name not in MODULATION_FIELDS:
             return None
         import nibabel as nib
 
         name = self.field_path.name
+        suffix = next(
+            (
+                f"_{self.field_name}{ext}"
+                for ext in (".nii.gz", ".nii")
+                if name.endswith(f"_{self.field_name}{ext}")
+            ),
+            None,
+        )
         out: dict = {}
         for carrier in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR):
-            suffix = next(
-                (
-                    f"_{self.field_name}{ext}"
-                    for ext in (".nii.gz", ".nii")
-                    if name.endswith(f"_{self.field_name}{ext}")
-                ),
-                None,
-            )
             if suffix is None:
                 out[carrier] = (
                     f"{name} is not named <mesh>_{self.field_name}.nii.gz, so its "
@@ -1471,16 +1472,16 @@ class Analyzer:
             ext = suffix[len(self.field_name) + 1 :]
             path = self.field_path.with_name(f"{name[: -len(suffix)]}_{carrier}{ext}")
             if not path.is_file():
-                out[carrier] = (
-                    f"{carrier} was not written by this simulation ({path.name} "
-                    "does not exist)"
-                )
+                out[carrier] = None
                 continue
-            arr = self._squeeze_4d(np.asarray(nib.load(str(path)).get_fdata()))
-            if arr.shape[:3] != tuple(shape[:3]):
+            img = nib.load(str(path))
+            arr = self._squeeze_4d(np.asarray(img.get_fdata()))
+            if arr.shape[:3] != tuple(shape[:3]) or not np.allclose(
+                np.asarray(img.affine, dtype=np.float64), affine
+            ):
                 out[carrier] = (
-                    f"{path.name} has grid {arr.shape[:3]}, not the {tuple(shape[:3])} "
-                    f"of {name}"
+                    f"{path.name} is not on the grid of {name} (shape {arr.shape[:3]} "
+                    f"vs {tuple(shape[:3])}, or another affine)"
                 )
                 continue
             out[carrier] = arr
@@ -1503,10 +1504,13 @@ class Analyzer:
         *roi_weights* / *gm_weights*, so each carrier ratio is taken over exactly the
         elements of ``roi_focality``. ``E_rms`` is used for the RMS ratio, not ``hf_power``:
         a ratio of mean squares would be a ratio of squared fields, not comparable with the
-        linear ``roi_focality``. *carriers* maps ``hf_peak`` / ``hf_sar`` to their values or
-        to the reason they are absent (:meth:`_mesh_carriers`, :meth:`_voxel_carriers`);
-        ``None`` means the analysed field is a carrier field itself. Every metric that cannot
-        be computed is ``None`` and ``carrier_note`` says why.
+        linear ``roi_focality``. *carriers* maps ``hf_peak`` / ``hf_sar`` to their values,
+        ``None`` (not written) or the reason they cannot be used (:meth:`_mesh_carriers`,
+        :meth:`_voxel_carriers`); *carriers* ``None`` means the analysed field is a carrier
+        field itself. A carrier with non-finite values on those elements, or a reference mean
+        <= 0, has no focality. Every metric that cannot be computed is ``None``,
+        ``carrier_note`` says why, and one warning per analysis says what to tick; the
+        modulation statistics are never affected.
         """
         out: dict = dict.fromkeys(CARRIER_RESULT_KEYS)
         if carriers is None:
@@ -1516,17 +1520,35 @@ class Analyzer:
             )
             return out
 
-        def means(values: np.ndarray) -> tuple[float, float, float]:
-            roi = float(np.average(values[roi_sel], weights=roi_weights))
-            gm = float(np.average(values[gm_sel], weights=gm_weights))
+        problems: list[str] = []
+
+        def means(label: str, values: np.ndarray) -> tuple[float, float, float] | None:
+            roi_values, gm_values = values[roi_sel], values[gm_sel]
+            if not (np.isfinite(roi_values).all() and np.isfinite(gm_values).all()):
+                problems.append(
+                    f"{label} has NaN or inf values on the analysed elements"
+                )
+                return None
+            gm = float(np.average(gm_values, weights=gm_weights))
+            if gm <= 0:
+                problems.append(
+                    f"{label}'s mean over the reference elements is {gm:g}, so its "
+                    "focality is undefined"
+                )
+                return None
+            roi = float(np.average(roi_values, weights=roi_weights))
             return roi, gm, roi / gm
 
-        notes = []
+        absent = []
         peak = carriers[const.FIELD_HF_PEAK]
-        if isinstance(peak, str):
-            notes.append(peak)
-        else:
-            roi, gm, hf_focality = means(peak)
+        if peak is None:
+            absent.append(
+                "hf_peak (for hf_focality, ti_selectivity and the carrier hot spot)"
+            )
+        elif isinstance(peak, str):
+            problems.append(peak)
+        elif (stats := means(const.FIELD_HF_PEAK, peak)) is not None:
+            roi, gm, hf_focality = stats
             areas = self._compute_focality_metrics(
                 peak[gm_sel], gm_weights, weight_to_cm
             )
@@ -1546,16 +1568,23 @@ class Analyzer:
                 },
             )
         sar = carriers[const.FIELD_HF_SAR]
-        if isinstance(sar, str):
-            notes.append(sar)
-        else:
-            roi, gm, rms_focality = means(rms_from_hf_sar(sar))
+        if sar is None:
+            absent.append("hf_sar (for the rms_* statistics)")
+        elif isinstance(sar, str):
+            problems.append(sar)
+        elif (stats := means("E_rms from hf_sar", rms_from_hf_sar(sar))) is not None:
+            roi, gm, rms_focality = stats
             out.update(rms_roi_mean=roi, rms_gm_mean=gm, rms_focality=rms_focality)
-        if notes:
-            out["carrier_note"] = (
-                "; ".join(notes) + ". Re-run the simulation with hf_peak and hf_sar "
-                "among its output fields to get every carrier metric."
+        if absent:
+            problems.append(
+                "this simulation did not write "
+                + " or ".join(a.split(" ")[0] for a in absent)
+                + ": tick "
+                + " and ".join(absent)
+                + " among its Output fields and re-run it"
             )
+        if problems:
+            out["carrier_note"] = "; ".join(problems) + "."
             logger.warning("Carrier metrics incomplete: %s", out["carrier_note"])
         return out
 
