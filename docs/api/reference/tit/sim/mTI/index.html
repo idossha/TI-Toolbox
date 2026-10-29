@@ -1069,16 +1069,16 @@ for multi-channel TI stimulation with an arbitrary even number of channels
 (4, 6, 8, ...):</p>
 <ul>
 <li>Each channel produces one HF E-field via SimNIBS TDCS.</li>
-<li>Each carrier's two channels are combined into an intermediate TI vector
-  field, saved for inspection only.</li>
-<li>The final mTI envelope is the multi-carrier envelope maximum
+<li>Each beating pair's two channels are combined into an intermediate TI
+  vector field, saved for inspection only.</li>
+<li>The final mTI envelope is the joint envelope maximum
   (:func:<code>tit.calc.envelope_max</code>) over all N channel fields
   jointly -- <em>not</em> a recursive TI-of-TI combination of the intermediate
   fields above (that approximation is physically invalid).</li>
-<li>Channels are paired positionally: each two consecutive channels share
-  a carrier and beat against each other (channels 1 and 2 on the first
-  carrier, 3 and 4 on the second, and so on; on disk the channels are
-  lettered <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> ...).</li>
+<li>Channels are paired positionally: each two consecutive channels form a
+  beating pair at a common difference frequency (channels 1 and 2 the first
+  pair, 3 and 4 the second, and so on; on disk the channels are lettered
+  <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> ...).</li>
 </ul>
 <p>Example with 4 channels (on disk A/B/C/D)::</p>
 <div class="highlight"><pre><span></span><code>TI_AB = _ti_vectors([E_A, E_B])            # intermediate, inspection only
@@ -1131,9 +1131,9 @@ run_simulation : Top-level orchestration that dispatches to this class.</p>
 <li>Set up BIDS output directory structure.</li>
 <li>Visualize electrode placement.</li>
 <li>Build SimNIBS SESSION (N TDCS lists), run FEM.</li>
-<li>Compute each carrier's intermediate TI vector field (adjacent
+<li>Compute each beating pair's intermediate TI vector field (adjacent
    channels, saved for inspection only).</li>
-<li>Compute final <code>mTI_max</code> from the verified multi-carrier
+<li>Compute final <code>mTI_max</code> from the verified
    modulation-depth envelope over all N channel fields jointly, plus
    its orientation-averaged companion <code>TI_avg</code> and the <code>hf_peak</code>/
    <code>hf_sar</code>/<code>hf_power_density</code> kHz-exposure safety maps (always over

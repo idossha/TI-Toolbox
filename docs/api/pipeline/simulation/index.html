@@ -2897,12 +2897,12 @@
 <tr>
 <td><strong>TI</strong></td>
 <td>2</td>
-<td>Standard temporal interference — two channels at slightly different frequencies share one carrier</td>
+<td>Standard temporal interference — two channels at slightly different carrier frequencies that beat at Δf</td>
 </tr>
 <tr>
 <td><strong>mTI</strong></td>
 <td>4 or more (even)</td>
-<td>Multi-channel TI — each two consecutive channels share a carrier; <code>mTI_max</code> is the joint envelope of all channels (<code>tit.calc.envelope_max</code>), not a recursive TI of TIs</td>
+<td>Multi-channel TI — 4 or more channels, beating in pairs at a common Δf; <code>mTI_max</code> is the joint envelope of all channels (<code>tit.calc.envelope_max</code>), not a recursive TI of TIs</td>
 </tr>
 </tbody>
 </table>
@@ -2996,7 +2996,7 @@
 </tr>
 <tr>
 <td><strong>TI_vectors</strong></td>
-<td>Intermediate TI vector field of each carrier's two channels, for inspection only (mTI mode, <code>TI_AB</code>, <code>TI_CD</code>, …)</td>
+<td>Intermediate TI vector field of each beating pair's two channels, for inspection only (mTI mode, <code>TI_AB</code>, <code>TI_CD</code>, …)</td>
 </tr>
 </tbody>
 </table>

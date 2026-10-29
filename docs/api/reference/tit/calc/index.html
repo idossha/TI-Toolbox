@@ -1054,10 +1054,11 @@
 <p>Fields are zero-to-peak amplitudes, <code>(N, 3)</code> arrays in V/m for zero-to-peak
 channel currents, one array per channel (electrodes Ek+ and Ek-).  The
 envelope functions take <code>fields = [E1, E2, ..., E2K]</code> in channel order, paired
-positionally: channels <code>2k-1</code> and <code>2k</code> share carrier <code>k</code> and beat at the
-common difference frequency, all K beats phase-aligned (K = 1 is TI, K &gt;= 2 is
-mTI).  In the formulas <code>E_ka</code> and <code>E_kb</code> are carrier <code>k</code>'s two channel
-fields.  The carrier metrics take the fields of any number &gt;= 1 of channels.</p>
+positionally: channels <code>2k-1</code> and <code>2k</code> form beating pair <code>k</code> (carriers
+<code>f_k</code> and <code>f_k + df</code>, beating at the common difference frequency <code>df</code>), all
+K beats phase-aligned (K = 1 is TI, K &gt;= 2 is mTI).  In the formulas <code>E_ka</code> and
+<code>E_kb</code> are pair <code>k</code>'s two channel fields.  The carrier metrics take the
+fields of any number &gt;= 1 of channels, one carrier each.</p>
 <p>A channel with no beating partner enters the envelope functions with a zero
 field as its partner, <code>[E1, E2, Eu, np.zeros_like(Eu)]</code>: it adds to the
 carrier power but not to the beat, so it lowers the envelope.  :func:<code>hf_peak</code>
@@ -1227,8 +1228,7 @@ NaN or inf, or <code>direction</code> not (3,) or (N, 3).</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-154">154</a></span>
-<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-155">155</a></span>
 <span class="normal"><a href="#__codelineno-0-156">156</a></span>
 <span class="normal"><a href="#__codelineno-0-157">157</a></span>
 <span class="normal"><a href="#__codelineno-0-158">158</a></span>
@@ -1261,41 +1261,42 @@ NaN or inf, or <code>direction</code> not (3,) or (N, 3).</p>
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">direction</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="w">    </span><span class="sd">"""Envelope modulation amplitude along a direction.</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    ``E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)``, with</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    ``a_k = E_ka . n``, ``b_k = E_kb . n`` and ``S``, ``D`` the K x 3 matrices</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    of rows ``E_ka + E_kb``, ``E_ka - E_kb``; the right-hand form (no</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">    cancellation) is evaluated.  K = 1 gives ``2 min(|a|, |b|)``.</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    Method: closed form, exact for every K.  Literature: Grossman 2017's</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    "envelope modulation amplitude along the direction n" (SimNIBS</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    ``get_dirTI``); along the cortical normal it is ``TI_normal``.</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    Defined edge cases: a zero ``direction`` row and a null field (every</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    projection 0) give 0.</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">        direction: (3,) or (N, 3); normalised internally, a zero row gives 0.</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">        (N,) peak-to-trough envelope amplitude in V/m.</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">        ValueError: odd or fewer than two fields, shapes not all one (N, 3),</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">            NaN or inf, or ``direction`` not (3,) or (N, 3).</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">    """</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">n</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">"direction"</span><span class="p">)</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="c1"># w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="c1"># the weaker field of a carrier to cancellation when the other dominates.</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="n">u</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="n">v</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="k">return</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">direction</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="w">    </span><span class="sd">"""Envelope modulation amplitude along a direction.</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    ``E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)``, with</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    ``a_k = E_ka . n``, ``b_k = E_kb . n`` and ``S``, ``D`` the K x 3 matrices</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">    of rows ``E_ka + E_kb``, ``E_ka - E_kb``; the right-hand form (no</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    cancellation) is evaluated.  K = 1 gives ``2 min(|a|, |b|)``.</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    Method: closed form, exact for every K.  Literature: Grossman 2017's</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    "envelope modulation amplitude along the direction n" (SimNIBS</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    ``get_dirTI``); along the cortical normal it is ``TI_normal``.</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    Defined edge cases: a zero ``direction`` row and a null field (every</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    projection 0) give 0.</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">        direction: (3,) or (N, 3); normalised internally, a zero row gives 0.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">        (N,) peak-to-trough envelope amplitude in V/m.</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">        ValueError: odd or fewer than two fields, shapes not all one (N, 3),</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">            NaN or inf, or ``direction`` not (3,) or (N, 3).</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    """</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">n</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">"direction"</span><span class="p">)</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="c1"># w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="c1"># the weaker field of a pair to cancellation when the other dominates.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="n">u</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="n">v</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="k">return</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1493,8 +1494,7 @@ not converge (seen only for fields that overflow float64 once squared).</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-196">196</a></span>
-<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
@@ -1562,76 +1562,77 @@ not converge (seen only for fields that overflow float64 once squared).</p>
 <span class="normal"><a href="#__codelineno-0-262">262</a></span>
 <span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_max</span><span class="p">(</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="n">perpendicular_to</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="n">return_direction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="w">    </span><span class="sd">"""Maximum of the envelope over all directions, or within a plane.</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">    ``max_n E_AM(n)`` over unit ``n`` (:func:`envelope`), or over the unit ``n``</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    perpendicular to ``perpendicular_to``, which equals the sphere maximum of</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    the fields projected onto that plane.</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    Method: K = 1, sphere or plane, is an exact closed form (SimNIBS</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    ``get_maxTI`` to ~1e-15; 0 on null fields).  K &gt;= 2 is exact in a plane</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    (polynomial roots); on the sphere, an eigen-branch root-find plus Newton</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    polish, never measured more than 1e-6 relative below a dense direction</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    search.  Literature: Grossman 2017's "maximal modulation</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    amplitude along any orientation" (SimNIBS ``TImax``), K = 1 in the form of</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    Hirata 2024 Eq. 2.  Outputs ``TI_max``/``mTI_max``; the plane form is the</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    tangential maximum.</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">        perpendicular_to: plane normal(s), (3,) or (N, 3); ``None`` maximises</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">            over the sphere.  Normalised internally; a zero row gives 0.</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">        return_direction: also return the maximising unit direction.</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">        ``amp`` (N,) in V/m, or ``(amp, n_hat)`` with ``n_hat`` (N, 3) unit.</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">        ``-n_hat`` is equally a maximiser; the sign gives ``n_hat . E_L &gt;= 0``</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">        for ``E_L`` the largest (projected) field, so at K = 1 ``amp * n_hat``</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">        is the Grossman TI vector.  Where ``amp == 0``, ``n_hat`` is (1, 0, 0),</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">        or an in-plane unit vector for a plane.</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">        ValueError: the :func:`envelope` errors for ``fields``, or</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">            ``perpendicular_to`` not (3,) or (N, 3) or containing NaN or inf.</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">        RuntimeError: K &gt;= 2 on the sphere, a 3x3 eigen-solve in the kernel did</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">            not converge (seen only for fields that overflow float64 once squared).</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    """</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>    <span class="n">plane</span> <span class="o">=</span> <span class="n">perpendicular_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">if</span> <span class="n">plane</span><span class="p">:</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="n">m</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">perpendicular_to</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="s2">"perpendicular_to"</span><span class="p">)</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">m</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">m</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="n">E</span><span class="p">[:,</span> <span class="o">~</span><span class="n">m</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># undefined plane -&gt; 0, like a zero direction</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="n">k</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">n_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_el</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_k1</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">sl</span><span class="p">])</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="k">elif</span> <span class="n">plane</span><span class="p">:</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_plane</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="n">sl</span><span class="p">])</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_sphere</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">return_direction</span><span class="p">:</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">return</span> <span class="n">amp</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">e_big</span> <span class="o">=</span> <span class="n">E</span><span class="p">[</span><span class="n">norms</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_el</span><span class="p">)]</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"nx,nx-&gt;n"</span><span class="p">,</span> <span class="n">n_hat</span><span class="p">,</span> <span class="n">e_big</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">1.0</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">null</span> <span class="o">=</span> <span class="n">amp</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="k">if</span> <span class="n">null</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">null</span><span class="p">]</span> <span class="o">=</span> <span class="n">_frame</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="n">null</span><span class="p">])[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">plane</span> <span class="k">else</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="k">return</span> <span class="n">amp</span><span class="p">,</span> <span class="n">n_hat</span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_max</span><span class="p">(</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="n">perpendicular_to</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="n">return_direction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="w">    </span><span class="sd">"""Maximum of the envelope over all directions, or within a plane.</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    ``max_n E_AM(n)`` over unit ``n`` (:func:`envelope`), or over the unit ``n``</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    perpendicular to ``perpendicular_to``, which equals the sphere maximum of</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    the fields projected onto that plane.</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    Method: K = 1, sphere or plane, is an exact closed form (SimNIBS</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    ``get_maxTI`` to ~1e-15; 0 on null fields).  K &gt;= 2 is exact in a plane</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    (polynomial roots); on the sphere, an eigen-branch root-find plus Newton</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    polish, never measured more than 1e-6 relative below a dense direction</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    search.  Literature: Grossman 2017's "maximal modulation</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    amplitude along any orientation" (SimNIBS ``TImax``), K = 1 in the form of</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    Hirata 2024 Eq. 2.  Outputs ``TI_max``/``mTI_max``; the plane form is the</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    tangential maximum.</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">        perpendicular_to: plane normal(s), (3,) or (N, 3); ``None`` maximises</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">            over the sphere.  Normalised internally; a zero row gives 0.</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">        return_direction: also return the maximising unit direction.</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">        ``amp`` (N,) in V/m, or ``(amp, n_hat)`` with ``n_hat`` (N, 3) unit.</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">        ``-n_hat`` is equally a maximiser; the sign gives ``n_hat . E_L &gt;= 0``</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">        for ``E_L`` the largest (projected) field, so at K = 1 ``amp * n_hat``</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">        is the Grossman TI vector.  Where ``amp == 0``, ``n_hat`` is (1, 0, 0),</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">        or an in-plane unit vector for a plane.</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">        ValueError: the :func:`envelope` errors for ``fields``, or</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">            ``perpendicular_to`` not (3,) or (N, 3) or containing NaN or inf.</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">        RuntimeError: K &gt;= 2 on the sphere, a 3x3 eigen-solve in the kernel did</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">            not converge (seen only for fields that overflow float64 once squared).</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    """</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="n">plane</span> <span class="o">=</span> <span class="n">perpendicular_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="k">if</span> <span class="n">plane</span><span class="p">:</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">m</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">perpendicular_to</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="s2">"perpendicular_to"</span><span class="p">)</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">m</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">m</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="n">E</span><span class="p">[:,</span> <span class="o">~</span><span class="n">m</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># undefined plane -&gt; 0, like a zero direction</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="n">k</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="n">n_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_el</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_k1</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="k">elif</span> <span class="n">plane</span><span class="p">:</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_plane</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_sphere</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">return_direction</span><span class="p">:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">return</span> <span class="n">amp</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="n">e_big</span> <span class="o">=</span> <span class="n">E</span><span class="p">[</span><span class="n">norms</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_el</span><span class="p">)]</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"nx,nx-&gt;n"</span><span class="p">,</span> <span class="n">n_hat</span><span class="p">,</span> <span class="n">e_big</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">1.0</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">null</span> <span class="o">=</span> <span class="n">amp</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="k">if</span> <span class="n">null</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">null</span><span class="p">]</span> <span class="o">=</span> <span class="n">_frame</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="n">null</span><span class="p">])[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">plane</span> <span class="k">else</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="k">return</span> <span class="n">amp</span><span class="p">,</span> <span class="n">n_hat</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1740,8 +1741,7 @@ defined by this toolbox.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-444">444</a></span>
-<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-445">445</a></span>
 <span class="normal"><a href="#__codelineno-0-446">446</a></span>
 <span class="normal"><a href="#__codelineno-0-447">447</a></span>
 <span class="normal"><a href="#__codelineno-0-448">448</a></span>
@@ -1787,54 +1787,55 @@ defined by this toolbox.</p>
 <span class="normal"><a href="#__codelineno-0-488">488</a></span>
 <span class="normal"><a href="#__codelineno-0-489">489</a></span>
 <span class="normal"><a href="#__codelineno-0-490">490</a></span>
-<span class="normal"><a href="#__codelineno-0-491">491</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_mean</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="w">    </span><span class="sd">"""Mean of the envelope over all directions (``TI_avg``).</span>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    The mean of ``E_AM(n)`` over the unit sphere; at K = 1 exactly</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.  Never exceeds</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    :func:`envelope_max`.</span>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    Method: K = 1 closed form, exact.  K &gt;= 2: equal-area quadrature on 2048</span>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    hemisphere directions (``E_AM(n) = E_AM(-n)``, so a 4096-point sphere</span>
-<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    rule), ~7e-4 relative error at worst.  Literature: none, ``TI_avg`` is</span>
-<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    defined by this toolbox.</span>
-<a id="__codelineno-0-455" name="__codelineno-0-455"></a>
-<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
-<a id="__codelineno-0-458" name="__codelineno-0-458"></a>
-<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">        (N,) direction-averaged envelope amplitude in V/m.</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">        ValueError: as :func:`envelope`.</span>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    """</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="k">if</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="w">            </span><span class="sd">"""Row norms."""</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a>            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>        <span class="n">E1</span><span class="p">,</span> <span class="n">E2</span> <span class="o">=</span> <span class="n">E</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>        <span class="k">return</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E2</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">+</span> <span class="n">E2</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">-</span> <span class="n">E2</span><span class="p">))</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">_hemisphere_directions</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>  <span class="c1"># the ~7e-4 rule of the docstring</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">dirs</span><span class="o">.</span><span class="n">T</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a>    <span class="n">monomials</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">z</span><span class="p">])</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="w">        </span><span class="sd">"""The 6 unique entries of each symmetric ``C``, in the order of ``monomials``."""</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a>            <span class="p">[</span><span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="mi">1</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a>        <span class="p">)</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_MEAN_CHUNK</span><span class="p">):</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_MEAN_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">pack</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="o">@</span> <span class="n">monomials</span> <span class="k">for</span> <span class="n">C</span> <span class="ow">in</span> <span class="n">_forms</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">]))</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>    <span class="k">return</span> <span class="n">out</span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_mean</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="w">    </span><span class="sd">"""Mean of the envelope over all directions (``TI_avg``).</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    The mean of ``E_AM(n)`` over the unit sphere; at K = 1 exactly</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.  Never exceeds</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="sd">    :func:`envelope_max`.</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    Method: K = 1 closed form, exact.  K &gt;= 2: equal-area quadrature on 2048</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    hemisphere directions (``E_AM(n) = E_AM(-n)``, so a 4096-point sphere</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    rule), ~7e-4 relative error at worst.  Literature: none, ``TI_avg`` is</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    defined by this toolbox.</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">        (N,) direction-averaged envelope amplitude in V/m.</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        ValueError: as :func:`envelope`.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    """</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="k">if</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="w">            </span><span class="sd">"""Row norms."""</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>        <span class="n">E1</span><span class="p">,</span> <span class="n">E2</span> <span class="o">=</span> <span class="n">E</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="k">return</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E2</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">+</span> <span class="n">E2</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">-</span> <span class="n">E2</span><span class="p">))</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">_hemisphere_directions</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>  <span class="c1"># the ~7e-4 rule of the docstring</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">dirs</span><span class="o">.</span><span class="n">T</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>    <span class="n">monomials</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">z</span><span class="p">])</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="w">        </span><span class="sd">"""The 6 unique entries of each symmetric ``C``, in the order of ``monomials``."""</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>            <span class="p">[</span><span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="mi">1</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>        <span class="p">)</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_MEAN_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_MEAN_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">pack</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="o">@</span> <span class="n">monomials</span> <span class="k">for</span> <span class="n">C</span> <span class="ow">in</span> <span class="n">_forms</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">]))</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1960,8 +1961,7 @@ Literature: Cassarà et al. 2025 Part I Eq. 3.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-499">499</a></span>
-<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-500">500</a></span>
 <span class="normal"><a href="#__codelineno-0-501">501</a></span>
 <span class="normal"><a href="#__codelineno-0-502">502</a></span>
 <span class="normal"><a href="#__codelineno-0-503">503</a></span>
@@ -1997,44 +1997,45 @@ Literature: Cassarà et al. 2025 Part I Eq. 3.</p>
 <span class="normal"><a href="#__codelineno-0-533">533</a></span>
 <span class="normal"><a href="#__codelineno-0-534">534</a></span>
 <span class="normal"><a href="#__codelineno-0-535">535</a></span>
-<span class="normal"><a href="#__codelineno-0-536">536</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-499" name="__codelineno-0-499"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_peak</span><span class="p">(</span>
-<a id="__codelineno-0-500" name="__codelineno-0-500"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-501" name="__codelineno-0-501"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="w">    </span><span class="sd">"""Peak instantaneous carrier field, ``max_s |sum_c s_c E_c|`` over ``s_c = +-1``.</span>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a><span class="sd">    Equal to ``max_n sum_c |E_c . n|``; two channels give ``max(|E1 + E2|,</span>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    |E1 - E2|)``.  The default is the worst case over channel phases (reached</span>
-<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">    by incommensurate frequencies), the safety-relevant value.  ``coherent=True``</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a>
-<a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">    Method: exact for any number of channels; closed form up to two, zonotope</span>
-<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">    vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).</span>
-<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    Literature: Cassarà et al. 2025 Part I Eq. 3.</span>
-<a id="__codelineno-0-512" name="__codelineno-0-512"></a>
-<a id="__codelineno-0-513" name="__codelineno-0-513"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">        fields: one or more channel fields (N, 3) in V/m, one per channel.</span>
-<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
-<a id="__codelineno-0-516" name="__codelineno-0-516"></a><span class="sd">            ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).</span>
-<a id="__codelineno-0-517" name="__codelineno-0-517"></a>
-<a id="__codelineno-0-518" name="__codelineno-0-518"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">        (N,) peak carrier field magnitude in V/m (zero-to-peak).</span>
-<a id="__codelineno-0-520" name="__codelineno-0-520"></a>
-<a id="__codelineno-0-521" name="__codelineno-0-521"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-522" name="__codelineno-0-522"></a><span class="sd">        ValueError: no fields, shapes not all one (N, 3), or NaN or inf.</span>
-<a id="__codelineno-0-523" name="__codelineno-0-523"></a><span class="sd">    """</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="k">if</span> <span class="n">coherent</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
-<a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span>
-<a id="__codelineno-0-529" name="__codelineno-0-529"></a>            <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="p">)</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hf_peak_vertices</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>    <span class="k">return</span> <span class="n">out</span>
+<span class="normal"><a href="#__codelineno-0-536">536</a></span>
+<span class="normal"><a href="#__codelineno-0-537">537</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-500" name="__codelineno-0-500"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_peak</span><span class="p">(</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="w">    </span><span class="sd">"""Peak instantaneous carrier field, ``max_s |sum_c s_c E_c|`` over ``s_c = +-1``.</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    Equal to ``max_n sum_c |E_c . n|``; two channels give ``max(|E1 + E2|,</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">    |E1 - E2|)``.  The default is the worst case over channel phases (reached</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    by incommensurate frequencies), the safety-relevant value.  ``coherent=True``</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">    gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">    Method: exact for any number of channels; closed form up to two, zonotope</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).</span>
+<a id="__codelineno-0-512" name="__codelineno-0-512"></a><span class="sd">    Literature: Cassarà et al. 2025 Part I Eq. 3.</span>
+<a id="__codelineno-0-513" name="__codelineno-0-513"></a>
+<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="sd">        fields: one or more channel fields (N, 3) in V/m, one per channel.</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a><span class="sd">            ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a><span class="sd">        (N,) peak carrier field magnitude in V/m (zero-to-peak).</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a><span class="sd">        ValueError: no fields, shapes not all one (N, 3), or NaN or inf.</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a><span class="sd">    """</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a>    <span class="k">if</span> <span class="n">coherent</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a>            <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="p">)</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hf_peak_vertices</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a>    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2162,8 +2163,7 @@ Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-577">577</a></span>
-<span class="normal"><a href="#__codelineno-0-578">578</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-578">578</a></span>
 <span class="normal"><a href="#__codelineno-0-579">579</a></span>
 <span class="normal"><a href="#__codelineno-0-580">580</a></span>
 <span class="normal"><a href="#__codelineno-0-581">581</a></span>
@@ -2192,37 +2192,38 @@ Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</p>
 <span class="normal"><a href="#__codelineno-0-604">604</a></span>
 <span class="normal"><a href="#__codelineno-0-605">605</a></span>
 <span class="normal"><a href="#__codelineno-0-606">606</a></span>
-<span class="normal"><a href="#__codelineno-0-607">607</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-577" name="__codelineno-0-577"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power</span><span class="p">(</span>
-<a id="__codelineno-0-578" name="__codelineno-0-578"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-579" name="__codelineno-0-579"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<a id="__codelineno-0-580" name="__codelineno-0-580"></a><span class="w">    </span><span class="sd">"""Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.</span>
-<a id="__codelineno-0-581" name="__codelineno-0-581"></a>
-<a id="__codelineno-0-582" name="__codelineno-0-582"></a><span class="sd">    Channel fields at distinct frequencies add in power (their cross terms</span>
-<a id="__codelineno-0-583" name="__codelineno-0-583"></a><span class="sd">    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed</span>
-<a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time</span>
-<a id="__codelineno-0-585" name="__codelineno-0-585"></a><span class="sd">    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010</span>
-<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`</span>
-<a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">    with ``sqrt(2)`` times them.</span>
-<a id="__codelineno-0-588" name="__codelineno-0-588"></a>
-<a id="__codelineno-0-589" name="__codelineno-0-589"></a><span class="sd">    Method: closed form, exact for any number of channels.  Literature:</span>
-<a id="__codelineno-0-590" name="__codelineno-0-590"></a><span class="sd">    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</span>
-<a id="__codelineno-0-591" name="__codelineno-0-591"></a>
-<a id="__codelineno-0-592" name="__codelineno-0-592"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-593" name="__codelineno-0-593"></a><span class="sd">        fields: one or more zero-to-peak channel fields (N, 3) in V/m.</span>
-<a id="__codelineno-0-594" name="__codelineno-0-594"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
-<a id="__codelineno-0-595" name="__codelineno-0-595"></a><span class="sd">            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so</span>
-<a id="__codelineno-0-596" name="__codelineno-0-596"></a><span class="sd">            ``(1/2) |sum_c E_c|^2``.</span>
-<a id="__codelineno-0-597" name="__codelineno-0-597"></a>
-<a id="__codelineno-0-598" name="__codelineno-0-598"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-599" name="__codelineno-0-599"></a><span class="sd">        (N,) mean-square carrier field in (V/m)^2.</span>
-<a id="__codelineno-0-600" name="__codelineno-0-600"></a>
-<a id="__codelineno-0-601" name="__codelineno-0-601"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="sd">        ValueError: as :func:`hf_peak`.</span>
-<a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="sd">    """</span>
-<a id="__codelineno-0-604" name="__codelineno-0-604"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-605" name="__codelineno-0-605"></a>    <span class="k">if</span> <span class="n">coherent</span><span class="p">:</span>
-<a id="__codelineno-0-606" name="__codelineno-0-606"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-607" name="__codelineno-0-607"></a>    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,fnx-&gt;n"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-607">607</a></span>
+<span class="normal"><a href="#__codelineno-0-608">608</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power</span><span class="p">(</span>
+<a id="__codelineno-0-579" name="__codelineno-0-579"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-580" name="__codelineno-0-580"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-581" name="__codelineno-0-581"></a><span class="w">    </span><span class="sd">"""Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.</span>
+<a id="__codelineno-0-582" name="__codelineno-0-582"></a>
+<a id="__codelineno-0-583" name="__codelineno-0-583"></a><span class="sd">    Channel fields at distinct frequencies add in power (their cross terms</span>
+<a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed</span>
+<a id="__codelineno-0-585" name="__codelineno-0-585"></a><span class="sd">    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time</span>
+<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010</span>
+<a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`</span>
+<a id="__codelineno-0-588" name="__codelineno-0-588"></a><span class="sd">    with ``sqrt(2)`` times them.</span>
+<a id="__codelineno-0-589" name="__codelineno-0-589"></a>
+<a id="__codelineno-0-590" name="__codelineno-0-590"></a><span class="sd">    Method: closed form, exact for any number of channels.  Literature:</span>
+<a id="__codelineno-0-591" name="__codelineno-0-591"></a><span class="sd">    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</span>
+<a id="__codelineno-0-592" name="__codelineno-0-592"></a>
+<a id="__codelineno-0-593" name="__codelineno-0-593"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-594" name="__codelineno-0-594"></a><span class="sd">        fields: one or more zero-to-peak channel fields (N, 3) in V/m.</span>
+<a id="__codelineno-0-595" name="__codelineno-0-595"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
+<a id="__codelineno-0-596" name="__codelineno-0-596"></a><span class="sd">            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so</span>
+<a id="__codelineno-0-597" name="__codelineno-0-597"></a><span class="sd">            ``(1/2) |sum_c E_c|^2``.</span>
+<a id="__codelineno-0-598" name="__codelineno-0-598"></a>
+<a id="__codelineno-0-599" name="__codelineno-0-599"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-600" name="__codelineno-0-600"></a><span class="sd">        (N,) mean-square carrier field in (V/m)^2.</span>
+<a id="__codelineno-0-601" name="__codelineno-0-601"></a>
+<a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="sd">        ValueError: as :func:`hf_peak`.</span>
+<a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="sd">    """</span>
+<a id="__codelineno-0-605" name="__codelineno-0-605"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-606" name="__codelineno-0-606"></a>    <span class="k">if</span> <span class="n">coherent</span><span class="p">:</span>
+<a id="__codelineno-0-607" name="__codelineno-0-607"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a>    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,fnx-&gt;n"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
