@@ -123,9 +123,13 @@ Every evaluated candidate is scored on the closed-form two-channel TI envelope (
 | `TImean_GM`       | Volume-weighted mean over GM elements (SimNIBS tag `2`) |
 | `Focality`        | `TImean_ROI / TImean_GM`                                |
 | `Composite_Index` | `TImean_ROI × Focality`                                 |
+| `HF_Focality`     | `Focality` computed on `hf_peak`, the peak carrier field of every channel |
+| `TI_Selectivity`  | `Focality / HF_Focality`                                |
 | `n_elements`      | ROI element count                                       |
 
 `Focality` here has the same definition as the analyzer's `roi_focality`, so search results and post-hoc analyses are directly comparable.
+
+`HF_Focality` is the focality of the stimulation intensity, from the same leadfield, over the same ROI and GM elements and volumes as `Focality`. `TI_Selectivity` above 1 means the envelope is more focal than the carriers that produce it; at or below 1 a plain kHz field reaches the target as selectively. Both are reported only: `Composite_Index` and the ranking do not use them. A candidate with no ROI or grey-matter elements, or no carrier field in grey matter, has empty `HF_Focality` and `TI_Selectivity` cells, where `Focality` reads 0. mEx computes `hf_peak` over all four channels. The analyzer's `hf_focality` and `ti_selectivity` are the same ratios on a full simulation ([Modulation and stimulation focality]({{ site.baseurl }}/wiki/analyzer/#carrier-focality)). `final_output.csv` writes them after `Composite_Index`, and the **Evaluated candidates** table and the report show them as **HF focality** and **TI selectivity** when the run has them.
 
 ### Files
 

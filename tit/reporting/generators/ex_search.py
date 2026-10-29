@@ -43,6 +43,8 @@ REPORT_PREFIX = "ex_search_report"
 SIZE_BUDGET = 1_000_000
 TOP_N = 25
 _FIELDS = ("TImax_ROI", "TImean_ROI", "TImean_GM", "Focality", "Composite_Index")
+#: Reported beside the ranking; a CSV written before them has no such columns (``None``).
+_CARRIER_FIELDS = ("HF_Focality", "TI_Selectivity")
 
 
 def read_results(csv_path: str | Path) -> list[dict]:
@@ -77,6 +79,12 @@ def _read_rows(csv_path: str | Path) -> tuple[list[dict], int]:
             if not all(math.isfinite(v) for v in [*row.values(), *currents]):
                 skipped += 1
                 continue
+            for k in _CARRIER_FIELDS:
+                try:
+                    value = float(r.get(k) or "nan")
+                except ValueError:
+                    value = math.nan
+                row[k] = value if math.isfinite(value) else None
             row["pairs"] = [e[i : i + 2] for i in range(0, len(e), 2)]
             row["currents"] = currents
             rows.append(row)
@@ -440,8 +448,10 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ),
         "Up and to the right is better on both. Dashed curves have equal composite; hover a cell or ring for its values.",
     )
+    top = top_distinct(rows)
+    carrier = any(r["HF_Focality"] is not None for r in top)
     table_rows = []
-    for i, r in enumerate(top_distinct(rows), 1):
+    for i, r in enumerate(top, 1):
         currents = channel_currents(r)
         table_rows.append(
             [
@@ -463,6 +473,10 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
                     ),
                     r["Composite_Index"],
                 ),
+                *(
+                    (("–", None) if r[k] is None else (f"{r[k]:.2f}", r[k]))
+                    for k in (_CARRIER_FIELDS if carrier else ())
+                ),
             ]
         )
     table = c.table(
@@ -475,10 +489,16 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             "GM mean",
             "Focality",
             "Composite",
+            *(("HF focality", "TI selectivity") if carrier else ()),
         ],
         table_rows,
-        caption=f"Top {TOP_N} by composite. Fields in V/m. Select a column header to sort.",
-        right={0, *range(channels + 1, channels + 7)},
+        caption=f"Top {TOP_N} by composite. Fields in V/m. Select a column header to sort."
+        + (
+            " HF focality and TI selectivity are reported, not ranked on."
+            if carrier
+            else ""
+        ),
+        right={0, *range(channels + 1, channels + (9 if carrier else 7))},
         sortable=True,
     )
     skipped = rec.get("skipped", 0)
@@ -521,6 +541,20 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         ),
         ("Focality", "ROI mean ÷ volume-weighted mean envelope over all grey matter"),
         ("Ranking", "composite = ROI mean × focality; higher is better"),
+        *(
+            (
+                (
+                    "HF focality",
+                    "focality of the peak carrier field (hf_peak) on the same elements; not ranked on",
+                ),
+                (
+                    "TI selectivity",
+                    "focality ÷ HF focality: above 1 the envelope is more focal than its carriers",
+                ),
+            )
+            if carrier
+            else ()
+        ),
         (
             "Search space",
             esc(

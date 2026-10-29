@@ -198,6 +198,12 @@ space** — the `_area` names are kept for both deliberately, so scripts keep
 working. Voxel values from v2.3.0–v2.5.0 are ten times too large; divide by 10 or
 re-run. `total_area_or_volume` is mm² / mm³ and was always correct.
 
+**Carrier focality:** a TI/mTI analysis also returns `hf_focality` (hf_peak ROI /
+GM mean), `rms_focality` (on E_rms = sqrt(hf_sar / 2)), `ti_selectivity`
+(`roi_focality / hf_focality`) and `hf_focality_50..95_area`, in V/m terms. They are
+`None` when the simulation did not write `hf_peak` / `hf_sar` (add them to
+`SimulationConfig.output_fields`); `r.carrier_note` says why.
+
 ## Statistics (cluster-based permutation)
 
 ```python

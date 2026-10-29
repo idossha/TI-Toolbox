@@ -112,7 +112,7 @@ The right-hand form subtracts no near-equal numbers and is the one the code eval
 | `TI_max` / `mTI_max` | `envelope_max` | exact closed form | the maximiser is an eigenvector of $$\cos\theta\,\mathbf{C}_+ - \sin\theta\,\mathbf{C}_-$$ with $$\mathbf{C}_+ = \tfrac{1}{2}\mathbf{S}^\top\mathbf{S}$$ and $$\mathbf{C}_- = \tfrac{1}{2}\mathbf{D}^\top\mathbf{D}$$: a root-find along its three eigen-branches, then a local Newton polish. On $$10^4$$ random elements per $$K = 2, 3, 4$$ and $$4 \times 10^5$$ real grey-matter elements, none came out more than $$10^{-6}$$ (relative) below a dense reference search |
 | tangential maximum | `envelope_max(..., perpendicular_to=)` | exact (closed form on the in-plane fields) | exact (roots of a degree-6 polynomial) |
 | `TI_avg` | `envelope_mean` | exact closed form | 4096-direction sphere quadrature (2048 on a hemisphere, since $$E_{\mathrm{AM}}(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(-\hat{\mathbf{n}})$$), about $$7 \times 10^{-4}$$ relative error at worst |
-| `hf_peak` | `hf_peak` | exact, $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ | exact for any number of channels (zonotope vertices) |
+| `hf_peak` | `hf_peak` | exact, $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ | exact for any number of channels (every sign pattern up to eight channels, zonotope vertices above) |
 | `hf_sar`, `hf_power_density` | `hf_power` | exact | exact |
 
 <div class="image-container">
@@ -272,8 +272,32 @@ An analysis reduces the field to the statistics below. "Positive" elements are t
 | **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | `roi_mean`, `roi_max` and `roi_focality` recomputed on `TI_normal` (mesh only). |
 | **Peak** | `percentile_95`, `percentile_99`, `percentile_99_9` | Area- or volume-weighted percentiles of the field over the grey matter (mesh) or the selected tissue (voxel): the smallest value at or below which that fraction of the area or volume lies. `percentile_99_9` is a robust peak that ignores single outlier elements. |
 | **Hot-spot size** | `focality_50_area` … `focality_95_area` | Grey-matter area in $$\mathrm{cm}^2$$ (mesh), or selected-tissue volume in $$\mathrm{cm}^3$$ (voxel), where the field is at least 50, 75, 90 or 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot. |
+| **Stimulation focality** | `hf_roi_mean`, `hf_gm_mean`, `hf_focality` | The target and reference means of `hf_peak`, the peak carrier field, and their ratio: the focality of the stimulation intensity itself. [Modulation and stimulation focality](#carrier-focality). |
+| **RMS stimulation focality** | `rms_roi_mean`, `rms_gm_mean`, `rms_focality` | The same on the RMS carrier field $$E_{\mathrm{rms}} = \sqrt{\mathrm{hf\_power}}$$. |
+| **TI selectivity** | `ti_selectivity` | `roi_focality / hf_focality`. Above 1 the modulation is more focal than the stimulation that produces it. |
+| **Carrier hot-spot size** | `hf_focality_50_area` … `hf_focality_95_area` | The hot-spot size statistic computed on `hf_peak`. |
+| **Carrier note** | `carrier_note` | Why a carrier statistic is missing, or empty when none is. |
 
-The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_sar` gives means in (V/m)², not field strengths.
+The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_sar` gives means in (V/m)², not field strengths. The carrier statistics are the exception: `hf_*` and `rms_*` means are always in V/m.
+
+### Modulation and stimulation focality {#carrier-focality}
+
+`roi_focality` says how concentrated the *modulation* is in the target. A TI field is carried by kHz fields that are themselves spread over the head, and the premise of TI is that the modulation is more focal than they are. An analysis of a modulation field (`TI_max`, `mTI_max`, `TI_avg` or `TI_normal`) therefore also reports the focality of the *stimulation intensity*, from the same simulation, on the same elements:
+
+$$
+F_{\mathrm{HF}} = \frac{\langle E_{\mathrm{peak}} \rangle_{\mathrm{ROI}}}{\langle E_{\mathrm{peak}} \rangle_{\mathrm{GM}}}, \qquad
+F_{\mathrm{RMS}} = \frac{\langle E_{\mathrm{rms}} \rangle_{\mathrm{ROI}}}{\langle E_{\mathrm{rms}} \rangle_{\mathrm{GM}}}, \qquad
+S_{\mathrm{TI}} = \frac{F_{\mathrm{TI}}}{F_{\mathrm{HF}}}
+$$
+
+$$F_{\mathrm{TI}}$$ is `roi_focality`, $$F_{\mathrm{HF}}$$ `hf_focality`, $$F_{\mathrm{RMS}}$$ `rms_focality` and $$S_{\mathrm{TI}}$$ `ti_selectivity`. $$E_{\mathrm{peak}}$$ is `hf_peak` and $$E_{\mathrm{rms}} = \sqrt{\mathrm{hf\_power}} = \sqrt{\mathrm{hf\_sar} / 2}$$. $$\langle \cdot \rangle$$ is the area-weighted (mesh) or volume-weighted (voxel) mean over exactly the target and reference elements of `roi_mean` and `gm_mean`: the nodes or voxels where the analysed field is positive. For mTI, `hf_peak` and `hf_sar` run over every channel's carrier. A `TI_normal` analysis divides `TI_normal`'s own focality by $$F_{\mathrm{HF}}$$.
+
+- **Why $$E_{\mathrm{rms}}$$ and not power.** A field twice as strong in the target as in the reference has four times the power there. The ratio of mean powers would therefore be roughly the square of a field ratio, and not comparable with `roi_focality`. $$E_{\mathrm{rms}}$$ is a field strength (V/m), so `rms_focality` is a linear ratio like `roi_focality` and `hf_focality`.
+- **Reading `ti_selectivity`.** Above 1, the modulation is more concentrated in the target than the carriers: the envelope adds focality that a kHz field alone does not have. At or below 1, a plain kHz field with the carriers' spatial distribution reaches the target as selectively as the modulation does. The ratio compares spatial distributions only; it says nothing about how neurons respond to a kHz field compared with an envelope.
+- **Where the carrier fields come from.** The Analyzer reads `hf_peak` and `hf_sar` from the same outputs as the analysed field: in mesh space the central surface, which carries every field of the TI or mTI mesh, and in voxel space the NIfTI of the same tissue (`grey_<sim>_TI_subject_hf_peak.nii.gz` beside `grey_<sim>_TI_subject_TI_max.nii.gz`). They go through the same interpolation as the modulation field.
+- **When they are missing.** A simulation writes `TI_max` only unless more output fields are ticked. Without `hf_peak`, the `hf_*` statistics and `ti_selectivity` are empty. Without `hf_sar`, the `rms_*` statistics are empty. In both cases `carrier_note` names the fields to tick and the Analyzer logs one warning. A carrier field with NaN or infinite values on the analysed elements, a carrier whose reference mean is 0, or a carrier NIfTI on another grid (shape or affine) leaves its statistics empty in the same way, with the reason. Nothing is approximated, and the modulation statistics are never affected. Re-run the simulation with `hf_peak` and `hf_sar` among its **Output fields** to get them. An analysis of a carrier field (`hf_peak`, `hf_sar`, `hf_power_density`) has no carrier statistics, and `carrier_note` says so.
+
+Ex-search reports the same two ratios for every candidate, as `HF_Focality` and `TI_Selectivity` ([Ex-search metrics]({{ site.baseurl }}/wiki/ex-search/#metrics)).
 
 ---
 
@@ -308,6 +332,7 @@ Every analysis call returns an `AnalysisResult` dataclass. It holds the [statist
 - `n_elements`: the target's positive nodes (mesh) or voxels (voxel)
 - `total_area_or_volume`: their area in $$\mathrm{mm}^2$$ (mesh) or volume in $$\mathrm{mm}^3$$ (voxel)
 - The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI analyses](#mti-analyses)
+- The carrier fields (`hf_*`, `rms_*`, `ti_selectivity`) are `None` when the simulation did not write `hf_peak` or `hf_sar`, or when the analysed field is a carrier field; `carrier_note` says which -- see [Modulation and stimulation focality](#carrier-focality). `results.csv` leaves out every `None` field.
 
 ### Viewing the results
 
@@ -352,6 +377,8 @@ derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<
 ├── group_comparison.pdf            # 2×2 bars per subject: ROI mean, max, focality, normal mean
 └── group_analysis_<timestamp>.log
 ```
+
+`group_summary.csv` includes `HF_Focality`, `RMS_Focality` and `TI_Selectivity`. Each AVERAGE cell is the mean of the subjects' own values, over the subjects that have them, so the AVERAGE `TI_Selectivity` is the mean of per-subject ratios, not the ratio of the averaged focalities.
 
 Group runs are listed under **Results ▸ Group ▸ Group analyses**. Group analyses from earlier
 versions shared one folder, `derivatives/ti-toolbox/logs/group_analysis/`, where each run replaced

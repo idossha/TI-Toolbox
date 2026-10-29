@@ -425,6 +425,9 @@ class TestNumericCols:
             "Normal_Mean",
             "Normal_Max",
             "Normal_Focality",
+            "HF_Focality",
+            "RMS_Focality",
+            "TI_Selectivity",
         }
         assert set(_NUMERIC_COLS) == expected
 

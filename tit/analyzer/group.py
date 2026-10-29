@@ -47,6 +47,9 @@ _NUMERIC_COLS = [
     "Normal_Mean",
     "Normal_Max",
     "Normal_Focality",
+    "HF_Focality",
+    "RMS_Focality",
+    "TI_Selectivity",
 ]
 
 
@@ -421,7 +424,9 @@ def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
 
     A subject without normal-component statistics (every voxel analysis; a mesh run
     without a normal mesh) has empty ``Normal_*`` cells, not ``0``: the AVERAGE of a
-    column is over the subjects that have it, and is empty when none does.
+    column is over the subjects that have it, and is empty when none does. The carrier
+    columns (``HF_Focality``, ``RMS_Focality``, ``TI_Selectivity``) follow the same rule for
+    a simulation that did not write ``hf_peak`` / ``hf_sar``.
     """
     rows = [
         {
@@ -435,6 +440,9 @@ def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
             "Normal_Mean": r.normal_mean,
             "Normal_Max": r.normal_max,
             "Normal_Focality": r.normal_focality,
+            "HF_Focality": r.hf_focality,
+            "RMS_Focality": r.rms_focality,
+            "TI_Selectivity": r.ti_selectivity,
         }
         for sid, r in results.items()
     ]

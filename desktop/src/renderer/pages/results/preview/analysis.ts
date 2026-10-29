@@ -26,6 +26,12 @@
  * tissue (GM, WM or both — `results.csv` does not say which) in voxel space. They are one group
  * titled by that tissue, so a whole-tissue 99.9th percentile above the ROI maximum does not read as
  * an ROI percentile. `focality_X_area` is the extent at or above X % of that 99.9th percentile.
+ *
+ * Carrier metrics. An analysis of a modulation field also reports the stimulation (carrier)
+ * intensity's focality over the same elements: `hf_focality` (hf_peak), `rms_focality` (E_rms),
+ * `ti_selectivity` = `roi_focality / hf_focality` and the `hf_focality_*_area` hot spot. When the
+ * simulation did not write `hf_peak`/`hf_sar` those rows are absent and `carrier_note` says why and
+ * what to tick; the pane shows it as one muted line (`carrierNote`).
  */
 import { fieldSpecForName } from "../../analyzer/fields";
 import { formatCount, formatMetric, type KeyNumber } from "./metrics";
@@ -50,6 +56,8 @@ export interface AnalysisView {
   extras: SummaryRow[];
   /** "mesh" | "voxel" | undefined — decides the focality unit. */
   space?: string;
+  /** Why carrier metrics are missing (`carrier_note`), shown as one muted line; absent when none are. */
+  carrierNote?: string;
 }
 
 /** `Metric,Value` rows → a lookup. A table with other columns yields an empty map. */
@@ -128,6 +136,18 @@ const NAMED = new Set([
   "focality_95_area",
   "n_elements",
   "total_area_or_volume",
+  "hf_roi_mean",
+  "hf_gm_mean",
+  "hf_focality",
+  "rms_roi_mean",
+  "rms_gm_mean",
+  "rms_focality",
+  "ti_selectivity",
+  "hf_focality_50_area",
+  "hf_focality_75_area",
+  "hf_focality_90_area",
+  "hf_focality_95_area",
+  "carrier_note",
 ]);
 
 function keep(metrics: (KeyNumber | undefined)[]): KeyNumber[] {
@@ -206,6 +226,28 @@ export function analysisView(
       ]),
     },
     {
+      // hf_peak and E_rms are V/m whatever field was analysed (tit/analyzer AnalysisResult).
+      title: "Stimulation (carrier) focality",
+      metrics: keep([
+        metric("TI selectivity", numberOf(map, "ti_selectivity"), undefined, { lead: true }),
+        metric("hf_peak focality ratio", numberOf(map, "hf_focality")),
+        metric("E_rms focality ratio", numberOf(map, "rms_focality")),
+        metric("hf_peak ROI mean", numberOf(map, "hf_roi_mean"), "V/m"),
+        metric("hf_peak GM mean", numberOf(map, "hf_gm_mean"), "V/m"),
+        metric("E_rms ROI mean", numberOf(map, "rms_roi_mean"), "V/m"),
+        metric("E_rms GM mean", numberOf(map, "rms_gm_mean"), "V/m"),
+      ]),
+    },
+    {
+      title: `Carrier hot spot · ${fu}`,
+      metrics: keep([
+        metric(`hf_peak ≥ 50 % of its 99.9th percentile`, numberOf(map, "hf_focality_50_area"), fu),
+        metric("≥ 75 %", numberOf(map, "hf_focality_75_area"), fu),
+        metric("≥ 90 %", numberOf(map, "hf_focality_90_area"), fu),
+        metric("≥ 95 %", numberOf(map, "hf_focality_95_area"), fu),
+      ]),
+    },
+    {
       title: "ROI extent",
       metrics: keep([
         map.has("n_elements")
@@ -226,5 +268,6 @@ export function analysisView(
     });
   }
 
-  return { header, groups, extras, space };
+  const carrierNote = map.get("carrier_note")?.trim() || undefined;
+  return { header, groups, extras, space, carrierNote };
 }

@@ -498,6 +498,11 @@ function Preview({
         message: "Could not load this analysis's summary table.",
       },
       { kind: "metrics", groups: analysisSummaryView?.groups ?? [] },
+      !!analysisSummaryView?.carrierNote && {
+        kind: "custom" as const,
+        testid: "results-carrier-note",
+        content: <p className="results-carrier-note">Carrier metrics: {analysisSummaryView.carrierNote}</p>,
+      },
       (analysisSummaryView?.extras.length ?? 0) > 0 && {
         kind: "custom" as const,
         title: "Other metrics",

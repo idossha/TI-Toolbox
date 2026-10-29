@@ -1263,3 +1263,13 @@ plane (it was the component "tangential to the surface", computed as `sqrt(TI_ma
 removed); `SimulationConfig`'s docstring lists `hf_power_density` among the optional field outputs
 (W/m^3, from the run's own conductivities). `hf_power_density` is a new value in the free-text
 `fields` list, not a schema enum.
+
+## 2026-10-29 — `OptimizationCandidate.metrics` values are `number | null` in 3.1 syntax
+
+`metrics.additionalProperties` was `{ type: number, nullable: true }`; `nullable` is an OpenAPI 3.0
+keyword this 3.1 document ignores, so every null the server has always sent (an ex row's
+`roi_p99_9` / `background_p95`) broke the contract. It is now `{ type: [number, 'null'] }`, which
+is what the server sends and the desktop already reads (`schema.d.ts` is unchanged). Ex and mEx
+candidates also carry two more metrics keys, `hf_focality` and `ti_selectivity` (null for flex
+and for a `final_output.csv` without the columns); `metrics` is an open map, so no schema changes
+for them. Regenerated `contracts/generated/openapi.json`.

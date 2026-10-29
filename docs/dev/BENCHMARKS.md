@@ -218,3 +218,35 @@ and new. The NumPy path was deleted on 2026-10-27 (numba is a hard dependency); 
 reproduced from `feat/calc-envelope-api` at 1b2f629c with `tit.calc._sphere_kernel = lambda: None`.
 Accuracy is pinned by `tests/test_calc.py` and `tests/numerical/test_calc_kernel.py`, not by this
 page.
+
+## Carrier focality in Ex/mEx, and hf_peak by sign enumeration — 2026-10-29
+
+Apple M2 host, **native** (repo `.venv`, Python 3.11, NumPy 2.x, numba), not the emulated image;
+best of 5–9 calls after a warm-up, two alternating rounds of old and new. Fields: seeded Gaussian
+channel fields. "Before" is `tit/` of `3767f476` exported with `git archive`; "after" is
+`feat/hf-focality`.
+
+| `tit.calc.hf_peak` per call | 2 channels | 4 channels |
+|---|---:|---:|
+| `envelope_max` on the same fields, 300,000 elements | 46 ms | 0.70–0.81 s |
+| `hf_peak`, zonotope vertices (before) | 11 ms | 0.42–0.44 s |
+| `hf_peak`, every sign pattern (after) | 11 ms | 30 ms |
+
+Per 16,384 elements, sign enumeration against the zonotope vertices: 0.4 vs 9.1 ms at 3 fields,
+1.0 vs 20 ms at 4, 24 vs 160 ms at 8, 107 vs 310 ms at 10, 506 vs 575 ms at 12; `hf_peak`
+enumerates up to 8 fields, where its `(patterns, chunk, 3)` work arrays stay under ~80 MB (70 MB measured at 8 fields per 16,384-element chunk).
+
+End to end, `ExSearchEngine.compute_ti_fields` (one split) and `MExSearchEngine.compute_mti_field`
+on a synthetic float32 leadfield (20 electrodes, 200,000 elements all in GM, ROI 2,000), with
+`simnibs.utils.TI_utils.get_field` replaced by its arithmetic:
+
+| per candidate | before | after (with `HF_Focality`, `TI_Selectivity`) |
+|---|---:|---:|
+| Ex | 36.7–37.1 ms | 46.0–47.1 ms |
+| mEx | 0.53–0.54 s | 0.55–0.60 s |
+
+The Ex increase is the extra pass over the two channel fields (`_stack`'s float64 copy and check,
+3.5 ms, plus `max(|E1+E2|, |E1-E2|)`, 5 ms, at 200,000 elements); the closed-form K=1 envelope
+it sits next to is cheap, so the relative cost is large. Repeat by timing those calls on the same
+seeded fields in separate processes, once per `tit/` tree on `sys.path`. Accuracy is pinned by
+`tests/test_calc.py` and `tests/test_ex_carrier_focality.py`, not by this page.

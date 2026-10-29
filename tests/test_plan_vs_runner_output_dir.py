@@ -159,7 +159,9 @@ def fake_science(monkeypatch, project: Path):
     monkeypatch.setattr(
         sys.modules["simnibs.utils.transformations"], "atlas2subject", _atlas2subject
     )
-    surface = types.SimpleNamespace(nodes=types.SimpleNamespace(node_coord=NODES))
+    surface = types.SimpleNamespace(
+        nodes=types.SimpleNamespace(node_coord=NODES), field={}
+    )
     monkeypatch.setattr(Analyzer, "_load_surface_mesh", lambda self: surface)
     monkeypatch.setattr(Analyzer, "_field_values", lambda self, s: np.arange(1.0, 7.0))
     monkeypatch.setattr(

@@ -7409,8 +7409,10 @@
           "metrics": {
             "type": "object",
             "additionalProperties": {
-              "type": "number",
-              "nullable": true
+              "type": [
+                "number",
+                "null"
+              ]
             }
           },
           "metric_labels": {

@@ -5,7 +5,8 @@ What this pins
        row equal to the arithmetic mean of the subjects' own ``results.csv`` values (read
        back from each subject's analysis folder, averaged here).
     2. A voxel analysis has no normal component: its ``Normal_*`` cells are empty, not
-       ``0.000``, and the comparison PDF has no "Normal Mean" panel.
+       ``0.000``, and the comparison PDF has no "Normal Mean" panel. Its simulation wrote no
+       ``hf_peak`` / ``hf_sar``, so the carrier cells (``HF_Focality`` ...) are empty too.
     3. A mesh group where one subject has no normal mesh: that subject's ``Normal_*`` cells
        are empty and the AVERAGE is the mean of the subjects that have them (not dragged
        down by a 0), and the PDF keeps the Normal Mean panel.
@@ -191,6 +192,12 @@ def test_voxel_normal_cells_are_empty_and_the_pdf_has_no_normal_panel(
     rows = _rows(Path(out["runs"][0]["csv"]))
     for row in rows.values():
         assert (row["Normal_Mean"], row["Normal_Max"], row["Normal_Focality"]) == (
+            "",
+            "",
+            "",
+        )
+        # No hf_peak / hf_sar NIfTI was written: the carrier cells are empty, not 0.
+        assert (row["HF_Focality"], row["RMS_Focality"], row["TI_Selectivity"]) == (
             "",
             "",
             "",

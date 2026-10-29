@@ -258,6 +258,7 @@ from tit.analyzer import Analyzer
 analyzer = Analyzer(subject_id="ernie", simulation="L_Insula", space="mesh")
 roi = analyzer.analyze_cortex(atlas="DK40", region="lh.insula")
 print(roi.roi_mean, roi.roi_max, roi.roi_focality)
+print(roi.hf_focality, roi.ti_selectivity)  # None unless the run wrote hf_peak
 ```
 
 | Field | App control | Default |

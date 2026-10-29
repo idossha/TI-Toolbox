@@ -3797,3 +3797,59 @@ pane until the subject's head is ready: an empty pane on every first visit.
 
 **Revisit if.** First builds of subject scenes become slow enough on real projects that browsing
 named montages waits on them (measure with the real e2e procedure in TESTING.md).
+
+## 2026-10-29 — Stimulation focality is reported beside modulation focality, as a ratio of focalities
+
+**Decision.** An analysis of a modulation field (`TI_max`, `mTI_max`, `TI_avg`, `TI_normal`)
+reports `hf_focality` = mean_ROI(hf_peak) / mean_GM(hf_peak), `rms_focality` on
+E_rms = √hf_power = √(hf_sar / 2), `ti_selectivity` = `roi_focality / hf_focality` and the
+hot-spot size `hf_focality_*_area` on hf_peak, over exactly the ROI and GM elements and weights of
+`roi_focality` (`tit/analyzer/analyzer.py` `Analyzer._carrier_metrics`; the one hf_sar → E_rms
+conversion is `rms_from_hf_sar`). The carrier values are read from the same simulation's outputs:
+the central surface in mesh space (msh2cortex maps every field of the TI/mTI mesh), the NIfTI of
+the same tissue in voxel space. A field the run did not write leaves its metrics `None`, with
+`carrier_note` naming the missing file, and a warning is logged. Ex and mEx report the same two
+ratios per candidate as `HF_Focality` and `TI_Selectivity` from `tit.calc.hf_peak` of every
+channel field on the leadfield; `Composite_Index` and the ranking do not use them. `hf_peak`
+tries every one of the 2^(F-1) sign patterns for 3 to 8 channels and keeps the zonotope vertices
+above (both exact). Pinned by `tests/test_analyzer_carrier_focality.py`,
+`tests/numerical/test_analyzer_carrier_focality_real.py`, `tests/test_ex_carrier_focality.py` and
+`tests/test_calc.py`.
+
+**Why.** The TI premise is that the modulation is more focal than the kHz fields that carry it, and
+until now nothing measured it: `roi_focality` alone cannot tell a focal envelope from focal
+carriers. A ratio of the two focalities, both linear field ratios over one element set, answers
+that directly (> 1: the envelope adds focality). E_rms, not power: a power ratio is about the square
+of a field ratio, so it would not be comparable with `roi_focality`. Reading the simulation's own
+`hf_peak`/`hf_sar` keeps the carrier values on the same interpolation as the modulation field
+(Ernie e2e_ti, MNI (-38, 4, 2) r 10 mm: mesh hf_focality 0.879 and voxel 0.874, ti_selectivity
+1.027 and 1.032 [measured 2026-10-29, `idossha/ti-toolbox:v3.1.2`, this branch mounted]).
+Ex per-candidate cost [measured 2026-10-29, M2 host native, 200,000 elements, ROI 2,000]: Ex
+37 → 46 ms, mEx 0.53–0.54 → 0.55–0.60 s; with the zonotope path at 4 channels mEx would have
+paid +0.4 s per candidate (hf_peak 30 ms vs 422 ms at 300,000 elements).
+
+**Alternatives rejected.** Recomputing the carriers from the `high_Frequency/` channel meshes when
+`hf_peak` was not written: the central-surface values would come from interpolating E vectors
+instead of the per-element field msh2cortex maps, so the two focalities would not share one
+interpolation, and voxel space would need a second mesh-to-NIfTI pass. Changing the Simulator's
+default output fields to include `hf_peak`/`hf_sar`: every default simulation would write and
+convert two more fields to report metrics not everyone reads; the note says how to get them.
+Ranking Ex candidates on selectivity: not asked for, and it would change every run's winner.
+
+**Revisit if.** `hf_sar` is renamed `hf_power` on disk (`rms_from_hf_sar` becomes √hf_power), or
+users ask for carrier metrics on runs that did not write the carrier fields often enough to make
+the default output include them.
+
+## 2026-10-29 — Candidate metrics are `number | null` in the contract's own (3.1) syntax
+
+**Decision.** `OptimizationCandidate.metrics.additionalProperties` is `{ type: [number, 'null'] }`
+(`contracts/openapi.yaml`, `contracts/CHANGES.md` 2026-10-29), and the two known violations
+`tests/test_contract_response_conformance.py` carried for it are deleted. ARCHITECTURE §5.
+
+**Why.** The document is OpenAPI 3.1, where `nullable: true` means nothing, so the contract said
+"number" while the server sent null for every metric a run does not have (ex p99.9/p95, and now
+`hf_focality` / `ti_selectivity` of a flex run or an older CSV). Null is the intent; the contract
+was wrong, not the server.
+
+**Alternatives rejected.** Widening the known-violation pattern for the new keys: it keeps a
+contract everyone knows is wrong and grows with every optional metric.

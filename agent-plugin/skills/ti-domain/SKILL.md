@@ -497,6 +497,25 @@ Higher focality means the stimulation is more concentrated at the target and wea
 Flex-search also offers `focality_tf`, a threshold-free variant
 `mean_ROI^(1+w) / p95_nonROI`, which avoids picking an arbitrary cut-off.
 
+#### Modulation vs stimulation focality
+
+The focality above is that of the *modulation* (TI_max). The analyzer and Ex/mEx
+also report the focality of the *stimulation intensity*, the kHz carriers, over the
+same ROI and GM elements:
+
+```
+hf_focality    = mean_ROI(hf_peak) / mean_GM(hf_peak)       # Ex: HF_Focality
+rms_focality   = mean_ROI(E_rms)   / mean_GM(E_rms)         # E_rms = sqrt(hf_sar / 2)
+ti_selectivity = roi_focality / hf_focality                 # Ex: TI_Selectivity
+```
+
+`ti_selectivity > 1`: the envelope is more focal than its carriers, which is the TI
+premise. `<= 1`: a plain kHz field with the carriers' distribution targets as well.
+The RMS ratio uses E_rms, not power, so it is linear like `roi_focality`. The
+analyzer reads `hf_peak`/`hf_sar` from the same simulation; a run that did not write
+them (the default output is `TI_max` only) leaves these `None`, with `carrier_note`
+saying why. Ex/mEx never rank on them (`Composite_Index` is unchanged).
+
 #### Units — the one thing to get right
 
 The analyzer's `focality_50_area`, `focality_75_area`, `focality_90_area` and
