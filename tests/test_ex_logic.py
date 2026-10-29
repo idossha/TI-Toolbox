@@ -22,7 +22,7 @@ from tit.opt.ex.logic import (
     _electrode_combinations,
     count_combinations,
     generate_current_ratios,
-    generate_montage_combinations,
+    ratios_mirror_symmetric,
 )
 from tit.opt.ex.results import (
     build_csv_rows,
@@ -185,57 +185,6 @@ class TestElectrodeCombinations:
 
 
 # ===========================================================================
-# generate_montage_combinations
-# ===========================================================================
-
-
-@pytest.mark.unit
-class TestGenerateMontagesCombinations:
-    """Tests for generate_montage_combinations()."""
-
-    def test_basic_output_structure(self):
-        """Each yielded tuple has 5 elements: 4 electrodes + ratio tuple."""
-        ratios = [(1.0, 1.0)]
-        combos = list(
-            generate_montage_combinations(
-                ["A"], ["B"], ["C"], ["D"], ratios, all_combinations=False
-            )
-        )
-        assert len(combos) == 1
-        assert combos[0] == ("A", "B", "C", "D", (1.0, 1.0))
-
-    def test_multiple_ratios_multiply_combos(self):
-        """Each electrode combo is paired with every ratio."""
-        ratios = [(1.5, 0.5), (1.0, 1.0), (0.5, 1.5)]
-        combos = list(
-            generate_montage_combinations(
-                ["A"], ["B"], ["C"], ["D"], ratios, all_combinations=False
-            )
-        )
-        assert len(combos) == 3
-        assert combos[0][4] == (1.5, 0.5)
-        assert combos[1][4] == (1.0, 1.0)
-        assert combos[2][4] == (0.5, 1.5)
-
-    def test_total_count_matches(self):
-        """Total combinations = electrode combos * current ratios."""
-        e1p, e1m, e2p, e2m = ["A1", "A2"], ["B1"], ["C1", "C2"], ["D1"]
-        ratios = [(1.0, 1.0), (0.5, 1.5)]
-        combos = list(generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False))
-        # electrode combos: 2*1*2*1 = 4, ratios: 2, total: 8
-        assert len(combos) == 8
-
-    def test_all_combinations_mode_with_ratios(self):
-        """Pool mode with multiple ratios."""
-        pool = ["E1", "E2", "E3", "E4"]
-        ratios = [(1.0, 1.0), (0.5, 1.5)]
-        combos = list(generate_montage_combinations(pool, [], [], [], ratios, True))
-        # (1.0, 1.0) and (0.5, 1.5) is not its own mirror, so both channel orders are
-        # evaluated: 3 pairings * 2 orders * 2 ratios = 12
-        assert len(combos) == 12
-
-
-# ===========================================================================
 # count_combinations
 # ===========================================================================
 
@@ -245,12 +194,31 @@ class TestCountCombinations:
     """Tests for count_combinations()."""
 
     def test_matches_generated_length(self):
-        """count_combinations should equal len(list(generate_montage_combinations))."""
+        """count_combinations equals the quads the runner enumerates times the splits."""
         e1p, e1m, e2p, e2m = ["A1", "A2"], ["B1", "B2"], ["C1"], ["D1", "D2"]
         ratios = [(1.0, 1.0), (0.5, 1.5), (1.5, 0.5)]
         count = count_combinations(e1p, e1m, e2p, e2m, ratios, False)
-        actual = list(generate_montage_combinations(e1p, e1m, e2p, e2m, ratios, False))
-        assert count == len(actual)
+        quads = _electrode_combinations(
+            e1p,
+            e1m,
+            e2p,
+            e2m,
+            False,
+            both_channel_orders=not ratios_mirror_symmetric(ratios),
+        )
+        assert count == sum(1 for _ in quads) * len(ratios)
+
+    def test_bucket_mode_multiplies_electrode_combos_by_ratios(self):
+        """Electrode combos 2*1*2*1 = 4, ratios 2, total 8."""
+        e1p, e1m, e2p, e2m = ["A1", "A2"], ["B1"], ["C1", "C2"], ["D1"]
+        ratios = [(1.0, 1.0), (0.5, 1.5)]
+        assert count_combinations(e1p, e1m, e2p, e2m, ratios, False) == 8
+
+    def test_pool_mode_counts_both_channel_orders_for_asymmetric_ratios(self):
+        """(1.0, 1.0) and (0.5, 1.5) is not its own mirror: 3 pairings * 2 orders * 2 ratios."""
+        pool = ["E1", "E2", "E3", "E4"]
+        ratios = [(1.0, 1.0), (0.5, 1.5)]
+        assert count_combinations(pool, [], [], [], ratios, True) == 12
 
     def test_all_combinations_count(self):
         """Pool mode count matches."""

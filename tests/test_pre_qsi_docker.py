@@ -57,10 +57,6 @@ class TestDockerCommandBuilder:
             b = DockerCommandBuilder(str(tmp_path), paths=custom)
             assert b.paths.bids_dir == "/custom/data"
 
-    def test_get_output_dir(self, builder):
-        result = builder.get_output_dir("qsiprep")
-        assert result == Path("/host/project/derivatives/qsiprep")
-
 
 class TestBuildQsiprepCmd:
     """Tests for build_qsiprep_cmd."""

@@ -112,7 +112,7 @@ def test_every_shipped_mni_region_name_resolves_to_its_own_label(
     assert set(present) <= set(table), "every label in the volume has a name"
     wrong = {}
     for rid in present:
-        got = Analyzer._find_voxel_region_id(None, volume, table[rid])
+        got = Analyzer._find_voxel_region_id(volume, table[rid])
         if got != rid:
             wrong[table[rid]] = (rid, got)
     assert wrong == {}
@@ -151,11 +151,11 @@ def test_a_bare_name_in_both_hemispheres_is_refused_not_the_left_one(tmp_path) -
 
     volume = _two_hemisphere_volume(tmp_path)
     with pytest.raises(ValueError, match="matches 2 labels") as err:
-        Analyzer._find_voxel_region_id(None, volume, "insula")
+        Analyzer._find_voxel_region_id(volume, "insula")
     assert "ctx-lh-insula (1035)" in str(err.value)
     assert "ctx-rh-insula (2035)" in str(err.value)
-    assert Analyzer._find_voxel_region_id(None, volume, "lh.insula") == 1035
-    assert Analyzer._find_voxel_region_id(None, volume, "rh.insula") == 2035
+    assert Analyzer._find_voxel_region_id(volume, "lh.insula") == 1035
+    assert Analyzer._find_voxel_region_id(volume, "rh.insula") == 2035
 
 
 def test_a_label_number_absent_from_the_volume_is_refused(tmp_path) -> None:
@@ -166,7 +166,7 @@ def test_a_label_number_absent_from_the_volume_is_refused(tmp_path) -> None:
 
     volume = _two_hemisphere_volume(tmp_path)
     arr = np.asarray(nib.load(str(volume)).dataobj)
-    rid = Analyzer._find_voxel_region_id(arr, volume, "999")
+    rid = Analyzer._find_voxel_region_id(volume, "999")
     assert rid == 999 and 999 not in _present_ids(volume)
     one, _, _ = keep_main_components(arr == rid, what="999")
     with pytest.raises(ValueError, match=r"Region '999' \(label 999\) has no voxels"):
@@ -210,14 +210,11 @@ def test_dk40_names_resolve_in_the_real_dkt_volume_and_missing_ones_are_refused_
         for hemi in ("lh", "rh"):
             rid = ids[f"ctx-{hemi}-{name}"]
             if rid in present:
-                assert (
-                    Analyzer._find_voxel_region_id(None, volume, f"{hemi}.{name}")
-                    == rid
-                )
+                assert Analyzer._find_voxel_region_id(volume, f"{hemi}.{name}") == rid
             else:
                 absent.add(name)
                 with pytest.raises(ValueError, match="mesh space"):
-                    Analyzer._find_voxel_region_id(None, volume, f"{hemi}.{name}")
+                    Analyzer._find_voxel_region_id(volume, f"{hemi}.{name}")
     if "unknown" in absent:
         absent.discard("unknown")
     assert absent == set(Analyzer.DKT_VOLUME_LACKS)

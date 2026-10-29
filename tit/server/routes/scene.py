@@ -124,11 +124,10 @@ def _scene_subject(pm, subject: str) -> str:
       function, and false to a user looking straight at 102 in the picker.
     * Only ``manifest`` and ``surface`` ever looked for the head mesh, so for a
       subject with raw data and no ``m2m_``, ``electrodes`` blamed the net
-      file, ``regions``/``labels`` blamed the atlas -- with the flourish of
+      file and ``regions``/``labels`` blamed the atlas -- with the flourish of
       ``"raw has no cortical atlas 'DK40'; available: DK40, HCP_MMP1,
-      a2009s"``, because "available" lists the atlas *names the toolbox knows*
-      -- and ``volume-legend`` blamed the LUT. Each named a file that is
-      missing only because the head model is.
+      a2009s"``, because "available" lists the atlas *names the toolbox knows*.
+      Each named a file that is missing only because the head model is.
 
     The order matters: the head model is what every payload here is derived
     from, so its absence is the answer whenever it is absent, and the catalog
@@ -434,7 +433,6 @@ def manifest(
             {
                 "id": "labeling",
                 "url": "/api/files/raw" + quote(str(labeling)),
-                "legend_url": f"/api/scene/volume-legend?subject={subject_q}&id=labeling",
             }
         )
 
@@ -628,21 +626,6 @@ def electrodes(
         )
     try:
         return build.read_net(pm, subject, net)
-    except build.SceneUnavailable as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-
-@router.get(
-    "/api/scene/volume-legend",
-    summary="The label volume's id -> name/colour legend",
-)
-def volume_legend(
-    subject: Annotated[SubjectId, Query()], id: str = Query("labeling")
-) -> dict:
-    pm = _pm()
-    _scene_subject(pm, subject)
-    try:
-        return build.volume_legend(pm, subject, id)
     except build.SceneUnavailable as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 

@@ -23,6 +23,19 @@ import pytest
 # first used to turn numpy into a mock for the whole session.
 import numpy  # noqa: F401
 
+# numba is real in every leg too: tit.calc imports its kernel unconditionally. numba's import
+# reads ``scipy.__version__``, which the scipy mock below lacks, so import it now, before the
+# mocks, with scipy hidden: numba skips its scipy check (as without scipy) and real scipy is
+# not loaded ahead of its mock.
+_scipy_hidden = (
+    sys.modules.setdefault("scipy", None) is None
+)  # None: `import scipy` fails
+try:
+    import numba  # noqa: F401
+finally:
+    if _scipy_hidden:
+        del sys.modules["scipy"]
+
 # Belt: the suite must never phone home to Google Analytics. tit.telemetry
 # honours this env var in is_enabled(); set it before anything imports tit so
 # every test starts from a disabled-by-default state. Some tests (notably

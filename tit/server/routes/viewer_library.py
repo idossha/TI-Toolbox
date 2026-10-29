@@ -1,18 +1,9 @@
-"""Saved **compositions** and saved **scenes** — the Viewer's two kinds of "get this back".
+"""The Viewer's composition tree and its saved **scenes**.
 
 Maintainer, 2026-09-07: *"At the end they could choose to save it as a JSON for future
 reproducibility. Also we should be integrating scene saving where users can essentially save
 scenes — not only the input selection but also the scene for the user — and we should be very
 opinionated about that and save it in the Tetravox [scene format]."*
-
-Those are two different artefacts and this module keeps them apart on purpose, because they answer
-different questions and age differently:
-
-**A composition** (``compositions/<slug>.json``) is *what a person chose*: a subject, a space, and
-the inputs ticked in the Menu's tree, by stable id. It is small, it is diffable, and it survives a
-re-run of the pipeline — reloading it next month re-resolves today's choices against whatever is on
-disk then, and reports what has gone missing rather than failing. This is the reproducibility
-artefact: "show me the same thing, from the current data".
 
 **A scene** (``scenes/<slug>.tetravox.json``) is *what a person was looking at*: the native viewer's
 serialized ``ViewSpec`` — camera, layout, per-layer window, threshold, colormap, opacity, cursor —
@@ -20,10 +11,9 @@ after they had adjusted it. It names concrete files. This is the record artefact
 this picture again". It is written in the app's own format, suffix and all, so the standalone
 Tetravox app opens it by double-click; a PNG thumbnail is written beside it under the same stem.
 
-Both live in the project (``<project>/code/ti-toolbox/viewer/``) rather than in browser storage or a
-home directory, for the reason the presets already do: the project is the unit people copy, archive
-and hand on, and a saved view that did not travel with it would be lost exactly when the work it
-describes was passed to someone else.
+Scenes live in the project (``<project>/code/ti-toolbox/viewer/``) rather than in browser storage or
+a home directory: the project is the unit people copy, archive and hand on, and a saved view that
+did not travel with it would be lost exactly when the work it describes was passed to someone else.
 
 **Why the suffix is not negotiable.** ``.tetravox.json`` is what the Tetravox app classifies as a
 scene; a file ending in anything else — the working name ``.tvx.json`` included — is classified as
@@ -57,8 +47,6 @@ from tit.server.routes.viewers import (
 
 router = APIRouter()
 
-_COMPOSITION_SUFFIX = ".json"
-
 #: The biggest thumbnail we will store, in decoded bytes. A Tetravox `screenshot` of a 2x2 grid at
 #: the default size is ~200-400 KB of PNG; 4 MB is generous headroom and still small enough that a
 #: project directory does not quietly become a photo album.
@@ -69,10 +57,6 @@ _MAX_THUMBNAIL_BYTES = 4 * 1024 * 1024
 _MAX_SCENE_BYTES = 32 * 1024 * 1024
 
 
-def composition_dir() -> str:
-    return checked_viewer_path(os.path.join(viewer_scene_dir(), "compositions"))
-
-
 def saved_scene_dir() -> str:
     return checked_viewer_path(os.path.join(viewer_scene_dir(), "scenes"))
 
@@ -80,8 +64,7 @@ def saved_scene_dir() -> str:
 def _slug(name: str) -> str:
     """A file name from a display name, or a 422.
 
-    Deliberately strict rather than sanitising, exactly like the preset routes next door: a name
-    that quietly becomes a *different* file is worse than a refusal, because the person who saved
+    Deliberately strict rather than sanitising: a name that quietly becomes a *different* file is worse than a refusal, because the person who saved
     it will look for the name they typed. Every character kept here is one they typed on purpose.
     """
     if not isinstance(name, str):
@@ -165,61 +148,6 @@ def viewer_tree(
         space,
         list(simulations) if simulations else None,
     )
-
-
-# ── compositions ─────────────────────────────────────────────────────────────
-
-
-@router.get("/api/viewer/compositions", summary="Saved Viewer compositions")
-def list_compositions() -> dict[str, Any]:
-    directory = composition_dir()
-    try:
-        names = sorted(os.listdir(directory))
-    except OSError:
-        names = []
-    out: list[dict[str, Any]] = []
-    for entry in names:
-        if not entry.endswith(_COMPOSITION_SUFFIX):
-            continue
-        body = _read_json(os.path.join(directory, entry))
-        if body is None:
-            continue
-        body.setdefault("name", entry[: -len(_COMPOSITION_SUFFIX)])
-        out.append(body)
-    return {"compositions": out}
-
-
-@router.put("/api/viewer/compositions/{name}", summary="Save one Viewer composition")
-def save_composition(
-    name: str, body: dict[str, Any] | None = Body(None)
-) -> dict[str, Any]:
-    """Store *body* as this composition.
-
-    The shape is the client's — a subject, a space and the chosen input ids — and this route does
-    not validate it beyond "it is an object". That is deliberate: the tree's vocabulary is going to
-    grow, and a server that rejected an unknown key would make every Menu change a two-repository
-    change. What it does own is the *name*, the timestamp and the atomic write.
-    """
-    document = dict(body or {})
-    document["name"] = name
-    document["saved_at"] = _now()
-    document.setdefault("version", 1)
-    _write_json(
-        os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}"), document
-    )
-    return document
-
-
-@router.delete("/api/viewer/compositions/{name}", summary="Forget one composition")
-def delete_composition(name: str) -> dict[str, Any]:
-    target = checked_viewer_path(
-        os.path.join(composition_dir(), f"{_slug(name)}{_COMPOSITION_SUFFIX}")
-    )
-    try:
-        os.remove(target)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"No composition named {name!r}")
-    return {"name": name, "deleted": True}
 
 
 # ── saved scenes ─────────────────────────────────────────────────────────────

@@ -353,7 +353,6 @@ def build_logger(
     project_dir: str,
     *,
     log_file: str | None = None,
-    console: bool = True,
 ) -> logging.Logger:
     """Create a named logger with a file handler for a preprocessing step."""
     from tit.logger import add_file_handler

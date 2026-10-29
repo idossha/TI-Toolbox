@@ -32,18 +32,18 @@ from tit import constants as const
 
 
 class SimulationMode(Enum):
-    """Simulation type: standard two-pair TI or multi-channel mTI.
+    """Simulation type: standard two-channel TI or multi-channel mTI.
 
     Attributes
     ----------
     TI : str
-        Standard 2-pair temporal interference.
+        Standard two-channel temporal interference.
     MTI : str
-        Multi-channel temporal interference (4+ pairs).
+        Multi-channel temporal interference (4 or more channels).
 
     See Also
     --------
-    Montage.simulation_mode : Auto-detects mode from pair count.
+    Montage.simulation_mode : Auto-detects mode from the channel count.
     """
 
     TI = "TI"
@@ -79,12 +79,13 @@ class MontageMode(Enum):
 class Montage:
     """A named electrode montage used in a TI/mTI simulation.
 
-    Wraps the electrode pair definitions for a single montage.  Electrodes
+    Wraps the channel definitions of a single montage: one electrode pair
+    per channel, channel k being electrodes Ek+ and Ek-.  Electrodes
     may be referenced by EEG-cap label names (``NET`` / ``FLEX_MAPPED``
     modes) or by 3-D XYZ coordinates (``FLEX_FREE`` / ``FREEHAND`` modes).
 
-    The simulation type is auto-detected from the number of electrode
-    pairs: 2 pairs = standard TI, 4+ pairs = multi-channel mTI.
+    The simulation type is auto-detected from the number of channels:
+    2 channels = standard TI, 4 or more (even) = multi-channel mTI.
 
     Attributes
     ----------
@@ -93,8 +94,9 @@ class Montage:
     mode : MontageMode
         How electrode positions are specified.  See :class:`MontageMode`.
     electrode_pairs : list[tuple]
-        List of electrode pairs.  Each element is a tuple of two electrode
-        identifiers (label strings or XYZ coordinate lists).
+        One entry per channel, in channel order.  Each element is a tuple of
+        two electrode identifiers (label strings or XYZ coordinate lists),
+        ``(Ek+, Ek-)``.
     eeg_net : str or None
         Filename of the EEG-net CSV (e.g. ``"GSN-HydroCel-185.csv"``).
         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
@@ -228,20 +230,20 @@ class Montage:
 
     @property
     def simulation_mode(self) -> SimulationMode:
-        """Infer TI vs mTI from the number of electrode pairs.
+        """Infer TI vs mTI from the number of channels (electrode pairs).
 
         Returns
         -------
         SimulationMode
-            ``SimulationMode.TI`` for 2 pairs, ``SimulationMode.MTI``
-            for 4 or more (even) pairs.
+            ``SimulationMode.TI`` for 2 channels, ``SimulationMode.MTI``
+            for 4 or more (even).
 
         Raises
         ------
         ValueError
-            If the pair count is not allowed by
+            If the channel count is not allowed by
             :func:`tit.constants.is_valid_pair_count` -- an even count of at
-            least 2.  One pair is tACS, not TI; an odd count leaves a channel
+            least 2.  One channel is tACS, not TI; an odd count leaves a channel
             with nothing to beat against.
 
         See Also
@@ -260,7 +262,7 @@ class Montage:
 
     @property
     def num_pairs(self) -> int:
-        """Number of electrode pairs in this montage.
+        """Number of channels (electrode pairs) in this montage.
 
         Returns
         -------
@@ -374,8 +376,8 @@ class SimulationConfig:
         Subject identifier without the ``sub-`` prefix (e.g. ``"ernie"``,
         ``"101"``); must match an existing ``m2m_<subject_id>`` directory.
     montages : list[Montage]
-        One or more :class:`Montage` definitions to simulate.  Two pairs
-        per montage is TI, four or more (even) pairs is mTI -- detected
+        One or more :class:`Montage` definitions to simulate.  Two channels
+        (electrode pairs) is TI, four or more (even) is mTI -- detected
         per montage, so a list may mix both.
     conductivity : str
         Tissue conductivity model.  One of:
@@ -388,10 +390,10 @@ class SimulationConfig:
         The anisotropic modes (``"vn"``, ``"dir"``, ``"mc"``) require
         DTI tensors registered to the head mesh.
     intensities : list[float]
-        Current per electrode pair in mA, in ``electrode_pairs`` order.
-        A TI montage reads the first two values; an mTI montage needs one
-        value per pair (``len(intensities) >= num_pairs``).  A single
-        value is **not** broadcast -- a 4-pair montage with the default
+        Current per channel in mA, in ``electrode_pairs`` order (one value
+        per channel).  A TI montage reads the first two values; an mTI montage
+        needs one value per channel (``len(intensities) >= num_pairs``).  A
+        single value is **not** broadcast -- a 4-channel montage with the default
         two values is rejected.  Default ``[1.0, 1.0]``.
     electrode_shape : str
         Electrode shape, ``"ellipse"`` or ``"rect"``.  Default
@@ -438,10 +440,12 @@ class SimulationConfig:
     output_fields : list[str]
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
-        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``. ``"TI_max"`` maps to
-        ``mTI_max`` on disk for mTI meshes. Defaults to
+        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``, ``"hf_power_density"``.
+        ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. Defaults to
         ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
-        (``hf_peak``, ``hf_sar``) must be opted into.
+        (``hf_peak``, ``hf_sar``, ``hf_power_density``) must be opted into.
+        ``hf_power_density`` (W/m^3) uses the conductivity of this run's own
+        solve, the full tensor under the anisotropic models.
     tissue_conductivities : dict[int, float] or None
         Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue
         number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the
@@ -457,23 +461,24 @@ class SimulationConfig:
         visible in the job's config and its manifest instead of being an
         invisible process-environment side channel.
     carrier_only : bool
-        Carrier-only control: both pairs run at the same frequency, in phase
-        (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
-        carriers coherently (``|E1+E2|``, see :mod:`tit.fields`) and no
-        envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
-        Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
-        ``hf_sar``.  Default ``False``.
+        Carrier-only control: both channels run at the same frequency, in
+        phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
+        ``hf_sar`` and ``hf_power_density`` then add the two channel fields
+        coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope
+        field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
+        two-channel TI montage and ``output_fields`` from those carrier fields.
+        Default ``False``.
 
     Raises
     ------
     ValueError
         If *conductivity* is not one of the valid model names, if
         *output_fields* contains an unknown name or is empty, if any
-        montage has a pair that is not exactly two electrodes, if
+        montage has a channel that is not exactly two electrodes, if
         *intensities* is shorter than a montage needs (2 for TI, one per
-        pair for mTI), if *tissue_conductivities* contains a
+        channel for mTI), if *tissue_conductivities* contains a
         non-positive value, or if *carrier_only* is set with an envelope
-        output field or a montage that is not 2-pair TI.  Filesystem checks (the m2m directory, the
+        output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
         EEG-net CSV) happen later, in :func:`run_simulation`.
 
     Examples
@@ -496,7 +501,7 @@ class SimulationConfig:
     >>> cfg.map_to_surf, cfg.output_fields
     (True, ['TI_max', 'hf_peak'])
 
-    A carrier-only control of the same montage (both pairs at one
+    A carrier-only control of the same montage (both channels at one
     frequency, in phase; no envelope, so only carrier fields):
 
     >>> sham = SimulationConfig(
@@ -609,15 +614,16 @@ class SimulationConfig:
 
         if self.carrier_only:
             envelope = sorted(
-                set(self.output_fields) - {const.FIELD_HF_PEAK, const.FIELD_HF_SAR}
+                set(self.output_fields) - set(const.CARRIER_OUTPUT_FIELDS)
             )
             if envelope:
                 raise ValueError(
                     f"carrier_only has no envelope (ΔF = 0); output_fields {envelope} "
-                    "are undefined -- select hf_peak and/or hf_sar."
+                    "are undefined -- select from "
+                    f"{', '.join(const.CARRIER_OUTPUT_FIELDS)}."
                 )
             if any(m.num_pairs != 2 for m in self.montages):
-                raise ValueError("carrier_only requires 2-pair TI montages.")
+                raise ValueError("carrier_only requires two-channel TI montages.")
 
         if self.tissue_conductivities is not None:
             # JSON object keys are always strings; deserialize_config coerces them back

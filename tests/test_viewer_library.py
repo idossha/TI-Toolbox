@@ -1,15 +1,13 @@
-"""Saved compositions, saved scenes, and the Menu's composition tree.
+"""Saved scenes and the Menu's composition tree.
 
-``tit/server/routes/viewer_library.py``. Three features, and what can go silently wrong in each:
+``tit/server/routes/viewer_library.py``. Two features, and what can go silently wrong in each:
 
 1. **A saved scene must end in ``.tetravox.json``.** The Tetravox app routes any other suffix as a
    *dataset* and tries to read the JSON as a volume — nothing errors on this side, the picture is
    just wrong at the far end (the same trap ``tests/test_view_open.py`` guards for the scene an
    Open writes). A thumbnail must be a real PNG, because this route writes bytes into a person's
    project and "it decoded" is not the same as "it is an image".
-2. **A composition must survive its project changing under it.** It stores ids, not resolved
-   layers, so reloading it next month re-resolves against whatever is on disk then.
-3. **The tree must never claim a file that is not there**, and must never read a voxel — it is
+2. **The tree must never claim a file that is not there**, and must never read a voxel — it is
    redrawn as a person clicks.
 """
 
@@ -278,60 +276,6 @@ def test_the_default_scene_name_says_what_it_is_of(pm: PathManager) -> None:
     # Whatever is missing, the result is still a usable file name.
     assert lib.suggest_scene_name()["name"]
     assert "/" not in lib.suggest_scene_name(subject="a/b")["name"]
-
-
-# ── compositions ─────────────────────────────────────────────────────────────
-
-
-def test_a_composition_round_trips_with_its_name_and_a_timestamp(pm: PathManager) -> None:
-    body = {"subject": "ernie", "space": "subject", "inputs": ["/x/T1.nii.gz"]}
-    saved = lib.save_composition("mine", body)
-    assert saved["subject"] == "ernie" and saved["inputs"] == ["/x/T1.nii.gz"]
-    assert saved["saved_at"] and saved["version"] == 1
-
-    listed = lib.list_compositions()["compositions"]
-    assert len(listed) == 1 and listed[0]["name"] == "mine"
-    assert listed[0]["inputs"] == ["/x/T1.nii.gz"]
-
-
-def test_a_composition_stores_ids_not_resolved_layers(pm: PathManager) -> None:
-    """This is what makes it the *reproducibility* artefact rather than a second scene.
-
-    It is not re-resolved on save, so reloading it against a project whose simulation has been
-    re-run picks up the new outputs — "show me the same thing, from the current data".
-    """
-    saved = lib.save_composition("ids", {"inputs": ["/gone/missing.nii.gz"]})
-    assert saved["inputs"] == ["/gone/missing.nii.gz"], "a missing input is stored, not dropped"
-
-
-def test_an_unknown_key_in_a_composition_is_kept(pm: PathManager) -> None:
-    """The tree's vocabulary will grow; a server that rejected new keys would make every Menu
-    change a two-repository change."""
-    saved = lib.save_composition("future", {"somethingNew": {"deep": [1, 2]}})
-    assert saved["somethingNew"] == {"deep": [1, 2]}
-
-
-def test_one_unreadable_composition_does_not_empty_the_list(pm: PathManager) -> None:
-    """A hand-edited file must not hide the person's other work."""
-    lib.save_composition("good", {"subject": "ernie"})
-    os.makedirs(lib.composition_dir(), exist_ok=True)
-    Path(lib.composition_dir(), "broken.json").write_text("{not json")
-    Path(lib.composition_dir(), "notes.txt").write_text("ignored")
-    names = [c["name"] for c in lib.list_compositions()["compositions"]]
-    assert names == ["good"]
-
-
-def test_deleting_a_composition_that_is_not_there_is_a_404(pm: PathManager) -> None:
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException) as excinfo:
-        lib.delete_composition("never existed")
-    assert excinfo.value.status_code == 404
-
-
-def test_listing_before_anything_is_saved_is_empty_not_an_error(pm: PathManager) -> None:
-    assert lib.list_compositions() == {"compositions": []}
-    assert lib.list_scenes() == {"scenes": []}
 
 
 # ── the composition tree ─────────────────────────────────────────────────────

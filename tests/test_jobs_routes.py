@@ -119,7 +119,7 @@ def test_job_detail_top_level_shape_is_exactly_the_contract(
 ) -> None:
     """FX2 / s2-notes item 3: ``GET /api/jobs/{id}`` is the one job route whose body is *not* a
     bare ``JobStatus`` -- it wraps it (``{spec, status, artifacts}``, ``JobDetail`` in
-    ``contracts/openapi.yaml``), while the list route and every submit/cancel/rerun/force
+    ``contracts/openapi.yaml``), while the list route and every submit/cancel/force
     response are flat. A client that reads ``state`` off the top level here gets ``undefined``
     and a 200, i.e. a poll that never resolves (the exact bug in Level B's own helper). Pinned
     against the contract itself, so flattening the route would fail here rather than in a UI
@@ -567,11 +567,11 @@ def test_list_filters_by_state_and_kind_validate_enum(client: TestClient) -> Non
 
 
 # ---------------------------------------------------------------------------------------------
-# cancel / rerun / force / delete
+# cancel / force / delete
 # ---------------------------------------------------------------------------------------------
 
 
-def test_cancel_rerun_delete_flow(client: TestClient) -> None:
+def test_delete_flow(client: TestClient) -> None:
     submitted = client.post(
         "/api/jobs",
         headers=BEARER,
@@ -617,27 +617,7 @@ def test_delete_running_job_conflicts(client: TestClient) -> None:
     assert client.delete(f"/api/jobs/{job_id}", headers=BEARER).status_code == 204
 
 
-def test_rerun_and_force(client: TestClient) -> None:
-    original = client.post(
-        "/api/jobs",
-        headers=BEARER,
-        json={
-            "kind": "tools",
-            "config": {"__fake": {"duration_s": 0.05}},
-            "subject_ids": ["001"],
-        },
-    ).json()
-
-    def _succeeded():
-        s = client.get(f"/api/jobs/{original['id']}", headers=BEARER).json()["status"]
-        return s if s["state"] == "succeeded" else None
-
-    wait_until(_succeeded)
-    rerun = client.post(f"/api/jobs/{original['id']}/rerun", headers=BEARER)
-    assert rerun.status_code == 201
-    assert rerun.json()["id"] != original["id"]
-
-    assert client.post("/api/jobs/nope/rerun", headers=BEARER).status_code == 404
+def test_force(client: TestClient) -> None:
     assert client.post("/api/jobs/nope/force", headers=BEARER).status_code == 404
 
     long_job = client.post(
@@ -1012,41 +992,6 @@ def test_new_sim_output_with_overwrite_flag_needs_no_unsafe_permission(client):
         },
     )
     assert response.status_code == 201, response.text
-
-
-def test_rerun_reuses_the_original_jobs_overwrite_confirmation(client):
-    response = client.post(
-        "/api/jobs",
-        headers=BEARER,
-        json={
-            "kind": "sim",
-            "config": _sim_config("001"),
-            "subject_ids": ["001"],
-            "overwrite": True,
-        },
-    )
-    assert response.status_code == 201
-    output = Path(get_path_manager().simulation("001", "m1"))
-    output.mkdir(parents=True)
-    (output / "previous.txt").write_text("keep")
-    response = client.post(f"/api/jobs/{response.json()['id']}/rerun", headers=BEARER)
-    assert response.status_code == 201, response.text
-    assert len(client.get("/api/jobs", headers=BEARER).json()) == 2
-
-
-def test_rerun_without_a_stored_overwrite_confirmation_still_needs_one(client):
-    response = client.post(
-        "/api/jobs",
-        headers=BEARER,
-        json={"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]},
-    )
-    assert response.status_code == 201
-    output = Path(get_path_manager().simulation("001", "m1"))
-    output.mkdir(parents=True)
-    (output / "previous.txt").write_text("keep")
-    response = client.post(f"/api/jobs/{response.json()['id']}/rerun", headers=BEARER)
-    assert response.status_code == 409
-    assert len(client.get("/api/jobs", headers=BEARER).json()) == 1
 
 
 def test_existing_sim_without_explicit_overwrite_is_rejected(client):

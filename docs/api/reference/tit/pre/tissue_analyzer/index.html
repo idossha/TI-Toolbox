@@ -1107,7 +1107,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1128,7 +1128,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1226,12 +1226,7 @@ tit.pre.charm : CHARM head-mesh generation (produces the segmentation
 
 
 <a href="#tit.pre.tissue_analyzer.TissueAnalyzer" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TissueAnalyzer</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">nifti_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">TissueAnalyzer</span><span class="p">(</span><span class="n">nifti_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1272,69 +1267,75 @@ voxel_volume : float
 
                   <details class="quote">
                     <summary>Source code in <code>tit/pre/tissue_analyzer.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-104">104</a></span>
-<span class="normal"><a href="#__codelineno-0-105">105</a></span>
-<span class="normal"><a href="#__codelineno-0-106">106</a></span>
-<span class="normal"><a href="#__codelineno-0-107">107</a></span>
-<span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
-<span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#__codelineno-0-118">118</a></span>
-<span class="normal"><a href="#__codelineno-0-119">119</a></span>
-<span class="normal"><a href="#__codelineno-0-120">120</a></span>
-<span class="normal"><a href="#__codelineno-0-121">121</a></span>
-<span class="normal"><a href="#__codelineno-0-122">122</a></span>
-<span class="normal"><a href="#__codelineno-0-123">123</a></span>
-<span class="normal"><a href="#__codelineno-0-124">124</a></span>
-<span class="normal"><a href="#__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#__codelineno-0-126">126</a></span>
-<span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span>
-<span class="normal"><a href="#__codelineno-0-129">129</a></span>
-<span class="normal"><a href="#__codelineno-0-130">130</a></span>
-<span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span>
-<span class="normal"><a href="#__codelineno-0-133">133</a></span>
-<span class="normal"><a href="#__codelineno-0-134">134</a></span>
-<span class="normal"><a href="#__codelineno-0-135">135</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-104" name="__codelineno-0-104"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="n">nifti_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="p">):</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">nifti_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">nifti_path</span><span class="p">)</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="k">if</span> <span class="n">tissue_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TISSUE_CONFIGS</span><span class="p">:</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown tissue type: </span><span class="si">{</span><span class="n">tissue_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>
-<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">TISSUE_CONFIGS</span><span class="p">[</span><span class="n">tissue_type</span><span class="p">]</span>
-<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_labels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;labels&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">padding</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;padding&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">color_scheme</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;color_scheme&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_color</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;tissue_color&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">brain_labels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;brain_labels&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="c1"># Load NIfTI</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Loading NIfTI: </span><span class="si">{</span><span class="n">nifti_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">nii</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">nifti_path</span><span class="p">))</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">()</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">voxel_dims</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">get_zooms</span><span class="p">()[:</span><span class="mi">3</span><span class="p">]</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">voxel_volume</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voxel_dims</span><span class="p">))</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="c1"># Load label names</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_label_names</span><span class="p">()</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+<span class="normal"><a href="#__codelineno-0-198">198</a></span>
+<span class="normal"><a href="#__codelineno-0-199">199</a></span>
+<span class="normal"><a href="#__codelineno-0-200">200</a></span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="n">nifti_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="p">):</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">nifti_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">nifti_path</span><span class="p">)</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">output_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="k">if</span> <span class="n">tissue_type</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TISSUE_CONFIGS</span><span class="p">:</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown tissue type: </span><span class="si">{</span><span class="n">tissue_type</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">TISSUE_CONFIGS</span><span class="p">[</span><span class="n">tissue_type</span><span class="p">]</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_labels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">]</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">padding</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"padding"</span><span class="p">]</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">color_scheme</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"color_scheme"</span><span class="p">]</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">tissue_color</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"tissue_color"</span><span class="p">]</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">brain_labels</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"brain_labels"</span><span class="p">]</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="c1"># Load NIfTI in RAS+ voxel order (axis 0 left-&gt;right, 1 posterior-&gt;anterior,</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="c1"># 2 inferior-&gt;superior): charm keeps its input's storage order (Dataset 000's</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="c1"># sub-ernie is P, S, R), and the inferior cut and the figures' views and labels</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="c1"># assume these axes. Reordering only transposes/flips; nothing is resampled.</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Loading NIfTI: </span><span class="si">{</span><span class="n">nifti_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">nii</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">as_closest_canonical</span><span class="p">(</span><span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">nifti_path</span><span class="p">)))</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">()</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">voxel_dims</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">z</span><span class="p">)</span> <span class="k">for</span> <span class="n">z</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">nii</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">get_zooms</span><span class="p">()[:</span><span class="mi">3</span><span class="p">])</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">voxel_volume</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">prod</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">voxel_dims</span><span class="p">))</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="c1"># Load label names</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">label_names</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_load_label_names</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -1358,7 +1359,7 @@ voxel_volume : float
 
 
 <a href="#tit.pre.tissue_analyzer.TissueAnalyzer.analyze" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyze</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">analyze</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1373,135 +1374,135 @@ voxel_volume : float
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/tissue_analyzer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
-<span class="normal"><a href="#__codelineno-0-657">657</a></span>
-<span class="normal"><a href="#__codelineno-0-658">658</a></span>
-<span class="normal"><a href="#__codelineno-0-659">659</a></span>
-<span class="normal"><a href="#__codelineno-0-660">660</a></span>
-<span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
-<span class="normal"><a href="#__codelineno-0-663">663</a></span>
-<span class="normal"><a href="#__codelineno-0-664">664</a></span>
-<span class="normal"><a href="#__codelineno-0-665">665</a></span>
-<span class="normal"><a href="#__codelineno-0-666">666</a></span>
-<span class="normal"><a href="#__codelineno-0-667">667</a></span>
-<span class="normal"><a href="#__codelineno-0-668">668</a></span>
-<span class="normal"><a href="#__codelineno-0-669">669</a></span>
-<span class="normal"><a href="#__codelineno-0-670">670</a></span>
-<span class="normal"><a href="#__codelineno-0-671">671</a></span>
-<span class="normal"><a href="#__codelineno-0-672">672</a></span>
-<span class="normal"><a href="#__codelineno-0-673">673</a></span>
-<span class="normal"><a href="#__codelineno-0-674">674</a></span>
-<span class="normal"><a href="#__codelineno-0-675">675</a></span>
-<span class="normal"><a href="#__codelineno-0-676">676</a></span>
-<span class="normal"><a href="#__codelineno-0-677">677</a></span>
-<span class="normal"><a href="#__codelineno-0-678">678</a></span>
-<span class="normal"><a href="#__codelineno-0-679">679</a></span>
-<span class="normal"><a href="#__codelineno-0-680">680</a></span>
-<span class="normal"><a href="#__codelineno-0-681">681</a></span>
-<span class="normal"><a href="#__codelineno-0-682">682</a></span>
-<span class="normal"><a href="#__codelineno-0-683">683</a></span>
-<span class="normal"><a href="#__codelineno-0-684">684</a></span>
-<span class="normal"><a href="#__codelineno-0-685">685</a></span>
-<span class="normal"><a href="#__codelineno-0-686">686</a></span>
-<span class="normal"><a href="#__codelineno-0-687">687</a></span>
-<span class="normal"><a href="#__codelineno-0-688">688</a></span>
-<span class="normal"><a href="#__codelineno-0-689">689</a></span>
-<span class="normal"><a href="#__codelineno-0-690">690</a></span>
-<span class="normal"><a href="#__codelineno-0-691">691</a></span>
-<span class="normal"><a href="#__codelineno-0-692">692</a></span>
-<span class="normal"><a href="#__codelineno-0-693">693</a></span>
-<span class="normal"><a href="#__codelineno-0-694">694</a></span>
-<span class="normal"><a href="#__codelineno-0-695">695</a></span>
-<span class="normal"><a href="#__codelineno-0-696">696</a></span>
-<span class="normal"><a href="#__codelineno-0-697">697</a></span>
-<span class="normal"><a href="#__codelineno-0-698">698</a></span>
-<span class="normal"><a href="#__codelineno-0-699">699</a></span>
-<span class="normal"><a href="#__codelineno-0-700">700</a></span>
-<span class="normal"><a href="#__codelineno-0-701">701</a></span>
-<span class="normal"><a href="#__codelineno-0-702">702</a></span>
-<span class="normal"><a href="#__codelineno-0-703">703</a></span>
-<span class="normal"><a href="#__codelineno-0-704">704</a></span>
-<span class="normal"><a href="#__codelineno-0-705">705</a></span>
-<span class="normal"><a href="#__codelineno-0-706">706</a></span>
-<span class="normal"><a href="#__codelineno-0-707">707</a></span>
-<span class="normal"><a href="#__codelineno-0-708">708</a></span>
-<span class="normal"><a href="#__codelineno-0-709">709</a></span>
-<span class="normal"><a href="#__codelineno-0-710">710</a></span>
-<span class="normal"><a href="#__codelineno-0-711">711</a></span>
-<span class="normal"><a href="#__codelineno-0-712">712</a></span>
-<span class="normal"><a href="#__codelineno-0-713">713</a></span>
-<span class="normal"><a href="#__codelineno-0-714">714</a></span>
-<span class="normal"><a href="#__codelineno-0-715">715</a></span>
-<span class="normal"><a href="#__codelineno-0-716">716</a></span>
-<span class="normal"><a href="#__codelineno-0-717">717</a></span>
-<span class="normal"><a href="#__codelineno-0-718">718</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the complete tissue analysis.</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">    dict</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">        Analysis results with keys ``&#39;volume_cm3&#39;``, ``&#39;volume_mm3&#39;``,</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">        ``&#39;thickness&#39;`` (dict with mean/std/min/max), ``&#39;voxels&#39;``</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">        (dict with total/filtered), and ``&#39;report_path&#39;``.</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Analyzing </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>    <span class="c1"># Create masks</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a>    <span class="n">tissue_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tissue_mask</span><span class="p">()</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="n">brain_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_brain_mask</span><span class="p">()</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a>    <span class="n">total_voxels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">))</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="k">if</span> <span class="n">total_voxels</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2"> tissue found&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>        <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>            <span class="s2">&quot;volume_cm3&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>            <span class="s2">&quot;thickness&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="p">}</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>    <span class="c1"># Filter to brain region</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">brain_mask</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a>        <span class="n">filtered_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_to_brain_region</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">,</span> <span class="n">brain_mask</span><span class="p">)</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a>        <span class="n">filtered_mask</span> <span class="o">=</span> <span class="n">tissue_mask</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="n">filtered_voxels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">filtered_mask</span><span class="p">))</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="sa">f</span><span class="s2">&quot;Voxels: </span><span class="si">{</span><span class="n">total_voxels</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> total, </span><span class="si">{</span><span class="n">filtered_voxels</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> filtered&quot;</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="p">)</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="c1"># Calculate thickness</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="n">thickness_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_thickness</span><span class="p">(</span><span class="n">filtered_mask</span><span class="p">)</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="c1"># Calculate volume</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="n">volume_mm3</span> <span class="o">=</span> <span class="n">filtered_voxels</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">voxel_volume</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">volume_cm3</span> <span class="o">=</span> <span class="n">volume_mm3</span> <span class="o">/</span> <span class="mi">1000</span>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="c1"># Generate outputs</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_create_visualizations</span><span class="p">(</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>        <span class="n">tissue_mask</span><span class="p">,</span> <span class="n">brain_mask</span><span class="p">,</span> <span class="n">filtered_mask</span><span class="p">,</span> <span class="n">thickness_stats</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>    <span class="p">)</span>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="n">report_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_write_report</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">,</span> <span class="n">filtered_mask</span><span class="p">,</span> <span class="n">thickness_stats</span><span class="p">)</span>
-<a id="__codelineno-0-701" name="__codelineno-0-701"></a>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a>        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2">: Volume=</span><span class="si">{</span><span class="n">volume_cm3</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">cm³, &quot;</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a>        <span class="sa">f</span><span class="s2">&quot;Thickness=</span><span class="si">{</span><span class="n">thickness_stats</span><span class="p">[</span><span class="s1">&#39;mean&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">±</span><span class="si">{</span><span class="n">thickness_stats</span><span class="p">[</span><span class="s1">&#39;std&#39;</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm&quot;</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a>    <span class="p">)</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a>        <span class="s2">&quot;volume_cm3&quot;</span><span class="p">:</span> <span class="n">volume_cm3</span><span class="p">,</span>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a>        <span class="s2">&quot;volume_mm3&quot;</span><span class="p">:</span> <span class="n">volume_mm3</span><span class="p">,</span>
-<a id="__codelineno-0-710" name="__codelineno-0-710"></a>        <span class="s2">&quot;thickness&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a>            <span class="s2">&quot;mean&quot;</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">&quot;mean&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a>            <span class="s2">&quot;std&quot;</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">&quot;std&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-713" name="__codelineno-0-713"></a>            <span class="s2">&quot;min&quot;</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">&quot;min&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>            <span class="s2">&quot;max&quot;</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">&quot;max&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>        <span class="p">},</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a>        <span class="s2">&quot;voxels&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;total&quot;</span><span class="p">:</span> <span class="n">total_voxels</span><span class="p">,</span> <span class="s2">&quot;filtered&quot;</span><span class="p">:</span> <span class="n">filtered_voxels</span><span class="p">},</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a>        <span class="s2">&quot;report_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">report_path</span><span class="p">),</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="p">}</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-762">762</a></span>
+<span class="normal"><a href="#__codelineno-0-763">763</a></span>
+<span class="normal"><a href="#__codelineno-0-764">764</a></span>
+<span class="normal"><a href="#__codelineno-0-765">765</a></span>
+<span class="normal"><a href="#__codelineno-0-766">766</a></span>
+<span class="normal"><a href="#__codelineno-0-767">767</a></span>
+<span class="normal"><a href="#__codelineno-0-768">768</a></span>
+<span class="normal"><a href="#__codelineno-0-769">769</a></span>
+<span class="normal"><a href="#__codelineno-0-770">770</a></span>
+<span class="normal"><a href="#__codelineno-0-771">771</a></span>
+<span class="normal"><a href="#__codelineno-0-772">772</a></span>
+<span class="normal"><a href="#__codelineno-0-773">773</a></span>
+<span class="normal"><a href="#__codelineno-0-774">774</a></span>
+<span class="normal"><a href="#__codelineno-0-775">775</a></span>
+<span class="normal"><a href="#__codelineno-0-776">776</a></span>
+<span class="normal"><a href="#__codelineno-0-777">777</a></span>
+<span class="normal"><a href="#__codelineno-0-778">778</a></span>
+<span class="normal"><a href="#__codelineno-0-779">779</a></span>
+<span class="normal"><a href="#__codelineno-0-780">780</a></span>
+<span class="normal"><a href="#__codelineno-0-781">781</a></span>
+<span class="normal"><a href="#__codelineno-0-782">782</a></span>
+<span class="normal"><a href="#__codelineno-0-783">783</a></span>
+<span class="normal"><a href="#__codelineno-0-784">784</a></span>
+<span class="normal"><a href="#__codelineno-0-785">785</a></span>
+<span class="normal"><a href="#__codelineno-0-786">786</a></span>
+<span class="normal"><a href="#__codelineno-0-787">787</a></span>
+<span class="normal"><a href="#__codelineno-0-788">788</a></span>
+<span class="normal"><a href="#__codelineno-0-789">789</a></span>
+<span class="normal"><a href="#__codelineno-0-790">790</a></span>
+<span class="normal"><a href="#__codelineno-0-791">791</a></span>
+<span class="normal"><a href="#__codelineno-0-792">792</a></span>
+<span class="normal"><a href="#__codelineno-0-793">793</a></span>
+<span class="normal"><a href="#__codelineno-0-794">794</a></span>
+<span class="normal"><a href="#__codelineno-0-795">795</a></span>
+<span class="normal"><a href="#__codelineno-0-796">796</a></span>
+<span class="normal"><a href="#__codelineno-0-797">797</a></span>
+<span class="normal"><a href="#__codelineno-0-798">798</a></span>
+<span class="normal"><a href="#__codelineno-0-799">799</a></span>
+<span class="normal"><a href="#__codelineno-0-800">800</a></span>
+<span class="normal"><a href="#__codelineno-0-801">801</a></span>
+<span class="normal"><a href="#__codelineno-0-802">802</a></span>
+<span class="normal"><a href="#__codelineno-0-803">803</a></span>
+<span class="normal"><a href="#__codelineno-0-804">804</a></span>
+<span class="normal"><a href="#__codelineno-0-805">805</a></span>
+<span class="normal"><a href="#__codelineno-0-806">806</a></span>
+<span class="normal"><a href="#__codelineno-0-807">807</a></span>
+<span class="normal"><a href="#__codelineno-0-808">808</a></span>
+<span class="normal"><a href="#__codelineno-0-809">809</a></span>
+<span class="normal"><a href="#__codelineno-0-810">810</a></span>
+<span class="normal"><a href="#__codelineno-0-811">811</a></span>
+<span class="normal"><a href="#__codelineno-0-812">812</a></span>
+<span class="normal"><a href="#__codelineno-0-813">813</a></span>
+<span class="normal"><a href="#__codelineno-0-814">814</a></span>
+<span class="normal"><a href="#__codelineno-0-815">815</a></span>
+<span class="normal"><a href="#__codelineno-0-816">816</a></span>
+<span class="normal"><a href="#__codelineno-0-817">817</a></span>
+<span class="normal"><a href="#__codelineno-0-818">818</a></span>
+<span class="normal"><a href="#__codelineno-0-819">819</a></span>
+<span class="normal"><a href="#__codelineno-0-820">820</a></span>
+<span class="normal"><a href="#__codelineno-0-821">821</a></span>
+<span class="normal"><a href="#__codelineno-0-822">822</a></span>
+<span class="normal"><a href="#__codelineno-0-823">823</a></span>
+<span class="normal"><a href="#__codelineno-0-824">824</a></span>
+<span class="normal"><a href="#__codelineno-0-825">825</a></span>
+<span class="normal"><a href="#__codelineno-0-826">826</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-762" name="__codelineno-0-762"></a><span class="k">def</span><span class="w"> </span><span class="nf">analyze</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-763" name="__codelineno-0-763"></a><span class="w">    </span><span class="sd">"""Run the complete tissue analysis.</span>
+<a id="__codelineno-0-764" name="__codelineno-0-764"></a>
+<a id="__codelineno-0-765" name="__codelineno-0-765"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-766" name="__codelineno-0-766"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-767" name="__codelineno-0-767"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-768" name="__codelineno-0-768"></a><span class="sd">        Analysis results with keys ``'volume_cm3'``, ``'volume_mm3'``,</span>
+<a id="__codelineno-0-769" name="__codelineno-0-769"></a><span class="sd">        ``'thickness'`` (dict with mean/std/min/max), ``'voxels'``</span>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a><span class="sd">        (dict with total/filtered), and ``'report_path'``.</span>
+<a id="__codelineno-0-771" name="__codelineno-0-771"></a><span class="sd">    """</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Analyzing </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2">..."</span><span class="p">)</span>
+<a id="__codelineno-0-773" name="__codelineno-0-773"></a>
+<a id="__codelineno-0-774" name="__codelineno-0-774"></a>    <span class="c1"># Create masks</span>
+<a id="__codelineno-0-775" name="__codelineno-0-775"></a>    <span class="n">tissue_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_tissue_mask</span><span class="p">()</span>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>    <span class="n">brain_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_create_brain_mask</span><span class="p">()</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>    <span class="n">total_voxels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">))</span>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>    <span class="k">if</span> <span class="n">total_voxels</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"No </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2"> tissue found"</span><span class="p">)</span>
+<a id="__codelineno-0-781" name="__codelineno-0-781"></a>        <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-782" name="__codelineno-0-782"></a>            <span class="s2">"volume_cm3"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-783" name="__codelineno-0-783"></a>            <span class="s2">"thickness"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"mean"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"std"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"min"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s2">"max"</span><span class="p">:</span> <span class="mi">0</span><span class="p">},</span>
+<a id="__codelineno-0-784" name="__codelineno-0-784"></a>        <span class="p">}</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a>    <span class="c1"># Filter to brain region</span>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">brain_mask</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a>        <span class="n">filtered_mask</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_filter_to_brain_region</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">,</span> <span class="n">brain_mask</span><span class="p">)</span>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a>        <span class="n">filtered_mask</span> <span class="o">=</span> <span class="n">tissue_mask</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a>    <span class="n">filtered_voxels</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">filtered_mask</span><span class="p">))</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a>        <span class="sa">f</span><span class="s2">"Voxels: </span><span class="si">{</span><span class="n">total_voxels</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> total, </span><span class="si">{</span><span class="n">filtered_voxels</span><span class="si">:</span><span class="s2">,</span><span class="si">}</span><span class="s2"> filtered"</span>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a>    <span class="p">)</span>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a>    <span class="c1"># Calculate thickness</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a>    <span class="n">thickness_stats</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_thickness</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">,</span> <span class="n">filtered_mask</span><span class="p">)</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a>    <span class="c1"># Calculate volume</span>
+<a id="__codelineno-0-801" name="__codelineno-0-801"></a>    <span class="n">volume_mm3</span> <span class="o">=</span> <span class="n">filtered_voxels</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">voxel_volume</span>
+<a id="__codelineno-0-802" name="__codelineno-0-802"></a>    <span class="n">volume_cm3</span> <span class="o">=</span> <span class="n">volume_mm3</span> <span class="o">/</span> <span class="mi">1000</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a>    <span class="c1"># Generate outputs</span>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_create_visualizations</span><span class="p">(</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a>        <span class="n">tissue_mask</span><span class="p">,</span> <span class="n">brain_mask</span><span class="p">,</span> <span class="n">filtered_mask</span><span class="p">,</span> <span class="n">thickness_stats</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a>    <span class="p">)</span>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a>    <span class="n">report_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_write_report</span><span class="p">(</span><span class="n">tissue_mask</span><span class="p">,</span> <span class="n">filtered_mask</span><span class="p">,</span> <span class="n">thickness_stats</span><span class="p">)</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">tissue_name</span><span class="si">}</span><span class="s2">: Volume=</span><span class="si">{</span><span class="n">volume_cm3</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">cm³, "</span>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a>        <span class="sa">f</span><span class="s2">"Thickness=</span><span class="si">{</span><span class="n">thickness_stats</span><span class="p">[</span><span class="s1">'mean'</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">±</span><span class="si">{</span><span class="n">thickness_stats</span><span class="p">[</span><span class="s1">'std'</span><span class="p">]</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">mm"</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a>    <span class="p">)</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a>        <span class="s2">"volume_cm3"</span><span class="p">:</span> <span class="n">volume_cm3</span><span class="p">,</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a>        <span class="s2">"volume_mm3"</span><span class="p">:</span> <span class="n">volume_mm3</span><span class="p">,</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>        <span class="s2">"thickness"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a>            <span class="s2">"mean"</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">"mean"</span><span class="p">],</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a>            <span class="s2">"std"</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">"std"</span><span class="p">],</span>
+<a id="__codelineno-0-821" name="__codelineno-0-821"></a>            <span class="s2">"min"</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">"min"</span><span class="p">],</span>
+<a id="__codelineno-0-822" name="__codelineno-0-822"></a>            <span class="s2">"max"</span><span class="p">:</span> <span class="n">thickness_stats</span><span class="p">[</span><span class="s2">"max"</span><span class="p">],</span>
+<a id="__codelineno-0-823" name="__codelineno-0-823"></a>        <span class="p">},</span>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a>        <span class="s2">"voxels"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"total"</span><span class="p">:</span> <span class="n">total_voxels</span><span class="p">,</span> <span class="s2">"filtered"</span><span class="p">:</span> <span class="n">filtered_voxels</span><span class="p">},</span>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a>        <span class="s2">"report_path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">report_path</span><span class="p">),</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1525,13 +1526,7 @@ voxel_volume : float
 
 
 <a href="#tit.pre.tissue_analyzer.run_tissue_analysis" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_tissue_analysis</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">tissues</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Iterable" href="https://docs.python.org/3/library/typing.html#typing.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.pre.tissue_analyzer.DEFAULT_TISSUES">DEFAULT_TISSUES</span></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_tissue_analysis</span><span class="p">(</span><span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tissues</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Iterable" href="https://docs.python.org/3/library/typing.html#typing.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.pre.tissue_analyzer.DEFAULT_TISSUES">DEFAULT_TISSUES</span></span><span class="p">,</span> <span class="n">logger</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="logging.Logger" href="https://docs.python.org/3/library/logging.html#logging.Logger">Logger</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1562,121 +1557,121 @@ run_pipeline : Full preprocessing pipeline.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/tissue_analyzer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-721">721</a></span>
-<span class="normal"><a href="#__codelineno-0-722">722</a></span>
-<span class="normal"><a href="#__codelineno-0-723">723</a></span>
-<span class="normal"><a href="#__codelineno-0-724">724</a></span>
-<span class="normal"><a href="#__codelineno-0-725">725</a></span>
-<span class="normal"><a href="#__codelineno-0-726">726</a></span>
-<span class="normal"><a href="#__codelineno-0-727">727</a></span>
-<span class="normal"><a href="#__codelineno-0-728">728</a></span>
-<span class="normal"><a href="#__codelineno-0-729">729</a></span>
-<span class="normal"><a href="#__codelineno-0-730">730</a></span>
-<span class="normal"><a href="#__codelineno-0-731">731</a></span>
-<span class="normal"><a href="#__codelineno-0-732">732</a></span>
-<span class="normal"><a href="#__codelineno-0-733">733</a></span>
-<span class="normal"><a href="#__codelineno-0-734">734</a></span>
-<span class="normal"><a href="#__codelineno-0-735">735</a></span>
-<span class="normal"><a href="#__codelineno-0-736">736</a></span>
-<span class="normal"><a href="#__codelineno-0-737">737</a></span>
-<span class="normal"><a href="#__codelineno-0-738">738</a></span>
-<span class="normal"><a href="#__codelineno-0-739">739</a></span>
-<span class="normal"><a href="#__codelineno-0-740">740</a></span>
-<span class="normal"><a href="#__codelineno-0-741">741</a></span>
-<span class="normal"><a href="#__codelineno-0-742">742</a></span>
-<span class="normal"><a href="#__codelineno-0-743">743</a></span>
-<span class="normal"><a href="#__codelineno-0-744">744</a></span>
-<span class="normal"><a href="#__codelineno-0-745">745</a></span>
-<span class="normal"><a href="#__codelineno-0-746">746</a></span>
-<span class="normal"><a href="#__codelineno-0-747">747</a></span>
-<span class="normal"><a href="#__codelineno-0-748">748</a></span>
-<span class="normal"><a href="#__codelineno-0-749">749</a></span>
-<span class="normal"><a href="#__codelineno-0-750">750</a></span>
-<span class="normal"><a href="#__codelineno-0-751">751</a></span>
-<span class="normal"><a href="#__codelineno-0-752">752</a></span>
-<span class="normal"><a href="#__codelineno-0-753">753</a></span>
-<span class="normal"><a href="#__codelineno-0-754">754</a></span>
-<span class="normal"><a href="#__codelineno-0-755">755</a></span>
-<span class="normal"><a href="#__codelineno-0-756">756</a></span>
-<span class="normal"><a href="#__codelineno-0-757">757</a></span>
-<span class="normal"><a href="#__codelineno-0-758">758</a></span>
-<span class="normal"><a href="#__codelineno-0-759">759</a></span>
-<span class="normal"><a href="#__codelineno-0-760">760</a></span>
-<span class="normal"><a href="#__codelineno-0-761">761</a></span>
-<span class="normal"><a href="#__codelineno-0-762">762</a></span>
-<span class="normal"><a href="#__codelineno-0-763">763</a></span>
-<span class="normal"><a href="#__codelineno-0-764">764</a></span>
-<span class="normal"><a href="#__codelineno-0-765">765</a></span>
-<span class="normal"><a href="#__codelineno-0-766">766</a></span>
-<span class="normal"><a href="#__codelineno-0-767">767</a></span>
-<span class="normal"><a href="#__codelineno-0-768">768</a></span>
-<span class="normal"><a href="#__codelineno-0-769">769</a></span>
-<span class="normal"><a href="#__codelineno-0-770">770</a></span>
-<span class="normal"><a href="#__codelineno-0-771">771</a></span>
-<span class="normal"><a href="#__codelineno-0-772">772</a></span>
-<span class="normal"><a href="#__codelineno-0-773">773</a></span>
-<span class="normal"><a href="#__codelineno-0-774">774</a></span>
-<span class="normal"><a href="#__codelineno-0-775">775</a></span>
-<span class="normal"><a href="#__codelineno-0-776">776</a></span>
-<span class="normal"><a href="#__codelineno-0-777">777</a></span>
-<span class="normal"><a href="#__codelineno-0-778">778</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_tissue_analysis</span><span class="p">(</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="n">tissues</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_TISSUES</span><span class="p">,</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run tissue analysis for a subject.</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a><span class="sd">    Creates a ``TissueAnalyzer`` for each requested tissue type, computes</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a><span class="sd">    volume and thickness statistics, and writes reports and visualizations.</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-735" name="__codelineno-0-735"></a><span class="sd">    project_dir : str</span>
-<a id="__codelineno-0-736" name="__codelineno-0-736"></a><span class="sd">        BIDS project root.</span>
-<a id="__codelineno-0-737" name="__codelineno-0-737"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a><span class="sd">        Subject identifier without the ``sub-`` prefix.</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a><span class="sd">    tissues : iterable of str, optional</span>
-<a id="__codelineno-0-740" name="__codelineno-0-740"></a><span class="sd">        Tissue types to analyze.  Defaults to ``(&#39;bone&#39;, &#39;csf&#39;, &#39;skin&#39;)``.</span>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a><span class="sd">    logger : logging.Logger</span>
-<a id="__codelineno-0-742" name="__codelineno-0-742"></a><span class="sd">        Logger for progress output.</span>
-<a id="__codelineno-0-743" name="__codelineno-0-743"></a>
-<a id="__codelineno-0-744" name="__codelineno-0-744"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-745" name="__codelineno-0-745"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-746" name="__codelineno-0-746"></a><span class="sd">    dict</span>
-<a id="__codelineno-0-747" name="__codelineno-0-747"></a><span class="sd">        Mapping of tissue name to per-tissue analysis results (volume,</span>
-<a id="__codelineno-0-748" name="__codelineno-0-748"></a><span class="sd">        thickness, voxel counts, report path).</span>
-<a id="__codelineno-0-749" name="__codelineno-0-749"></a>
-<a id="__codelineno-0-750" name="__codelineno-0-750"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-751" name="__codelineno-0-751"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-752" name="__codelineno-0-752"></a><span class="sd">    PreprocessError</span>
-<a id="__codelineno-0-753" name="__codelineno-0-753"></a><span class="sd">        If the segmentation labeling file does not exist.</span>
-<a id="__codelineno-0-754" name="__codelineno-0-754"></a>
-<a id="__codelineno-0-755" name="__codelineno-0-755"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-756" name="__codelineno-0-756"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-757" name="__codelineno-0-757"></a><span class="sd">    TissueAnalyzer : Low-level analysis for a single tissue type.</span>
-<a id="__codelineno-0-758" name="__codelineno-0-758"></a><span class="sd">    run_pipeline : Full preprocessing pipeline.</span>
-<a id="__codelineno-0-759" name="__codelineno-0-759"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-760" name="__codelineno-0-760"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-761" name="__codelineno-0-761"></a>
-<a id="__codelineno-0-762" name="__codelineno-0-762"></a>    <span class="n">label_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">tissue_labeling</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-763" name="__codelineno-0-763"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">label_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-<a id="__codelineno-0-764" name="__codelineno-0-764"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;labeling.nii.gz not found: </span><span class="si">{</span><span class="n">label_path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-765" name="__codelineno-0-765"></a>
-<a id="__codelineno-0-766" name="__codelineno-0-766"></a>    <span class="n">output_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">tissue_analysis_output</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)))</span>
-<a id="__codelineno-0-767" name="__codelineno-0-767"></a>    <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-768" name="__codelineno-0-768"></a>
-<a id="__codelineno-0-769" name="__codelineno-0-769"></a>    <span class="k">for</span> <span class="n">tissue</span> <span class="ow">in</span> <span class="n">tissues</span><span class="p">:</span>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a>        <span class="k">if</span> <span class="n">tissue</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TISSUE_CONFIGS</span><span class="p">:</span>
-<a id="__codelineno-0-771" name="__codelineno-0-771"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unknown tissue type: </span><span class="si">{</span><span class="n">tissue</span><span class="si">}</span><span class="s2">, skipping&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-773" name="__codelineno-0-773"></a>
-<a id="__codelineno-0-774" name="__codelineno-0-774"></a>        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_root</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">tissue</span><span class="si">}</span><span class="s2">_analysis&quot;</span>
-<a id="__codelineno-0-775" name="__codelineno-0-775"></a>        <span class="n">analyzer</span> <span class="o">=</span> <span class="n">TissueAnalyzer</span><span class="p">(</span><span class="n">label_path</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">tissue</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
-<a id="__codelineno-0-776" name="__codelineno-0-776"></a>        <span class="n">results</span><span class="p">[</span><span class="n">tissue</span><span class="p">]</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
-<a id="__codelineno-0-777" name="__codelineno-0-777"></a>
-<a id="__codelineno-0-778" name="__codelineno-0-778"></a>    <span class="k">return</span> <span class="n">results</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-829">829</a></span>
+<span class="normal"><a href="#__codelineno-0-830">830</a></span>
+<span class="normal"><a href="#__codelineno-0-831">831</a></span>
+<span class="normal"><a href="#__codelineno-0-832">832</a></span>
+<span class="normal"><a href="#__codelineno-0-833">833</a></span>
+<span class="normal"><a href="#__codelineno-0-834">834</a></span>
+<span class="normal"><a href="#__codelineno-0-835">835</a></span>
+<span class="normal"><a href="#__codelineno-0-836">836</a></span>
+<span class="normal"><a href="#__codelineno-0-837">837</a></span>
+<span class="normal"><a href="#__codelineno-0-838">838</a></span>
+<span class="normal"><a href="#__codelineno-0-839">839</a></span>
+<span class="normal"><a href="#__codelineno-0-840">840</a></span>
+<span class="normal"><a href="#__codelineno-0-841">841</a></span>
+<span class="normal"><a href="#__codelineno-0-842">842</a></span>
+<span class="normal"><a href="#__codelineno-0-843">843</a></span>
+<span class="normal"><a href="#__codelineno-0-844">844</a></span>
+<span class="normal"><a href="#__codelineno-0-845">845</a></span>
+<span class="normal"><a href="#__codelineno-0-846">846</a></span>
+<span class="normal"><a href="#__codelineno-0-847">847</a></span>
+<span class="normal"><a href="#__codelineno-0-848">848</a></span>
+<span class="normal"><a href="#__codelineno-0-849">849</a></span>
+<span class="normal"><a href="#__codelineno-0-850">850</a></span>
+<span class="normal"><a href="#__codelineno-0-851">851</a></span>
+<span class="normal"><a href="#__codelineno-0-852">852</a></span>
+<span class="normal"><a href="#__codelineno-0-853">853</a></span>
+<span class="normal"><a href="#__codelineno-0-854">854</a></span>
+<span class="normal"><a href="#__codelineno-0-855">855</a></span>
+<span class="normal"><a href="#__codelineno-0-856">856</a></span>
+<span class="normal"><a href="#__codelineno-0-857">857</a></span>
+<span class="normal"><a href="#__codelineno-0-858">858</a></span>
+<span class="normal"><a href="#__codelineno-0-859">859</a></span>
+<span class="normal"><a href="#__codelineno-0-860">860</a></span>
+<span class="normal"><a href="#__codelineno-0-861">861</a></span>
+<span class="normal"><a href="#__codelineno-0-862">862</a></span>
+<span class="normal"><a href="#__codelineno-0-863">863</a></span>
+<span class="normal"><a href="#__codelineno-0-864">864</a></span>
+<span class="normal"><a href="#__codelineno-0-865">865</a></span>
+<span class="normal"><a href="#__codelineno-0-866">866</a></span>
+<span class="normal"><a href="#__codelineno-0-867">867</a></span>
+<span class="normal"><a href="#__codelineno-0-868">868</a></span>
+<span class="normal"><a href="#__codelineno-0-869">869</a></span>
+<span class="normal"><a href="#__codelineno-0-870">870</a></span>
+<span class="normal"><a href="#__codelineno-0-871">871</a></span>
+<span class="normal"><a href="#__codelineno-0-872">872</a></span>
+<span class="normal"><a href="#__codelineno-0-873">873</a></span>
+<span class="normal"><a href="#__codelineno-0-874">874</a></span>
+<span class="normal"><a href="#__codelineno-0-875">875</a></span>
+<span class="normal"><a href="#__codelineno-0-876">876</a></span>
+<span class="normal"><a href="#__codelineno-0-877">877</a></span>
+<span class="normal"><a href="#__codelineno-0-878">878</a></span>
+<span class="normal"><a href="#__codelineno-0-879">879</a></span>
+<span class="normal"><a href="#__codelineno-0-880">880</a></span>
+<span class="normal"><a href="#__codelineno-0-881">881</a></span>
+<span class="normal"><a href="#__codelineno-0-882">882</a></span>
+<span class="normal"><a href="#__codelineno-0-883">883</a></span>
+<span class="normal"><a href="#__codelineno-0-884">884</a></span>
+<span class="normal"><a href="#__codelineno-0-885">885</a></span>
+<span class="normal"><a href="#__codelineno-0-886">886</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-829" name="__codelineno-0-829"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_tissue_analysis</span><span class="p">(</span>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a>    <span class="n">tissues</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="n">DEFAULT_TISSUES</span><span class="p">,</span>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span><span class="p">,</span>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a><span class="w">    </span><span class="sd">"""Run tissue analysis for a subject.</span>
+<a id="__codelineno-0-837" name="__codelineno-0-837"></a>
+<a id="__codelineno-0-838" name="__codelineno-0-838"></a><span class="sd">    Creates a ``TissueAnalyzer`` for each requested tissue type, computes</span>
+<a id="__codelineno-0-839" name="__codelineno-0-839"></a><span class="sd">    volume and thickness statistics, and writes reports and visualizations.</span>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a><span class="sd">    project_dir : str</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a><span class="sd">        BIDS project root.</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a><span class="sd">        Subject identifier without the ``sub-`` prefix.</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a><span class="sd">    tissues : iterable of str, optional</span>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a><span class="sd">        Tissue types to analyze.  Defaults to ``('bone', 'csf', 'skin')``.</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a><span class="sd">    logger : logging.Logger</span>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a><span class="sd">        Logger for progress output.</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a><span class="sd">        Mapping of tissue name to per-tissue analysis results (volume,</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a><span class="sd">        thickness, voxel counts, report path).</span>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a><span class="sd">    PreprocessError</span>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a><span class="sd">        If the segmentation labeling file does not exist.</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a>
+<a id="__codelineno-0-863" name="__codelineno-0-863"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-864" name="__codelineno-0-864"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-865" name="__codelineno-0-865"></a><span class="sd">    TissueAnalyzer : Low-level analysis for a single tissue type.</span>
+<a id="__codelineno-0-866" name="__codelineno-0-866"></a><span class="sd">    run_pipeline : Full preprocessing pipeline.</span>
+<a id="__codelineno-0-867" name="__codelineno-0-867"></a><span class="sd">    """</span>
+<a id="__codelineno-0-868" name="__codelineno-0-868"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-869" name="__codelineno-0-869"></a>
+<a id="__codelineno-0-870" name="__codelineno-0-870"></a>    <span class="n">label_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">tissue_labeling</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-871" name="__codelineno-0-871"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">label_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+<a id="__codelineno-0-872" name="__codelineno-0-872"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"labeling.nii.gz not found: </span><span class="si">{</span><span class="n">label_path</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-873" name="__codelineno-0-873"></a>
+<a id="__codelineno-0-874" name="__codelineno-0-874"></a>    <span class="n">output_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">ensure</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">tissue_analysis_output</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)))</span>
+<a id="__codelineno-0-875" name="__codelineno-0-875"></a>    <span class="n">results</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-876" name="__codelineno-0-876"></a>
+<a id="__codelineno-0-877" name="__codelineno-0-877"></a>    <span class="k">for</span> <span class="n">tissue</span> <span class="ow">in</span> <span class="n">tissues</span><span class="p">:</span>
+<a id="__codelineno-0-878" name="__codelineno-0-878"></a>        <span class="k">if</span> <span class="n">tissue</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">TISSUE_CONFIGS</span><span class="p">:</span>
+<a id="__codelineno-0-879" name="__codelineno-0-879"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown tissue type: </span><span class="si">{</span><span class="n">tissue</span><span class="si">}</span><span class="s2">, skipping"</span><span class="p">)</span>
+<a id="__codelineno-0-880" name="__codelineno-0-880"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-881" name="__codelineno-0-881"></a>
+<a id="__codelineno-0-882" name="__codelineno-0-882"></a>        <span class="n">output_dir</span> <span class="o">=</span> <span class="n">output_root</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tissue</span><span class="si">}</span><span class="s2">_analysis"</span>
+<a id="__codelineno-0-883" name="__codelineno-0-883"></a>        <span class="n">analyzer</span> <span class="o">=</span> <span class="n">TissueAnalyzer</span><span class="p">(</span><span class="n">label_path</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">tissue</span><span class="p">,</span> <span class="n">logger</span><span class="p">)</span>
+<a id="__codelineno-0-884" name="__codelineno-0-884"></a>        <span class="n">results</span><span class="p">[</span><span class="n">tissue</span><span class="p">]</span> <span class="o">=</span> <span class="n">analyzer</span><span class="o">.</span><span class="n">analyze</span><span class="p">()</span>
+<a id="__codelineno-0-885" name="__codelineno-0-885"></a>
+<a id="__codelineno-0-886" name="__codelineno-0-886"></a>    <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

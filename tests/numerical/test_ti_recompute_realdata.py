@@ -6,7 +6,7 @@ Pins (2026-10-22, package p25), on Dataset 000 read-only, no FEM:
   carrier meshes) the carrier meshes ``high_Frequency/mesh/LA_TDCS_{1,2}_scalar.msh`` cropped to
   ``BRAIN_TISSUE_TAG_RANGES`` (every head tissue below tag 100 and its surface, electrodes
   removed: 5.0 M elements) have exactly the elements and tags of the stored
-  ``TI/mesh/L_Insula_TI.msh``, and ``|tit.calc.get_TI_vectors([E1, E2])|`` (the Hirata 2024
+  ``TI/mesh/L_Insula_TI.msh``, and ``tit.calc.envelope_max([E1, E2])`` (the Hirata 2024
   closed form) equals the stored ``TI_max`` that SimNIBS's ``TI.get_maxTI`` (Grossman 2017
   preprocess-then-branch form) wrote, to ``rtol 1e-4``: two independent implementations of one
   formula on every one of those elements. On the same fields: ``TI_max <= 2 min(|E1|, |E2|)``,
@@ -102,8 +102,8 @@ def mesh_io():
 @real_data
 def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
     from tit import constants as const
-    from tit.calc import get_TI_vectors
-    from tit.fields import hf_peak, hf_sar
+    from tit import roi_confirmation
+    from tit.calc import envelope_max, hf_peak, hf_power
 
     sim = _SIMNIBS / f"sub-{SUBJECT}" / "Simulations" / SIMULATION
     carriers = [
@@ -132,18 +132,18 @@ def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
     assert len(ti_stored) == len(e1) > 100_000, (len(ti_stored), len(e1))
     assert np.array_equal(tags[0], ti_tags) and np.array_equal(tags[1], ti_tags)
 
-    ours = np.linalg.norm(get_TI_vectors([e1, e2]), axis=1)
+    ours = envelope_max([e1, e2])
     np.testing.assert_allclose(ours, ti_stored, rtol=RTOL, atol=ATOL)
 
     n1, n2 = np.linalg.norm(e1, axis=1), np.linalg.norm(e2, axis=1)
     assert np.all(ti_stored <= 2 * np.minimum(n1, n2) + ATOL)
-    peak, sar = hf_peak(e1, e2), hf_sar(e1, e2)
+    peak, sar = hf_peak([e1, e2]), 2.0 * hf_power([e1, e2])  # sar: on-disk hf_sar
     assert np.all(ti_stored <= peak + ATOL)
     assert np.all(sar <= peak**2 * (1 + 1e-12) + ATOL)
     assert np.all(peak**2 <= 2 * sar * (1 + 1e-12) + ATOL)
     # Not a field of zeros: at 1 mA per pair the grey-matter (tag 2) envelope's 99.9th
     # percentile is 0.01-1 V/m (the scalp under the electrodes reaches several V/m).
-    grey = ti_stored[ti_tags == const.GM_TISSUE_TAG]
+    grey = ti_stored[ti_tags == roi_confirmation.GM_TISSUE_LABEL]
     assert grey.size > 100_000
     assert 0.01 <= float(np.percentile(grey, 99.9)) <= 1.0
     assert _mtimes([*carriers, stored]) == before

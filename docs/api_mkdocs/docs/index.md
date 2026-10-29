@@ -17,7 +17,7 @@ graph TD
     *(find optimal electrodes)*`"]
 
     SIM["`**3. Simulation**
-    TI (2-pair) · mTI (4+ even pairs)
+    TI (2 channels) · mTI (4+ channels)
     *(run FEM simulations)*`"]
 
     ANA["`**4. Analysis**

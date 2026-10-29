@@ -165,9 +165,7 @@ def resolve_flex_montage(
     flex_search_dir = _source_path(pm, pm.flex_search_run(subject_id, run_name))
     if not flex_search_dir or not os.path.isdir(flex_search_dir):
         raise ValueError(f"Flex-search folder not found for {subject_id} | {run_name}")
-    positions_file = _source_path(
-        pm, os.path.join(flex_search_dir, "electrode_positions.json")
-    )
+    positions_file = _source_path(pm, pm.flex_electrode_positions(subject_id, run_name))
 
     def require_positions() -> None:
         if not os.path.isfile(positions_file):

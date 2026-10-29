@@ -4,8 +4,8 @@ What this pins (2026-10-22, package p05 "ex-pool-polarity-duplicates" and "ex-bu
 
 * The physics the pool enumeration relies on: the two-channel TI envelope amplitude is
   unchanged when either channel's polarity flips, or when the two channels swap. Checked with
-  ``tit.calc.get_TI_vectors`` (K=1 closed form, real numpy) on random fields -- independent of
-  the SimNIBS ``get_maxTI`` the engine calls.
+  ``tit.calc.envelope_max`` (K=1 closed form, real numpy) on random fields, the function the
+  engine scores with.
 * Pool mode ("any electrode in any position") therefore yields each physical
   ``{pair1 @ I1, pair2 @ I2}`` exactly once: 3 pairings per 4-electrode set, each in one channel
   order when the split list is its own mirror (it contains ``(b, a)`` for every ``(a, b)``) and in
@@ -35,12 +35,13 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import (
     count_combinations,
+    _electrode_combinations,
     explain_zero_combinations,
-    generate_montage_combinations,
+    ratios_mirror_symmetric,
 )
 from tit.reporting.generators import ex_search
 
@@ -60,7 +61,7 @@ ASYMMETRIC_SPLITS = [
 
 
 def _ti(e1, e2):
-    return np.linalg.norm(get_TI_vectors([e1, e2]), axis=1)
+    return envelope_max([e1, e2])
 
 
 def test_ti_envelope_ignores_channel_polarity_and_order():
@@ -79,6 +80,15 @@ def _physical(e1p, e1m, e2p, e2m, split):
             (frozenset((e1p, e1m)), round(split[0], 9)),
             (frozenset((e2p, e2m)), round(split[1], 9)),
         }
+    )
+
+
+def _quads(lists, pool, splits):
+    """The electrode quads the runner evaluates (``ExSearchEngine.run``)."""
+    return list(
+        _electrode_combinations(
+            *lists, pool, both_channel_orders=not ratios_mirror_symmetric(splits)
+        )
     )
 
 
@@ -105,29 +115,26 @@ def _brute_force_physical(pool, splits):
 def test_pool_yields_every_physical_montage_and_split_exactly_once(
     pool, splits, orders
 ):
-    rows = list(generate_montage_combinations(pool, pool, pool, pool, splits, True))
-    keys = [_physical(*row[:4], row[4]) for row in rows]
+    quads = _quads([pool] * 4, True, splits)
+    keys = [_physical(*quad, split) for quad in quads for split in splits]
     assert len(keys) == len(set(keys)), "a physical montage+split is evaluated twice"
     assert set(keys) == _brute_force_physical(pool, splits)
     n = len(pool)
-    assert len(rows) == comb(n, 4) * 3 * orders * len(splits)
-    assert count_combinations(pool, pool, pool, pool, splits, True) == len(rows)
+    assert len(keys) == comb(n, 4) * 3 * orders * len(splits)
+    assert count_combinations(pool, pool, pool, pool, splits, True) == len(keys)
 
 
 def test_pool_counts_a_duplicated_label_once():
     pool = ["A", "B", "A", "C", "D"]
-    rows = list(generate_montage_combinations(pool, [], [], [], SYMMETRIC_SPLITS, True))
-    assert len(rows) == comb(4, 4) * 3 * len(SYMMETRIC_SPLITS)
-    assert count_combinations(pool, [], [], [], SYMMETRIC_SPLITS, True) == len(rows)
+    n_rows = len(_quads([pool, [], [], []], True, SYMMETRIC_SPLITS)) * len(
+        SYMMETRIC_SPLITS
+    )
+    assert n_rows == comb(4, 4) * 3 * len(SYMMETRIC_SPLITS)
+    assert count_combinations(pool, [], [], [], SYMMETRIC_SPLITS, True) == n_rows
 
 
 def test_bucket_mode_drops_self_pairs():
-    rows = list(
-        generate_montage_combinations(
-            ["A", "B"], ["A", "B"], ["C"], ["D"], [(1.0, 1.0)], False
-        )
-    )
-    electrodes = [row[:4] for row in rows]
+    electrodes = _quads([["A", "B"], ["A", "B"], ["C"], ["D"]], False, [(1.0, 1.0)])
     # By hand: e1 = (A, B) or (B, A); (A, A) and (B, B) carry no current between poles.
     assert sorted(electrodes) == [("A", "B", "C", "D"), ("B", "A", "C", "D")]
     assert all(r[0] != r[1] and r[2] != r[3] for r in electrodes)
@@ -138,13 +145,9 @@ def test_bucket_mode_drops_self_pairs():
 
 
 def test_bucket_mode_never_shares_an_electrode_between_channels():
-    rows = list(
-        generate_montage_combinations(
-            ["A"], ["B"], ["A", "C"], ["D", "B"], [(1.0, 1.0)], False
-        )
-    )
+    quads = _quads([["A"], ["B"], ["A", "C"], ["D", "B"]], False, [(1.0, 1.0)])
     # Product is 1*1*2*2 = 4 tuples; only C-D for channel 2 keeps all four distinct.
-    assert [row[:4] for row in rows] == [("A", "B", "C", "D")]
+    assert quads == [("A", "B", "C", "D")]
 
 
 def test_bucket_mode_with_no_distinct_montage_explains_why():
@@ -159,10 +162,6 @@ class _FakeTI:
     def get_field(spec, leadfield, idx):
         plus, minus, current = spec
         return current * (leadfield[idx.index(plus)] - leadfield[idx.index(minus)])
-
-    @staticmethod
-    def get_maxTI(e1, e2):
-        return _ti(e1, e2)
 
 
 def test_engine_pool_rows_are_distinct_physical_montages(monkeypatch, tmp_path):

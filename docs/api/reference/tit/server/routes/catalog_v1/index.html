@@ -16,7 +16,7 @@
         <link rel="prev" href="../catalog/">
       
       
-        <link rel="next" href="../files/">
+        <link rel="next" href="../cpu_limit/">
       
       
         
@@ -968,7 +968,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -989,7 +989,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1101,10 +1101,7 @@ pass that would reject real data.</p>
 
 
 <a href="#tit.server.routes.catalog_v1.nifti_labels" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">nifti_labels</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">nifti_labels</span><span class="p">(</span><span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.SubjectId">SubjectId</span></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()],</span> <span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1117,9 +1114,7 @@ distinguished.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/catalog_v1.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-159">159</a></span>
-<span class="normal"><a href="#__codelineno-0-160">160</a></span>
-<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-161">161</a></span>
 <span class="normal"><a href="#__codelineno-0-162">162</a></span>
 <span class="normal"><a href="#__codelineno-0-163">163</a></span>
 <span class="normal"><a href="#__codelineno-0-164">164</a></span>
@@ -1131,21 +1126,23 @@ distinguished.</p>
 <span class="normal"><a href="#__codelineno-0-170">170</a></span>
 <span class="normal"><a href="#__codelineno-0-171">171</a></span>
 <span class="normal"><a href="#__codelineno-0-172">172</a></span>
-<span class="normal"><a href="#__codelineno-0-173">173</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/api/catalog/nifti/labels&quot;</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Integer labels of a NIfTI volume&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="k">def</span><span class="w"> </span><span class="nf">nifti_labels</span><span class="p">(</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Browse the labels of a segmentation volume (the sub-cortical exporter&#39;s picker).</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    One 404 covers unknown subject, a path outside the project jail, and a file that</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    is not there -- see :func:`tit.catalog.nifti_labels` for why they are not</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    distinguished.</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="k">return</span> <span class="n">_or_404</span><span class="p">(</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>        <span class="n">catalog</span><span class="o">.</span><span class="n">nifti_labels</span><span class="p">(</span><span class="n">_pm</span><span class="p">(),</span> <span class="n">subject</span><span class="p">,</span> <span class="n">path</span><span class="p">),</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>        <span class="sa">f</span><span class="s2">&quot;No readable label volume for </span><span class="si">{</span><span class="n">subject</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"/api/catalog/nifti/labels"</span><span class="p">,</span> <span class="n">summary</span><span class="o">=</span><span class="s2">"Integer labels of a NIfTI volume"</span><span class="p">)</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="k">def</span><span class="w"> </span><span class="nf">nifti_labels</span><span class="p">(</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span><span class="p">,</span> <span class="n">Query</span><span class="p">()],</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="w">    </span><span class="sd">"""Browse the labels of a segmentation volume (the sub-cortical exporter's picker).</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    One 404 covers unknown subject, a path outside the project jail, and a file that</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    is not there -- see :func:`tit.catalog.nifti_labels` for why they are not</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    distinguished.</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    """</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="k">return</span> <span class="n">_or_404</span><span class="p">(</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="n">catalog</span><span class="o">.</span><span class="n">nifti_labels</span><span class="p">(</span><span class="n">_pm</span><span class="p">(),</span> <span class="n">subject</span><span class="p">,</span> <span class="n">path</span><span class="p">),</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>        <span class="sa">f</span><span class="s2">"No readable label volume for </span><span class="si">{</span><span class="n">subject</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1160,11 +1157,7 @@ distinguished.</p>
 
 
 <a href="#tit.server.routes.catalog_v1.flex_run_mapping" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">flex_run_mapping</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">run</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">flex_run_mapping</span><span class="p">(</span><span class="n">run</span><span class="p">:</span> <span class="n"><span title="tit.server.schemas.EntityName">EntityName</span></span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.SubjectId">SubjectId</span></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()],</span> <span class="n">eeg_net</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.EntityName">EntityName</span></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1181,9 +1174,7 @@ computes the mapping and every later one -- including <code>flex_runs</code>'
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/catalog_v1.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-229">229</a></span>
 <span class="normal"><a href="#__codelineno-0-230">230</a></span>
 <span class="normal"><a href="#__codelineno-0-231">231</a></span>
 <span class="normal"><a href="#__codelineno-0-232">232</a></span>
@@ -1209,35 +1200,41 @@ computes the mapping and every later one -- including <code>flex_runs</code>'
 <span class="normal"><a href="#__codelineno-0-252">252</a></span>
 <span class="normal"><a href="#__codelineno-0-253">253</a></span>
 <span class="normal"><a href="#__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#__codelineno-0-255">255</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="s2">&quot;/api/catalog/flex-runs/</span><span class="si">{run}</span><span class="s2">/mapping&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Map one flex-search run&#39;s optimised positions onto an EEG net&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="p">)</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="k">def</span><span class="w"> </span><span class="nf">flex_run_mapping</span><span class="p">(</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="n">run</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">eeg_net</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Return the run&#39;s electrodes as *eeg_net*&#39;s labels, mapping if needed.</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    A flex run only carries ``electrode_mapping_&lt;net&gt;.json`` for the nets it</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    was already mapped onto, so the Simulator&#39;s &quot;Map to net&quot; choice would</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    otherwise be limited to those. :func:`resolve_flex_montage` maps the</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    optimiser&#39;s XYZ onto *any* net of the subject (Hungarian assignment) and</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    caches the result beside the run, so the first request for a new net</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    computes the mapping and every later one -- including ``flex_runs``&#39;</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    ``mappings`` list -- reads the file it wrote.</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">montage_sources</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="n">montage</span> <span class="o">=</span> <span class="n">montage_sources</span><span class="o">.</span><span class="n">resolve_flex_montage</span><span class="p">(</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>            <span class="n">_pm</span><span class="p">(),</span> <span class="n">subject</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="s2">&quot;mapped&quot;</span><span class="p">,</span> <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="p">)</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="s2">&quot;eeg_net&quot;</span><span class="p">:</span> <span class="n">eeg_net</span><span class="p">,</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="s2">&quot;pairs&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span><span class="p">],</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="s2">"/api/catalog/flex-runs/</span><span class="si">{run}</span><span class="s2">/mapping"</span><span class="p">,</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Map one flex-search run's optimised positions onto an EEG net"</span><span class="p">,</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="p">)</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="k">def</span><span class="w"> </span><span class="nf">flex_run_mapping</span><span class="p">(</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">run</span><span class="p">:</span> <span class="n">EntityName</span><span class="p">,</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span><span class="p">,</span> <span class="n">Query</span><span class="p">()],</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="n">eeg_net</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">EntityName</span><span class="p">,</span> <span class="n">Query</span><span class="p">()],</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="w">    </span><span class="sd">"""Return the run's electrodes as *eeg_net*'s labels, mapping if needed.</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    A flex run only carries ``electrode_mapping_&lt;net&gt;.json`` for the nets it</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    was already mapped onto, so the Simulator's "Map to net" choice would</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    otherwise be limited to those. :func:`resolve_flex_montage` maps the</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    optimiser's XYZ onto *any* net of the subject (Hungarian assignment) and</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    caches the result beside the run, so the first request for a new net</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    computes the mapping and every later one -- including ``flex_runs``'</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    ``mappings`` list -- reads the file it wrote.</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="sd">    """</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.sim</span><span class="w"> </span><span class="kn">import</span> <span class="n">montage_sources</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>        <span class="n">montage</span> <span class="o">=</span> <span class="n">montage_sources</span><span class="o">.</span><span class="n">resolve_flex_montage</span><span class="p">(</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>            <span class="n">_pm</span><span class="p">(),</span> <span class="n">subject</span><span class="p">,</span> <span class="n">run</span><span class="p">,</span> <span class="s2">"mapped"</span><span class="p">,</span> <span class="n">eeg_net</span><span class="o">=</span><span class="n">eeg_net</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="p">)</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="s2">"eeg_net"</span><span class="p">:</span> <span class="n">eeg_net</span><span class="p">,</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="s2">"pairs"</span><span class="p">:</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">pair</span><span class="p">)</span> <span class="k">for</span> <span class="n">pair</span> <span class="ow">in</span> <span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span><span class="p">],</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1252,7 +1249,7 @@ computes the mapping and every later one -- including <code>flex_runs</code>'
 
 
 <a href="#tit.server.routes.catalog_v1.group_stats" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">group_stats</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">group_stats</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n"><span title="tit.server.schemas.EntityName">EntityName</span></span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.EntityName">EntityName</span></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1282,20 +1279,20 @@ wrote anything -- the reason, so the pane can say why instead of showing one <co
 <span class="normal"><a href="#__codelineno-0-376">376</a></span>
 <span class="normal"><a href="#__codelineno-0-377">377</a></span>
 <span class="normal"><a href="#__codelineno-0-378">378</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-363" name="__codelineno-0-363"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="s2">&quot;/api/catalog/group/stats/</span><span class="si">{name}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;One group-statistics run: its inputs, its outcome and its files&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="s2">"/api/catalog/group/stats/</span><span class="si">{name}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"One group-statistics run: its inputs, its outcome and its files"</span><span class="p">,</span>
 <a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="p">)</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="k">def</span><span class="w"> </span><span class="nf">group_stats</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Detail for one ``derivatives/ti-toolbox/stats/&lt;type&gt;/&lt;name&gt;/`` run.</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a><span class="k">def</span><span class="w"> </span><span class="nf">group_stats</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="n">EntityName</span><span class="p">,</span> <span class="nb">type</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">EntityName</span><span class="p">,</span> <span class="n">Query</span><span class="p">()])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a><span class="w">    </span><span class="sd">"""Detail for one ``derivatives/ti-toolbox/stats/&lt;type&gt;/&lt;name&gt;/`` run.</span>
 <a id="__codelineno-0-369" name="__codelineno-0-369"></a>
 <a id="__codelineno-0-370" name="__codelineno-0-370"></a><span class="sd">    ``group()`` above lists these by name and path only, which is all the Results tree</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="sd">    needs; the preview pane needs the run&#39;s inputs (groups, test, permutations,</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a><span class="sd">    needs; the preview pane needs the run's inputs (groups, test, permutations,</span>
 <a id="__codelineno-0-372" name="__codelineno-0-372"></a><span class="sd">    threshold), its cluster table and its files, and -- for a run that failed before it</span>
 <a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="sd">    wrote anything -- the reason, so the pane can say why instead of showing one ``.log``.</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a><span class="sd">    """</span>
 <a id="__codelineno-0-375" name="__codelineno-0-375"></a>    <span class="k">return</span> <span class="n">_or_404</span><span class="p">(</span>
 <a id="__codelineno-0-376" name="__codelineno-0-376"></a>        <span class="n">catalog</span><span class="o">.</span><span class="n">group_stats_detail</span><span class="p">(</span><span class="n">_pm</span><span class="p">(),</span> <span class="nb">type</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="sa">f</span><span class="s2">&quot;Unknown group-statistics run: </span><span class="si">{</span><span class="nb">type</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>        <span class="sa">f</span><span class="s2">"Unknown group-statistics run: </span><span class="si">{</span><span class="nb">type</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
 <a id="__codelineno-0-378" name="__codelineno-0-378"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>

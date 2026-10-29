@@ -162,7 +162,7 @@ v3 needs no X11, XQuartz or VcXsrv; for display problems with the v2 GUI, see [L
 ### Bilateral target with a unipolar montage
 
 Flex-search and ex-search accept a union of regions or spheres picked as one target, for example
-the left and right hippocampus. A single TI pair still has one focal maximum, so a union target
+the left and right hippocampus. A single two-channel TI montage still has one focal maximum, so a union target
 trades focality between the sites; an mTI montage is the alternative.
 **Source:** [#89](https://github.com/idossha/TI-Toolbox/discussions/89).
 

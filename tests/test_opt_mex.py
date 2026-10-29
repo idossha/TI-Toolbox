@@ -76,36 +76,26 @@ class TestGenerateMultipolarCombinations:
             assert len(set(combo)) == 8
             assert set(combo) <= set(pool)
 
-    @pytest.mark.parametrize(
-        "channels, group_order",
-        [
-            (None, 64),
-            ([([0, 2], [1, 3])], 32),
-            ([([0], [1, 2]), ([3], [])], 16),
-            ([([0, 1, 2, 3], [])], 48),
-        ],
-    )
-    def test_pool_mode_is_a_transversal_of_the_symmetry_classes(
-        self, channels, group_order
-    ):
+    def test_pool_mode_is_a_transversal_of_the_symmetry_classes(self):
         """No two enumerated montages are equivalent, and every class is hit.
 
         The symmetry group is built independently here from the envelope
-        math in ``tit.calc`` (``Q = |sum_k a_k*b_k|`` over beating channels,
-        ``psi=0``): slot automorphisms of the channel structure, and
+        math in ``tit.calc`` (``4|sum_k a_k*b_k| / (|S n| + |D n|)`` over
+        phase-aligned beating channels): slot automorphisms of the channel structure, and
         group-wise polarity flips whose per-channel product sign agrees.
         """
         from itertools import permutations, product
 
         from tit.opt.mex.logic import (
-            _normalize_channels,
             _slot_automorphisms,
             count_multipolar_combinations,
             generate_multipolar_combinations,
         )
 
-        norm = _normalize_channels(channels)
-        autos = _slot_automorphisms(norm)
+        # Channel 1 beats pair slots 0 and 1, channel 2 slots 2 and 3.
+        norm = (((0,), (1,)), ((2,), (3,)))
+        group_order = 64
+        autos = _slot_automorphisms()
         groups = [g for a, b in norm for g in (a, b) if g]
         signs = []
         for bits in product((1, -1), repeat=len(groups)):
@@ -127,18 +117,12 @@ class TestGenerateMultipolarCombinations:
             return min(images)
 
         pool = [f"E{i}" for i in range(8)]
-        combos = list(
-            generate_multipolar_combinations(
-                pool, all_combinations=True, channels=channels
-            )
-        )
+        combos = list(generate_multipolar_combinations(pool, all_combinations=True))
         classes = [canon(c) for c in combos]
         assert len(set(classes)) == len(classes), "duplicate symmetry class"
         assert set(classes) == {canon(p) for p in permutations(pool, 8)}
         assert len(combos) == math.factorial(8) // group_order
-        assert count_multipolar_combinations(
-            pool, all_combinations=True, channels=channels
-        ) == len(combos)
+        assert count_multipolar_combinations(pool, all_combinations=True) == len(combos)
 
     def test_pool_mode_polarity_flip_inside_a_beating_channel_is_kept(self):
         """A lone flip within a beating channel is a pi phase shift, not a symmetry."""
@@ -155,16 +139,6 @@ class TestGenerateMultipolarCombinations:
         # channel is the same class as ``aligned`` -- neither is re-emitted.
         assert ("E0", "E1", "E3", "E2", "E4", "E5", "E6", "E7") not in combos
         assert ("E1", "E0", "E3", "E2", "E4", "E5", "E6", "E7") not in combos
-
-    def test_pool_mode_rejects_channels_missing_a_slot(self):
-        from tit.opt.mex.logic import count_multipolar_combinations
-
-        with pytest.raises(ValueError, match="four pair slots"):
-            count_multipolar_combinations(
-                [f"E{i}" for i in range(8)],
-                all_combinations=True,
-                channels=[([0], [1]), ([2], [])],
-            )
 
     def test_bucket_mode_count_still_walks_the_generator(self):
         from tit.opt.mex.logic import (
@@ -516,7 +490,7 @@ class TestMExSearchEngineInit:
 
 @pytest.mark.unit
 class TestComputeMtiField:
-    def test_computes_expected_roi_metric_keys(self):
+    def test_computes_expected_roi_metric_keys(self, monkeypatch):
         import tit.opt.mex.engine as engine_mod
 
         engine = _make_mex_engine()
@@ -525,16 +499,8 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        metric_vectors = np.array(
-            [
-                [0.1, 0.0, 0.0],
-                [0.2, 0.0, 0.0],
-                [0.3, 0.0, 0.0],
-                [0.15, 0.0, 0.0],
-                [0.25, 0.0, 0.0],
-            ]
-        )
-        engine_mod.get_TI_vectors = MagicMock(return_value=metric_vectors)
+        metric = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
+        monkeypatch.setattr(engine_mod, "envelope_max", MagicMock(return_value=metric))
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=2.0)
@@ -551,7 +517,7 @@ class TestComputeMtiField:
             "current_ch4_mA",
         }
         assert set(result) == expected_keys
-        # roi_indices=[0,1,2] -> field_roi norms=[0.1,0.2,0.3]
+        # roi_indices=[0,1,2] -> field_roi values=[0.1,0.2,0.3]
         assert result["TestROI_TImax_ROI"] == pytest.approx(0.3)
         assert result["TestROI_TImean_ROI"] == pytest.approx(0.2)
         assert result["TestROI_n_elements"] == 3
@@ -566,10 +532,10 @@ class TestComputeMtiField:
             ["D1", "D2", 0.002], engine.leadfield, engine.idx_lf
         )
 
-        call = engine_mod.get_TI_vectors.call_args
+        call = engine_mod.envelope_max.call_args
         assert len(call.args[0]) == 4  # four channel fields, paired positionally
 
-    def test_zero_roi_elements_returns_zeros(self):
+    def test_zero_roi_elements_returns_zeros(self, monkeypatch):
         import tit.opt.mex.engine as engine_mod
 
         engine = _make_mex_engine()
@@ -580,7 +546,9 @@ class TestComputeMtiField:
         engine_mod.TI.get_field = MagicMock(
             side_effect=[np.zeros((5, 3)) for _ in range(4)]
         )
-        engine_mod.get_TI_vectors = MagicMock(return_value=np.zeros((5, 3)))
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=np.zeros(5))
+        )
 
         electrodes = ("A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2")
         result = engine.compute_mti_field(electrodes, current_mA=1.0)

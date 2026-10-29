@@ -1,11 +1,10 @@
 """
-Low-level mesh I/O, colormap, and vertex-processing utilities.
+Low-level mesh I/O, and colormap utilities.
 
 This module is the single source of truth for:
 - Binary STL reading and writing
 - PLY writing (with per-vertex colors or scalars)
 - Scalar-to-color mapping (simple blue-red and matplotlib colormaps)
-- Vertex deduplication / face remapping
 """
 
 from __future__ import annotations
@@ -293,28 +292,3 @@ def field_to_colormap(
 
     return colors_rgb
 
-
-# ---------------------------------------------------------------------------
-# Vertex processing
-# ---------------------------------------------------------------------------
-
-
-def deduplicate_vertices(
-    vertices: np.ndarray,
-    faces: np.ndarray,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Merge duplicate vertices and remap face indices.
-
-    Uses :func:`numpy.unique` with rounding to find coincident vertices
-    (exact floating-point match after round-trip through float64).
-
-    Args:
-        vertices: Array of shape [N, 3].
-        faces: Array of shape [M, 3] indexing into *vertices*.
-
-    Returns:
-        Tuple of (unique_vertices, remapped_faces).
-    """
-    unique_verts, inverse = np.unique(vertices, axis=0, return_inverse=True)
-    remapped_faces = inverse[faces]
-    return unique_verts, remapped_faces

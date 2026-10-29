@@ -179,3 +179,42 @@ Original receipts preserve effective-budget omissions in the early harness confi
 `validation_run_meta.json` records the actual one-iteration options rather than rewriting history.
 Replay receipts: `code/ti-toolbox/candidate-observation-20260913-166c7a/replay-v1/`.
 (The one-off `dev/flex_candidate_replay.py` validation script was removed on 2026-09-17; the benchmark script above remains.)
+
+## K≥2 envelope maximum: numba kernel vs NumPy vs the old sweep — 2026-10-26
+
+`idossha/ti-toolbox:v3.1.2` (numba 0.64.0, NumPy 2.3.5) as amd64 under emulation on the M2 host,
+which other jobs were loading (load average 20–70), so only same-run ratios mean anything: old and
+new ran alternately, one process at a time, best of 3 after a warm-up call (compile or cache load
+excluded). Fields: seeded Gaussian directions with log-normal magnitudes, 4,000 elements per K.
+"Old" is `get_TI_vectors` with the `_mti_kernel` numba sweep from `chore/dead-code-removal`
+(4778c014); "new" is `envelope_max` on `feat/calc-envelope-numba`.
+
+| µs per element, 1 numba thread | K=2 | K=3 | K=4 |
+|---|---:|---:|---:|
+| old numba sweep (192 directions + refine) | 5.7 | 5.6 | 5.7 |
+| new numba kernel (eigen-branch root-find) | 24.1 | 26.7 | 27.2 |
+| new NumPy path (kernel off) | 202 | 256 | 331 |
+
+End to end, `MExSearchEngine.compute_mti_field` on a synthetic float32 leadfield (19 electrodes
++ reference, 200,000 elements all in GM, ROI 2,000), 5 candidates after a warm-up, two rounds:
+
+| s per mex candidate (200k elements) | all numba threads | 1 thread |
+|---|---:|---:|
+| main before the envelope API (numba sweep) | 0.18–0.22 | 1.18–1.19 |
+| new numba kernel | 0.71–0.74 | 4.24–4.49 |
+| new NumPy path | 36.6 | — |
+
+Kernel profile (1 thread, 3,000 random K=2 elements): 21.96 µs per element in all, 13.07 µs with
+the root-find and Newton polish switched off (the 34-point grid's eigen-solves and the
+safeguards), 15.53 µs with only the root-find off; one cold Jacobi solve is ~0.31 µs. The grid's
+34 eigen-solves per element are the floor of this algorithm; the old sweep evaluated 192 fixed
+directions with no eigen-solve, which is why it was faster and why it fell up to 15 % short on
+real grey matter. On W0's 2 × 200,000 real sub-101 grey-matter elements the kernel ran 3.9–4.2
+µs/element (all threads) against 209–215 µs for NumPy and agreed with it to 4.8e-14 relative.
+
+Repeat: run `envelope_max` (and, from a copy of 4778c014's `tit/`, `get_TI_vectors`) on the same
+seeded fields in separate `simnibs_python` processes with `NUMBA_NUM_THREADS=1`, alternating old
+and new. The NumPy path was deleted on 2026-10-27 (numba is a hard dependency); its rows are
+reproduced from `feat/calc-envelope-api` at 1b2f629c with `tit.calc._sphere_kernel = lambda: None`.
+Accuracy is pinned by `tests/test_calc.py` and `tests/numerical/test_calc_kernel.py`, not by this
+page.

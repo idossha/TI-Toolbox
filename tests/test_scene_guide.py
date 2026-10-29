@@ -58,10 +58,19 @@ def test_the_guide_declares_its_own_space_and_never_subject_ras(manifest: dict) 
 
 
 def test_every_asset_the_manifest_advertises_resolves(manifest: dict) -> None:
-    assets = guide.iter_assets()
-    assert assets, "the manifest advertises at least one asset"
-    for rel, asset in assets:
-        assert asset.path.is_file(), rel
+    rels = [
+        rel
+        for entry in manifest["parts"] + manifest["atlases"]
+        for fmt, rel in entry.get("files", {}).items()
+        if not fmt.endswith("_meta")
+    ]
+    rels += [atlas["legend_file"] for atlas in manifest["atlases"]]
+    rels += [net["file"] for net in manifest["nets"]]
+    assert rels, "the manifest advertises at least one asset"
+    root = guide.GUIDE_DIR.resolve()
+    for rel in rels:
+        path = (root / rel).resolve()
+        assert path.is_relative_to(root) and path.is_file(), rel
 
 
 def test_recorded_sizes_and_digests_are_the_files_own(manifest: dict) -> None:
@@ -100,18 +109,19 @@ def test_manifest_ids_equal_the_packaged_catalog_ids(manifest: dict) -> None:
     packaged_atlases = sorted(
         p.stem for p in (guide.GUIDE_DIR / "labels").glob("*.gii")
     )
-    assert sorted(guide.atlas_ids()) == packaged_atlases
-    assert sorted(guide.atlas_ids()) == sorted(
+    atlas_ids = sorted(a["id"] for a in manifest["atlases"])
+    assert atlas_ids == packaged_atlases
+    assert atlas_ids == sorted(
         p.stem for p in (guide.GUIDE_DIR / "legends").glob("*.json")
     )
 
     packaged_nets = sorted(
         p.name[: -len(".json")] for p in (guide.GUIDE_DIR / "nets").glob("*.json")
     )
-    assert sorted(guide.net_names()) == packaged_nets
+    assert sorted(n["name"] for n in manifest["nets"]) == packaged_nets
 
     packaged_parts = sorted({p.stem for p in (guide.GUIDE_DIR / "surfaces").glob("*")})
-    assert sorted(guide.part_ids()) == packaged_parts
+    assert sorted(p["id"] for p in manifest["parts"]) == packaged_parts
 
 
 def test_every_surface_stays_inside_the_frozen_tvsc_budget(manifest: dict) -> None:

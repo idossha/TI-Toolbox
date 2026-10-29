@@ -27,9 +27,10 @@ from pathlib import Path
 import pytest
 
 from tit.opt.ex.logic import (
+    _electrode_combinations,
     count_combinations,
     generate_current_ratios,
-    generate_montage_combinations,
+    ratios_mirror_symmetric,
 )
 from tit.opt.mex.logic import (
     count_multipolar_combinations,
@@ -78,9 +79,11 @@ def test_ex_runner_count_equals_the_fixture(case):
     ratios = _ratios(case)
     expected = case["expected_combinations"]
     assert count_combinations(*lists, ratios, pool) == expected
-    assert (
-        sum(1 for _ in generate_montage_combinations(*lists, ratios, pool)) == expected
+    # What ExSearchEngine.run evaluates: every electrode quad crossed with every split.
+    quads = _electrode_combinations(
+        *lists, pool, both_channel_orders=not ratios_mirror_symmetric(ratios)
     )
+    assert sum(1 for _ in quads) * len(ratios) == expected
 
 
 @pytest.mark.parametrize("case", MEX, ids=[c["id"] for c in MEX])

@@ -928,6 +928,28 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.stats.config.GroupComparisonConfig--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.stats.config.GroupComparisonConfig--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.stats.config.GroupComparisonConfig--see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -947,6 +969,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="TestType">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.stats.config.GroupComparisonConfig.TestType--attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -957,6 +996,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Alternative">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.stats.config.GroupComparisonConfig.Alternative--attributes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
         
@@ -1060,6 +1116,17 @@
     <span class="md-ellipsis">
       
         Attributes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.stats.config.CorrelationConfig--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
       
     </span>
   </a>
@@ -1302,7 +1369,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1323,7 +1390,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1381,7 +1448,8 @@
     <div class="doc doc-contents first">
 
         <p>Configuration and result dataclasses for cluster-based permutation testing.</p>
-<p>Pure Python -- no numpy, nibabel, or heavy dependencies.
+<p>Pure Python -- no numpy, nibabel, pandas or other heavy dependencies; the participant
+CSV loaders read with the standard :mod:<code>csv</code> module.
 Mirrors the <code>tit.opt.config</code> / <code>tit.sim.config</code> pattern.</p>
 <h4 id="tit.stats.config--public-api">Public API<a class="headerlink" href="#tit.stats.config--public-api" title="Permanent link">&para;</a></h4>
 <p>GroupComparisonConfig
@@ -1425,26 +1493,7 @@ CorrelationResult
   </span>
 
 <a href="#tit.stats.config.GroupComparisonConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">test_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.TestType" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.TestType">TestType</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType.UNPAIRED">UNPAIRED</span></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">alternative</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Alternative" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Alternative">Alternative</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative.TWO_SIDED">TWO_SIDED</span></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">space</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.AnalysisSpace">AnalysisSpace</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._AnalysisSpace.MNI">MNI</span></span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">fsaverage_field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;TI_max&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">group1_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;Responders&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">group2_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;Non-Responders&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">value_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;Current Intensity&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">(),</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonConfig</span><span class="p">(</span><span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">test_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.TestType" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.TestType">TestType</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TestType.UNPAIRED">UNPAIRED</span></span><span class="p">,</span> <span class="n">alternative</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Alternative" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Alternative">Alternative</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.Alternative.TWO_SIDED">TWO_SIDED</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.GroupComparisonConfig.AnalysisSpace">AnalysisSpace</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._AnalysisSpace.MNI">MNI</span></span><span class="p">,</span> <span class="n">fsaverage_field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'TI_max'</span><span class="p">,</span> <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">group1_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'Responders'</span><span class="p">,</span> <span class="n">group2_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'Non-Responders'</span><span class="p">,</span> <span class="n">value_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'Current Intensity'</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">())</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1459,35 +1508,96 @@ comparisons.</p>
     Human-readable name for this analysis run.
 subjects : list of Subject
     Subject entries, each labelled as responder (1) or non-responder (0).
-test_type : TestType
-    Whether to use an unpaired or paired t-test.
-alternative : Alternative
-    Sidedness of the test hypothesis.
+test_type : TestType or str
+    <code>"unpaired"</code> (default) or <code>"paired"</code> t-test.  Strings are
+    coerced to :class:<code>TestType</code>.
+alternative : Alternative or str
+    Sidedness: <code>"two-sided"</code> (default), <code>"greater"</code> or <code>"less"</code>.
 cluster_threshold : float
-    Uncorrected p-value threshold for forming clusters.
-cluster_stat : ClusterStat
-    Cluster-level statistic used for permutation testing
-    (<code>"mass"</code> or <code>"size"</code>).
+    Uncorrected p-value threshold for forming clusters.  Default
+    <code>0.05</code>.
+cluster_stat : ClusterStat or str
+    Cluster-level statistic used for permutation testing,
+    <code>"mass"</code> (default) or <code>"size"</code>.
 n_permutations : int
-    Number of permutations for the null distribution.
+    Number of permutations for the null distribution.  Default
+    <code>1000</code>; the smallest reportable p-value is <code>1 / (n + 1)</code>.
 alpha : float
-    Family-wise error rate for significance.
+    Family-wise error rate for significance.  Default <code>0.05</code>.
 n_jobs : int
-    Number of parallel workers (<code>-1</code> for all CPUs).
-tissue_type : TissueType
-    Which tissue compartment to analyze.
+    Number of parallel workers (<code>-1</code>, the default, for the global
+    CPU limit -- :func:<code>tit.cpu.cpu_limit</code>; larger values are clamped to it).
+tissue_type : TissueType or str
+    Which tissue compartment to analyze: <code>"grey"</code> (default),
+    <code>"white"</code> or <code>"all"</code>.  Ignored when <em>space</em> is
+    <code>"fsaverage"</code>.
 nifti_file_pattern : str or None
-    Filename pattern for subject NIfTI files. If <code>None</code>, derived
-    automatically from <em>tissue_type</em>.
+    Filename pattern for subject NIfTI files, with a
+    <code>{simulation_name}</code> placeholder.  If <code>None</code> (default), derived
+    from <em>tissue_type</em>, e.g.
+    <code>"grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"</code>.
+space : AnalysisSpace or str
+    Where the statistics run: <code>"mni"</code> (default, voxelwise on the
+    MNI-space NIfTIs) or <code>"fsaverage"</code> (vertexwise on the per-subject
+    fsaverage projections written by the simulator).
+fsaverage_field : str
+    Surface field for <code>space="fsaverage"</code>; one of
+    :data:<code>tit.constants.FSAVG_FIELD_NAMES</code> (<code>"TI_max"</code>,
+    <code>"TI_normal"</code>, <code>"hf_peak"</code>, <code>"hf_sar"</code>).  Default
+    <code>"TI_max"</code>.
+fsaverage_spacing : int
+    fsaverage ico spacing for <code>space="fsaverage"</code>: <code>5</code> (default),
+    <code>6</code> or <code>7</code>.
 group1_name : str
-    Display label for the responder group.
+    Display label for the responder group.  Default <code>"Responders"</code>.
 group2_name : str
-    Display label for the non-responder group.
+    Display label for the non-responder group.  Default
+    <code>"Non-Responders"</code>.
 value_metric : str
     Label for the field value axis in plots.
 atlas_files : list of str
     Atlas filenames for overlap analysis (looked up in the bundled
-    atlas directory).</p>
+    atlas directory).  Default empty.</p>
+<h5 id="tit.stats.config.GroupComparisonConfig--raises">Raises<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If <em>subjects</em> lacks at least one responder and one non-responder,
+    if a response is not 0 or 1, if a paired test has unequal group
+    sizes, if <em>alpha</em> or <em>cluster_threshold</em> is not strictly between 0
+    and 1, if <em>n_permutations</em> is not a whole number or is below
+    <code>floor(1 / alpha)</code> (20 at alpha 0.05: with fewer, no p-value could
+    fall below <em>alpha</em>), if a string value is not a member of
+    its enum, or if <em>fsaverage_field</em>/<em>fsaverage_spacing</em> are invalid
+    for <code>space="fsaverage"</code>.</p>
+<h5 id="tit.stats.config.GroupComparisonConfig--examples">Examples<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit.stats import GroupComparisonConfig
+subjects = [
+...     GroupComparisonConfig.Subject("ernie", "L_Insula", response=1),
+...     GroupComparisonConfig.Subject("101", "L_Insula", response=0),
+... ]
+cfg = GroupComparisonConfig(
+...     analysis_name="active_vs_sham", subjects=subjects,
+...     test_type="unpaired", alternative="two-sided",
+...     cluster_stat="mass", n_permutations=1000, tissue_type="grey",
+... )
+cfg.test_type is GroupComparisonConfig.TestType.UNPAIRED
+True
+cfg.nifti_file_pattern
+'grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz'</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<p>Subjects can also come from a CSV with columns <code>subject_id</code>,
+<code>simulation_name</code>, <code>response</code>:</p>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>subjects = GroupComparisonConfig.load_subjects("subjects.csv")  # doctest: +SKIP</p>
+</blockquote>
+</blockquote>
+</blockquote>
 <h5 id="tit.stats.config.GroupComparisonConfig--see-also">See Also<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig--see-also" title="Permanent link">&para;</a></h5>
 <p>GroupComparisonResult : Result container returned by the analysis.
 run_group_comparison : Orchestration function that consumes this config.</p>
@@ -1527,6 +1637,12 @@ run_group_comparison : Orchestration function that consumes this config.</p>
 
 
         <p>Type of statistical test for group comparison.</p>
+<h6 id="tit.stats.config.GroupComparisonConfig.TestType--attributes">Attributes<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig.TestType--attributes" title="Permanent link">&para;</a></h6>
+<p>UNPAIRED : str
+    <code>"unpaired"</code> -- independent-samples t-test.
+PAIRED : str
+    <code>"paired"</code> -- paired-samples t-test (groups must be the same
+    size and ordered pairwise).</p>
 
 
 
@@ -1572,6 +1688,13 @@ run_group_comparison : Orchestration function that consumes this config.</p>
 
 
         <p>Sidedness of the test hypothesis.</p>
+<h6 id="tit.stats.config.GroupComparisonConfig.Alternative--attributes">Attributes<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig.Alternative--attributes" title="Permanent link">&para;</a></h6>
+<p>TWO_SIDED : str
+    <code>"two-sided"</code>.
+GREATER : str
+    <code>"greater"</code> -- responders &gt; non-responders.
+LESS : str
+    <code>"less"</code> -- responders &lt; non-responders.</p>
 
 
 
@@ -1613,9 +1736,7 @@ run_group_comparison : Orchestration function that consumes this config.</p>
   </span>
 
 <a href="#tit.stats.config.GroupComparisonConfig.Subject" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">response</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1670,7 +1791,7 @@ response : int
   </span>
 
 <a href="#tit.stats.config.GroupComparisonConfig.load_subjects" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.GroupComparisonConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.GroupComparisonConfig.Subject">Subject</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1687,98 +1808,90 @@ automatically.</p>
     Subject instances parsed from the CSV rows.</p>
 <h6 id="tit.stats.config.GroupComparisonConfig.load_subjects--raises">Raises<a class="headerlink" href="#tit.stats.config.GroupComparisonConfig.load_subjects--raises" title="Permanent link">&para;</a></h6>
 <p>ValueError
-    If required columns are missing from the CSV.</p>
+    If required columns are missing, or a row lacks one of their values.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
-<span class="normal"><a href="#__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span>
-<span class="normal"><a href="#__codelineno-0-254">254</a></span>
-<span class="normal"><a href="#__codelineno-0-255">255</a></span>
-<span class="normal"><a href="#__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#__codelineno-0-257">257</a></span>
-<span class="normal"><a href="#__codelineno-0-258">258</a></span>
-<span class="normal"><a href="#__codelineno-0-259">259</a></span>
-<span class="normal"><a href="#__codelineno-0-260">260</a></span>
-<span class="normal"><a href="#__codelineno-0-261">261</a></span>
-<span class="normal"><a href="#__codelineno-0-262">262</a></span>
-<span class="normal"><a href="#__codelineno-0-263">263</a></span>
-<span class="normal"><a href="#__codelineno-0-264">264</a></span>
-<span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span>
-<span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">&quot;GroupComparisonConfig.Subject&quot;</span><span class="p">]:</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load group comparison subjects from a CSV file.</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``, ``response``</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    (0 or 1).  The ``sub-`` prefix is stripped from subject IDs</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    automatically.</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    csv_path : str</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">        Path to a CSV file with the required columns.</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    list of Subject</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">        Subject instances parsed from the CSV rows.</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">        If required columns are missing from the CSV.</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;subject_id&quot;</span><span class="p">,</span> <span class="s2">&quot;simulation_name&quot;</span><span class="p">,</span> <span class="s2">&quot;response&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="n">missing</span> <span class="o">=</span> <span class="n">required</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CSV missing required columns: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="n">sid</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;subject_id&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">if</span> <span class="n">sid</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.0&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>            <span class="n">sid</span> <span class="o">=</span> <span class="n">sid</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;simulation_name&quot;</span><span class="p">]),</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>                <span class="n">response</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;response&quot;</span><span class="p">]),</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>            <span class="p">)</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="p">)</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="k">return</span> <span class="n">subjects</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"GroupComparisonConfig.Subject"</span><span class="p">]:</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="w">    </span><span class="sd">"""Load group comparison subjects from a CSV file.</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``, ``response``</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    (0 or 1).  The ``sub-`` prefix is stripped from subject IDs</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    automatically.</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    csv_path : str</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">        Path to a CSV file with the required columns.</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    list of Subject</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">        Subject instances parsed from the CSV rows.</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">        If required columns are missing, or a row lacks one of their values.</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    """</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"response"</span><span class="p">}</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="p">):</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">]):</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>                <span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: subject_id, simulation_name and response are "</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>                <span class="s2">"all required"</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>            <span class="p">)</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>                <span class="n">response</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">])),</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>            <span class="p">)</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="p">)</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="k">return</span> <span class="n">subjects</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1806,25 +1919,7 @@ automatically.</p>
   </span>
 
 <a href="#tit.stats.config.CorrelationConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">correlation_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.CorrelationType" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.CorrelationType">CorrelationType</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType.PEARSON">PEARSON</span></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">use_weights</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">space</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.AnalysisSpace">AnalysisSpace</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._AnalysisSpace.MNI">MNI</span></span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">fsaverage_field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;TI_max&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">effect_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;Effect Size&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">field_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;Electric Field Magnitude&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">(),</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationConfig</span><span class="p">(</span><span class="n">analysis_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">],</span> <span class="n">correlation_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.CorrelationType" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.CorrelationType">CorrelationType</a></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.CorrelationType.PEARSON">PEARSON</span></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">cluster_stat</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.ClusterStat">ClusterStat</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._ClusterStat.MASS">MASS</span></span><span class="p">,</span> <span class="n">n_permutations</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span> <span class="n">alpha</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span> <span class="n">n_jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">use_weights</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.TissueType">TissueType</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._TissueType.GREY">GREY</span></span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><span title="tit.stats.config.CorrelationConfig.AnalysisSpace">AnalysisSpace</span></span> <span class="o">=</span> <span class="n"><span title="tit.stats.config._AnalysisSpace.MNI">MNI</span></span><span class="p">,</span> <span class="n">fsaverage_field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'TI_max'</span><span class="p">,</span> <span class="n">fsaverage_spacing</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span> <span class="n">effect_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'Effect Size'</span><span class="p">,</span> <span class="n">field_metric</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'Electric Field Magnitude'</span><span class="p">,</span> <span class="n">atlas_files</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">())</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1851,14 +1946,24 @@ n_permutations : int
 alpha : float
     Family-wise error rate for significance.
 n_jobs : int
-    Number of parallel workers (<code>-1</code> for all CPUs).
+    Number of parallel workers (<code>-1</code> for the global CPU limit --
+    :func:<code>tit.cpu.cpu_limit</code>; larger values are clamped to it).
 use_weights : bool
-    Whether to apply per-subject weights during correlation.
-tissue_type : TissueType
-    Which tissue compartment to analyze.
+    Whether to apply per-subject weights during correlation.  Default
+    <code>True</code>.
+tissue_type : TissueType or str
+    Which tissue compartment to analyze: <code>"grey"</code> (default),
+    <code>"white"</code> or <code>"all"</code>.
 nifti_file_pattern : str or None
     Filename pattern for subject NIfTI files. If <code>None</code>, derived
     automatically from <em>tissue_type</em>.
+space : AnalysisSpace or str
+    <code>"mni"</code> (default) or <code>"fsaverage"</code>; see
+    :class:<code>GroupComparisonConfig</code>.
+fsaverage_field : str
+    Surface field for <code>space="fsaverage"</code>.  Default <code>"TI_max"</code>.
+fsaverage_spacing : int
+    fsaverage ico spacing (<code>5</code>, <code>6</code> or <code>7</code>).  Default <code>5</code>.
 effect_metric : str
     Label for the behavioral/clinical variable in plots.
 field_metric : str
@@ -1866,6 +1971,13 @@ field_metric : str
 atlas_files : list of str
     Atlas filenames for overlap analysis (looked up in the bundled
     atlas directory).</p>
+<h5 id="tit.stats.config.CorrelationConfig--raises">Raises<a class="headerlink" href="#tit.stats.config.CorrelationConfig--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If fewer than 3 subjects are given, if an effect size is not a
+    finite number or every effect size is equal (the correlation is
+    undefined), if <em>use_weights</em> is on and a weight is not a positive
+    finite number, or for the <em>alpha</em>/<em>cluster_threshold</em>/
+    <em>n_permutations</em> rules of :class:<code>GroupComparisonConfig</code>.</p>
 <h5 id="tit.stats.config.CorrelationConfig--see-also">See Also<a class="headerlink" href="#tit.stats.config.CorrelationConfig--see-also" title="Permanent link">&para;</a></h5>
 <p>CorrelationResult : Result container returned by the analysis.
 run_correlation : Orchestration function that consumes this config.</p>
@@ -1946,12 +2058,7 @@ run_correlation : Orchestration function that consumes this config.</p>
   </span>
 
 <a href="#tit.stats.config.CorrelationConfig.Subject" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">effect_size</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">weight</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">Subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">effect_size</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">weight</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2009,7 +2116,7 @@ weight : float
   </span>
 
 <a href="#tit.stats.config.CorrelationConfig.load_subjects" class="headerlink" title="Permanent link">&para;</a></h4>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">load_subjects</span><span class="p">(</span><span class="n">csv_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.stats.config.CorrelationConfig.Subject" href="../../../../pipeline/statistics/#tit.stats.config.CorrelationConfig.Subject">Subject</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2027,136 +2134,103 @@ prefix is stripped from subject IDs automatically.</p>
     Subject instances parsed from valid CSV rows.</p>
 <h6 id="tit.stats.config.CorrelationConfig.load_subjects--raises">Raises<a class="headerlink" href="#tit.stats.config.CorrelationConfig.load_subjects--raises" title="Permanent link">&para;</a></h6>
 <p>ValueError
-    If required columns are missing or no valid subjects are found.</p>
+    If required columns are missing, a kept row has no simulation_name, or
+    no valid subjects are found.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-404">404</a></span>
-<span class="normal"><a href="#__codelineno-0-405">405</a></span>
-<span class="normal"><a href="#__codelineno-0-406">406</a></span>
-<span class="normal"><a href="#__codelineno-0-407">407</a></span>
-<span class="normal"><a href="#__codelineno-0-408">408</a></span>
-<span class="normal"><a href="#__codelineno-0-409">409</a></span>
-<span class="normal"><a href="#__codelineno-0-410">410</a></span>
-<span class="normal"><a href="#__codelineno-0-411">411</a></span>
-<span class="normal"><a href="#__codelineno-0-412">412</a></span>
-<span class="normal"><a href="#__codelineno-0-413">413</a></span>
-<span class="normal"><a href="#__codelineno-0-414">414</a></span>
-<span class="normal"><a href="#__codelineno-0-415">415</a></span>
-<span class="normal"><a href="#__codelineno-0-416">416</a></span>
-<span class="normal"><a href="#__codelineno-0-417">417</a></span>
-<span class="normal"><a href="#__codelineno-0-418">418</a></span>
-<span class="normal"><a href="#__codelineno-0-419">419</a></span>
-<span class="normal"><a href="#__codelineno-0-420">420</a></span>
-<span class="normal"><a href="#__codelineno-0-421">421</a></span>
-<span class="normal"><a href="#__codelineno-0-422">422</a></span>
-<span class="normal"><a href="#__codelineno-0-423">423</a></span>
-<span class="normal"><a href="#__codelineno-0-424">424</a></span>
-<span class="normal"><a href="#__codelineno-0-425">425</a></span>
-<span class="normal"><a href="#__codelineno-0-426">426</a></span>
-<span class="normal"><a href="#__codelineno-0-427">427</a></span>
-<span class="normal"><a href="#__codelineno-0-428">428</a></span>
-<span class="normal"><a href="#__codelineno-0-429">429</a></span>
-<span class="normal"><a href="#__codelineno-0-430">430</a></span>
-<span class="normal"><a href="#__codelineno-0-431">431</a></span>
-<span class="normal"><a href="#__codelineno-0-432">432</a></span>
-<span class="normal"><a href="#__codelineno-0-433">433</a></span>
-<span class="normal"><a href="#__codelineno-0-434">434</a></span>
-<span class="normal"><a href="#__codelineno-0-435">435</a></span>
-<span class="normal"><a href="#__codelineno-0-436">436</a></span>
-<span class="normal"><a href="#__codelineno-0-437">437</a></span>
-<span class="normal"><a href="#__codelineno-0-438">438</a></span>
-<span class="normal"><a href="#__codelineno-0-439">439</a></span>
-<span class="normal"><a href="#__codelineno-0-440">440</a></span>
-<span class="normal"><a href="#__codelineno-0-441">441</a></span>
-<span class="normal"><a href="#__codelineno-0-442">442</a></span>
-<span class="normal"><a href="#__codelineno-0-443">443</a></span>
-<span class="normal"><a href="#__codelineno-0-444">444</a></span>
-<span class="normal"><a href="#__codelineno-0-445">445</a></span>
-<span class="normal"><a href="#__codelineno-0-446">446</a></span>
-<span class="normal"><a href="#__codelineno-0-447">447</a></span>
-<span class="normal"><a href="#__codelineno-0-448">448</a></span>
-<span class="normal"><a href="#__codelineno-0-449">449</a></span>
-<span class="normal"><a href="#__codelineno-0-450">450</a></span>
-<span class="normal"><a href="#__codelineno-0-451">451</a></span>
-<span class="normal"><a href="#__codelineno-0-452">452</a></span>
-<span class="normal"><a href="#__codelineno-0-453">453</a></span>
-<span class="normal"><a href="#__codelineno-0-454">454</a></span>
-<span class="normal"><a href="#__codelineno-0-455">455</a></span>
-<span class="normal"><a href="#__codelineno-0-456">456</a></span>
-<span class="normal"><a href="#__codelineno-0-457">457</a></span>
-<span class="normal"><a href="#__codelineno-0-458">458</a></span>
-<span class="normal"><a href="#__codelineno-0-459">459</a></span>
-<span class="normal"><a href="#__codelineno-0-460">460</a></span>
-<span class="normal"><a href="#__codelineno-0-461">461</a></span>
-<span class="normal"><a href="#__codelineno-0-462">462</a></span>
-<span class="normal"><a href="#__codelineno-0-463">463</a></span>
-<span class="normal"><a href="#__codelineno-0-464">464</a></span>
-<span class="normal"><a href="#__codelineno-0-465">465</a></span>
-<span class="normal"><a href="#__codelineno-0-466">466</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">&quot;CorrelationConfig.Subject&quot;</span><span class="p">]:</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Load correlation subjects from a CSV file.</span>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``,</span>
-<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">    ``effect_size``.  Optional column: ``weight``.  Rows with NaN</span>
-<a id="__codelineno-0-410" name="__codelineno-0-410"></a><span class="sd">    ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``</span>
-<a id="__codelineno-0-411" name="__codelineno-0-411"></a><span class="sd">    prefix is stripped from subject IDs automatically.</span>
-<a id="__codelineno-0-412" name="__codelineno-0-412"></a>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="sd">    csv_path : str</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a><span class="sd">        Path to a CSV file with the required columns.</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a><span class="sd">    list of Subject</span>
-<a id="__codelineno-0-421" name="__codelineno-0-421"></a><span class="sd">        Subject instances parsed from valid CSV rows.</span>
-<a id="__codelineno-0-422" name="__codelineno-0-422"></a>
-<a id="__codelineno-0-423" name="__codelineno-0-423"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-424" name="__codelineno-0-424"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-425" name="__codelineno-0-425"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-426" name="__codelineno-0-426"></a><span class="sd">        If required columns are missing or no valid subjects are found.</span>
-<a id="__codelineno-0-427" name="__codelineno-0-427"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">csv_path</span><span class="p">)</span>
-<a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="n">required</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;subject_id&quot;</span><span class="p">,</span> <span class="s2">&quot;simulation_name&quot;</span><span class="p">,</span> <span class="s2">&quot;effect_size&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="n">missing</span> <span class="o">=</span> <span class="n">required</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">df</span><span class="o">.</span><span class="n">columns</span><span class="p">)</span>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a>    <span class="k">if</span> <span class="n">missing</span><span class="p">:</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;CSV missing required columns: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-435" name="__codelineno-0-435"></a>
-<a id="__codelineno-0-436" name="__codelineno-0-436"></a>    <span class="n">has_weights</span> <span class="o">=</span> <span class="s2">&quot;weight&quot;</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">columns</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">():</span>
-<a id="__codelineno-0-439" name="__codelineno-0-439"></a>        <span class="k">if</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;subject_id&quot;</span><span class="p">])</span> <span class="ow">or</span> <span class="n">pd</span><span class="o">.</span><span class="n">isna</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;effect_size&quot;</span><span class="p">]):</span>
-<a id="__codelineno-0-440" name="__codelineno-0-440"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-441" name="__codelineno-0-441"></a>
-<a id="__codelineno-0-442" name="__codelineno-0-442"></a>        <span class="n">sid</span> <span class="o">=</span> <span class="n">row</span><span class="p">[</span><span class="s2">&quot;subject_id&quot;</span><span class="p">]</span>
-<a id="__codelineno-0-443" name="__codelineno-0-443"></a>        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="nb">float</span><span class="p">):</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a>            <span class="n">sid</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a>            <span class="n">sid</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s2">&quot;sub-&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a>            <span class="k">if</span> <span class="n">sid</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.0&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a>                <span class="n">sid</span> <span class="o">=</span> <span class="n">sid</span><span class="p">[:</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a>            <span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;weight&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a>            <span class="k">if</span> <span class="n">has_weights</span> <span class="ow">and</span> <span class="n">pd</span><span class="o">.</span><span class="n">notna</span><span class="p">(</span><span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;weight&quot;</span><span class="p">))</span>
-<a id="__codelineno-0-453" name="__codelineno-0-453"></a>            <span class="k">else</span> <span class="mf">1.0</span>
-<a id="__codelineno-0-454" name="__codelineno-0-454"></a>        <span class="p">)</span>
-<a id="__codelineno-0-455" name="__codelineno-0-455"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-456" name="__codelineno-0-456"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-457" name="__codelineno-0-457"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">sid</span><span class="p">,</span>
-<a id="__codelineno-0-458" name="__codelineno-0-458"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;simulation_name&quot;</span><span class="p">]),</span>
-<a id="__codelineno-0-459" name="__codelineno-0-459"></a>                <span class="n">effect_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">&quot;effect_size&quot;</span><span class="p">]),</span>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a>                <span class="n">weight</span><span class="o">=</span><span class="n">weight</span><span class="p">,</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a>            <span class="p">)</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a>        <span class="p">)</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subjects</span><span class="p">:</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid subjects found in CSV&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="k">return</span> <span class="n">subjects</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-661">661</a></span>
+<span class="normal"><a href="#__codelineno-0-662">662</a></span>
+<span class="normal"><a href="#__codelineno-0-663">663</a></span>
+<span class="normal"><a href="#__codelineno-0-664">664</a></span>
+<span class="normal"><a href="#__codelineno-0-665">665</a></span>
+<span class="normal"><a href="#__codelineno-0-666">666</a></span>
+<span class="normal"><a href="#__codelineno-0-667">667</a></span>
+<span class="normal"><a href="#__codelineno-0-668">668</a></span>
+<span class="normal"><a href="#__codelineno-0-669">669</a></span>
+<span class="normal"><a href="#__codelineno-0-670">670</a></span>
+<span class="normal"><a href="#__codelineno-0-671">671</a></span>
+<span class="normal"><a href="#__codelineno-0-672">672</a></span>
+<span class="normal"><a href="#__codelineno-0-673">673</a></span>
+<span class="normal"><a href="#__codelineno-0-674">674</a></span>
+<span class="normal"><a href="#__codelineno-0-675">675</a></span>
+<span class="normal"><a href="#__codelineno-0-676">676</a></span>
+<span class="normal"><a href="#__codelineno-0-677">677</a></span>
+<span class="normal"><a href="#__codelineno-0-678">678</a></span>
+<span class="normal"><a href="#__codelineno-0-679">679</a></span>
+<span class="normal"><a href="#__codelineno-0-680">680</a></span>
+<span class="normal"><a href="#__codelineno-0-681">681</a></span>
+<span class="normal"><a href="#__codelineno-0-682">682</a></span>
+<span class="normal"><a href="#__codelineno-0-683">683</a></span>
+<span class="normal"><a href="#__codelineno-0-684">684</a></span>
+<span class="normal"><a href="#__codelineno-0-685">685</a></span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span>
+<span class="normal"><a href="#__codelineno-0-694">694</a></span>
+<span class="normal"><a href="#__codelineno-0-695">695</a></span>
+<span class="normal"><a href="#__codelineno-0-696">696</a></span>
+<span class="normal"><a href="#__codelineno-0-697">697</a></span>
+<span class="normal"><a href="#__codelineno-0-698">698</a></span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span>
+<span class="normal"><a href="#__codelineno-0-703">703</a></span>
+<span class="normal"><a href="#__codelineno-0-704">704</a></span>
+<span class="normal"><a href="#__codelineno-0-705">705</a></span>
+<span class="normal"><a href="#__codelineno-0-706">706</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"CorrelationConfig.Subject"</span><span class="p">]:</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="w">    </span><span class="sd">"""Load correlation subjects from a CSV file.</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``,</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">    ``effect_size``.  Optional column: ``weight``.  Rows with NaN</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    prefix is stripped from subject IDs automatically.</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    csv_path : str</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">        Path to a CSV file with the required columns.</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    list of Subject</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">        Subject instances parsed from valid CSV rows.</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">        If required columns are missing, a kept row has no simulation_name, or</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">        no valid subjects are found.</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    """</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"effect_size"</span><span class="p">}</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="p">):</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: simulation_name is required"</span><span class="p">)</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight"</span><span class="p">)</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>                <span class="n">effect_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]),</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>                <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>            <span class="p">)</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>        <span class="p">)</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subjects</span><span class="p">:</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No valid subjects found in CSV"</span><span class="p">)</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="k">return</span> <span class="n">subjects</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2184,18 +2258,7 @@ prefix is stripped from subject IDs automatically.</p>
   </span>
 
 <a href="#tit.stats.config.GroupComparisonResult" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonResult</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">success</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">n_responders</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">n_non_responders</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">n_significant_voxels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">n_significant_clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">analysis_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">GroupComparisonResult</span><span class="p">(</span><span class="n">success</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">n_responders</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">n_non_responders</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">n_significant_voxels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">n_significant_clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">analysis_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">,</span> <span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -2271,17 +2334,7 @@ run_group_comparison : Function that returns this result.</p>
   </span>
 
 <a href="#tit.stats.config.CorrelationResult" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationResult</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">success</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">n_subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">n_significant_voxels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">n_significant_clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">analysis_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">CorrelationResult</span><span class="p">(</span><span class="n">success</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">n_subjects</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">n_significant_voxels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">n_significant_clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">cluster_threshold</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">analysis_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">clusters</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">,</span> <span class="n">log_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">

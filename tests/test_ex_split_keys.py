@@ -14,8 +14,8 @@ What this pins (2026-10-22, package p05 "ex-split-key-collision"):
 Where the numbers come from: the arithmetic spec of the sweep -- ``c1 + c2 = total`` with
 ``c1`` walking down from the channel limit in ``step`` increments and both channels at least one
 step -- written out by hand below (``_hand_splits``), not read from ``generate_current_ratios``.
-The fields come from a tiny random leadfield; ``get_maxTI`` is replaced by
-``tit.calc.get_TI_vectors`` (real numpy), so nothing here depends on SimNIBS.
+The fields come from a tiny random leadfield and the engine scores them with
+``tit.calc.envelope_max`` (real numpy), so nothing here depends on SimNIBS.
 
 Reproduce: ``pytest tests/test_ex_split_keys.py -q``.
 """
@@ -31,7 +31,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from tit.calc import get_TI_vectors
 from tit.opt import candidate_catalog as catalog
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import generate_current_ratios
@@ -49,10 +48,6 @@ class _FakeTI:
     def get_field(spec, leadfield, idx):
         plus, minus, current = spec
         return current * (leadfield[idx.index(plus)] - leadfield[idx.index(minus)])
-
-    @staticmethod
-    def get_maxTI(e1, e2):
-        return np.linalg.norm(get_TI_vectors([e1, e2]), axis=1)
 
 
 @pytest.fixture

@@ -10,13 +10,13 @@ import time
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
+from tit.calc import envelope_max
+
 from .roi import read_roi_center
 from .logic import (
     _electrode_combinations,
     count_combinations,
     format_current_mA,
-    generate_current_ratios,
-    generate_montage_combinations,
     ratios_mirror_symmetric,
 )
 from .parallel import evaluate_ordered, resolve_n_jobs
@@ -280,7 +280,7 @@ class ExSearchEngine:
         for current_ch1_mA, current_ch2_mA in current_ratios:
             ef1 = (current_ch1_mA / 1000) * unit1
             ef2 = (current_ch2_mA / 1000) * unit2
-            ti_max = TI.get_maxTI(ef1, ef2)
+            ti_max = envelope_max([ef1, ef2])
             data = self._roi_metrics(ti_max[roi_pos], ti_max[gm_pos])
             data["current_ch1_mA"] = current_ch1_mA
             data["current_ch2_mA"] = current_ch2_mA
@@ -328,10 +328,6 @@ class ExSearchEngine:
         )
         n_jobs = resolve_n_jobs(n_jobs)
         self._log_config_summary(
-            e1_plus,
-            e1_minus,
-            e2_plus,
-            e2_minus,
             current_ratios,
             all_combinations,
             total,
@@ -405,10 +401,6 @@ class ExSearchEngine:
 
     def _log_config_summary(
         self,
-        e1_plus,
-        e1_minus,
-        e2_plus,
-        e2_minus,
         current_ratios,
         all_combinations,
         total,

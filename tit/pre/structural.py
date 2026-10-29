@@ -21,7 +21,7 @@ tit.pre : Package-level overview and convenience re-exports.
 import signal
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Iterable
 
 from tit import constants as const
 from tit.paths import get_path_manager, validate_subject_id
@@ -182,7 +182,6 @@ def _run_subject_pipeline(
     qsiprep_config: dict | None = None,
     qsi_recon_config: dict | None = None,
     extract_dti_step: bool = False,
-    callback: Callable | None = None,
     skip_existing_outputs: bool = False,
     replace_existing_outputs: bool = False,
 ) -> dict[str, float | None]:
@@ -193,12 +192,7 @@ def _run_subject_pipeline(
     dict[str, float | None]
         Mapping of step name to duration in seconds, or ``None`` when skipped.
     """
-    logger = build_logger(
-        "preprocess",
-        subject_id,
-        project_dir,
-        console=callback is None,
-    )
+    logger = build_logger("preprocess", subject_id, project_dir)
 
     logger.info(f"Beginning pre-processing for subject: {subject_id}")
 
@@ -463,7 +457,6 @@ def run_pipeline(
     skip_existing_outputs: bool = False,
     replace_existing_outputs: bool = False,
     stop_event: object | None = None,
-    logger_callback: Callable | None = None,
     runner: CommandRunner | None = None,
 ) -> int:
     """Run the preprocessing pipeline for one or more subjects.
@@ -530,8 +523,6 @@ def run_pipeline(
         Remove selected existing outputs before rerunning their steps.
     stop_event : object or None, optional
         Threading event used to cancel running steps.
-    logger_callback : callable or None, optional
-        Callback used by the GUI to capture log lines.
     runner : CommandRunner or None, optional
         Subprocess runner used to stream command output.
 
@@ -623,7 +614,6 @@ def run_pipeline(
             skip_existing_outputs=skip_existing_outputs,
             replace_existing_outputs=replace_existing_outputs,
             stop_event=stop_event,
-            logger_callback=logger_callback,
             runner=runner,
         )
 
@@ -650,7 +640,6 @@ def _run_pipeline_inner(
     skip_existing_outputs=False,
     replace_existing_outputs=False,
     stop_event=None,
-    logger_callback=None,
     runner=None,
 ) -> int:
     """Inner implementation of :func:`run_pipeline`."""
@@ -695,7 +684,6 @@ def _run_pipeline_inner(
         qsiprep_config=qsiprep_config,
         qsi_recon_config=qsi_recon_config,
         runner=runner,
-        callback=logger_callback,
         skip_existing_outputs=skip_existing_outputs,
         replace_existing_outputs=replace_existing_outputs,
     )

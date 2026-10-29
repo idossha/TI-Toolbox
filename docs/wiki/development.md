@@ -224,7 +224,7 @@ From the repository root, after installing the contributor Python environment:
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 python3 dev/documentation_policy.py
 python3 dev/route_import_guard.py
-python3 dev/contracts_check.py
+.venv/bin/python dev/contracts_check.py   # builds the live app, which imports tit.calc: needs numba
 ```
 
 `dev/documentation_policy.py` fails if a `docs/requirements` store appears (current behaviour

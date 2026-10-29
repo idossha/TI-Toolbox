@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/pre/structural/">
       
       
-        
+        <link rel="prev" href="../qsi/utils/">
       
       
         <link rel="next" href="../tissue_analyzer/">
@@ -950,6 +950,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.pre.structural.run_pipeline--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.pre.structural.run_pipeline--see-also" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1018,7 +1029,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1039,7 +1050,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1100,7 +1111,8 @@
 <p>This module contains the top-level <code>run_pipeline</code> function that drives
 all preprocessing steps for one or more subjects: DICOM conversion,
 SimNIBS CHARM, FastSurfer deep segmentation, tissue analysis, DWI
-preprocessing (QSIPrep/QSIRecon), and DTI tensor extraction.</p>
+preprocessing (QSIPrep, optional QSIRecon), and DTI tensor extraction
+(DIPY on QSIPrep output).</p>
 <h4 id="tit.pre.structural--public-api">Public API<a class="headerlink" href="#tit.pre.structural--public-api" title="Permanent link">&para;</a></h4>
 <p>run_pipeline
     Run the full preprocessing pipeline for one or more subjects.</p>
@@ -1133,29 +1145,7 @@ preprocessing (QSIPrep/QSIRecon), and DTI tensor extraction.</p>
 
 
 <a href="#tit.pre.structural.run_pipeline" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">convert_dicom</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">run_fastsurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">fastsurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">run_freesurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">freesurfer_recon_all</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">freesurfer_subregions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">freesurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">create_m2m</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">run_qsiprep</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">run_qsirecon</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">qsiprep_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">extract_dti</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>    <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>    <span class="n">stop_event</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#object">object</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>    <span class="n">logger_callback</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.utils.CommandRunner" href="../utils/#tit.pre.utils.CommandRunner">CommandRunner</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">run_pipeline</span><span class="p">(</span><span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Iterable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Iterable">Iterable</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">convert_dicom</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">run_fastsurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">charm_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">charm_options</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">fastsurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">run_freesurfer</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">freesurfer_recon_all</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">freesurfer_subregions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">freesurfer_threads</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">create_m2m</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">run_qsiprep</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">run_qsirecon</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">qsiprep_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">extract_dti</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">stop_event</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#object">object</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">runner</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.pre.utils.CommandRunner" href="../utils/#tit.pre.utils.CommandRunner">CommandRunner</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1165,18 +1155,40 @@ preprocessing (QSIPrep/QSIRecon), and DTI tensor extraction.</p>
 segmentation, tissue analysis, QSIPrep/QSIRecon DWI preprocessing and
 DTI tensor extraction.  Steps are enabled via boolean flags; disabled
 steps are skipped.</p>
+<p>All step flags default to <code>False</code>; pass keyword arguments only.</p>
 <h5 id="tit.pre.structural.run_pipeline--parameters">Parameters<a class="headerlink" href="#tit.pre.structural.run_pipeline--parameters" title="Permanent link">&para;</a></h5>
 <p>subject_ids : iterable of str
-    Subject identifiers without the <code>sub-</code> prefix.
+    Subject identifiers without the <code>sub-</code> prefix (e.g.
+    <code>["ernie", "101"]</code>).  Subjects run sequentially.
 convert_dicom : bool, optional
-    Run DICOM-to-NIfTI conversion.
+    Run DICOM-to-NIfTI conversion (<code>sourcedata/sub-&lt;id&gt;/</code> to
+    <code>sub-&lt;id&gt;/anat/</code>).
 run_fastsurfer : bool, optional
     Run FastSurfer <code>--seg_only</code> deep segmentation.
+charm_threads : int or None, optional
+    Thread count for SimNIBS <code>charm</code>; <code>None</code> uses its default.
+charm_options : dict or None, optional
+    <code>charm</code> overrides: <code>{"denoise": bool,
+    "segmentation_final_resolution": 0.5-2.0,
+    "skin_facet_size": 0.5-10.0}</code> (keys optional; unknown keys
+    raise <code>ValueError</code>).  <code>None</code> keeps the installed defaults.
 fastsurfer_threads : int or None, optional
     Thread count for FastSurfer inference.
+run_freesurfer : bool, optional
+    Run FreeSurfer (requires a FreeSurfer install, which the standard
+    image does not ship).
+freesurfer_recon_all : bool, optional
+    With <em>run_freesurfer</em>, run <code>recon-all</code> (default <code>True</code>); set
+    <code>False</code> to run only <em>freesurfer_subregions</em> on an existing
+    reconstruction.
+freesurfer_subregions : list of str or None, optional
+    FreeSurfer subregion segmentations to add: any of
+    <code>"thalamus"</code>, <code>"hippo-amygdala"</code>.
+freesurfer_threads : int or None, optional
+    Thread count for FreeSurfer.
 create_m2m : bool, optional
-    Run SimNIBS <code>charm</code> (also runs <code>subject_atlas</code> for <code>.annot</code>
-    files).
+    Run SimNIBS <code>charm</code> to build <code>m2m_&lt;id&gt;</code> (also runs
+    <code>subject_atlas</code> for <code>.annot</code> files).
 run_tissue_analysis : bool, optional
     Run tissue-volume and thickness analysis.
 run_qsiprep : bool, optional
@@ -1190,23 +1202,42 @@ qsi_recon_config : dict or None, optional
 extract_dti : bool, optional
     Extract DTI tensor for SimNIBS anisotropic conductivity.
 skip_existing_outputs : bool, optional
-    Skip selected preprocessing steps when their output already exists.
+    Skip selected preprocessing steps whose output already exists
+    (DICOM conversion: per modality). An output an interrupted run left
+    incomplete is never skipped or deleted: the step raises
+    <code>PreprocessError</code> asking for <em>replace_existing_outputs</em>.
 replace_existing_outputs : bool, optional
     Remove selected existing outputs before rerunning their steps.
 stop_event : object or None, optional
     Threading event used to cancel running steps.
-logger_callback : callable or None, optional
-    Callback used by the GUI to capture log lines.
 runner : CommandRunner or None, optional
     Subprocess runner used to stream command output.</p>
 <h5 id="tit.pre.structural.run_pipeline--returns">Returns<a class="headerlink" href="#tit.pre.structural.run_pipeline--returns" title="Permanent link">&para;</a></h5>
 <p>int
-    <code>0</code> on success, <code>1</code> on failure.</p>
+    <code>0</code> once every subject's selected steps have finished. A failure
+    raises (see Raises); <code>1</code> is never returned.</p>
 <h5 id="tit.pre.structural.run_pipeline--raises">Raises<a class="headerlink" href="#tit.pre.structural.run_pipeline--raises" title="Permanent link">&para;</a></h5>
 <p>PreprocessError
-    If no subjects are provided or a preprocessing step fails.
+    If no subjects are provided, both <em>skip_existing_outputs</em> and
+    <em>replace_existing_outputs</em> are set, a required input is missing
+    for a selected step (checked for every subject before anything
+    runs), or a preprocessing step fails.
 PreprocessCancelled
     If <em>stop_event</em> is set during execution.</p>
+<h5 id="tit.pre.structural.run_pipeline--examples">Examples<a class="headerlink" href="#tit.pre.structural.run_pipeline--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit.pre import run_pipeline
+run_pipeline(["ernie"], convert_dicom=True, create_m2m=True)  # doctest: +SKIP
+0
+run_pipeline(["ernie", "101"], create_m2m=True,
+...              charm_options={"denoise": True},
+...              skip_existing_outputs=True)  # doctest: +SKIP
+0</p>
+</blockquote>
+</blockquote>
+</blockquote>
 <h5 id="tit.pre.structural.run_pipeline--see-also">See Also<a class="headerlink" href="#tit.pre.structural.run_pipeline--see-also" title="Permanent link">&para;</a></h5>
 <p>run_dicom_to_nifti : DICOM-to-NIfTI conversion step.
 run_fastsurfer : FastSurfer deep-segmentation step.
@@ -1219,18 +1250,7 @@ extract_dti_tensor : DTI tensor extraction step.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/pre/structural.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-427">427</a></span>
-<span class="normal"><a href="#__codelineno-0-428">428</a></span>
-<span class="normal"><a href="#__codelineno-0-429">429</a></span>
-<span class="normal"><a href="#__codelineno-0-430">430</a></span>
-<span class="normal"><a href="#__codelineno-0-431">431</a></span>
-<span class="normal"><a href="#__codelineno-0-432">432</a></span>
-<span class="normal"><a href="#__codelineno-0-433">433</a></span>
-<span class="normal"><a href="#__codelineno-0-434">434</a></span>
-<span class="normal"><a href="#__codelineno-0-435">435</a></span>
-<span class="normal"><a href="#__codelineno-0-436">436</a></span>
-<span class="normal"><a href="#__codelineno-0-437">437</a></span>
-<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-438">438</a></span>
 <span class="normal"><a href="#__codelineno-0-439">439</a></span>
 <span class="normal"><a href="#__codelineno-0-440">440</a></span>
 <span class="normal"><a href="#__codelineno-0-441">441</a></span>
@@ -1359,147 +1379,238 @@ extract_dti_tensor : DTI tensor extraction step.</p>
 <span class="normal"><a href="#__codelineno-0-564">564</a></span>
 <span class="normal"><a href="#__codelineno-0-565">565</a></span>
 <span class="normal"><a href="#__codelineno-0-566">566</a></span>
-<span class="normal"><a href="#__codelineno-0-567">567</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-427" name="__codelineno-0-427"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_pipeline</span><span class="p">(</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="n">convert_dicom</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="n">run_fastsurfer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="n">fastsurfer_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a>    <span class="n">run_freesurfer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a>    <span class="n">freesurfer_recon_all</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-435" name="__codelineno-0-435"></a>    <span class="n">freesurfer_subregions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-436" name="__codelineno-0-436"></a>    <span class="n">freesurfer_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="n">create_m2m</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="n">run_qsiprep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="n">run_qsirecon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="n">qsiprep_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-442" name="__codelineno-0-442"></a>    <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-443" name="__codelineno-0-443"></a>    <span class="n">extract_dti</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a>    <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a>    <span class="n">stop_event</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="n">logger_callback</span><span class="p">:</span> <span class="n">Callable</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n">CommandRunner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the preprocessing pipeline for one or more subjects.</span>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    Orchestrates DICOM conversion, SimNIBS CHARM, FastSurfer deep</span>
-<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    segmentation, tissue analysis, QSIPrep/QSIRecon DWI preprocessing and</span>
-<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    DTI tensor extraction.  Steps are enabled via boolean flags; disabled</span>
-<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    steps are skipped.</span>
-<a id="__codelineno-0-456" name="__codelineno-0-456"></a>
-<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">    subject_ids : iterable of str</span>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">        Subject identifiers without the ``sub-`` prefix.</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    convert_dicom : bool, optional</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">        Run DICOM-to-NIfTI conversion.</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    run_fastsurfer : bool, optional</span>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        Run FastSurfer ``--seg_only`` deep segmentation.</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    fastsurfer_threads : int or None, optional</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a><span class="sd">        Thread count for FastSurfer inference.</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    create_m2m : bool, optional</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">        Run SimNIBS ``charm`` (also runs ``subject_atlas`` for ``.annot``</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">        files).</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">    run_tissue_analysis : bool, optional</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">        Run tissue-volume and thickness analysis.</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    run_qsiprep : bool, optional</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">        Run QSIPrep DWI preprocessing via Docker.</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">    run_qsirecon : bool, optional</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="sd">        Run QSIRecon reconstruction via Docker.</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    qsiprep_config : dict or None, optional</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">        Extra configuration passed to ``run_qsiprep``.</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    qsi_recon_config : dict or None, optional</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">        Extra configuration passed to ``run_qsirecon``.</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">    extract_dti : bool, optional</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">        Extract DTI tensor for SimNIBS anisotropic conductivity.</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="sd">    skip_existing_outputs : bool, optional</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="sd">        Skip selected preprocessing steps when their output already exists.</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">    replace_existing_outputs : bool, optional</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">        Remove selected existing outputs before rerunning their steps.</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a><span class="sd">    stop_event : object or None, optional</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a><span class="sd">        Threading event used to cancel running steps.</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a><span class="sd">    logger_callback : callable or None, optional</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a><span class="sd">        Callback used by the GUI to capture log lines.</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a><span class="sd">    runner : CommandRunner or None, optional</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a><span class="sd">        Subprocess runner used to stream command output.</span>
-<a id="__codelineno-0-492" name="__codelineno-0-492"></a>
-<a id="__codelineno-0-493" name="__codelineno-0-493"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-494" name="__codelineno-0-494"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-495" name="__codelineno-0-495"></a><span class="sd">    int</span>
-<a id="__codelineno-0-496" name="__codelineno-0-496"></a><span class="sd">        ``0`` on success, ``1`` on failure.</span>
-<a id="__codelineno-0-497" name="__codelineno-0-497"></a>
-<a id="__codelineno-0-498" name="__codelineno-0-498"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-499" name="__codelineno-0-499"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-500" name="__codelineno-0-500"></a><span class="sd">    PreprocessError</span>
-<a id="__codelineno-0-501" name="__codelineno-0-501"></a><span class="sd">        If no subjects are provided or a preprocessing step fails.</span>
-<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="sd">    PreprocessCancelled</span>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="sd">        If *stop_event* is set during execution.</span>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    run_dicom_to_nifti : DICOM-to-NIfTI conversion step.</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">    run_fastsurfer : FastSurfer deep-segmentation step.</span>
-<a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">    run_charm : SimNIBS CHARM head-mesh step.</span>
-<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">    run_tissue_analysis : Tissue analysis step.</span>
-<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    run_qsiprep : QSIPrep DWI preprocessing step.</span>
-<a id="__codelineno-0-512" name="__codelineno-0-512"></a><span class="sd">    run_qsirecon : QSIRecon reconstruction step.</span>
-<a id="__codelineno-0-513" name="__codelineno-0-513"></a><span class="sd">    extract_dti_tensor : DTI tensor extraction step.</span>
-<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-515" name="__codelineno-0-515"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
-<a id="__codelineno-0-516" name="__codelineno-0-516"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">_const</span>
-<a id="__codelineno-0-517" name="__codelineno-0-517"></a>
-<a id="__codelineno-0-518" name="__codelineno-0-518"></a>    <span class="n">subject_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">subject_ids</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
-<a id="__codelineno-0-519" name="__codelineno-0-519"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subject_list</span><span class="p">:</span>
-<a id="__codelineno-0-520" name="__codelineno-0-520"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="s2">&quot;No subjects provided.&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-521" name="__codelineno-0-521"></a>    <span class="k">if</span> <span class="n">skip_existing_outputs</span> <span class="ow">and</span> <span class="n">replace_existing_outputs</span><span class="p">:</span>
-<a id="__codelineno-0-522" name="__codelineno-0-522"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
-<a id="__codelineno-0-523" name="__codelineno-0-523"></a>            <span class="s2">&quot;skip_existing_outputs and replace_existing_outputs cannot both be true.&quot;</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>        <span class="p">)</span>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="n">project_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">_root</span><span class="p">()</span>
-<a id="__codelineno-0-528" name="__codelineno-0-528"></a>    <span class="n">input_problems</span> <span class="o">=</span> <span class="n">find_missing_preprocessing_inputs</span><span class="p">(</span>
-<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="n">subject_list</span><span class="p">,</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="n">convert_dicom</span><span class="o">=</span><span class="n">convert_dicom</span><span class="p">,</span>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>        <span class="n">create_m2m</span><span class="o">=</span><span class="n">create_m2m</span><span class="p">,</span>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="n">run_fastsurfer</span><span class="o">=</span><span class="n">run_fastsurfer</span><span class="p">,</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="n">run_freesurfer</span><span class="o">=</span><span class="n">run_freesurfer</span><span class="p">,</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">freesurfer_recon_all</span><span class="o">=</span><span class="n">freesurfer_recon_all</span><span class="p">,</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">freesurfer_subregions</span><span class="o">=</span><span class="n">freesurfer_subregions</span> <span class="ow">or</span> <span class="p">[],</span>
-<a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="n">run_qsiprep</span><span class="o">=</span><span class="n">run_qsiprep</span><span class="p">,</span>
-<a id="__codelineno-0-538" name="__codelineno-0-538"></a>        <span class="n">run_qsirecon</span><span class="o">=</span><span class="n">run_qsirecon</span><span class="p">,</span>
-<a id="__codelineno-0-539" name="__codelineno-0-539"></a>        <span class="n">extract_dti</span><span class="o">=</span><span class="n">extract_dti</span><span class="p">,</span>
-<a id="__codelineno-0-540" name="__codelineno-0-540"></a>        <span class="n">skip_existing_outputs</span><span class="o">=</span><span class="n">skip_existing_outputs</span><span class="p">,</span>
-<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="p">)</span>
-<a id="__codelineno-0-542" name="__codelineno-0-542"></a>    <span class="k">if</span> <span class="n">input_problems</span><span class="p">:</span>
-<a id="__codelineno-0-543" name="__codelineno-0-543"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="n">_format_input_problems</span><span class="p">(</span><span class="n">input_problems</span><span class="p">))</span>
+<span class="normal"><a href="#__codelineno-0-567">567</a></span>
+<span class="normal"><a href="#__codelineno-0-568">568</a></span>
+<span class="normal"><a href="#__codelineno-0-569">569</a></span>
+<span class="normal"><a href="#__codelineno-0-570">570</a></span>
+<span class="normal"><a href="#__codelineno-0-571">571</a></span>
+<span class="normal"><a href="#__codelineno-0-572">572</a></span>
+<span class="normal"><a href="#__codelineno-0-573">573</a></span>
+<span class="normal"><a href="#__codelineno-0-574">574</a></span>
+<span class="normal"><a href="#__codelineno-0-575">575</a></span>
+<span class="normal"><a href="#__codelineno-0-576">576</a></span>
+<span class="normal"><a href="#__codelineno-0-577">577</a></span>
+<span class="normal"><a href="#__codelineno-0-578">578</a></span>
+<span class="normal"><a href="#__codelineno-0-579">579</a></span>
+<span class="normal"><a href="#__codelineno-0-580">580</a></span>
+<span class="normal"><a href="#__codelineno-0-581">581</a></span>
+<span class="normal"><a href="#__codelineno-0-582">582</a></span>
+<span class="normal"><a href="#__codelineno-0-583">583</a></span>
+<span class="normal"><a href="#__codelineno-0-584">584</a></span>
+<span class="normal"><a href="#__codelineno-0-585">585</a></span>
+<span class="normal"><a href="#__codelineno-0-586">586</a></span>
+<span class="normal"><a href="#__codelineno-0-587">587</a></span>
+<span class="normal"><a href="#__codelineno-0-588">588</a></span>
+<span class="normal"><a href="#__codelineno-0-589">589</a></span>
+<span class="normal"><a href="#__codelineno-0-590">590</a></span>
+<span class="normal"><a href="#__codelineno-0-591">591</a></span>
+<span class="normal"><a href="#__codelineno-0-592">592</a></span>
+<span class="normal"><a href="#__codelineno-0-593">593</a></span>
+<span class="normal"><a href="#__codelineno-0-594">594</a></span>
+<span class="normal"><a href="#__codelineno-0-595">595</a></span>
+<span class="normal"><a href="#__codelineno-0-596">596</a></span>
+<span class="normal"><a href="#__codelineno-0-597">597</a></span>
+<span class="normal"><a href="#__codelineno-0-598">598</a></span>
+<span class="normal"><a href="#__codelineno-0-599">599</a></span>
+<span class="normal"><a href="#__codelineno-0-600">600</a></span>
+<span class="normal"><a href="#__codelineno-0-601">601</a></span>
+<span class="normal"><a href="#__codelineno-0-602">602</a></span>
+<span class="normal"><a href="#__codelineno-0-603">603</a></span>
+<span class="normal"><a href="#__codelineno-0-604">604</a></span>
+<span class="normal"><a href="#__codelineno-0-605">605</a></span>
+<span class="normal"><a href="#__codelineno-0-606">606</a></span>
+<span class="normal"><a href="#__codelineno-0-607">607</a></span>
+<span class="normal"><a href="#__codelineno-0-608">608</a></span>
+<span class="normal"><a href="#__codelineno-0-609">609</a></span>
+<span class="normal"><a href="#__codelineno-0-610">610</a></span>
+<span class="normal"><a href="#__codelineno-0-611">611</a></span>
+<span class="normal"><a href="#__codelineno-0-612">612</a></span>
+<span class="normal"><a href="#__codelineno-0-613">613</a></span>
+<span class="normal"><a href="#__codelineno-0-614">614</a></span>
+<span class="normal"><a href="#__codelineno-0-615">615</a></span>
+<span class="normal"><a href="#__codelineno-0-616">616</a></span>
+<span class="normal"><a href="#__codelineno-0-617">617</a></span>
+<span class="normal"><a href="#__codelineno-0-618">618</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_pipeline</span><span class="p">(</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n">Iterable</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="n">convert_dicom</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>    <span class="n">run_fastsurfer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>    <span class="n">charm_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="n">charm_options</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>    <span class="n">fastsurfer_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>    <span class="n">run_freesurfer</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="n">freesurfer_recon_all</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="n">freesurfer_subregions</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>    <span class="n">freesurfer_threads</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>    <span class="n">create_m2m</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>    <span class="n">run_tissue_analysis</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>    <span class="n">run_qsiprep</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>    <span class="n">run_qsirecon</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>    <span class="n">qsiprep_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>    <span class="n">qsi_recon_config</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>    <span class="n">extract_dti</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>    <span class="n">skip_existing_outputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>    <span class="n">replace_existing_outputs</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>    <span class="n">stop_event</span><span class="p">:</span> <span class="nb">object</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>    <span class="n">runner</span><span class="p">:</span> <span class="n">CommandRunner</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="w">    </span><span class="sd">"""Run the preprocessing pipeline for one or more subjects.</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    Orchestrates DICOM conversion, SimNIBS CHARM, FastSurfer deep</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    segmentation, tissue analysis, QSIPrep/QSIRecon DWI preprocessing and</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a><span class="sd">    DTI tensor extraction.  Steps are enabled via boolean flags; disabled</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    steps are skipped.</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">    All step flags default to ``False``; pass keyword arguments only.</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">    subject_ids : iterable of str</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">        Subject identifiers without the ``sub-`` prefix (e.g.</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="sd">        ``["ernie", "101"]``).  Subjects run sequentially.</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    convert_dicom : bool, optional</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">        Run DICOM-to-NIfTI conversion (``sourcedata/sub-&lt;id&gt;/`` to</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">        ``sub-&lt;id&gt;/anat/``).</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    run_fastsurfer : bool, optional</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">        Run FastSurfer ``--seg_only`` deep segmentation.</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">    charm_threads : int or None, optional</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="sd">        Thread count for SimNIBS ``charm``; ``None`` uses its default.</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="sd">    charm_options : dict or None, optional</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">        ``charm`` overrides: ``{"denoise": bool,</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">        "segmentation_final_resolution": 0.5-2.0,</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a><span class="sd">        "skin_facet_size": 0.5-10.0}`` (keys optional; unknown keys</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a><span class="sd">        raise ``ValueError``).  ``None`` keeps the installed defaults.</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a><span class="sd">    fastsurfer_threads : int or None, optional</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a><span class="sd">        Thread count for FastSurfer inference.</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a><span class="sd">    run_freesurfer : bool, optional</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a><span class="sd">        Run FreeSurfer (requires a FreeSurfer install, which the standard</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a><span class="sd">        image does not ship).</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a><span class="sd">    freesurfer_recon_all : bool, optional</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a><span class="sd">        With *run_freesurfer*, run ``recon-all`` (default ``True``); set</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a><span class="sd">        ``False`` to run only *freesurfer_subregions* on an existing</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a><span class="sd">        reconstruction.</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a><span class="sd">    freesurfer_subregions : list of str or None, optional</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a><span class="sd">        FreeSurfer subregion segmentations to add: any of</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a><span class="sd">        ``"thalamus"``, ``"hippo-amygdala"``.</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a><span class="sd">    freesurfer_threads : int or None, optional</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a><span class="sd">        Thread count for FreeSurfer.</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="sd">    create_m2m : bool, optional</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="sd">        Run SimNIBS ``charm`` to build ``m2m_&lt;id&gt;`` (also runs</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a><span class="sd">        ``subject_atlas`` for ``.annot`` files).</span>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    run_tissue_analysis : bool, optional</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">        Run tissue-volume and thickness analysis.</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    run_qsiprep : bool, optional</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">        Run QSIPrep DWI preprocessing via Docker.</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">    run_qsirecon : bool, optional</span>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">        Run QSIRecon reconstruction via Docker.</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    qsiprep_config : dict or None, optional</span>
+<a id="__codelineno-0-512" name="__codelineno-0-512"></a><span class="sd">        Extra configuration passed to ``run_qsiprep``.</span>
+<a id="__codelineno-0-513" name="__codelineno-0-513"></a><span class="sd">    qsi_recon_config : dict or None, optional</span>
+<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">        Extra configuration passed to ``run_qsirecon``.</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="sd">    extract_dti : bool, optional</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a><span class="sd">        Extract DTI tensor for SimNIBS anisotropic conductivity.</span>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a><span class="sd">    skip_existing_outputs : bool, optional</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a><span class="sd">        Skip selected preprocessing steps whose output already exists</span>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">        (DICOM conversion: per modality). An output an interrupted run left</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a><span class="sd">        incomplete is never skipped or deleted: the step raises</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a><span class="sd">        ``PreprocessError`` asking for *replace_existing_outputs*.</span>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a><span class="sd">    replace_existing_outputs : bool, optional</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a><span class="sd">        Remove selected existing outputs before rerunning their steps.</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a><span class="sd">    stop_event : object or None, optional</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a><span class="sd">        Threading event used to cancel running steps.</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a><span class="sd">    runner : CommandRunner or None, optional</span>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a><span class="sd">        Subprocess runner used to stream command output.</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a><span class="sd">    int</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a><span class="sd">        ``0`` once every subject's selected steps have finished. A failure</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a><span class="sd">        raises (see Raises); ``1`` is never returned.</span>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>
+<a id="__codelineno-0-535" name="__codelineno-0-535"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-536" name="__codelineno-0-536"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a><span class="sd">    PreprocessError</span>
+<a id="__codelineno-0-538" name="__codelineno-0-538"></a><span class="sd">        If no subjects are provided, both *skip_existing_outputs* and</span>
+<a id="__codelineno-0-539" name="__codelineno-0-539"></a><span class="sd">        *replace_existing_outputs* are set, a required input is missing</span>
+<a id="__codelineno-0-540" name="__codelineno-0-540"></a><span class="sd">        for a selected step (checked for every subject before anything</span>
+<a id="__codelineno-0-541" name="__codelineno-0-541"></a><span class="sd">        runs), or a preprocessing step fails.</span>
+<a id="__codelineno-0-542" name="__codelineno-0-542"></a><span class="sd">    PreprocessCancelled</span>
+<a id="__codelineno-0-543" name="__codelineno-0-543"></a><span class="sd">        If *stop_event* is set during execution.</span>
 <a id="__codelineno-0-544" name="__codelineno-0-544"></a>
-<a id="__codelineno-0-545" name="__codelineno-0-545"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">_const</span><span class="o">.</span><span class="n">TELEMETRY_OP_PRE_PIPELINE</span><span class="p">):</span>
-<a id="__codelineno-0-546" name="__codelineno-0-546"></a>        <span class="k">return</span> <span class="n">_run_pipeline_inner</span><span class="p">(</span>
-<a id="__codelineno-0-547" name="__codelineno-0-547"></a>            <span class="n">subject_list</span><span class="p">,</span>
-<a id="__codelineno-0-548" name="__codelineno-0-548"></a>            <span class="n">convert_dicom</span><span class="o">=</span><span class="n">convert_dicom</span><span class="p">,</span>
-<a id="__codelineno-0-549" name="__codelineno-0-549"></a>            <span class="n">run_fastsurfer</span><span class="o">=</span><span class="n">run_fastsurfer</span><span class="p">,</span>
-<a id="__codelineno-0-550" name="__codelineno-0-550"></a>            <span class="n">fastsurfer_threads</span><span class="o">=</span><span class="n">fastsurfer_threads</span><span class="p">,</span>
-<a id="__codelineno-0-551" name="__codelineno-0-551"></a>            <span class="n">run_freesurfer</span><span class="o">=</span><span class="n">run_freesurfer</span><span class="p">,</span>
-<a id="__codelineno-0-552" name="__codelineno-0-552"></a>            <span class="n">freesurfer_recon_all</span><span class="o">=</span><span class="n">freesurfer_recon_all</span><span class="p">,</span>
-<a id="__codelineno-0-553" name="__codelineno-0-553"></a>            <span class="n">freesurfer_subregions</span><span class="o">=</span><span class="n">freesurfer_subregions</span><span class="p">,</span>
-<a id="__codelineno-0-554" name="__codelineno-0-554"></a>            <span class="n">freesurfer_threads</span><span class="o">=</span><span class="n">freesurfer_threads</span><span class="p">,</span>
-<a id="__codelineno-0-555" name="__codelineno-0-555"></a>            <span class="n">create_m2m</span><span class="o">=</span><span class="n">create_m2m</span><span class="p">,</span>
-<a id="__codelineno-0-556" name="__codelineno-0-556"></a>            <span class="n">run_tissue_analysis</span><span class="o">=</span><span class="n">run_tissue_analysis</span><span class="p">,</span>
-<a id="__codelineno-0-557" name="__codelineno-0-557"></a>            <span class="n">run_qsiprep</span><span class="o">=</span><span class="n">run_qsiprep</span><span class="p">,</span>
-<a id="__codelineno-0-558" name="__codelineno-0-558"></a>            <span class="n">run_qsirecon</span><span class="o">=</span><span class="n">run_qsirecon</span><span class="p">,</span>
-<a id="__codelineno-0-559" name="__codelineno-0-559"></a>            <span class="n">qsiprep_config</span><span class="o">=</span><span class="n">qsiprep_config</span><span class="p">,</span>
-<a id="__codelineno-0-560" name="__codelineno-0-560"></a>            <span class="n">qsi_recon_config</span><span class="o">=</span><span class="n">qsi_recon_config</span><span class="p">,</span>
-<a id="__codelineno-0-561" name="__codelineno-0-561"></a>            <span class="n">extract_dti</span><span class="o">=</span><span class="n">extract_dti</span><span class="p">,</span>
-<a id="__codelineno-0-562" name="__codelineno-0-562"></a>            <span class="n">skip_existing_outputs</span><span class="o">=</span><span class="n">skip_existing_outputs</span><span class="p">,</span>
-<a id="__codelineno-0-563" name="__codelineno-0-563"></a>            <span class="n">replace_existing_outputs</span><span class="o">=</span><span class="n">replace_existing_outputs</span><span class="p">,</span>
-<a id="__codelineno-0-564" name="__codelineno-0-564"></a>            <span class="n">stop_event</span><span class="o">=</span><span class="n">stop_event</span><span class="p">,</span>
-<a id="__codelineno-0-565" name="__codelineno-0-565"></a>            <span class="n">logger_callback</span><span class="o">=</span><span class="n">logger_callback</span><span class="p">,</span>
-<a id="__codelineno-0-566" name="__codelineno-0-566"></a>            <span class="n">runner</span><span class="o">=</span><span class="n">runner</span><span class="p">,</span>
-<a id="__codelineno-0-567" name="__codelineno-0-567"></a>        <span class="p">)</span>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="sd">    &gt;&gt;&gt; from tit.pre import run_pipeline</span>
+<a id="__codelineno-0-548" name="__codelineno-0-548"></a><span class="sd">    &gt;&gt;&gt; run_pipeline(["ernie"], convert_dicom=True, create_m2m=True)  # doctest: +SKIP</span>
+<a id="__codelineno-0-549" name="__codelineno-0-549"></a><span class="sd">    0</span>
+<a id="__codelineno-0-550" name="__codelineno-0-550"></a><span class="sd">    &gt;&gt;&gt; run_pipeline(["ernie", "101"], create_m2m=True,</span>
+<a id="__codelineno-0-551" name="__codelineno-0-551"></a><span class="sd">    ...              charm_options={"denoise": True},</span>
+<a id="__codelineno-0-552" name="__codelineno-0-552"></a><span class="sd">    ...              skip_existing_outputs=True)  # doctest: +SKIP</span>
+<a id="__codelineno-0-553" name="__codelineno-0-553"></a><span class="sd">    0</span>
+<a id="__codelineno-0-554" name="__codelineno-0-554"></a>
+<a id="__codelineno-0-555" name="__codelineno-0-555"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-556" name="__codelineno-0-556"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-557" name="__codelineno-0-557"></a><span class="sd">    run_dicom_to_nifti : DICOM-to-NIfTI conversion step.</span>
+<a id="__codelineno-0-558" name="__codelineno-0-558"></a><span class="sd">    run_fastsurfer : FastSurfer deep-segmentation step.</span>
+<a id="__codelineno-0-559" name="__codelineno-0-559"></a><span class="sd">    run_charm : SimNIBS CHARM head-mesh step.</span>
+<a id="__codelineno-0-560" name="__codelineno-0-560"></a><span class="sd">    run_tissue_analysis : Tissue analysis step.</span>
+<a id="__codelineno-0-561" name="__codelineno-0-561"></a><span class="sd">    run_qsiprep : QSIPrep DWI preprocessing step.</span>
+<a id="__codelineno-0-562" name="__codelineno-0-562"></a><span class="sd">    run_qsirecon : QSIRecon reconstruction step.</span>
+<a id="__codelineno-0-563" name="__codelineno-0-563"></a><span class="sd">    extract_dti_tensor : DTI tensor extraction step.</span>
+<a id="__codelineno-0-564" name="__codelineno-0-564"></a><span class="sd">    """</span>
+<a id="__codelineno-0-565" name="__codelineno-0-565"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-566" name="__codelineno-0-566"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">_const</span>
+<a id="__codelineno-0-567" name="__codelineno-0-567"></a>
+<a id="__codelineno-0-568" name="__codelineno-0-568"></a>    <span class="n">subject_list</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">subject_ids</span> <span class="k">if</span> <span class="nb">str</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+<a id="__codelineno-0-569" name="__codelineno-0-569"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subject_list</span><span class="p">:</span>
+<a id="__codelineno-0-570" name="__codelineno-0-570"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="s2">"No subjects provided."</span><span class="p">)</span>
+<a id="__codelineno-0-571" name="__codelineno-0-571"></a>    <span class="k">if</span> <span class="n">skip_existing_outputs</span> <span class="ow">and</span> <span class="n">replace_existing_outputs</span><span class="p">:</span>
+<a id="__codelineno-0-572" name="__codelineno-0-572"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span>
+<a id="__codelineno-0-573" name="__codelineno-0-573"></a>            <span class="s2">"skip_existing_outputs and replace_existing_outputs cannot both be true."</span>
+<a id="__codelineno-0-574" name="__codelineno-0-574"></a>        <span class="p">)</span>
+<a id="__codelineno-0-575" name="__codelineno-0-575"></a>
+<a id="__codelineno-0-576" name="__codelineno-0-576"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-577" name="__codelineno-0-577"></a>    <span class="n">project_dir</span> <span class="o">=</span> <span class="n">pm</span><span class="o">.</span><span class="n">_root</span><span class="p">()</span>
+<a id="__codelineno-0-578" name="__codelineno-0-578"></a>    <span class="n">input_problems</span> <span class="o">=</span> <span class="n">find_missing_preprocessing_inputs</span><span class="p">(</span>
+<a id="__codelineno-0-579" name="__codelineno-0-579"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-580" name="__codelineno-0-580"></a>        <span class="n">subject_list</span><span class="p">,</span>
+<a id="__codelineno-0-581" name="__codelineno-0-581"></a>        <span class="n">convert_dicom</span><span class="o">=</span><span class="n">convert_dicom</span><span class="p">,</span>
+<a id="__codelineno-0-582" name="__codelineno-0-582"></a>        <span class="n">create_m2m</span><span class="o">=</span><span class="n">create_m2m</span><span class="p">,</span>
+<a id="__codelineno-0-583" name="__codelineno-0-583"></a>        <span class="n">run_fastsurfer</span><span class="o">=</span><span class="n">run_fastsurfer</span><span class="p">,</span>
+<a id="__codelineno-0-584" name="__codelineno-0-584"></a>        <span class="n">run_freesurfer</span><span class="o">=</span><span class="n">run_freesurfer</span><span class="p">,</span>
+<a id="__codelineno-0-585" name="__codelineno-0-585"></a>        <span class="n">freesurfer_recon_all</span><span class="o">=</span><span class="n">freesurfer_recon_all</span><span class="p">,</span>
+<a id="__codelineno-0-586" name="__codelineno-0-586"></a>        <span class="n">freesurfer_subregions</span><span class="o">=</span><span class="n">freesurfer_subregions</span> <span class="ow">or</span> <span class="p">[],</span>
+<a id="__codelineno-0-587" name="__codelineno-0-587"></a>        <span class="n">run_qsiprep</span><span class="o">=</span><span class="n">run_qsiprep</span><span class="p">,</span>
+<a id="__codelineno-0-588" name="__codelineno-0-588"></a>        <span class="n">run_qsirecon</span><span class="o">=</span><span class="n">run_qsirecon</span><span class="p">,</span>
+<a id="__codelineno-0-589" name="__codelineno-0-589"></a>        <span class="n">extract_dti</span><span class="o">=</span><span class="n">extract_dti</span><span class="p">,</span>
+<a id="__codelineno-0-590" name="__codelineno-0-590"></a>        <span class="n">skip_existing_outputs</span><span class="o">=</span><span class="n">skip_existing_outputs</span><span class="p">,</span>
+<a id="__codelineno-0-591" name="__codelineno-0-591"></a>    <span class="p">)</span>
+<a id="__codelineno-0-592" name="__codelineno-0-592"></a>    <span class="k">if</span> <span class="n">input_problems</span><span class="p">:</span>
+<a id="__codelineno-0-593" name="__codelineno-0-593"></a>        <span class="k">raise</span> <span class="n">PreprocessError</span><span class="p">(</span><span class="n">_format_input_problems</span><span class="p">(</span><span class="n">input_problems</span><span class="p">))</span>
+<a id="__codelineno-0-594" name="__codelineno-0-594"></a>
+<a id="__codelineno-0-595" name="__codelineno-0-595"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">_const</span><span class="o">.</span><span class="n">TELEMETRY_OP_PRE_PIPELINE</span><span class="p">):</span>
+<a id="__codelineno-0-596" name="__codelineno-0-596"></a>        <span class="k">return</span> <span class="n">_run_pipeline_inner</span><span class="p">(</span>
+<a id="__codelineno-0-597" name="__codelineno-0-597"></a>            <span class="n">subject_list</span><span class="p">,</span>
+<a id="__codelineno-0-598" name="__codelineno-0-598"></a>            <span class="n">convert_dicom</span><span class="o">=</span><span class="n">convert_dicom</span><span class="p">,</span>
+<a id="__codelineno-0-599" name="__codelineno-0-599"></a>            <span class="n">run_fastsurfer</span><span class="o">=</span><span class="n">run_fastsurfer</span><span class="p">,</span>
+<a id="__codelineno-0-600" name="__codelineno-0-600"></a>            <span class="n">charm_threads</span><span class="o">=</span><span class="n">charm_threads</span><span class="p">,</span>
+<a id="__codelineno-0-601" name="__codelineno-0-601"></a>            <span class="n">charm_options</span><span class="o">=</span><span class="n">charm_options</span><span class="p">,</span>
+<a id="__codelineno-0-602" name="__codelineno-0-602"></a>            <span class="n">fastsurfer_threads</span><span class="o">=</span><span class="n">fastsurfer_threads</span><span class="p">,</span>
+<a id="__codelineno-0-603" name="__codelineno-0-603"></a>            <span class="n">run_freesurfer</span><span class="o">=</span><span class="n">run_freesurfer</span><span class="p">,</span>
+<a id="__codelineno-0-604" name="__codelineno-0-604"></a>            <span class="n">freesurfer_recon_all</span><span class="o">=</span><span class="n">freesurfer_recon_all</span><span class="p">,</span>
+<a id="__codelineno-0-605" name="__codelineno-0-605"></a>            <span class="n">freesurfer_subregions</span><span class="o">=</span><span class="n">freesurfer_subregions</span><span class="p">,</span>
+<a id="__codelineno-0-606" name="__codelineno-0-606"></a>            <span class="n">freesurfer_threads</span><span class="o">=</span><span class="n">freesurfer_threads</span><span class="p">,</span>
+<a id="__codelineno-0-607" name="__codelineno-0-607"></a>            <span class="n">create_m2m</span><span class="o">=</span><span class="n">create_m2m</span><span class="p">,</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a>            <span class="n">run_tissue_analysis</span><span class="o">=</span><span class="n">run_tissue_analysis</span><span class="p">,</span>
+<a id="__codelineno-0-609" name="__codelineno-0-609"></a>            <span class="n">run_qsiprep</span><span class="o">=</span><span class="n">run_qsiprep</span><span class="p">,</span>
+<a id="__codelineno-0-610" name="__codelineno-0-610"></a>            <span class="n">run_qsirecon</span><span class="o">=</span><span class="n">run_qsirecon</span><span class="p">,</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>            <span class="n">qsiprep_config</span><span class="o">=</span><span class="n">qsiprep_config</span><span class="p">,</span>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a>            <span class="n">qsi_recon_config</span><span class="o">=</span><span class="n">qsi_recon_config</span><span class="p">,</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a>            <span class="n">extract_dti</span><span class="o">=</span><span class="n">extract_dti</span><span class="p">,</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a>            <span class="n">skip_existing_outputs</span><span class="o">=</span><span class="n">skip_existing_outputs</span><span class="p">,</span>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a>            <span class="n">replace_existing_outputs</span><span class="o">=</span><span class="n">replace_existing_outputs</span><span class="p">,</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a>            <span class="n">stop_event</span><span class="o">=</span><span class="n">stop_event</span><span class="p">,</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a>            <span class="n">runner</span><span class="o">=</span><span class="n">runner</span><span class="p">,</span>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

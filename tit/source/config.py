@@ -25,14 +25,16 @@ from tit.constants import FSAVG_FIELD_NAMES
 #: Field quantities that :func:`tit.source.fsaverage.project_fields_to_fsaverage`
 #: knows how to compute on the subject central surface before morphing.
 #:
-#: ``hf_peak`` = ``max(|E1+E2|, |E1-E2|)`` is the peak carrier field and ``hf_sar``
-#: = ``|E1|^2 + |E2|^2`` the heating driver (Cassarà 2025); see :mod:`tit.fields`.
+#: Over every carrier of a TI or mTI run: ``hf_peak`` = max over signs of
+#: ``|sum_c s_c E_c|`` (two carriers: ``max(|E1+E2|, |E1-E2|)``) is the peak carrier
+#: field and ``hf_sar`` = ``sum_c |E_c|^2`` (= 2 * ``hf_power``) the heating driver
+#: (Cassarà 2025); see :mod:`tit.calc`.
 #:
 #: Sourced from :data:`tit.constants.FSAVG_FIELD_NAMES` (the single source of
 #: truth, shared with :mod:`tit.stats.config`), which is the field registry
-#: minus ``FIELD_MTI_MAX`` ("mTI_max", the 4-pair/mTI mesh spelling): the
+#: minus ``FIELD_MTI_MAX`` ("mTI_max", the mTI mesh spelling): the
 #: central-surface pipeline only ever emits ``TI_max``, regardless of whether
-#: the simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: the simulation was TI or mTI, so there is no separate mTI fsaverage
 #: field to project. Reproduces the exact historical tuple
 #: ``("TI_max", "TI_normal", "hf_peak", "hf_sar")``.
 VALID_FSAVG_FIELDS: tuple[str, ...] = FSAVG_FIELD_NAMES

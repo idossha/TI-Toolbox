@@ -15,6 +15,9 @@ from tit.charm_options import validate_charm_options
 from tit.paths import PathManager
 
 Surfer = Literal["fastsurfer", "freesurfer", "charm", "qsiprep", "qsirecon"]
+
+#: Environment override for the FastSurfer thread count (see :func:`effective_threads`).
+ENV_FASTSURFER_THREADS = "TIT_FASTSURFER_THREADS"
 THREAD_TOOLS = ("fastsurfer", "freesurfer", "charm", "qsiprep", "qsirecon")
 RESOURCE_KEYS = tuple(f"{tool}_threads" for tool in THREAD_TOOLS) + (
     "qsiprep_memory_gb",
@@ -270,7 +273,7 @@ def effective_threads(surfer: Surfer, explicit: int | None = None) -> int:
         return max(1, min(int(explicit), capacity))
     if surfer == "fastsurfer":
         try:
-            override = int(os.environ.get("TIT_FASTSURFER_THREADS", ""))
+            override = int(os.environ.get(ENV_FASTSURFER_THREADS, ""))
         except ValueError:
             pass
         else:

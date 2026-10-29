@@ -883,6 +883,39 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.scene.guide_build.build_label_volume" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_label_volume
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.scene.guide_build.build_subcortical" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_subcortical
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.scene.guide_build.build_mni_atlases" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        build_mni_atlases
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.scene.guide_build.generate" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -946,7 +979,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +1000,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1071,27 +1104,29 @@ only ever reads what it wrote (:mod:<code>tit.scene.guide</code>).</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.scene.guide_build.generate" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">generate</span>
+<h3 id="tit.scene.guide_build.build_label_volume" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build_label_volume</span>
 
 
-<a href="#tit.scene.guide_build.generate" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">project</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+<a href="#tit.scene.guide_build.build_label_volume" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_label_volume</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">lut</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">part_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">select_all</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Build every guide asset and write <code>out/manifest.json</code>. Returns it.</p>
+        <p>Freeze one label volume as a pickable surface plus its legend.</p>
+<p>Only the developer build reads a label volume.  Runtime requests reuse the
+same compact binary surface and legend API as cortical atlas requests.</p>
+<p><em>select_all</em> keeps every label the volume contains rather than the
+subcortical subset :func:<code>tit.scene.volume_surfaces.default_visible</code> would
+show.  It is what a packaged MNI atlas wants: its whole point is that the
+user picks any of its regions, and the "is this name a deep structure"
+heuristic exists for a per-subject <code>labeling.nii.gz</code>, not for CIT168.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide_build.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
 <span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
 <span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
 <span class="normal"><a href="#__codelineno-0-100">100</a></span>
@@ -1211,10 +1246,152 @@ only ever reads what it wrote (:mod:<code>tit.scene.guide</code>).</p>
 <span class="normal"><a href="#__codelineno-0-214">214</a></span>
 <span class="normal"><a href="#__codelineno-0-215">215</a></span>
 <span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_label_volume</span><span class="p">(</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="n">source</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="n">lut</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="n">part_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">atlas_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">select_all</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="w">    </span><span class="sd">"""Freeze one label volume as a pickable surface plus its legend.</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    Only the developer build reads a label volume.  Runtime requests reuse the</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    same compact binary surface and legend API as cortical atlas requests.</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a><span class="sd">    *select_all* keeps every label the volume contains rather than the</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="sd">    subcortical subset :func:`tit.scene.volume_surfaces.default_visible` would</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="sd">    show.  It is what a packaged MNI atlas wants: its whole point is that the</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="sd">    user picks any of its regions, and the "is this name a deep structure"</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">    heuristic exists for a per-subject ``labeling.nii.gz``, not for CIT168.</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">    """</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.scene</span><span class="w"> </span><span class="kn">import</span> <span class="n">gifti</span><span class="p">,</span> <span class="n">tvsc</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.scene.volume_surfaces</span><span class="w"> </span><span class="kn">import</span> <span class="n">surfaces</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="n">rows</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">parse_lut_text</span><span class="p">(</span><span class="n">lut</span><span class="o">.</span><span class="n">read_text</span><span class="p">())</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="n">names</span> <span class="o">=</span> <span class="p">{</span><span class="n">row</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]:</span> <span class="n">row</span><span class="p">[</span><span class="s2">"name"</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span><span class="p">}</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="n">image</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">source</span><span class="p">))</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">selected</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="k">if</span> <span class="n">select_all</span><span class="p">:</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">image</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>        <span class="n">selected</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="k">if</span> <span class="n">v</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">]</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">surfaces</span><span class="p">(</span><span class="n">image</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">selected</span><span class="p">,</span> <span class="n">atlas_name</span><span class="o">=</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">positions</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"positions"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="n">indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"indices"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint32</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">3</span><span class="p">)</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>    <span class="n">labels</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">result</span><span class="p">[</span><span class="s2">"labels"</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint16</span><span class="p">)</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">):</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has no regions to draw"</span><span class="p">)</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>    <span class="n">kept</span> <span class="o">=</span> <span class="p">{</span><span class="n">entry</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">result</span><span class="p">[</span><span class="s2">"entries"</span><span class="p">]}</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="n">legend</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>        <span class="p">{</span><span class="o">**</span><span class="n">row</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="s2">"id"</span><span class="p">],</span> <span class="s2">"hemi"</span><span class="p">:</span> <span class="s2">""</span><span class="p">,</span> <span class="s2">"color"</span><span class="p">:</span> <span class="n">row</span><span class="p">[</span><span class="s2">"color"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"#808080"</span><span class="p">}</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>        <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">rows</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"id"</span><span class="p">]</span> <span class="ow">in</span> <span class="n">kept</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="p">]</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="n">surface_blob</span> <span class="o">=</span> <span class="n">tvsc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">indices</span><span class="p">)</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">surface_blob</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">build</span><span class="o">.</span><span class="n">MAX_BYTES</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">build</span><span class="o">.</span><span class="n">MAX_TRIANGLES</span><span class="p">:</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> surface exceeds the guide budget"</span><span class="p">)</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">write_blobs</span><span class="p">(</span><span class="n">directory</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">blobs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="n">files</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="k">for</span> <span class="n">fmt</span><span class="p">,</span> <span class="n">blob</span> <span class="ow">in</span> <span class="n">blobs</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>            <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">directory</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>            <span class="n">path</span> <span class="o">=</span> <span class="n">out</span> <span class="o">/</span> <span class="n">rel</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>            <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>            <span class="n">path</span><span class="o">.</span><span class="n">write_bytes</span><span class="p">(</span><span class="n">blob</span><span class="p">)</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>            <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>            <span class="n">files</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"bytes"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">blob</span><span class="p">),</span> <span class="s2">"sha256"</span><span class="p">:</span> <span class="n">sha256_of</span><span class="p">(</span><span class="n">path</span><span class="p">)}</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>        <span class="k">return</span> <span class="n">files</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>    <span class="n">surface_files</span> <span class="o">=</span> <span class="n">write_blobs</span><span class="p">(</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>        <span class="s2">"surfaces"</span><span class="p">,</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>        <span class="n">part_id</span><span class="p">,</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>        <span class="p">{</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>            <span class="s2">"tvsc"</span><span class="p">:</span> <span class="n">surface_blob</span><span class="p">,</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>            <span class="s2">"gii"</span><span class="p">:</span> <span class="n">gifti</span><span class="o">.</span><span class="n">encode_surface</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="n">indices</span><span class="p">),</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>        <span class="p">},</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>    <span class="p">)</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">label_files</span> <span class="o">=</span> <span class="n">write_blobs</span><span class="p">(</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="s2">"labels"</span><span class="p">,</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>        <span class="n">atlas_id</span><span class="p">,</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>        <span class="p">{</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>            <span class="s2">"tvsc"</span><span class="p">:</span> <span class="n">tvsc</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">positions</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="n">labels</span><span class="p">),</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>            <span class="s2">"gii"</span><span class="p">:</span> <span class="n">gifti</span><span class="o">.</span><span class="n">encode_surface</span><span class="p">(</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>                <span class="n">positions</span><span class="p">,</span> <span class="n">indices</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">gifti</span><span class="o">.</span><span class="n">label_table_from_legend</span><span class="p">(</span><span class="n">legend</span><span class="p">)</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>            <span class="p">),</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="p">},</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="p">)</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="n">bbox</span> <span class="o">=</span> <span class="n">positions</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="o">+</span> <span class="n">positions</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="n">part</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>        <span class="s2">"id"</span><span class="p">:</span> <span class="n">part_id</span><span class="p">,</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>        <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"surface"</span><span class="p">,</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>        <span class="s2">"triangles"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">),</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>        <span class="s2">"vertices"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">positions</span><span class="p">),</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="s2">"bytes"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">surface_blob</span><span class="p">),</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="s2">"fingerprint"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"guide-</span><span class="si">{</span><span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">part_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>        <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/surface?part=</span><span class="si">{</span><span class="n">part_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="s2">"simplified"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>        <span class="s2">"within_budget"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>        <span class="s2">"bbox"</span><span class="p">:</span> <span class="n">bbox</span><span class="p">,</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>        <span class="s2">"focus_bbox"</span><span class="p">:</span> <span class="n">bbox</span><span class="p">,</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="s2">"files"</span><span class="p">:</span> <span class="n">surface_files</span><span class="p">,</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="p">}</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">legend_rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"legends/</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">.json"</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="n">legend_meta</span> <span class="o">=</span> <span class="n">_write_json</span><span class="p">(</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="n">out</span> <span class="o">/</span> <span class="n">legend_rel</span><span class="p">,</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>        <span class="p">{</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="s2">"atlas"</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>            <span class="s2">"space"</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>            <span class="s2">"aligned_to"</span><span class="p">:</span> <span class="n">part_id</span><span class="p">,</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>            <span class="s2">"vertices"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">positions</span><span class="p">),</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="s2">"radius_mm"</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="s2">"labelled_fraction"</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="s2">"legend"</span><span class="p">:</span> <span class="n">legend</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>            <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/labels?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="p">},</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="p">)</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="n">atlas</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>        <span class="s2">"id"</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"subcortical"</span><span class="p">,</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="s2">"hemispheres"</span><span class="p">:</span> <span class="p">[],</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="s2">"aligned_to"</span><span class="p">:</span> <span class="n">part_id</span><span class="p">,</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="s2">"regions"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">legend</span><span class="p">),</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/regions?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="s2">"files"</span><span class="p">:</span> <span class="n">label_files</span><span class="p">,</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="s2">"legend_file"</span><span class="p">:</span> <span class="n">legend_rel</span><span class="p">,</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="s2">"legend_meta"</span><span class="p">:</span> <span class="n">legend_meta</span><span class="p">,</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>        <span class="s2">"source_sha256"</span><span class="p">:</span> <span class="n">sha256_of</span><span class="p">(</span><span class="n">source</span><span class="p">),</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="s2">"lut_sha256"</span><span class="p">:</span> <span class="n">sha256_of</span><span class="p">(</span><span class="n">lut</span><span class="p">),</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="p">}</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>    <span class="k">return</span> <span class="n">part</span><span class="p">,</span> <span class="n">atlas</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.scene.guide_build.build_subcortical" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build_subcortical</span>
+
+
+<a href="#tit.scene.guide_build.build_subcortical" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_subcortical</span><span class="p">(</span><span class="n">pm</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The subject's own <code>labeling.nii.gz</code> as the guide's subcortical layer.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/scene/guide_build.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-220">220</a></span>
 <span class="normal"><a href="#__codelineno-0-221">221</a></span>
 <span class="normal"><a href="#__codelineno-0-222">222</a></span>
 <span class="normal"><a href="#__codelineno-0-223">223</a></span>
@@ -1223,148 +1400,504 @@ only ever reads what it wrote (:mod:<code>tit.scene.guide</code>).</p>
 <span class="normal"><a href="#__codelineno-0-226">226</a></span>
 <span class="normal"><a href="#__codelineno-0-227">227</a></span>
 <span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span><span class="n">project</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Build every guide asset and write ``out/manifest.json``. Returns it.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">catalog</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="n">project</span><span class="p">)</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="n">started</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="n">surface_metas</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">build_surfaces</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="n">surface_fp</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">surface_fingerprint</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="n">out</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">build</span><span class="o">.</span><span class="n">PART_TAGS</span><span class="p">:</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">surface_metas</span><span class="p">[</span><span class="n">part</span><span class="p">]</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>        <span class="n">files</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="n">SURFACE_FORMATS</span><span class="p">:</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>            <span class="n">found</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">find_cached</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">surface_fp</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>            <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2"> was not published by build_surfaces&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>            <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;surfaces/</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>            <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>            <span class="n">files</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_copy</span><span class="p">(</span><span class="n">found</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>            <span class="p">{</span>
-<a id="__codelineno-0-119" name="__codelineno-0-119"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">part</span><span class="p">,</span>
-<a id="__codelineno-0-120" name="__codelineno-0-120"></a>                <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="s2">&quot;surface&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a>                <span class="s2">&quot;triangles&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;triangles&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>                <span class="s2">&quot;vertices&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;vertices&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a>                <span class="c1"># `bytes` is the TVSC1 payload&#39;s size, as in the scene</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>                <span class="c1"># manifest, so §S3&#39;s ≤3 MB budget reads off the same number.</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a>                <span class="s2">&quot;bytes&quot;</span><span class="p">:</span> <span class="n">files</span><span class="p">[</span><span class="s2">&quot;tvsc_meta&quot;</span><span class="p">][</span><span class="s2">&quot;bytes&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a>                <span class="s2">&quot;fingerprint&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;guide-</span><span class="si">{</span><span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>                <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;/api/guide/surface?part=</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>                <span class="s2">&quot;simplified&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;simplified&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a>                <span class="s2">&quot;within_budget&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;within_budget&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a>                <span class="s2">&quot;max_deviation_mm&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;max_deviation_mm&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>                <span class="s2">&quot;bbox&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;bbox&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>                <span class="s2">&quot;focus_bbox&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;focus_bbox&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a>                <span class="s2">&quot;files&quot;</span><span class="p">:</span> <span class="n">files</span><span class="p">,</span>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a>            <span class="p">}</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a>        <span class="p">)</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a>    <span class="n">atlases</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="n">catalog</span><span class="o">.</span><span class="n">atlases</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">&quot;cortical&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[]:</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a>        <span class="n">atlas_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">&quot;id&quot;</span><span class="p">])</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a>        <span class="n">hemispheres</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">build</span><span class="o">.</span><span class="n">annot_paths</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">))</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">hemispheres</span><span class="p">:</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">build_labels</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">)</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a>        <span class="n">fp</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">labels_fingerprint</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">)</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a>        <span class="n">key</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">_labels_key</span><span class="p">(</span><span class="n">atlas_id</span><span class="p">)</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>        <span class="n">files</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="n">LABEL_FORMATS</span><span class="p">:</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>            <span class="n">found</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">find_cached</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>            <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a>                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2"> was not published by build_labels&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>            <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;labels/</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>            <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>            <span class="n">files</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">_copy</span><span class="p">(</span><span class="n">found</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="n">legend_rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;legends/</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">.json&quot;</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>        <span class="n">legend_body</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>            <span class="s2">&quot;atlas&quot;</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>            <span class="s2">&quot;space&quot;</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>            <span class="s2">&quot;aligned_to&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;aligned_to&quot;</span><span class="p">,</span> <span class="s2">&quot;gm&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a>            <span class="s2">&quot;vertices&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;vertices&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a>            <span class="s2">&quot;radius_mm&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;radius_mm&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>            <span class="s2">&quot;labelled_fraction&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;labelled_fraction&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>            <span class="s2">&quot;legend&quot;</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">&quot;legend&quot;</span><span class="p">],</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a>            <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;/api/guide/labels?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="p">}</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a>        <span class="n">legend_meta</span> <span class="o">=</span> <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">legend_rel</span><span class="p">,</span> <span class="n">legend_body</span><span class="p">)</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="n">atlases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a>            <span class="p">{</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a>                <span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a>                <span class="s2">&quot;hemispheres&quot;</span><span class="p">:</span> <span class="n">hemispheres</span><span class="p">,</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a>                <span class="s2">&quot;regions&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">&quot;legend&quot;</span><span class="p">]),</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>                <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;/api/guide/regions?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a>                <span class="s2">&quot;files&quot;</span><span class="p">:</span> <span class="n">files</span><span class="p">,</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a>                <span class="s2">&quot;legend_file&quot;</span><span class="p">:</span> <span class="n">legend_rel</span><span class="p">,</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a>                <span class="s2">&quot;legend_meta&quot;</span><span class="p">:</span> <span class="n">legend_meta</span><span class="p">,</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>            <span class="p">}</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>        <span class="p">)</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="n">nets</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="k">for</span> <span class="n">net_name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">list_eeg_caps</span><span class="p">(</span><span class="n">subject</span><span class="p">)):</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">read_net</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">net_name</span><span class="p">)</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="n">electrodes</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;electrodes&quot;</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">electrodes</span><span class="p">:</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;nets/</span><span class="si">{</span><span class="n">net_name</span><span class="si">}</span><span class="s2">.json&quot;</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>        <span class="n">net_body</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>            <span class="s2">&quot;net&quot;</span><span class="p">:</span> <span class="n">net_name</span><span class="p">,</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>            <span class="s2">&quot;space&quot;</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>            <span class="s2">&quot;electrodes&quot;</span><span class="p">:</span> <span class="n">electrodes</span><span class="p">,</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="p">}</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="n">file_meta</span> <span class="o">=</span> <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">,</span> <span class="n">net_body</span><span class="p">)</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a>        <span class="n">nets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a>            <span class="p">{</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>                <span class="s2">&quot;name&quot;</span><span class="p">:</span> <span class="n">net_name</span><span class="p">,</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>                <span class="s2">&quot;electrodes&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">electrodes</span><span class="p">),</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>                <span class="s2">&quot;url&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;/api/guide/electrodes?net=</span><span class="si">{</span><span class="n">net_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>                <span class="s2">&quot;file&quot;</span><span class="p">:</span> <span class="n">rel</span><span class="p">,</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>                <span class="o">**</span><span class="n">file_meta</span><span class="p">,</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="p">}</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="p">)</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="n">manifest</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="s2">&quot;guide&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="n">subject</span><span class="p">,</span> <span class="s2">&quot;label&quot;</span><span class="p">:</span> <span class="n">label</span><span class="p">},</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="s2">&quot;guide_version&quot;</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_VERSION</span><span class="p">,</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="s2">&quot;builder_version&quot;</span><span class="p">:</span> <span class="n">build</span><span class="o">.</span><span class="n">BUILDER_VERSION</span><span class="p">,</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>        <span class="c1"># Never &quot;subject-ras&quot;: these millimetres belong to the guide head, and</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="c1"># writing them into a research subject&#39;s config would be wrong in a</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="c1"># way nothing downstream can detect (R4).</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="s2">&quot;space&quot;</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="s2">&quot;bbox&quot;</span><span class="p">:</span> <span class="n">_union</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;bbox&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]),</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="s2">&quot;focus_bbox&quot;</span><span class="p">:</span> <span class="n">_union</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">&quot;focus_bbox&quot;</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]),</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="s2">&quot;parts&quot;</span><span class="p">:</span> <span class="n">parts</span><span class="p">,</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="s2">&quot;nets&quot;</span><span class="p">:</span> <span class="n">nets</span><span class="p">,</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="s2">&quot;atlases&quot;</span><span class="p">:</span> <span class="n">atlases</span><span class="p">,</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>        <span class="c1"># The label volume is deliberately not packaged: it is a ~10 MB NIfTI</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="c1"># whose only use in a pane is region picking, which the atlas payloads</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>        <span class="c1"># already do on the surface the pane draws.</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="s2">&quot;volumes&quot;</span><span class="p">:</span> <span class="p">[],</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>        <span class="s2">&quot;cache&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;state&quot;</span><span class="p">:</span> <span class="s2">&quot;ready&quot;</span><span class="p">,</span> <span class="s2">&quot;built_ms&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>        <span class="s2">&quot;provenance&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>            <span class="s2">&quot;source&quot;</span><span class="p">:</span> <span class="s2">&quot;SimNIBS example dataset, subject &#39;ernie&#39;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>            <span class="s2">&quot;source_url&quot;</span><span class="p">:</span> <span class="s2">&quot;https://github.com/simnibs/example-dataset&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>            <span class="s2">&quot;license&quot;</span><span class="p">:</span> <span class="s2">&quot;GPL-3.0-or-later&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>            <span class="s2">&quot;notes&quot;</span><span class="p">:</span> <span class="s2">&quot;See tit/scene/guide/PROVENANCE.md.&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="p">},</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="s2">&quot;generated&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>            <span class="s2">&quot;subject&quot;</span><span class="p">:</span> <span class="n">subject</span><span class="p">,</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>            <span class="s2">&quot;generator&quot;</span><span class="p">:</span> <span class="s2">&quot;tit.scene.guide_build&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="s2">&quot;seconds&quot;</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">started</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="p">},</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="p">}</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">guide</span><span class="o">.</span><span class="n">MANIFEST_NAME</span><span class="p">,</span> <span class="n">manifest</span><span class="p">)</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">return</span> <span class="n">manifest</span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_subcortical</span><span class="p">(</span><span class="n">pm</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span> <span class="nb">dict</span><span class="p">]:</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="w">    </span><span class="sd">"""The subject's own ``labeling.nii.gz`` as the guide's subcortical layer."""</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">source</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span> <span class="o">/</span> <span class="s2">"segmentation"</span> <span class="o">/</span> <span class="s2">"labeling.nii.gz"</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="k">return</span> <span class="n">build_label_volume</span><span class="p">(</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="n">source</span><span class="p">,</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="n">source</span><span class="o">.</span><span class="n">with_name</span><span class="p">(</span><span class="s2">"labeling_LUT.txt"</span><span class="p">),</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">out</span><span class="p">,</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="n">part_id</span><span class="o">=</span><span class="s2">"subcortical"</span><span class="p">,</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>        <span class="n">atlas_id</span><span class="o">=</span><span class="n">source</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.scene.guide_build.build_mni_atlases" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">build_mni_atlases</span>
+
+
+<a href="#tit.scene.guide_build.build_mni_atlases" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">build_mni_atlases</span><span class="p">(</span><span class="n">out</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Every packaged MNI atlas that fits the guide budget, as label surfaces.</p>
+<p>Skipped with a printed reason rather than a failure: an atlas with more than
+the 256 regions <code>volume_surfaces</code> draws (Glasser's 360 cortical parcels) or
+with no colour table is not a reason to have no MNI guide at all.  What it
+costs is that that atlas cannot be <em>picked in the pane</em>; it is still
+selectable in the ROI picker's list, which reads the catalog, not the guide.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/scene/guide_build.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="k">def</span><span class="w"> </span><span class="nf">build_mni_atlases</span><span class="p">(</span><span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]]:</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="w">    </span><span class="sd">"""Every packaged MNI atlas that fits the guide budget, as label surfaces.</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    Skipped with a printed reason rather than a failure: an atlas with more than</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    the 256 regions ``volume_surfaces`` draws (Glasser's 360 cortical parcels) or</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    with no colour table is not a reason to have no MNI guide at all.  What it</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    costs is that that atlas cannot be *picked in the pane*; it is still</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    selectable in the ROI picker's list, which reads the catalog, not the guide.</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    """</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.atlas.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">MNI_ATLAS_FILES</span><span class="p">,</span> <span class="n">mni_resources_dir</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.roi_spec</span><span class="w"> </span><span class="kn">import</span> <span class="n">_find_volume_lut</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">mni_resources_dir</span><span class="p">())</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">atlases</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">MNI_ATLAS_FILES</span><span class="p">:</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="n">source</span> <span class="o">=</span> <span class="n">root</span> <span class="o">/</span> <span class="n">name</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">source</span><span class="o">.</span><span class="n">is_file</span><span class="p">():</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"skip </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: not packaged in </span><span class="si">{</span><span class="n">root</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">lut</span> <span class="o">=</span> <span class="n">_find_volume_lut</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">source</span><span class="p">),</span> <span class="s2">"mni"</span><span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">if</span> <span class="n">lut</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"skip </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: no colour table beside it"</span><span class="p">)</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>            <span class="n">part</span><span class="p">,</span> <span class="n">atlas</span> <span class="o">=</span> <span class="n">build_label_volume</span><span class="p">(</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="n">source</span><span class="p">,</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>                <span class="n">Path</span><span class="p">(</span><span class="n">lut</span><span class="p">),</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="n">out</span><span class="p">,</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>                <span class="n">part_id</span><span class="o">=</span><span class="sa">f</span><span class="s2">"atlas-</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>                <span class="n">atlas_id</span><span class="o">=</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>                <span class="n">select_all</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>            <span class="p">)</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"skip </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">part</span><span class="p">)</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="n">atlases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atlas</span><span class="p">)</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="k">return</span> <span class="n">parts</span><span class="p">,</span> <span class="n">atlases</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.scene.guide_build.generate" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">generate</span>
+
+
+<a href="#tit.scene.guide_build.generate" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">generate</span><span class="p">(</span><span class="n">project</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">out</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">atlas_source</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'subject'</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'default'</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Build every guide asset and write <code>out/manifest.json</code>. Returns it.</p>
+<p><em>atlas_source</em> is <code>"subject"</code> for the anatomy guide (the subject's own
+cortical parcellations and <code>labeling.nii.gz</code>) or <code>"mni"</code> for the MNI152
+guide, whose atlases are the packaged MNI volumes in <code>resources/atlas/</code>.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/scene/guide_build.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span>
+<span class="normal"><a href="#__codelineno-0-346">346</a></span>
+<span class="normal"><a href="#__codelineno-0-347">347</a></span>
+<span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
+<span class="normal"><a href="#__codelineno-0-351">351</a></span>
+<span class="normal"><a href="#__codelineno-0-352">352</a></span>
+<span class="normal"><a href="#__codelineno-0-353">353</a></span>
+<span class="normal"><a href="#__codelineno-0-354">354</a></span>
+<span class="normal"><a href="#__codelineno-0-355">355</a></span>
+<span class="normal"><a href="#__codelineno-0-356">356</a></span>
+<span class="normal"><a href="#__codelineno-0-357">357</a></span>
+<span class="normal"><a href="#__codelineno-0-358">358</a></span>
+<span class="normal"><a href="#__codelineno-0-359">359</a></span>
+<span class="normal"><a href="#__codelineno-0-360">360</a></span>
+<span class="normal"><a href="#__codelineno-0-361">361</a></span>
+<span class="normal"><a href="#__codelineno-0-362">362</a></span>
+<span class="normal"><a href="#__codelineno-0-363">363</a></span>
+<span class="normal"><a href="#__codelineno-0-364">364</a></span>
+<span class="normal"><a href="#__codelineno-0-365">365</a></span>
+<span class="normal"><a href="#__codelineno-0-366">366</a></span>
+<span class="normal"><a href="#__codelineno-0-367">367</a></span>
+<span class="normal"><a href="#__codelineno-0-368">368</a></span>
+<span class="normal"><a href="#__codelineno-0-369">369</a></span>
+<span class="normal"><a href="#__codelineno-0-370">370</a></span>
+<span class="normal"><a href="#__codelineno-0-371">371</a></span>
+<span class="normal"><a href="#__codelineno-0-372">372</a></span>
+<span class="normal"><a href="#__codelineno-0-373">373</a></span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span>
+<span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
+<span class="normal"><a href="#__codelineno-0-380">380</a></span>
+<span class="normal"><a href="#__codelineno-0-381">381</a></span>
+<span class="normal"><a href="#__codelineno-0-382">382</a></span>
+<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+<span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span>
+<span class="normal"><a href="#__codelineno-0-419">419</a></span>
+<span class="normal"><a href="#__codelineno-0-420">420</a></span>
+<span class="normal"><a href="#__codelineno-0-421">421</a></span>
+<span class="normal"><a href="#__codelineno-0-422">422</a></span>
+<span class="normal"><a href="#__codelineno-0-423">423</a></span>
+<span class="normal"><a href="#__codelineno-0-424">424</a></span>
+<span class="normal"><a href="#__codelineno-0-425">425</a></span>
+<span class="normal"><a href="#__codelineno-0-426">426</a></span>
+<span class="normal"><a href="#__codelineno-0-427">427</a></span>
+<span class="normal"><a href="#__codelineno-0-428">428</a></span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="k">def</span><span class="w"> </span><span class="nf">generate</span><span class="p">(</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="n">project</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>    <span class="n">out</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">label</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="n">atlas_source</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"subject"</span><span class="p">,</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"default"</span><span class="p">,</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="w">    </span><span class="sd">"""Build every guide asset and write ``out/manifest.json``. Returns it.</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    *atlas_source* is ``"subject"`` for the anatomy guide (the subject's own</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    cortical parcellations and ``labeling.nii.gz``) or ``"mni"`` for the MNI152</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    guide, whose atlases are the packaged MNI volumes in ``resources/atlas/``.</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">    """</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">catalog</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="n">project_dir</span><span class="o">=</span><span class="n">project</span><span class="p">)</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="n">started</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="n">surface_metas</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">build_surfaces</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="n">surface_fp</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">surface_fingerprint</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">)</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">out</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="n">parts</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">build</span><span class="o">.</span><span class="n">PART_TAGS</span><span class="p">:</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">surface_metas</span><span class="p">[</span><span class="n">part</span><span class="p">]</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="n">files</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="n">SURFACE_FORMATS</span><span class="p">:</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="n">found</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">find_cached</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">surface_fp</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>            <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2"> was not published by build_surfaces"</span><span class="p">)</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>            <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"surfaces/</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>            <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>            <span class="n">files</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_copy</span><span class="p">(</span><span class="n">found</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>            <span class="p">{</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>                <span class="s2">"id"</span><span class="p">:</span> <span class="n">part</span><span class="p">,</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>                <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"surface"</span><span class="p">,</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>                <span class="s2">"triangles"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"triangles"</span><span class="p">],</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>                <span class="s2">"vertices"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"vertices"</span><span class="p">],</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>                <span class="c1"># `bytes` is the TVSC1 payload's size, as in the scene</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>                <span class="c1"># manifest, so §S3's ≤3 MB budget reads off the same number.</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>                <span class="s2">"bytes"</span><span class="p">:</span> <span class="n">files</span><span class="p">[</span><span class="s2">"tvsc_meta"</span><span class="p">][</span><span class="s2">"bytes"</span><span class="p">],</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>                <span class="s2">"fingerprint"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"guide-</span><span class="si">{</span><span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_VERSION</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>                <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/surface?part=</span><span class="si">{</span><span class="n">part</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>                <span class="s2">"simplified"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"simplified"</span><span class="p">],</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>                <span class="s2">"within_budget"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"within_budget"</span><span class="p">],</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>                <span class="s2">"max_deviation_mm"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"max_deviation_mm"</span><span class="p">],</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>                <span class="s2">"bbox"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"bbox"</span><span class="p">],</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>                <span class="s2">"focus_bbox"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"focus_bbox"</span><span class="p">],</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>                <span class="s2">"files"</span><span class="p">:</span> <span class="n">files</span><span class="p">,</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>            <span class="p">}</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>        <span class="p">)</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="n">atlases</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="k">for</span> <span class="n">entry</span> <span class="ow">in</span> <span class="p">(</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="p">[]</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="k">if</span> <span class="n">atlas_source</span> <span class="o">==</span> <span class="s2">"mni"</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="k">else</span> <span class="p">(</span><span class="n">catalog</span><span class="o">.</span><span class="n">atlases</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">kind</span><span class="o">=</span><span class="s2">"cortical"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">[])</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="p">):</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="n">atlas_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"id"</span><span class="p">])</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="n">hemispheres</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">build</span><span class="o">.</span><span class="n">annot_paths</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">))</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">hemispheres</span><span class="p">:</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="n">meta</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">build_labels</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">)</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="n">fp</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">labels_fingerprint</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">atlas_id</span><span class="p">)</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="n">key</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">_labels_key</span><span class="p">(</span><span class="n">atlas_id</span><span class="p">)</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>        <span class="n">files</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">for</span> <span class="n">fmt</span> <span class="ow">in</span> <span class="n">LABEL_FORMATS</span><span class="p">:</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="n">found</span> <span class="o">=</span> <span class="n">cache</span><span class="o">.</span><span class="n">find_cached</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">fp</span><span class="p">,</span> <span class="n">fmt</span><span class="p">)</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>            <span class="k">if</span> <span class="n">found</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>                <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2"> was not published by build_labels"</span><span class="p">)</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>            <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"labels/</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>            <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">]</span> <span class="o">=</span> <span class="n">rel</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>            <span class="n">files</span><span class="p">[</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">]</span> <span class="o">=</span> <span class="n">_copy</span><span class="p">(</span><span class="n">found</span><span class="o">.</span><span class="n">path</span><span class="p">,</span> <span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">)</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="n">legend_rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"legends/</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">.json"</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>        <span class="n">legend_body</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-377" name="__codelineno-0-377"></a>            <span class="s2">"atlas"</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>            <span class="s2">"space"</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>            <span class="s2">"aligned_to"</span><span class="p">:</span> <span class="n">meta</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"aligned_to"</span><span class="p">,</span> <span class="s2">"gm"</span><span class="p">),</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a>            <span class="s2">"vertices"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"vertices"</span><span class="p">],</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a>            <span class="s2">"radius_mm"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"radius_mm"</span><span class="p">],</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>            <span class="s2">"labelled_fraction"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"labelled_fraction"</span><span class="p">],</span>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a>            <span class="s2">"legend"</span><span class="p">:</span> <span class="n">meta</span><span class="p">[</span><span class="s2">"legend"</span><span class="p">],</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>            <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/labels?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>        <span class="p">}</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>        <span class="n">legend_meta</span> <span class="o">=</span> <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">legend_rel</span><span class="p">,</span> <span class="n">legend_body</span><span class="p">)</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>        <span class="n">atlases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>            <span class="p">{</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>                <span class="s2">"id"</span><span class="p">:</span> <span class="n">atlas_id</span><span class="p">,</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>                <span class="s2">"hemispheres"</span><span class="p">:</span> <span class="n">hemispheres</span><span class="p">,</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>                <span class="s2">"regions"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">meta</span><span class="p">[</span><span class="s2">"legend"</span><span class="p">]),</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>                <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/regions?atlas=</span><span class="si">{</span><span class="n">atlas_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>                <span class="s2">"files"</span><span class="p">:</span> <span class="n">files</span><span class="p">,</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>                <span class="s2">"legend_file"</span><span class="p">:</span> <span class="n">legend_rel</span><span class="p">,</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a>                <span class="s2">"legend_meta"</span><span class="p">:</span> <span class="n">legend_meta</span><span class="p">,</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a>            <span class="p">}</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>        <span class="p">)</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="k">if</span> <span class="n">atlas_source</span> <span class="o">==</span> <span class="s2">"mni"</span><span class="p">:</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>        <span class="n">mni_parts</span><span class="p">,</span> <span class="n">mni_atlases</span> <span class="o">=</span> <span class="n">build_mni_atlases</span><span class="p">(</span><span class="n">out</span><span class="p">)</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">mni_atlases</span><span class="p">:</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>            <span class="k">raise</span> <span class="ne">SystemExit</span><span class="p">(</span><span class="s2">"No packaged MNI atlas could be built into the guide"</span><span class="p">)</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>        <span class="n">parts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">mni_parts</span><span class="p">)</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>        <span class="n">atlases</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">mni_atlases</span><span class="p">)</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>        <span class="n">subcortical</span><span class="p">,</span> <span class="n">atlas</span> <span class="o">=</span> <span class="n">build_subcortical</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">out</span><span class="p">)</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subcortical</span><span class="p">)</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>        <span class="n">atlases</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">atlas</span><span class="p">)</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="n">nets</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>    <span class="k">for</span> <span class="n">net_name</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">list_eeg_caps</span><span class="p">(</span><span class="n">subject</span><span class="p">)):</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">build</span><span class="o">.</span><span class="n">read_net</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject</span><span class="p">,</span> <span class="n">net_name</span><span class="p">)</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>        <span class="n">electrodes</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"electrodes"</span><span class="p">,</span> <span class="p">[])</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">electrodes</span><span class="p">:</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>        <span class="n">rel</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"nets/</span><span class="si">{</span><span class="n">net_name</span><span class="si">}</span><span class="s2">.json"</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>        <span class="n">net_body</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>            <span class="s2">"net"</span><span class="p">:</span> <span class="n">net_name</span><span class="p">,</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>            <span class="s2">"space"</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>            <span class="s2">"electrodes"</span><span class="p">:</span> <span class="n">electrodes</span><span class="p">,</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>        <span class="p">}</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>        <span class="n">file_meta</span> <span class="o">=</span> <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">rel</span><span class="p">,</span> <span class="n">net_body</span><span class="p">)</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>        <span class="n">nets</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>            <span class="p">{</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>                <span class="s2">"name"</span><span class="p">:</span> <span class="n">net_name</span><span class="p">,</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>                <span class="s2">"electrodes"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">electrodes</span><span class="p">),</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>                <span class="s2">"url"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"/api/guide/electrodes?net=</span><span class="si">{</span><span class="n">net_name</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>                <span class="s2">"file"</span><span class="p">:</span> <span class="n">rel</span><span class="p">,</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>                <span class="o">**</span><span class="n">file_meta</span><span class="p">,</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>            <span class="p">}</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>        <span class="p">)</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>    <span class="n">manifest</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>        <span class="s2">"guide"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"id"</span><span class="p">:</span> <span class="n">subject</span><span class="p">,</span> <span class="s2">"label"</span><span class="p">:</span> <span class="n">label</span><span class="p">},</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>        <span class="s2">"guide_version"</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_VERSION</span><span class="p">,</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>        <span class="s2">"builder_version"</span><span class="p">:</span> <span class="n">build</span><span class="o">.</span><span class="n">BUILDER_VERSION</span><span class="p">,</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>        <span class="c1"># Never "subject-ras": these millimetres belong to the guide head, and</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>        <span class="c1"># writing them into a research subject's config would be wrong in a</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>        <span class="c1"># way nothing downstream can detect (R4).</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>        <span class="s2">"space"</span><span class="p">:</span> <span class="n">guide</span><span class="o">.</span><span class="n">GUIDE_SPACE</span><span class="p">,</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>        <span class="s2">"bbox"</span><span class="p">:</span> <span class="n">_union</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">"bbox"</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]),</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>        <span class="s2">"focus_bbox"</span><span class="p">:</span> <span class="n">_union</span><span class="p">([</span><span class="n">p</span><span class="p">[</span><span class="s2">"focus_bbox"</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">]),</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>        <span class="s2">"parts"</span><span class="p">:</span> <span class="n">parts</span><span class="p">,</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>        <span class="s2">"nets"</span><span class="p">:</span> <span class="n">nets</span><span class="p">,</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>        <span class="s2">"atlases"</span><span class="p">:</span> <span class="n">atlases</span><span class="p">,</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>        <span class="c1"># The label volume is deliberately not packaged: it is a ~10 MB NIfTI</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>        <span class="c1"># whose only use in a pane is region picking, which the atlas payloads</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>        <span class="c1"># already do on the surface the pane draws.</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>        <span class="s2">"volumes"</span><span class="p">:</span> <span class="p">[],</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>        <span class="s2">"cache"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"state"</span><span class="p">:</span> <span class="s2">"ready"</span><span class="p">,</span> <span class="s2">"built_ms"</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">},</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>        <span class="s2">"provenance"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>            <span class="s2">"source"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"SimNIBS example dataset, subject </span><span class="si">{</span><span class="n">subject</span><span class="si">!r}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>            <span class="s2">"source_url"</span><span class="p">:</span> <span class="s2">"https://github.com/simnibs/example-dataset"</span><span class="p">,</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>            <span class="s2">"license"</span><span class="p">:</span> <span class="s2">"GPL-3.0-or-later"</span><span class="p">,</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>            <span class="s2">"notes"</span><span class="p">:</span> <span class="s2">"See tit/scene/guide/PROVENANCE.md."</span><span class="p">,</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>        <span class="p">},</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>        <span class="s2">"generated"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>            <span class="s2">"subject"</span><span class="p">:</span> <span class="n">subject</span><span class="p">,</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>            <span class="s2">"generator"</span><span class="p">:</span> <span class="s2">"tit.scene.guide_build"</span><span class="p">,</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>            <span class="s2">"seconds"</span><span class="p">:</span> <span class="nb">round</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">perf_counter</span><span class="p">()</span> <span class="o">-</span> <span class="n">started</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a>        <span class="p">},</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>    <span class="p">}</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a>    <span class="c1"># The legends were written before the manifest, so their own urls are</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a>    <span class="c1"># re-tagged on disk rather than only in memory.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="k">for</span> <span class="n">legend_path</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">((</span><span class="n">out</span> <span class="o">/</span> <span class="s2">"legends"</span><span class="p">)</span><span class="o">.</span><span class="n">glob</span><span class="p">(</span><span class="s2">"*.json"</span><span class="p">)):</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">legend_path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>        <span class="n">_write_json</span><span class="p">(</span><span class="n">legend_path</span><span class="p">,</span> <span class="n">_tag_urls</span><span class="p">(</span><span class="n">body</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">))</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="k">for</span> <span class="n">atlas</span> <span class="ow">in</span> <span class="n">manifest</span><span class="p">[</span><span class="s2">"atlases"</span><span class="p">]:</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="n">atlas</span><span class="p">[</span><span class="s2">"legend_meta"</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>            <span class="s2">"bytes"</span><span class="p">:</span> <span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">[</span><span class="s2">"legend_file"</span><span class="p">])</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span><span class="p">,</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>            <span class="s2">"sha256"</span><span class="p">:</span> <span class="n">sha256_of</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">[</span><span class="s2">"legend_file"</span><span class="p">]),</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>        <span class="p">}</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="n">_tag_urls</span><span class="p">(</span><span class="n">manifest</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="n">_write_json</span><span class="p">(</span><span class="n">out</span> <span class="o">/</span> <span class="n">guide</span><span class="o">.</span><span class="n">MANIFEST_NAME</span><span class="p">,</span> <span class="n">manifest</span><span class="p">)</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="k">return</span> <span class="n">manifest</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

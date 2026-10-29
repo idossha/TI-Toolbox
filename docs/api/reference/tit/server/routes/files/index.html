@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/server/routes/files/">
       
       
-        <link rel="prev" href="../catalog_v1/">
+        <link rel="prev" href="../example_data/">
       
       
         <link rel="next" href="../guide/">
@@ -957,7 +957,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -978,7 +978,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1088,15 +1088,7 @@ directly for generic artifacts, matching the other v1 route modules.</p>
 
 
 <a href="#tit.server.routes.files.raw" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">raw</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">range_header</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s2">&quot;Range&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">if_none_match</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>        <span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s2">&quot;If-None-Match&quot;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="p">),</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">if_range</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s2">&quot;If-Range&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="fastapi.Response">Response</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">raw</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span> <span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">range_header</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s1">'Range'</span><span class="p">),</span> <span class="n">if_none_match</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s1">'If-None-Match'</span><span class="p">),</span> <span class="n">if_range</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n"><span title="fastapi.Header">Header</span></span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n"><span title="fastapi.Header(alias)">alias</span></span><span class="o">=</span><span class="s1">'If-Range'</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="n"><span title="fastapi.Response">Response</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1119,18 +1111,16 @@ can be resumed. No response ever carries a <code>Content-Encoding</code>: a
 <code>.nii.gz</code> must reach the viewer still deflated (it inflates the stream
 itself), and an encoded body would break both <code>Content-Length</code> and
 ranges.</p>
-<p>This route is the whole reason the in-app viewer needs no X11 at all
-(D3, <code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>): it is served to a
-canvas inside the Tetravox embed's iframe, never to an external
-Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
+<p>This route is the whole reason viewing needs no X11 at all
+(<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real
+development loop)</code>): bytes are served to the app's own WebGL2 panes, or
+named by an exported scene the native TetraVox app opens on the host --
+never to an external Freeview/Gmsh process here.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/files.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#__codelineno-0-195">195</a></span>
-<span class="normal"><a href="#__codelineno-0-196">196</a></span>
-<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
@@ -1233,113 +1223,118 @@ Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
 <span class="normal"><a href="#__codelineno-0-297">297</a></span>
 <span class="normal"><a href="#__codelineno-0-298">298</a></span>
 <span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="s2">&quot;/api/files/raw/{path:path}&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Raw bytes of one volume/mesh/LUT file for the in-app viewer, jailed to the project&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="n">response_class</span><span class="o">=</span><span class="n">Response</span><span class="p">,</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">responses</span><span class="o">=</span><span class="n">_RAW_RESPONSES</span><span class="p">,</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="p">)</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="nd">@router</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="s2">&quot;/api/files/raw/{path:path}&quot;</span><span class="p">,</span> <span class="n">include_in_schema</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="k">def</span><span class="w"> </span><span class="nf">raw</span><span class="p">(</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="n">range_header</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">&quot;Range&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="n">if_none_match</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">&quot;If-None-Match&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="n">if_range</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">&quot;If-Range&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Stream one project file to the in-app viewer as opaque bytes.</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    Unlike ``/api/files/artifact`` this is not restricted to the document</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    extension allow-list -- the viewer needs ``.nii.gz``, ``.msh``,</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    ``.msh.opt``, ``.gii``, ``*_LUT.txt``, ``.lut`` and friends, none of</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    which that route will serve. The trade is the opposite response policy:</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    every response is ``application/octet-stream`` with ``nosniff`` and</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    ``attachment``, and the handful of extensions a browser could execute as</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    a document in this origin are refused outright, so nothing served here</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">    can ever become a page.</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    The URL *is* the file&#39;s absolute path minus its leading slash</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    (``/api/files/raw/mnt/000/.../T1.nii.gz``) rather than a ``?path=``</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    query, because the engine&#39;s loader takes the file name, the gzip</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    decision and its volume-vs-mesh routing from the URL&#39;s last segment.</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Range/206, ``If-Range`` and ``ETag``/304 are supported so a large mesh</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    can be resumed. No response ever carries a ``Content-Encoding``: a</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    ``.nii.gz`` must reach the viewer still deflated (it inflates the stream</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    itself), and an encoded body would break both ``Content-Length`` and</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    ranges.</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    This route is the whole reason the in-app viewer needs no X11 at all</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    (D3, ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``): it is served to a</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    canvas inside the Tetravox embed&#39;s iframe, never to an external</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    Freeview/Gmsh process -- there is no X11 capability left to gate.</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_jailed</span><span class="p">(</span><span class="s2">&quot;/&quot;</span> <span class="o">+</span> <span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">),</span> <span class="n">roots</span><span class="o">=</span><span class="n">raw_jail_roots</span><span class="p">())</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>    <span class="n">lowered</span> <span class="o">=</span> <span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">lowered</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">ext</span><span class="p">)</span> <span class="k">for</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">_RAW_DENY_EXTS</span><span class="p">):</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;File type not servable as raw data; use /api/files/artifact&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="p">)</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="c1"># Open once, with O_NOFOLLOW on the final component, and serve the bytes</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="c1"># of *that* file descriptor: the jail check and the read then cannot see</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="c1"># two different files, so a symlink swapped in after the check (the TOCTOU</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="c1"># window /api/files/artifact still has) cannot redirect the response.</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="n">fd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">O_RDONLY</span> <span class="o">|</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">os</span><span class="p">,</span> <span class="s2">&quot;O_NOFOLLOW&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Not found&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="s2">"/api/files/raw/{path:path}"</span><span class="p">,</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Raw bytes of one volume/mesh/LUT file for the in-app viewer, jailed to the project"</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="n">response_class</span><span class="o">=</span><span class="n">Response</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="n">responses</span><span class="o">=</span><span class="n">_RAW_RESPONSES</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="p">)</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="nd">@router</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="s2">"/api/files/raw/{path:path}"</span><span class="p">,</span> <span class="n">include_in_schema</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="nf">raw</span><span class="p">(</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="n">range_header</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">"Range"</span><span class="p">),</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="n">if_none_match</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">"If-None-Match"</span><span class="p">),</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="n">if_range</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Header</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="n">alias</span><span class="o">=</span><span class="s2">"If-Range"</span><span class="p">),</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Response</span><span class="p">:</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="w">    </span><span class="sd">"""Stream one project file to the in-app viewer as opaque bytes.</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    Unlike ``/api/files/artifact`` this is not restricted to the document</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    extension allow-list -- the viewer needs ``.nii.gz``, ``.msh``,</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    ``.msh.opt``, ``.gii``, ``*_LUT.txt``, ``.lut`` and friends, none of</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    which that route will serve. The trade is the opposite response policy:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">    every response is ``application/octet-stream`` with ``nosniff`` and</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    ``attachment``, and the handful of extensions a browser could execute as</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    a document in this origin are refused outright, so nothing served here</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    can ever become a page.</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    The URL *is* the file's absolute path minus its leading slash</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    (``/api/files/raw/mnt/000/.../T1.nii.gz``) rather than a ``?path=``</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    query, because the engine's loader takes the file name, the gzip</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    decision and its volume-vs-mesh routing from the URL's last segment.</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    Range/206, ``If-Range`` and ``ETag``/304 are supported so a large mesh</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    can be resumed. No response ever carries a ``Content-Encoding``: a</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    ``.nii.gz`` must reach the viewer still deflated (it inflates the stream</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    itself), and an encoded body would break both ``Content-Length`` and</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    ranges.</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    This route is the whole reason viewing needs no X11 at all</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    (``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">    development loop)``): bytes are served to the app's own WebGL2 panes, or</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    named by an exported scene the native TetraVox app opens on the host --</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    never to an external Freeview/Gmsh process here.</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    """</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_jailed</span><span class="p">(</span><span class="s2">"/"</span> <span class="o">+</span> <span class="n">path</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s2">"/"</span><span class="p">),</span> <span class="n">roots</span><span class="o">=</span><span class="n">raw_jail_roots</span><span class="p">())</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="n">lowered</span> <span class="o">=</span> <span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">if</span> <span class="nb">any</span><span class="p">(</span><span class="n">lowered</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="n">ext</span><span class="p">)</span> <span class="k">for</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">_RAW_DENY_EXTS</span><span class="p">):</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>            <span class="n">detail</span><span class="o">=</span><span class="s2">"File type not servable as raw data; use /api/files/artifact"</span><span class="p">,</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="p">)</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="c1"># Open once, with O_NOFOLLOW on the final component, and serve the bytes</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="c1"># of *that* file descriptor: the jail check and the read then cannot see</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="c1"># two different files, so a symlink swapped in after the check (the TOCTOU</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="c1"># window /api/files/artifact still has) cannot redirect the response.</span>
 <a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fstat</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_ISREG</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mode</span><span class="p">):</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Not found&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">raise</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="n">size</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">st_size</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="n">etag</span> <span class="o">=</span> <span class="n">_etag</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="s2">&quot;content-type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/octet-stream&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>        <span class="s2">&quot;x-content-type-options&quot;</span><span class="p">:</span> <span class="s2">&quot;nosniff&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="s2">&quot;content-disposition&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s1">&#39;attachment; filename=&quot;</span><span class="si">{</span><span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">&quot;&#39;</span><span class="p">,</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="s2">&quot;cache-control&quot;</span><span class="p">:</span> <span class="s2">&quot;private, max-age=0, must-revalidate&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="s2">&quot;accept-ranges&quot;</span><span class="p">:</span> <span class="s2">&quot;bytes&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="s2">&quot;etag&quot;</span><span class="p">:</span> <span class="n">etag</span><span class="p">,</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="s2">&quot;last-modified&quot;</span><span class="p">:</span> <span class="n">formatdate</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">usegmt</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="p">}</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="k">if</span> <span class="n">_if_none_match</span><span class="p">(</span><span class="n">if_none_match</span><span class="p">,</span> <span class="n">etag</span><span class="p">):</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">304</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">fd</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="n">resolved</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">O_RDONLY</span> <span class="o">|</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">os</span><span class="p">,</span> <span class="s2">"O_NOFOLLOW"</span><span class="p">,</span> <span class="mi">0</span><span class="p">))</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">except</span> <span class="ne">OSError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Not found"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="n">st</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fstat</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">stat</span><span class="o">.</span><span class="n">S_ISREG</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mode</span><span class="p">):</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Not found"</span><span class="p">)</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">except</span> <span class="ne">BaseException</span><span class="p">:</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="k">raise</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">size</span> <span class="o">=</span> <span class="n">st</span><span class="o">.</span><span class="n">st_size</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">etag</span> <span class="o">=</span> <span class="n">_etag</span><span class="p">(</span><span class="n">st</span><span class="p">)</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">headers</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="s2">"content-type"</span><span class="p">:</span> <span class="s2">"application/octet-stream"</span><span class="p">,</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="s2">"x-content-type-options"</span><span class="p">:</span> <span class="s2">"nosniff"</span><span class="p">,</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="s2">"content-disposition"</span><span class="p">:</span> <span class="sa">f</span><span class="s1">'attachment; filename="</span><span class="si">{</span><span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s1">"'</span><span class="p">,</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="s2">"cache-control"</span><span class="p">:</span> <span class="s2">"private, max-age=0, must-revalidate"</span><span class="p">,</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="s2">"accept-ranges"</span><span class="p">:</span> <span class="s2">"bytes"</span><span class="p">,</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>        <span class="s2">"etag"</span><span class="p">:</span> <span class="n">etag</span><span class="p">,</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="s2">"last-modified"</span><span class="p">:</span> <span class="n">formatdate</span><span class="p">(</span><span class="n">st</span><span class="o">.</span><span class="n">st_mtime</span><span class="p">,</span> <span class="n">usegmt</span><span class="o">=</span><span class="kc">True</span><span class="p">),</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="p">}</span>
 <a id="__codelineno-0-274" name="__codelineno-0-274"></a>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="n">requested</span> <span class="o">=</span> <span class="n">range_header</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="k">if</span> <span class="n">requested</span> <span class="ow">and</span> <span class="n">if_range</span> <span class="ow">and</span> <span class="n">if_range</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">!=</span> <span class="n">etag</span><span class="p">:</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="n">requested</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the file changed under the client: send it whole</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>    <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span> <span class="o">-</span> <span class="mi">1</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="k">if</span> <span class="n">requested</span><span class="p">:</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse_range</span><span class="p">(</span><span class="n">requested</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>        <span class="k">if</span> <span class="n">parsed</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">416</span><span class="p">,</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">headers</span><span class="p">,</span> <span class="s2">&quot;content-range&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;bytes */</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">},</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="p">)</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="k">if</span> <span class="n">parsed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">parsed</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>            <span class="n">status_code</span> <span class="o">=</span> <span class="mi">206</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>            <span class="n">headers</span><span class="p">[</span><span class="s2">&quot;content-range&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;bytes </span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="n">length</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span> <span class="o">+</span> <span class="mi">1</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="n">headers</span><span class="p">[</span><span class="s2">&quot;content-length&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">&quot;HEAD&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="k">return</span> <span class="n">StreamingResponse</span><span class="p">(</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="n">_raw_stream</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">length</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>    <span class="p">)</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="k">if</span> <span class="n">_if_none_match</span><span class="p">(</span><span class="n">if_none_match</span><span class="p">,</span> <span class="n">etag</span><span class="p">):</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">304</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">requested</span> <span class="o">=</span> <span class="n">range_header</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="k">if</span> <span class="n">requested</span> <span class="ow">and</span> <span class="n">if_range</span> <span class="ow">and</span> <span class="n">if_range</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="o">!=</span> <span class="n">etag</span><span class="p">:</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="n">requested</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># the file changed under the client: send it whole</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">size</span> <span class="o">-</span> <span class="mi">1</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>    <span class="n">status_code</span> <span class="o">=</span> <span class="mi">200</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>    <span class="k">if</span> <span class="n">requested</span><span class="p">:</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>        <span class="n">parsed</span> <span class="o">=</span> <span class="n">_parse_range</span><span class="p">(</span><span class="n">requested</span><span class="p">,</span> <span class="n">size</span><span class="p">)</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="k">if</span> <span class="n">parsed</span> <span class="ow">is</span> <span class="kc">False</span><span class="p">:</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="k">return</span> <span class="n">Response</span><span class="p">(</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">416</span><span class="p">,</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>                <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="o">**</span><span class="n">headers</span><span class="p">,</span> <span class="s2">"content-range"</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"bytes */</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">"</span><span class="p">},</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>            <span class="p">)</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">if</span> <span class="n">parsed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>            <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">parsed</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="n">status_code</span> <span class="o">=</span> <span class="mi">206</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>            <span class="n">headers</span><span class="p">[</span><span class="s2">"content-range"</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"bytes </span><span class="si">{</span><span class="n">start</span><span class="si">}</span><span class="s2">-</span><span class="si">{</span><span class="n">end</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">size</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="n">length</span> <span class="o">=</span> <span class="mi">0</span> <span class="k">if</span> <span class="n">size</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">end</span> <span class="o">-</span> <span class="n">start</span> <span class="o">+</span> <span class="mi">1</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="n">headers</span><span class="p">[</span><span class="s2">"content-length"</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="k">if</span> <span class="n">request</span><span class="o">.</span><span class="n">method</span> <span class="o">==</span> <span class="s2">"HEAD"</span><span class="p">:</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="n">os</span><span class="o">.</span><span class="n">close</span><span class="p">(</span><span class="n">fd</span><span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="k">return</span> <span class="n">Response</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span><span class="p">)</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="k">return</span> <span class="n">StreamingResponse</span><span class="p">(</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="n">_raw_stream</span><span class="p">(</span><span class="n">fd</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">length</span><span class="p">),</span> <span class="n">status_code</span><span class="o">=</span><span class="n">status_code</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="n">headers</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1358,11 +1353,7 @@ Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
   </span>
 
 <a href="#tit.server.routes.files.upload_mask" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">upload_mask</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">(</span><span class="o">...</span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">upload_mask</span><span class="p">(</span><span class="n">request</span><span class="p">:</span> <span class="n"><span title="fastapi.Request">Request</span></span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()],</span> <span class="n">subject</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Annotated" href="https://docs.python.org/3/library/typing.html#typing.Annotated">Annotated</a></span><span class="p">[</span><span class="n"><span title="tit.server.schemas.SubjectId">SubjectId</span></span><span class="p">,</span> <span class="n"><span title="fastapi.Query">Query</span></span><span class="p">()])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1372,7 +1363,16 @@ Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/files.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-328">328</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
 <span class="normal"><a href="#__codelineno-0-329">329</a></span>
 <span class="normal"><a href="#__codelineno-0-330">330</a></span>
 <span class="normal"><a href="#__codelineno-0-331">331</a></span>
@@ -1420,67 +1420,64 @@ Freeview/Gmsh process -- there is no X11 capability left to gate.</p>
 <span class="normal"><a href="#__codelineno-0-373">373</a></span>
 <span class="normal"><a href="#__codelineno-0-374">374</a></span>
 <span class="normal"><a href="#__codelineno-0-375">375</a></span>
-<span class="normal"><a href="#__codelineno-0-376">376</a></span>
-<span class="normal"><a href="#__codelineno-0-377">377</a></span>
-<span class="normal"><a href="#__codelineno-0-378">378</a></span>
-<span class="normal"><a href="#__codelineno-0-379">379</a></span>
-<span class="normal"><a href="#__codelineno-0-380">380</a></span>
-<span class="normal"><a href="#__codelineno-0-381">381</a></span>
-<span class="normal"><a href="#__codelineno-0-382">382</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="s2">&quot;/api/files/mask&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="n">status_code</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">&quot;Upload a custom NIfTI mask&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">413</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;description&quot;</span><span class="p">:</span> <span class="s2">&quot;Mask exceeds the size limit&quot;</span><span class="p">}},</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">openapi_extra</span><span class="o">=</span><span class="p">{</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="s2">&quot;requestBody&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>            <span class="s2">&quot;required&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>            <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>                <span class="s2">&quot;application/octet-stream&quot;</span><span class="p">:</span> <span class="p">{</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>                    <span class="s2">&quot;schema&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;binary&quot;</span><span class="p">}</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>                <span class="p">}</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>            <span class="p">},</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="p">}</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>    <span class="p">},</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="p">)</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_mask</span><span class="p">(</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">),</span> <span class="n">subject</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Store a validated mask under this subject; coordinate space is chosen per job.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.concurrency</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_in_threadpool</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[A-Za-z0-9][A-Za-z0-9_. -]*\.nii(?:\.gz)?&quot;</span><span class="p">,</span> <span class="n">name</span><span class="p">):</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">&quot;Choose a .nii or .nii.gz file with a simple filename&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="k">if</span> <span class="n">subject</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">catalog</span><span class="o">.</span><span class="n">subject_ids</span><span class="p">(</span><span class="n">pm</span><span class="p">):</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">&quot;Unknown subject&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">masks</span><span class="p">(</span><span class="n">subject</span><span class="p">))</span> <span class="o">/</span> <span class="s2">&quot;imported&quot;</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">directory</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">is_relative_to</span><span class="p">(</span><span class="n">root</span><span class="p">):</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="s2">&quot;Mask directory escapes the project&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="n">directory</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="c1"># Imports stay outside atlas autodiscovery: their coordinate space is explicit in the job.</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">suffix</span> <span class="o">=</span> <span class="s2">&quot;.nii.gz&quot;</span> <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">&quot;.nii.gz&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="s2">&quot;.nii&quot;</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">directory</span><span class="p">)</span> <span class="k">as</span> <span class="n">scratch</span><span class="p">:</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>            <span class="n">uploaded</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="s2">&quot;upload&quot;</span> <span class="o">+</span> <span class="n">suffix</span><span class="p">)</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>            <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="k">with</span> <span class="n">uploaded</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>                <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>                    <span class="n">total</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>                    <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="n">_MASK_UPLOAD_LIMIT</span><span class="p">:</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>                        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">&quot;Mask upload exceeds 64 MiB&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>                    <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="n">destination</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>                <span class="n">_finish_mask_upload</span><span class="p">,</span> <span class="n">uploaded</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">),</span> <span class="n">directory</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">suffix</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a>            <span class="p">)</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a>    <span class="k">except</span> <span class="n">HTTPException</span><span class="p">:</span>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a>        <span class="k">raise</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">EOFError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Invalid NIfTI mask: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">destination</span><span class="p">)}</span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="s2">"/api/files/mask"</span><span class="p">,</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="n">status_code</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Upload a custom NIfTI mask"</span><span class="p">,</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="n">responses</span><span class="o">=</span><span class="p">{</span><span class="mi">413</span><span class="p">:</span> <span class="p">{</span><span class="s2">"description"</span><span class="p">:</span> <span class="s2">"Mask exceeds the size limit"</span><span class="p">}},</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="n">openapi_extra</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="s2">"requestBody"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>            <span class="s2">"required"</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="s2">"content"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>                <span class="s2">"application/octet-stream"</span><span class="p">:</span> <span class="p">{</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>                    <span class="s2">"schema"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"string"</span><span class="p">,</span> <span class="s2">"format"</span><span class="p">:</span> <span class="s2">"binary"</span><span class="p">}</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>                <span class="p">}</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>            <span class="p">},</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="p">}</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="p">},</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="p">)</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">upload_mask</span><span class="p">(</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span><span class="p">,</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">name</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Query</span><span class="p">()],</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span><span class="p">,</span> <span class="n">Query</span><span class="p">()],</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="w">    </span><span class="sd">"""Store a validated mask under this subject; coordinate space is chosen per job."""</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">starlette.concurrency</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_in_threadpool</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_is_simple_mask_filename</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="s2">"Choose a .nii or .nii.gz file with a simple filename"</span><span class="p">)</span>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">if</span> <span class="n">subject</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">catalog</span><span class="o">.</span><span class="n">subject_ids</span><span class="p">(</span><span class="n">pm</span><span class="p">):</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">404</span><span class="p">,</span> <span class="s2">"Unknown subject"</span><span class="p">)</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="n">directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="n">resolve_within</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">resolve_under</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">masks</span><span class="p">(</span><span class="n">subject</span><span class="p">),</span> <span class="s2">"imported"</span><span class="p">))</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>        <span class="p">)</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">403</span><span class="p">,</span> <span class="s2">"Mask directory escapes the project"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="n">directory</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="c1"># Imports stay outside atlas autodiscovery: their coordinate space is explicit in the job.</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="n">suffix</span> <span class="o">=</span> <span class="s2">".nii.gz"</span> <span class="k">if</span> <span class="n">name</span><span class="o">.</span><span class="n">endswith</span><span class="p">(</span><span class="s2">".nii.gz"</span><span class="p">)</span> <span class="k">else</span> <span class="s2">".nii"</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>        <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="nb">dir</span><span class="o">=</span><span class="n">directory</span><span class="p">)</span> <span class="k">as</span> <span class="n">scratch</span><span class="p">:</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>            <span class="n">uploaded</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="s2">"upload"</span> <span class="o">+</span> <span class="n">suffix</span><span class="p">)</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>            <span class="n">total</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>            <span class="k">with</span> <span class="n">uploaded</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">"wb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">stream</span><span class="p">:</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>                <span class="k">async</span> <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">request</span><span class="o">.</span><span class="n">stream</span><span class="p">():</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>                    <span class="n">total</span> <span class="o">+=</span> <span class="nb">len</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>                    <span class="k">if</span> <span class="n">total</span> <span class="o">&gt;</span> <span class="n">_MASK_UPLOAD_LIMIT</span><span class="p">:</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>                        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">413</span><span class="p">,</span> <span class="s2">"Mask upload exceeds 64 MiB"</span><span class="p">)</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>                    <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="n">destination</span> <span class="o">=</span> <span class="k">await</span> <span class="n">run_in_threadpool</span><span class="p">(</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>                <span class="n">_finish_mask_upload</span><span class="p">,</span> <span class="n">uploaded</span><span class="p">,</span> <span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">),</span> <span class="n">directory</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">suffix</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="p">)</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="k">except</span> <span class="n">HTTPException</span><span class="p">:</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="k">raise</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">EOFError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">422</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"Invalid NIfTI mask: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"path"</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">destination</span><span class="p">)}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

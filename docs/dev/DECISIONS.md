@@ -1069,9 +1069,8 @@ dot-directory at the project root, `.ti-toolbox/`, created lazily by `tit.paths`
     cache/storage/storage.json the project disk-usage scan behind the Overview page
 ```
 
-`PathManager` is the single source: `dot_dir()`, `cache_root()`, `cache(*parts)`,
-`ensure_cache(*parts)`, `scene_cache(sid)`, `mask_cache(sid)`, `viewer_stats_cache()`,
-`storage_cache()`, plus the project-dir-taking `scene_cache_dir_for` / `mask_cache_dir_for` for
+`PathManager` is the single source: `dot_dir()`, `cache(*parts)`, `ensure_cache(*parts)`,
+`viewer_stats_cache()`, `storage_cache()`, plus the project-dir-taking `scene_cache_dir_for` for
 callers that hold a path rather than a manager. `tit.scene.cache`, `tit.viewspec`, `tit.storage`
 and `tit.opt.flex.utils` all resolve their directory through it; none of them joins a cache path by
 hand any more. `ensure_cache` is the only creator — it migrates legacy locations, writes the
@@ -3423,6 +3422,108 @@ search. Keeping None = no limit and changing only the page: Python scripts and a
 omit the limit would still pay the sweep.
 
 **Revisit if.** A goal or constraint is found where unequal splits win by more than a few percent.
+
+
+## 2026-10-26 — The K≥2 envelope maximum runs in a numba kernel when numba imports
+
+**Superseded 2026-10-27:** numba is a hard dependency and the NumPy path is deleted; see "numba is
+a hard dependency of `tit.calc`" below. The algorithm and its measurements stand.
+
+**Decision.** `tit.calc.envelope_max` without `perpendicular_to`, at K ≥ 2, calls
+`tit/_calc_kernel.py` (element-parallel numba) when `import numba` succeeds, and the NumPy code in
+`tit.calc._max_sphere` otherwise. Both run one algorithm (eigen-branch tracking, Illinois root-find,
+safeguards, Newton polish); the kernel's 3x3 eigensolver is warm-started Jacobi instead of LAPACK.
+No environment switch: tests turn the kernel off by patching `tit.calc._sphere_kernel`. The plane
+maximum and `envelope_mean` stay NumPy only — sim/mTI calls them once per simulation, and neither
+ex nor mex calls them.
+
+**Why.** mex scores every candidate with this maximum over ROI ∪ GM. The NumPy path is ~200 µs per
+element (batched LAPACK `eigh` on 3x3 matrices was 52–59 % of it), ~35× the old numba sweep;
+the kernel is ~24 µs single-threaded and 3.6 µs with all threads, ~4× the old sweep, which the
+eigen-solves the exact method needs account for [measured: BENCHMARKS.md, 2026-10-26 section].
+Kernel and NumPy agree to ≤ 1e-13 relative on random, degenerate, float32 and 4 × 10^5 real
+grey-matter elements [measured]; `tests/numerical/test_calc_kernel.py` pins 1e-12.
+
+**Alternatives rejected.** A pure-NumPy restructure (a vectorised Jacobi in place of LAPACK) ran
+5.7× slower than LAPACK, not faster [measured, same process]: per-op NumPy overhead on (n, 3, 3)
+arrays dominates, and the Newton polish alone stays far above the old sweep's whole cost. Keeping
+the old 192-direction sweep: it undershot real grey-matter `mTI_max` by up to 15 %. A
+`TIT_*` environment switch like the deleted `TIT_MTI_KERNEL`: nothing outside the tests needs it.
+
+**Revisit if.** mex candidate throughput matters more than the ~4× over the old sweep (the grid's
+34 eigen-solves per element are the floor; a closed-form 3x3 eigensolver is the next lever), or
+the image drops numba.
+
+## 2026-10-26 — One K=1 envelope implementation; tangential flex TI and hf_power_density
+
+**Decision.** (1) `tit/sim/TI.py` writes `TI_max`/`TI_normal` and `tit/opt/ex/engine.py` scores
+splits with `tit.calc.envelope_max`/`envelope`, not SimNIBS `TI_utils.get_maxTI`/`get_dirTI`; the
+ex engine keeps SimNIBS only for `load_leadfield`/`get_field`. (2) Flex `dir_TI_tangential` is the
+maximum envelope over directions in the surface plane, `envelope_max(fields,
+perpendicular_to=normals)`, in `resources/map-electrodes/tes_flex_optimization.py` (a lazy
+`tit.calc` import: tit loads that module through `tit.opt.flex.runtime`, and the image installs tit
+beside SimNIBS). (3) New opt-in volume field `hf_power_density` = `(1/2) sum_c E_c^T sigma E_c`
+in W/m^3, written by the TI and mTI simulators next to `hf_peak`/`hf_sar`; sigma is the solve's own
+conductivity, rebuilt by SimNIBS `TDCSLIST.cond2elmdata` from the session (tissue values with
+overrides, anisotropy model, DTI tensor file) on the solve's whole output mesh and cropped with it;
+tensors are used in full for `dir`/`vn`/`mc`. sigma is computed once, on channel 1's output mesh,
+and used for every channel: each channel's mesh differs only by its own electrodes, so after the
+brain crop sigma is identical across the lists for tit's default anisotropic tissues (it would
+differ only if the scalp were made anisotropic, which tit never sets). Not projected to fsaverage.
+Tests:
+`tests/numerical/test_calc_vs_simnibs.py`, `tests/numerical/test_flex_tangential.py`,
+`tests/test_hf_power_density.py`, `tests/numerical/test_hf_power_density_simnibs.py`.
+
+**Why.** (1) Two implementations of one quantity can drift; calc agrees with SimNIBS to 6e-16
+relative on 1e6 random elements and costs the same: per 1e6 random elements, `envelope_max`
+158 ms and SimNIBS `get_maxTI` 169 ms (median; per 2e5, 31.5 vs 31.7 ms) on the M2 host with
+NumPy 2.4 [measured]; the review re-measured `get_maxTI` 161 ms vs `envelope_max` 155 ms per 1e6
+and 32.2 vs 30.1 ms per 2e5 [measured]. (2) The old `sqrt(max_TI^2 - dir_TI^2)` treats two
+envelope maxima as orthogonal components: on 4000 random elements 35 % were off by more than 10 %
+against a dense in-plane sweep [measured, in image v3.1.2]. (3) `sigma * hf_power` is the absorbed
+power density, `/rho` SAR (IEEE C95.1-2019 p. 35); `hf_sar` alone needed the user to supply sigma.
+
+**Alternatives rejected.** For sigma: asking SimNIBS to write `J` on the carrier meshes (exact
+`J . E` for any model) would add three doubles per element to every carrier mesh (about 100 MB per
+Ernie-sized mesh) to serve an opt-in field; computing sigma on the cropped brain mesh: the `dir`
+model's intensity fit runs over the mesh it is given, so it could differ from the solve; a scalar
+sigma under DTI models: wrong by >10 % at median on an anisotropic test tensor. For tangential TI:
+keeping the formula behind the DeprecationWarning: it is not the quantity its name states.
+
+**Revisit if.** `hf_sar` is renamed to `hf_power` (then `hf_power_density = sigma * hf_power` reads
+directly), or the fsaverage projection learns to interpolate conductivity.
+
+## 2026-10-27 — numba is a hard dependency of `tit.calc`; no silent fallbacks
+
+Supersedes the 2026-10-26 "when numba imports" entry.
+
+**Decision.** `tit/calc.py` imports `tit._calc_kernel.max_sphere` unconditionally, so a missing
+numba is an ImportError at `import tit.calc`. The NumPy K≥2 sphere solver (`_max_sphere_numpy`,
+its `_newton_ascent`, `_match_columns`, `_keep_best`) and the `_sphere_kernel()` dispatch are
+deleted. A kernel row whose Jacobi eigen-solve did not converge within 50 sweeps raises
+`RuntimeError` naming the count instead of being recomputed in NumPy. The eigenvector column
+matching between grid points is dropped from the kernel: columns stay in eigenvalue order. numba
+(`>=0.64`, the image's version) is in the `test` extra and real in the host suite.
+
+**Why.** The image is a closed system: numba ships with the SimNIBS environment and
+`container/blueprint/verify_runtime.py` fails the build without it, so the fallback ran only on
+hosts, where it was ~8.5× slower per core (an mTI simulation on ~6 M elements: 15–20 min instead
+of ~25 s) [measured: BENCHMARKS.md 2026-10-26 section, and the 2026-10-27 assessment] and hid a
+broken install behind slow, plausible numbers. A non-converged row has no trustworthy value; for
+finite fields Jacobi on a symmetric 3x3 needed at most 5 sweeps over 10.8 × 10^6 grid and safeguard
+solves of random and degenerate K = 2–4 fields [measured 2026-10-27], so the 50-sweep cap is a 10×
+margin and the only observed failure is fields above ~1e150 V/m, whose squares overflow. Dropping
+the column matching moved results by at most 4e-15 on random, degenerate and real data [measured
+2026-10-27] and every dense-search test in `tests/test_calc.py` still passes on the kernel.
+
+**Alternatives rejected.** Keeping the NumPy solver as a parity reference: the accuracy tests
+already use independent oracles (dense direction searches, closed forms, brute force), and a second
+implementation of one algorithm only proves self-consistency. A lazy kernel import inside
+`_max_sphere`: it would keep `import tit.calc` working without numba, deferring the failure to the
+first mTI call. Recomputing non-converged rows another way: there is no input for which it is
+needed and correct.
+
+**Revisit if.** The image stops shipping numba, or a target platform lacks numba wheels.
 
 ## 2026-10-28 — EEG electrodes are an instanced 3-D electrode model standing on the scalp, at actual size on request
 

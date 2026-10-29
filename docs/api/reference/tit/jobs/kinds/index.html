@@ -979,7 +979,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1000,7 +1000,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1057,7 +1057,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Job kind -&gt; runner command line (TODO.md §2.3, and the B1 assignment notes).</p>
+        <p>Job kind -&gt; runner command line (docs/dev/ARCHITECTURE.md §6, the job engine).</p>
 <p>Every "module" kind runs <code>simnibs_python -m &lt;module&gt; &lt;spec_path&gt;</code> — the existing
 <code>__main__.py</code> contract every runner already implements or will implement (B4). <code>tools</code> is
 different: it doesn't take a spec.json at all, it runs an arbitrary module with explicit args
@@ -1065,12 +1065,12 @@ from the config -- it is therefore allowlisted to <code>tit.tools.*</code>
 modules only (ra_14 finding #2): any importable module (<code>-m http.server</code>, <code>-m pip</code>, an
 attacker's own package on <code>PYTHONPATH</code>) would otherwise be remote code execution for any
 token holder, and in the container that's host root via the mounted docker.sock.</p>
-<p>The allowlist closes <em>which module</em> runs; :data:<code>TOOL_ARG_POLICY</code> and :func:<code>check_tool_args</code>
-close <em>what it can be told to touch</em> (RUN-06). Every path-shaped <code>config.args</code> value must
-resolve inside the manager's project root, and the options a tool treats as identifiers
-(<code>--pipeline</code>, <code>--node</code>) must be safe names -- checked when the argv is built, before the
-job is spawned and therefore before any file is created. A <code>tools</code> job whose args mention a
-path but whose manager has no project root bound is refused rather than trusted.</p>
+<p>The allowlist closes <em>which module</em> runs; :func:<code>check_tool_args</code> closes <em>what it can be told
+to touch</em> (RUN-06). Every path-shaped <code>config.args</code> value -- a positional, an option's next
+argument, <code>--opt=value</code>, or a value attached to a short option (<code>-o/out.stl</code>) -- must
+resolve inside the manager's project root, checked when the argv is built, before the job is
+spawned and therefore before any file is created. A <code>tools</code> job whose args mention a path but
+whose manager has no project root bound is refused rather than trusted.</p>
 
 
 
@@ -1102,7 +1102,7 @@ path but whose manager has no project root bound is refused rather than trusted.
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code></p>
 
 
         <p>Raised for an unknown kind, or a known kind whose runner module isn't wired up yet.</p>
@@ -1127,13 +1127,7 @@ path but whose manager has no project root bound is refused rather than trusted.
 
 
 <a href="#tit.jobs.kinds.command_for" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">command_for</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">spec_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">command_for</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">spec_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1145,7 +1139,12 @@ path but whose manager has no project root bound is refused rather than trusted.
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/kinds.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70"> 70</a></span>
+<span class="normal"><a href="#__codelineno-0-71"> 71</a></span>
+<span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
+<span class="normal"><a href="#__codelineno-0-73"> 73</a></span>
+<span class="normal"><a href="#__codelineno-0-74"> 74</a></span>
+<span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
 <span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
 <span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
 <span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
@@ -1179,55 +1178,46 @@ path but whose manager has no project root bound is refused rather than trusted.
 <span class="normal"><a href="#__codelineno-0-106">106</a></span>
 <span class="normal"><a href="#__codelineno-0-107">107</a></span>
 <span class="normal"><a href="#__codelineno-0-108">108</a></span>
-<span class="normal"><a href="#__codelineno-0-109">109</a></span>
-<span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span>
-<span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#__codelineno-0-116">116</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="k">def</span><span class="w"> </span><span class="nf">command_for</span><span class="p">(</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="n">spec_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The argv to exec for one job. Raises :class:`KindError` for anything it can&#39;t build.</span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">command_for</span><span class="p">(</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">spec_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="w">    </span><span class="sd">"""The argv to exec for one job. Raises :class:`KindError` for anything it can't build.</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    *project_dir* is the root a ``tools`` job's path arguments are jailed to</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    (:func:`check_tool_args`); :class:`tit.jobs.manager.JobManager` binds its own.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    """</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="p">{}</span>
 <a id="__codelineno-0-83" name="__codelineno-0-83"></a>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    *project_dir* is the root a ``tools`` job&#39;s path arguments are jailed to</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    (:func:`check_tool_args`); :class:`tit.jobs.manager.JobManager` binds its own.</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">config</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">MODULE_FOR_KIND</span><span class="p">:</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">MODULE_FOR_KIND</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">module_exists</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>                <span class="sa">f</span><span class="s2">&quot;kind &#39;</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">&#39; maps to &#39;</span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2">&#39;, which is not importable in this &quot;</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>                <span class="s2">&quot;environment yet (its runner module has not been created — see the &quot;</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>                <span class="s2">&quot;backend change budget in TODO.md §3). This kind cannot run until that &quot;</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>                <span class="s2">&quot;lands.&quot;</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>            <span class="p">)</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">PYTHON_INTERPRETER</span><span class="p">,</span> <span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">spec_path</span><span class="p">]</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;tools&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;module&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">module</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>                <span class="s2">&quot;tools job needs a non-empty config.module (dotted module path)&quot;</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>            <span class="p">)</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="k">if</span> <span class="n">_resolve_tool_module_path</span><span class="p">(</span><span class="n">module</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>                <span class="sa">f</span><span class="s2">&quot;tools job: module </span><span class="si">{</span><span class="n">module</span><span class="si">!r}</span><span class="s2"> is not an allowed tit.tools module &quot;</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>                <span class="sa">f</span><span class="s2">&quot;(must be &#39;</span><span class="si">{</span><span class="n">TOOLS_MODULE_PREFIX</span><span class="si">}</span><span class="s2">&lt;name&gt;&#39; and resolve to a file inside &quot;</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>                <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">TOOLS_DIR</span><span class="si">}</span><span class="s2">)&quot;</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>            <span class="p">)</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>        <span class="n">args</span> <span class="o">=</span> <span class="n">_string_list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;args&quot;</span><span class="p">,</span> <span class="p">[]))</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>        <span class="n">check_tool_args</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">args</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">)</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">PYTHON_INTERPRETER</span><span class="p">,</span> <span class="s2">&quot;-m&quot;</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown job kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">MODULE_FOR_KIND</span><span class="p">:</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">MODULE_FOR_KIND</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">module_exists</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>                <span class="sa">f</span><span class="s2">"kind '</span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2">' maps to '</span><span class="si">{</span><span class="n">module</span><span class="si">}</span><span class="s2">', which is not importable in this "</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>                <span class="s2">"environment; the TI-Toolbox install is incomplete or damaged."</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="p">)</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">PYTHON_INTERPRETER</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="n">spec_path</span><span class="p">]</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"tools"</span><span class="p">:</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="n">module</span> <span class="o">=</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"module"</span><span class="p">)</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">module</span> <span class="ow">or</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>                <span class="s2">"tools job needs a non-empty config.module (dotted module path)"</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>            <span class="p">)</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>        <span class="k">if</span> <span class="n">_resolve_tool_module_path</span><span class="p">(</span><span class="n">module</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>                <span class="sa">f</span><span class="s2">"tools job: module </span><span class="si">{</span><span class="n">module</span><span class="si">!r}</span><span class="s2"> is not an allowed tit.tools module "</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>                <span class="sa">f</span><span class="s2">"(must be '</span><span class="si">{</span><span class="n">TOOLS_MODULE_PREFIX</span><span class="si">}</span><span class="s2">&lt;name&gt;' and resolve to a file inside "</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">TOOLS_DIR</span><span class="si">}</span><span class="s2">)"</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>            <span class="p">)</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>        <span class="n">args</span> <span class="o">=</span> <span class="n">_string_list</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"args"</span><span class="p">,</span> <span class="p">[]))</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="n">check_tool_args</span><span class="p">(</span><span class="n">args</span><span class="p">,</span> <span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">PYTHON_INTERPRETER</span><span class="p">,</span> <span class="s2">"-m"</span><span class="p">,</span> <span class="n">module</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">]</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"unknown job kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1242,21 +1232,37 @@ path but whose manager has no project root bound is refused rather than trusted.
 
 
 <a href="#tit.jobs.kinds.check_tool_args" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_tool_args</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">module</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_tool_args</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Raise :class:<code>KindError</code> unless every argument of a <code>tools</code> job stays in bounds.</p>
 <p>RUN-06: <code>config.args</code> used to be forwarded verbatim, so an allowlisted tool could be
-handed an absolute output path and made to write anywhere the container's user can write.</p>
+handed an absolute output path and made to write anywhere the container's user can write.
+Every value that looks like a path must resolve inside <em>project_dir</em>: positionals (which
+covers <code>tit.tools.electrode_overlay</code>'s three paths), an option's next argument,
+<code>--opt=value</code>, and every reading of a value attached to a short option.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/kinds.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-186">186</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
@@ -1278,103 +1284,44 @@ handed an absolute output path and made to write anywhere the container's user c
 <span class="normal"><a href="#__codelineno-0-205">205</a></span>
 <span class="normal"><a href="#__codelineno-0-206">206</a></span>
 <span class="normal"><a href="#__codelineno-0-207">207</a></span>
-<span class="normal"><a href="#__codelineno-0-208">208</a></span>
-<span class="normal"><a href="#__codelineno-0-209">209</a></span>
-<span class="normal"><a href="#__codelineno-0-210">210</a></span>
-<span class="normal"><a href="#__codelineno-0-211">211</a></span>
-<span class="normal"><a href="#__codelineno-0-212">212</a></span>
-<span class="normal"><a href="#__codelineno-0-213">213</a></span>
-<span class="normal"><a href="#__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_tool_args</span><span class="p">(</span><span class="n">module</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Raise :class:`KindError` unless every argument of a ``tools`` job stays in bounds.</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    RUN-06: ``config.args`` used to be forwarded verbatim, so an allowlisted tool could be</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    handed an absolute output path and made to write anywhere the container&#39;s user can write.</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_valid_subject_id</span><span class="p">,</span> <span class="n">is_within</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="n">policy</span> <span class="o">=</span> <span class="n">TOOL_ARG_POLICY</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="p">{})</span>
+<span class="normal"><a href="#__codelineno-0-208">208</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_tool_args</span><span class="p">(</span><span class="n">args</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="w">    </span><span class="sd">"""Raise :class:`KindError` unless every argument of a ``tools`` job stays in bounds.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    RUN-06: ``config.args`` used to be forwarded verbatim, so an allowlisted tool could be</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    handed an absolute output path and made to write anywhere the container's user can write.</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    Every value that looks like a path must resolve inside *project_dir*: positionals (which</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    covers ``tit.tools.electrode_overlay``'s three paths), an option's next argument,</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    ``--opt=value``, and every reading of a value attached to a short option.</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">    """</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">is_within</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="n">where</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">_looks_like_a_path</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>            <span class="k">return</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">project_dir</span><span class="p">:</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>                <span class="sa">f</span><span class="s2">"tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> looks like a path, and this manager has no "</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>                <span class="sa">f</span><span class="s2">"project directory to jail it to"</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>            <span class="p">)</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="n">resolved</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_within</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">resolved</span><span class="p">):</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>                <span class="sa">f</span><span class="s2">"tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> resolves outside the project directory"</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="p">)</span>
 <a id="__codelineno-0-195" name="__codelineno-0-195"></a>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">check</span><span class="p">(</span><span class="n">option</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="n">rule</span> <span class="o">=</span> <span class="n">policy</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">option</span> <span class="ow">or</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="n">where</span> <span class="o">=</span> <span class="n">option</span> <span class="ow">or</span> <span class="s2">&quot;argument&quot;</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="k">if</span> <span class="n">rule</span> <span class="o">==</span> <span class="s2">&quot;name&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">_SAFE_ARG_NAME</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>                <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>                    <span class="sa">f</span><span class="s2">&quot;tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> must be a plain name &quot;</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>                    <span class="sa">f</span><span class="s2">&quot;(letters, digits, &#39;_&#39;, &#39;-&#39;, &#39;.&#39;, at most 64 characters)&quot;</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>                <span class="p">)</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>            <span class="k">return</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="k">if</span> <span class="n">rule</span> <span class="o">==</span> <span class="s2">&quot;subjects&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>            <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">value</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>                <span class="k">if</span> <span class="n">sid</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">is_valid_subject_id</span><span class="p">(</span><span class="n">sid</span><span class="p">):</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>                    <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>                        <span class="sa">f</span><span class="s2">&quot;tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> has an invalid subject id </span><span class="si">{</span><span class="n">sid</span><span class="si">!r}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>                    <span class="p">)</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>            <span class="k">return</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="k">if</span> <span class="n">rule</span> <span class="o">==</span> <span class="s2">&quot;root&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">project_dir</span> <span class="ow">or</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="o">!=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">realpath</span><span class="p">(</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>                <span class="n">project_dir</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>            <span class="p">):</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>                <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>                    <span class="sa">f</span><span class="s2">&quot;tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> must be this server&#39;s project directory&quot;</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>                <span class="p">)</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>            <span class="k">return</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">_looks_like_a_path</span><span class="p">(</span><span class="n">value</span><span class="p">):</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>            <span class="k">return</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">project_dir</span><span class="p">:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>                <span class="sa">f</span><span class="s2">&quot;tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> looks like a path, and this manager has no &quot;</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>                <span class="sa">f</span><span class="s2">&quot;project directory to jail it to&quot;</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>            <span class="p">)</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>        <span class="n">resolved</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_within</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">resolved</span><span class="p">):</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>            <span class="k">raise</span> <span class="n">KindError</span><span class="p">(</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>                <span class="sa">f</span><span class="s2">&quot;tools job: </span><span class="si">{</span><span class="n">where</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">value</span><span class="si">!r}</span><span class="s2"> resolves outside the project directory&quot;</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>            <span class="p">)</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">pending</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">if</span> <span class="n">arg</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;-&quot;</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="n">pending</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="n">option</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">inline</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">&quot;=&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="k">if</span> <span class="n">sep</span><span class="p">:</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>                <span class="n">check</span><span class="p">(</span><span class="n">option</span><span class="p">,</span> <span class="n">inline</span><span class="p">)</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="k">elif</span> <span class="n">option</span> <span class="ow">in</span> <span class="n">policy</span> <span class="ow">or</span> <span class="n">option</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;--&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>                <span class="n">pending</span> <span class="o">=</span> <span class="n">option</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="n">check</span><span class="p">(</span><span class="n">pending</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="n">pending</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="n">pending</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">for</span> <span class="n">arg</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="k">if</span> <span class="n">arg</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"-"</span><span class="p">)</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isabs</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="n">option</span><span class="p">,</span> <span class="n">sep</span><span class="p">,</span> <span class="n">inline</span> <span class="o">=</span> <span class="n">arg</span><span class="o">.</span><span class="n">partition</span><span class="p">(</span><span class="s2">"="</span><span class="p">)</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="k">if</span> <span class="n">sep</span><span class="p">:</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>                <span class="n">check</span><span class="p">(</span><span class="n">option</span><span class="p">,</span> <span class="n">inline</span><span class="p">)</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="n">arg</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">"--"</span><span class="p">):</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>                <span class="k">for</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">_attached_values</span><span class="p">(</span><span class="n">arg</span><span class="p">):</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>                    <span class="n">check</span><span class="p">(</span><span class="n">arg</span><span class="p">,</span> <span class="n">value</span><span class="p">)</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>            <span class="n">pending</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">sep</span> <span class="k">else</span> <span class="n">option</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="n">check</span><span class="p">(</span><span class="n">pending</span> <span class="ow">or</span> <span class="s2">"argument"</span><span class="p">,</span> <span class="n">arg</span><span class="p">)</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="n">pending</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1389,9 +1336,7 @@ handed an absolute output path and made to write anywhere the container's user c
 
 
 <a href="#tit.jobs.kinds.may_spawn_docker_siblings" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">may_spawn_docker_siblings</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">may_spawn_docker_siblings</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1405,37 +1350,37 @@ all (an unrecognised or future shape) is treated as if it might have spawned one
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/kinds.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-278">278</a></span>
-<span class="normal"><a href="#__codelineno-0-279">279</a></span>
-<span class="normal"><a href="#__codelineno-0-280">280</a></span>
-<span class="normal"><a href="#__codelineno-0-281">281</a></span>
-<span class="normal"><a href="#__codelineno-0-282">282</a></span>
-<span class="normal"><a href="#__codelineno-0-283">283</a></span>
-<span class="normal"><a href="#__codelineno-0-284">284</a></span>
-<span class="normal"><a href="#__codelineno-0-285">285</a></span>
-<span class="normal"><a href="#__codelineno-0-286">286</a></span>
-<span class="normal"><a href="#__codelineno-0-287">287</a></span>
-<span class="normal"><a href="#__codelineno-0-288">288</a></span>
-<span class="normal"><a href="#__codelineno-0-289">289</a></span>
-<span class="normal"><a href="#__codelineno-0-290">290</a></span>
-<span class="normal"><a href="#__codelineno-0-291">291</a></span>
-<span class="normal"><a href="#__codelineno-0-292">292</a></span>
-<span class="normal"><a href="#__codelineno-0-293">293</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="k">def</span><span class="w"> </span><span class="nf">may_spawn_docker_siblings</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Could a job of this *kind*/*config* have started a sibling Docker container?</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    Used to keep cancellation from touching Docker for the overwhelming majority of jobs that</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    never could have spawned one -- an unresponsive daemon then cannot delay their cancel.</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    Conservative on purpose: a ``pre`` job whose config does not mention any DWI stage flag at</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    all (an unrecognised or future shape) is treated as if it might have spawned one.</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">!=</span> <span class="s2">&quot;pre&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="n">present</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">DOCKER_SIBLING_STAGE_FLAGS</span> <span class="k">if</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">config</span><span class="p">]</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">present</span><span class="p">:</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="n">f</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">present</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="k">def</span><span class="w"> </span><span class="nf">may_spawn_docker_siblings</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="w">    </span><span class="sd">"""Could a job of this *kind*/*config* have started a sibling Docker container?</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    Used to keep cancellation from touching Docker for the overwhelming majority of jobs that</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    never could have spawned one -- an unresponsive daemon then cannot delay their cancel.</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    Conservative on purpose: a ``pre`` job whose config does not mention any DWI stage flag at</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    all (an unrecognised or future shape) is treated as if it might have spawned one.</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a><span class="sd">    """</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">!=</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="n">present</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">DOCKER_SIBLING_STAGE_FLAGS</span> <span class="k">if</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">config</span><span class="p">]</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">present</span><span class="p">:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">return</span> <span class="nb">any</span><span class="p">(</span><span class="nb">bool</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="n">f</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">present</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

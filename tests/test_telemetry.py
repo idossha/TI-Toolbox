@@ -35,7 +35,7 @@ from tit.telemetry import (
 @pytest.fixture(autouse=True)
 def _isolate_config(tmp_path, monkeypatch):
     """Point telemetry config at a temp dir and reset the module cache."""
-    config_dir = tmp_path / ".config" / const.TELEMETRY_CONFIG_DIR
+    config_dir = tmp_path / ".config" / "ti-toolbox"
     config_dir.mkdir(parents=True)
     config_file = config_dir / const.TELEMETRY_CONFIG_FILE
 

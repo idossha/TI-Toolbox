@@ -4,7 +4,6 @@ Covers:
 - Binary STL write/read round-trip
 - PLY writing (with colors and with scalars)
 - simple_colormap and field_to_colormap
-- deduplicate_vertices
 """
 
 import struct
@@ -13,7 +12,6 @@ import numpy as np
 import pytest
 
 from tit.blender.io import (
-    deduplicate_vertices,
     field_to_colormap,
     read_binary_stl,
     simple_colormap,
@@ -342,72 +340,3 @@ class TestFieldToColormap:
         np.testing.assert_array_equal(result[0], result[1])
         np.testing.assert_array_equal(result[1], result[2])
 
-
-# ---------------------------------------------------------------------------
-# Vertex deduplication
-# ---------------------------------------------------------------------------
-
-
-class TestDeduplicateVertices:
-    """deduplicate_vertices merges duplicates and remaps faces."""
-
-    def test_no_duplicates_noop(self, triangle_mesh):
-        vertices, faces = triangle_mesh
-        v_out, f_out = deduplicate_vertices(vertices, faces)
-        assert v_out.shape == vertices.shape
-        assert f_out.shape == faces.shape
-        # np.unique may reorder rows; verify the same set of vertices exists
-        np.testing.assert_array_equal(np.sort(v_out, axis=0), np.sort(vertices, axis=0))
-        # Face indices should still reference valid vertices
-        assert np.all(f_out >= 0)
-        assert np.all(f_out < len(v_out))
-
-    def test_duplicates_merged(self):
-        # Two triangles sharing an edge, but with duplicate vertex entries
-        vertices = np.array(
-            [
-                [0.0, 0.0, 0.0],  # 0
-                [1.0, 0.0, 0.0],  # 1
-                [0.0, 1.0, 0.0],  # 2
-                [1.0, 0.0, 0.0],  # 3 — duplicate of 1
-                [0.0, 1.0, 0.0],  # 4 — duplicate of 2
-                [1.0, 1.0, 0.0],  # 5
-            ],
-            dtype=np.float64,
-        )
-        faces = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int64)
-
-        v_out, f_out = deduplicate_vertices(vertices, faces)
-
-        # Should have only 4 unique vertices
-        assert v_out.shape[0] == 4
-        assert f_out.shape == (2, 3)
-
-        # The two faces should reference valid indices
-        assert np.all(f_out >= 0)
-        assert np.all(f_out < len(v_out))
-
-        # Face 0 and Face 1 should share 2 vertex indices
-        shared = set(f_out[0].tolist()) & set(f_out[1].tolist())
-        assert len(shared) == 2
-
-    def test_all_same_vertex(self):
-        # Pathological case: all vertices identical
-        vertices = np.array(
-            [[1.0, 2.0, 3.0]] * 6,
-            dtype=np.float64,
-        )
-        faces = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int64)
-
-        v_out, f_out = deduplicate_vertices(vertices, faces)
-
-        assert v_out.shape[0] == 1
-        # All face indices should be 0
-        np.testing.assert_array_equal(f_out, np.zeros_like(f_out))
-
-    def test_preserves_vertex_coordinates(self, quad_mesh):
-        vertices, faces = quad_mesh
-        v_out, f_out = deduplicate_vertices(vertices, faces)
-        # Already unique, so same number of vertices; order may differ due to np.unique
-        assert v_out.shape == vertices.shape
-        np.testing.assert_array_equal(np.sort(v_out, axis=0), np.sort(vertices, axis=0))

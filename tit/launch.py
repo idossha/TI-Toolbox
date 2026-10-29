@@ -875,7 +875,6 @@ class LaunchOptions:
     project: str
     port: int = DEFAULT_PORT
     image: str | None = None
-    open_browser: bool = True
     timeout: float = 180.0
     echo: object = field(default=print)
     repo_dir: str = ""
@@ -883,7 +882,6 @@ class LaunchOptions:
     static_dir: str = ""
     existing: str | None = None
     container: str | None = None
-    session_container: str = ""
     session_project: str = ""
 
 
@@ -967,7 +965,6 @@ def start(options: LaunchOptions) -> tuple[str, str]:
         selected, action = choose_existing(running, options)
         if action == "attach":
             origin, token = container_credentials(selected)
-            options.session_container = selected["Id"]
             options.session_project = (selected["Config"].get("Labels") or {}).get(
                 LABEL_HOST_DIR, ""
             )
@@ -1045,8 +1042,7 @@ def start(options: LaunchOptions) -> tuple[str, str]:
             "NVIDIA_DRIVER_CAPABILITIES=compute,utility",
         ]
     echo(f"starting {container_name(host_project_dir)} on port {port}…")
-    created = _docker(*argv[1:])
-    options.session_container = created.stdout.strip()
+    _docker(*argv[1:])
     options.session_project = host_project_dir
 
     origin = f"http://127.0.0.1:{port}"

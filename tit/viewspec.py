@@ -31,10 +31,8 @@ Percentile thresholding: a heat-colormap layer built here (TI_max, magnE)
 carries a ``percentile`` window (``{"lo": 95, "hi": 99.9}``) instead of a bare
 ``cal_min``/``cal_max`` of ``None``. ``resolve_percentiles`` fills in the
 concrete absolute values by reading the NIfTI and computing
-``numpy.percentile`` over its non-zero voxels -- run once by ``build_view``
-(``GET /api/view/{kind}``) and again by ``POST /api/view/args`` on whatever
-``ViewSpec`` the client submits (a user-edited spec may still carry an
-unresolved percentile window). A layer whose file cannot be read, or whose
+``numpy.percentile`` over its non-zero voxels -- run by ``build_view``
+(``GET /api/view/{kind}``). A layer whose file cannot be read, or whose
 voxels are all zero, keeps ``cal_min``/``cal_max`` as ``None``.
 
 See Also
@@ -3032,8 +3030,8 @@ def finish_spec(
     kept for one release) and ``scene`` -- in place.
 
     The single place both derivations happen, so ``GET /api/view/{kind}``
-    (via :func:`_finish`) and ``POST /api/view/args`` (on a client-edited
-    spec) can never hand out an argv and a scene built from different rules.
+    (via :func:`_finish`) can never hand out an argv and a scene built from
+    different rules.
 
     *title* has nowhere to go in a real ``ViewSpec`` (unlike the retired
     ``TitScene``, it carries no title field) and is accepted only for call-

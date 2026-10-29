@@ -404,7 +404,6 @@ describe("mock server: /api/scene/* subject errors mirror tit/server/routes/scen
     "/api/scene/labels?atlas=DK40&subject=",
     "/api/scene/regions?atlas=DK40&subject=",
     "/api/scene/electrodes?net=GSN-HydroCel-185&subject=",
-    "/api/scene/volume-legend?id=labeling&subject=",
   ] as const;
 
   async function detailOf(path: string): Promise<{ status: number; detail: string }> {
@@ -413,7 +412,7 @@ describe("mock server: /api/scene/* subject errors mirror tit/server/routes/scen
     return { status: res.status, detail: body.detail ?? "" };
   }
 
-  it("names the subjects the project does have, in natural order, on all six routes", async () => {
+  it("names the subjects the project does have, in natural order, on all five routes", async () => {
     for (const route of SCENE_ROUTES) {
       const { status, detail } = await detailOf(`${route}zzz`);
       expect(status, route).toBe(404);
@@ -467,7 +466,7 @@ describe("mock server: /api/scene/* on a subject with no head model", () => {
     });
   });
 
-  it("says what is missing and what to run, on all six routes", async () => {
+  it("says what is missing and what to run, on all five routes", async () => {
     const expected =
       "101 has no head model yet: m2m_101/ does not exist. Run Pre-processing (charm) on 101 to create it.";
     for (const route of [
@@ -476,7 +475,6 @@ describe("mock server: /api/scene/* on a subject with no head model", () => {
       "/api/scene/labels?atlas=DK40&subject=",
       "/api/scene/regions?atlas=DK40&subject=",
       "/api/scene/electrodes?net=GSN-HydroCel-185&subject=",
-      "/api/scene/volume-legend?id=labeling&subject=",
     ]) {
       const res = await fetch(`${M_BASE}${route}101`, { headers: auth });
       expect(res.status, route).toBe(404);

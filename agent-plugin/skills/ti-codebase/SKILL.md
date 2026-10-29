@@ -36,9 +36,9 @@ tit/__init__.py       setup_logging, add_file_handler, add_stream_handler,
   +-- tit.logger      no internal deps
 
 science core
-  tit.calc            the three envelope functions + the mTI direction search
-  tit.fields          hf_peak / hf_sar exposure metrics (positional wiring)
-  tit._mti_kernel     numba-accelerated sweep kernel
+  tit.calc            five functions: envelope / envelope_max / envelope_mean
+                      (TI_normal, TI_max/mTI_max + tangential, TI_avg) and the
+                      carrier metrics hf_peak / hf_power (positional wiring)
 
 tit.sim
   +-- tit.sim.config           SimulationConfig, Montage, SimulationMode, MontageMode
@@ -179,7 +179,8 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
   the repo root. `conftest.py` installs mocks into `sys.modules` before any `tit` import: `simnibs` (+
   `simulation.sim_struct`, `mesh_tools.mesh_io`, `utils.transformations`), `bpy`,
   `scipy`, `nibabel`, `h5py`, `matplotlib`, `pandas`, `joblib`, `nilearn`.
-  **numpy is real** — `tit/calc.py` tests do actual vector math.
+  **numpy and numba are real** — `tit/calc.py` tests do actual vector math and run the
+  compiled K≥2 kernel; numba is a hard dependency of `tit.calc`, with no NumPy fallback.
 - **Numerical suite** — `tests/numerical/`, whose conftest restores real libraries, is a
   separate container leg: `docker exec -w /ti-toolbox <c> simnibs_python -m pytest
   tests/numerical -q`. This is where a scientific claim is proved.
@@ -187,11 +188,11 @@ Tests: `reset_path_manager()`; the `_reset_path_manager` fixture is `autouse`.
 - **E2E** — Playwright, offscreen by default (`TIT_E2E_OFFSCREEN=1`), **one run at
   a time** under `/tmp/tit-e2e.lock`. Some scene specs need `VITE_SCENE_HOOKS=1`
   and/or `VITE_INCLUDE_GALLERY=1` at build time.
-- **Guards** — `python3 dev/route_import_guard.py && python3 dev/contracts_check.py`.
+- **Guards** — `python3 dev/route_import_guard.py && .venv/bin/python dev/contracts_check.py`.
 - **Real-container smoke** — `dev/smoke.sh --list | dev/smoke.sh | dev/smoke.sh <row>`.
 - pytest markers: `unit integration requires_data host_numerical smoke` (`smoke` is
   deselected by default; `dev/smoke.sh` runs it. `host_numerical` marks a `tests/numerical`
-  module that needs only real numpy, scipy and nibabel, so CI also runs it on the host with
+  module that needs only real numpy, numba, scipy and nibabel, so CI also runs it on the host with
   `pytest tests/numerical -m host_numerical`).
 
 ## The gate
@@ -202,7 +203,7 @@ Run all of it and **report the numbers, not "green"**:
 cd desktop && npm run typecheck && npm run lint && npx vitest run
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical
 docker exec -w /ti-toolbox <container> simnibs_python -m pytest tests/numerical -q
-python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+python3 dev/route_import_guard.py && .venv/bin/python dev/contracts_check.py
 cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet
 actionlint                 # if you touched .github/workflows
 npm run verify:package     # if you touched packaging
@@ -215,7 +216,7 @@ not evidence the new code loaded** — the pre-reload process can still answer.
 
 ## The science-integrity rule
 
-Any change to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim`
+Any change to `tit/stats`, `tit/analyzer`, `tit/calc` or `tit/sim`
 needs **both**:
 
 1. a test in `tests/numerical/` running against the **real** libraries that asserts

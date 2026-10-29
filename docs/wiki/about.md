@@ -67,7 +67,7 @@ The project is developed openly on [GitHub](https://github.com/idossha/TI-toolbo
           Larissa Albantakis, PhD is a computational neuroscientist and Assistant Professor of Computational Psychiatry at University of Wisconsin - Madison.
         </p>
         <ul class="contributor-list">
-          <li>Methods for modeling stimulation with multiple electrode pairs</li>
+          <li>Methods for modeling stimulation with multiple channels (mTI)</li>
           <li>Electrode search and visualization of candidate arrangements</li>
         </ul>
         <div class="contributor-links">

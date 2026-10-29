@@ -148,8 +148,7 @@ def is_within(root: str, path: str) -> bool:
 
 
 #: The grammar of every other user-supplied name that becomes one path component:
-#: simulation, run, montage, ROI, atlas, EEG net, notebook, viewer preset and scene
-#: names. Wider than :data:`SUBJECT_ID_RE` -- a dot is allowed inside, so
+#: simulation, run, montage, ROI, atlas, EEG net, notebook and scene names. Wider than :data:`SUBJECT_ID_RE` -- a dot is allowed inside, so
 #: ``EEG10-10_Cutini_2011.csv`` and ``MNI_Glasser_HCP_v1.0`` pass, and so is an inner
 #: space, because v2 wrote flex runs and EEG nets with spaces in their names and those
 #: projects must keep opening -- but a name can never start with a dot or a space (no
@@ -326,11 +325,6 @@ def cache_dir(project_dir: str, *parts: str) -> str:
 def scene_cache_dir_for(project_dir: str, sid: str) -> str:
     """``<project>/.ti-toolbox/cache/scene/sub-<id>/`` (not created)."""
     return cache_dir(project_dir, "scene", f"sub-{validate_subject_id(sid)}")
-
-
-def mask_cache_dir_for(project_dir: str, sid: str) -> str:
-    """``<project>/.ti-toolbox/cache/masks/sub-<id>/`` (not created)."""
-    return cache_dir(project_dir, "masks", f"sub-{validate_subject_id(sid)}")
 
 
 def ensure_bidsignore(project_dir: str) -> None:
@@ -559,10 +553,6 @@ class PathManager:
         """Path to ``<project>/.ti-toolbox/`` (not created)."""
         return dot_dir(self._root())
 
-    def cache_root(self) -> str:
-        """Path to ``<project>/.ti-toolbox/cache/`` (not created)."""
-        return cache_dir(self._root())
-
     def cache(self, *parts: str) -> str:
         """Path to ``<project>/.ti-toolbox/cache/<parts...>`` (not created)."""
         return cache_dir(self._root(), *parts)
@@ -570,14 +560,6 @@ class PathManager:
     def ensure_cache(self, *parts: str) -> str:
         """Create and return a cache directory, migrating legacy locations once."""
         return ensure_cache_dir(self._root(), *parts)
-
-    def scene_cache(self, sid: str) -> str:
-        """Path to the scene-payload cache for *sid* (``cache/scene/sub-<id>/``)."""
-        return self.cache("scene", f"sub-{validate_subject_id(sid)}")
-
-    def mask_cache(self, sid: str) -> str:
-        """Path to the prepared-ROI-mask cache for *sid* (``cache/masks/sub-<id>/``)."""
-        return self.cache("masks", f"sub-{validate_subject_id(sid)}")
 
     def viewer_stats_cache(self) -> str:
         """Path to the viewer's per-volume statistics sidecars (``cache/stats/``)."""
@@ -660,10 +642,6 @@ class PathManager:
     def reports(self) -> str:
         """Path to ``<project>/derivatives/ti-toolbox/reports/``."""
         return os.path.join(self.ti_toolbox(), "reports")
-
-    def stats_data(self) -> str:
-        """Path to ``<project>/derivatives/ti-toolbox/stats/data/``."""
-        return os.path.join(self.ti_toolbox(), "stats", "data")
 
     def stats_output(self, analysis_type: str, analysis_name: str) -> str:
         """Path to a specific statistics output directory.

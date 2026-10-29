@@ -434,8 +434,8 @@ def test_scene_of_an_empty_spec_is_valid_and_empty() -> None:
 
 
 def test_finish_spec_attaches_both_derived_views() -> None:
-    """One authority: an edited spec posted to /api/view/args gets its argv and
-    its scene from the same call, so they can never describe different files."""
+    """One authority: a spec gets its argv and its scene from the same call, so
+    they can never describe different files."""
     spec = {
         "space": "subject",
         "layers": [

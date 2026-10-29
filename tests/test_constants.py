@@ -27,4 +27,6 @@ class TestFieldNameConstants:
 class TestTissueTagConstants:
     def test_grey_matter_tag_is_simnibs_tissue_2(self):
         """SimNIBS numbers grey matter 2 (white matter 1) in every head mesh."""
-        assert const.GM_TISSUE_TAG == 2
+        from tit.roi_confirmation import GM_TISSUE_LABEL
+
+        assert GM_TISSUE_LABEL == 2

@@ -95,9 +95,9 @@ state `lost` with `error.type` `forced`.
 - Free-hand electrodes: `where="stim_configs", subject="<id>"` — reads
   `m2m_<id>/stim_configs/*.json`, shaped
   `{"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}}` in
-  subject-RAS millimetres. Positions pair up in file order (1+2, 3+4, …):
+  subject-RAS millimetres. Positions form channels in file order (1+2, 3+4, …):
   4 positions are TI, 8, 12, 16 … are mTI. Any other count (an odd number
-  of pairs, or fewer than 4 positions) will not resolve.
+  of channels, or fewer than 4 positions) will not resolve.
 
 ## 6. Report
 

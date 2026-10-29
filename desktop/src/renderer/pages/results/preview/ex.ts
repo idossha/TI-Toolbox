@@ -1,12 +1,6 @@
 /**
- * An ex/mEx-search run's `run_config.json` and the ranking of its `final_output.csv` (program U14).
- * Shapes read from a real run: `derivatives/SimNIBS/sub-ernie/ex-search/docs_ex_symmetric/`.
- *
- * `final_output.csv` itself is already served as `TableData` by
- * `GET /api/catalog/ex-runs/{run}/results` — the preview does not re-read the file, it ranks the
- * rows the catalog returned. A 343-montage × 7-current-split run is 2 400 rows; the pane shows the
- * ten the search actually found, by `Composite_Index` descending, which is the column
- * `tit.catalog._ex_best` itself calls "best".
+ * An ex/mEx-search run's `run_config.json` (program U14), and the table shape the Results pane
+ * renders. Shapes read from a real run: `derivatives/SimNIBS/sub-ernie/ex-search/docs_ex_symmetric/`.
  */
 import { formatDate, trimNumber, type SummaryRow } from "./simulation";
 
@@ -14,49 +8,6 @@ export interface ExRunSummary {
   rows: SummaryRow[];
   /** The bucket lists, one line per channel pole, for the electrode-bucket mode. */
   buckets: { label: string; electrodes: string[] }[];
-}
-
-/** The columns the ranked table shows, in the order it shows them. */
-export const EX_TABLE_COLUMNS = [
-  "Montage",
-  "Current_Ch1_mA",
-  "Current_Ch2_mA",
-  // `tit/opt/ex/results.py::build_csv_rows` writes `TImax_ROI`/`TImean_ROI` for ex and mEx alike
-  // (an mEx CSV adds `Current_Ch3_mA`/`Current_Ch4_mA`, not listed here). No writer emits the `mTI`
-  // spellings; columns a file does not have are dropped rather than rendered empty. Only
-  // `rankExRows` reads this list, and no page calls it.
-  "TImax_ROI",
-  "mTImax_ROI",
-  "TImean_ROI",
-  "mTImean_ROI",
-  "Focality",
-] as const;
-
-export const EX_RANK_COLUMN = "Composite_Index";
-
-/**
- * Display names for the ranked table's headers. Only the two current columns are renamed: the CSV
- * spells them `Current_Ch1_mA`, 14 characters of header over a 3-character number, which cost more
- * of a 490px pane than `TImean_ROI` and `Focality` had left. The field columns keep the CSV's own
- * names — those are the words the maintainer reads in the file and in the docs.
- */
-export const EX_COLUMN_LABELS: Record<string, string> = {
-  Current_Ch1_mA: "Ch1 mA",
-  Current_Ch2_mA: "Ch2 mA",
-  Current_Ch3_mA: "Ch3 mA",
-  Current_Ch4_mA: "Ch4 mA",
-};
-
-/**
- * `F7_P7 <> F3_PO7_I1-1.0mA_I2-1.0mA` → `F7_P7 <> F3_PO7`.
- *
- * `tit.opt.ex` writes each montage's currents into its name *and* into `Current_Ch<n>_mA` columns
- * of the same row, so in a 490 px pane the suffix costs ~180 px to say what the two columns beside
- * it already say — measured, it pushed `TImax_ROI` and `Focality` off the pane behind a horizontal
- * scrollbar. An mEx name carries four of them and is worse.
- */
-export function shortMontage(name: string): string {
-  return name.replace(/_I1-.*$/, "");
 }
 
 export interface ExTable {
@@ -159,36 +110,4 @@ export function parseExRunConfig(text: string): ExRunSummary | undefined {
     .filter((b) => b.electrodes.length > 0);
 
   return { rows, buckets };
-}
-
-/**
- * The top `limit` rows of a `final_output.csv` table, by `Composite_Index` descending, projected
- * onto {@link EX_TABLE_COLUMNS}. Columns the file does not have are dropped rather than rendered
- * empty (an mEx run's CSV names its channels differently), and a table with no rank column keeps
- * its own order — the file is already written best-first by `tit.opt.ex`.
- */
-export function rankExRows(table: ExTable | undefined, limit = 10): ExTable {
-  if (!table || table.columns.length === 0) return { columns: [], rows: [] };
-  const rankIndex = table.columns.indexOf(EX_RANK_COLUMN);
-  const ordered =
-    rankIndex === -1
-      ? table.rows.slice()
-      : table.rows.slice().sort((a, b) => {
-          const av = typeof a[rankIndex] === "number" ? (a[rankIndex] as number) : Number.NEGATIVE_INFINITY;
-          const bv = typeof b[rankIndex] === "number" ? (b[rankIndex] as number) : Number.NEGATIVE_INFINITY;
-          return bv - av;
-        });
-  const keep = EX_TABLE_COLUMNS.map((name) => table.columns.indexOf(name)).filter((i) => i !== -1);
-  // No overlap at all (an unknown CSV layout): show what the file has rather than nothing.
-  const indices = keep.length ? keep : table.columns.map((_, i) => i);
-  const montage = table.columns.indexOf("Montage");
-  return {
-    columns: indices.map((i) => table.columns[i] ?? ""),
-    rows: ordered.slice(0, limit).map((row) =>
-      indices.map((i) => {
-        const value = row[i] ?? null;
-        return i === montage && typeof value === "string" ? shortMontage(value) : value;
-      }),
-    ),
-  };
 }

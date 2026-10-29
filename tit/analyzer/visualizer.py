@@ -29,14 +29,15 @@ logger = logging.getLogger(__name__)
 def field_unit(field_name: str | None) -> str:
     """Display unit of *field_name*'s values, from ``constants.FIELD_REGISTRY``.
 
-    ``hf_sar`` is ``(V/m)²`` (carrier power); every other registered field, and a
-    field the registry does not list (``magnE``), is ``V/m``.
+    ``hf_sar`` is ``(V/m)²`` (carrier power), ``hf_power_density`` ``W/m³``; every
+    other registered field, and a field the registry does not list (``magnE``), is
+    ``V/m``.
     """
     try:
         units = const.get_field_spec(str(field_name)).units
     except KeyError:
         return "V/m"
-    return units.replace("^2", "\u00b2")
+    return units.replace("^2", "\u00b2").replace("^3", "\u00b3")
 
 
 # ---------------------------------------------------------------------------

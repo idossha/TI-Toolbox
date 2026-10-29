@@ -16,7 +16,7 @@
         <link rel="prev" href="../notebooks/">
       
       
-        <link rel="next" href="../routes/">
+        <link rel="next" href="../proposals/">
       
       
         
@@ -883,6 +883,28 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#tit.server.overwrite_policy.planned_outputs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        planned_outputs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.server.overwrite_policy.refuse_unconfirmed_overwrite" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refuse_unconfirmed_overwrite
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.server.overwrite_policy.check_overwrite_permission" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -946,7 +968,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +989,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1047,25 +1069,19 @@
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.server.overwrite_policy.check_overwrite_permission" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">check_overwrite_permission</span>
+<h3 id="tit.server.overwrite_policy.planned_outputs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">planned_outputs</span>
 
 
-<a href="#tit.server.overwrite_policy.check_overwrite_permission" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_overwrite_permission</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<a href="#tit.server.overwrite_policy.planned_outputs" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">planned_outputs</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Reject replacement of existing outputs while project overrides are disabled.</p>
-<p>Use the same filesystem-backed output resolution as the run receipt. Flags alone
-do not imply data loss: a first run remains valid even if its config permits replacement.</p>
+        <p>The run receipt's jobs (<code>PlanJob</code>) for one submission, or <code>[]</code> for a kind it skips.</p>
+<p>Uses the same filesystem-backed output resolution as the run receipt
+(:func:<code>tit.server.routes.plan.plan</code>), which refuses an output outside the project (422).</p>
 
 
             <details class="quote">
@@ -1097,10 +1113,61 @@ do not imply data loss: a first run remains valid even if its config permits rep
 <span class="normal"><a href="#__codelineno-0-34">34</a></span>
 <span class="normal"><a href="#__codelineno-0-35">35</a></span>
 <span class="normal"><a href="#__codelineno-0-36">36</a></span>
-<span class="normal"><a href="#__codelineno-0-37">37</a></span>
-<span class="normal"><a href="#__codelineno-0-38">38</a></span>
-<span class="normal"><a href="#__codelineno-0-39">39</a></span>
-<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">planned_outputs</span><span class="p">(</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="w">    </span><span class="sd">"""The run receipt's jobs (``PlanJob``) for one submission, or ``[]`` for a kind it skips.</span>
+<a id="__codelineno-0-18" name="__codelineno-0-18"></a>
+<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">    Uses the same filesystem-backed output resolution as the run receipt</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    (:func:`tit.server.routes.plan.plan`), which refuses an output outside the project (422).</span>
+<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">    """</span>
+<a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">ALL_KINDS</span><span class="p">,</span> <span class="n">PlanRequest</span><span class="p">,</span> <span class="n">plan</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a>
+<a id="__codelineno-0-24" name="__codelineno-0-24"></a>    <span class="c1"># Reports have unique job output paths and no configurable plan.</span>
+<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALL_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-26" name="__codelineno-0-26"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-27" name="__codelineno-0-27"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a>        <span class="c1"># Preprocessing carries its own explicit replace decision in the config</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a>        <span class="c1"># (the same "Replace and rerun" choice sim's `overwrite` request flag makes) --</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a>        <span class="c1"># skip/refuse existing stages instead of deleting them when it is unset, and treat</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a>        <span class="c1"># it as sufficient confirmation, exactly like sim's `overwrite` flag, when it is set.</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="n">receipt</span> <span class="o">=</span> <span class="n">plan</span><span class="p">(</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>        <span class="n">kind</span><span class="p">,</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>        <span class="n">PlanRequest</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="o">=</span><span class="n">subject_ids</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">),</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>    <span class="p">)</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">receipt</span><span class="o">.</span><span class="n">jobs</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.overwrite_policy.refuse_unconfirmed_overwrite" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">refuse_unconfirmed_overwrite</span>
+
+
+<a href="#tit.server.overwrite_policy.refuse_unconfirmed_overwrite" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">refuse_unconfirmed_overwrite</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">jobs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Without explicit confirmation, refuse (409) replacing an output that already exists.</p>
+<p>Flags alone do not imply data loss: a first run remains valid even if its config permits
+replacement.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/overwrite_policy.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40">40</a></span>
 <span class="normal"><a href="#__codelineno-0-41">41</a></span>
 <span class="normal"><a href="#__codelineno-0-42">42</a></span>
 <span class="normal"><a href="#__codelineno-0-43">43</a></span>
@@ -1118,10 +1185,51 @@ do not imply data loss: a first run remains valid even if its config permits rep
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
 <span class="normal"><a href="#__codelineno-0-57">57</a></span>
-<span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_unconfirmed_overwrite</span><span class="p">(</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">jobs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="w">    </span><span class="sd">"""Without explicit confirmation, refuse (409) replacing an output that already exists.</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    Flags alone do not imply data loss: a first run remains valid even if its config permits</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    replacement.</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    """</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>        <span class="k">return</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="n">conflicts</span> <span class="o">=</span> <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">output_dir</span> <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">jobs</span> <span class="k">if</span> <span class="n">job</span><span class="o">.</span><span class="n">will_overwrite</span><span class="p">]</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="k">if</span> <span class="n">conflicts</span><span class="p">:</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">409</span><span class="p">,</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>            <span class="c1"># Every kind shares this check, so the sentence names the kind rather than</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>            <span class="c1"># calling an analysis (or a search) a simulation.</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>            <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"Outputs of this </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> job already exist. Explicit overwrite "</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>            <span class="s2">"confirmation is required: "</span> <span class="o">+</span> <span class="s2">"; "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conflicts</span><span class="p">),</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>        <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.overwrite_policy.check_overwrite_permission" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">check_overwrite_permission</span>
+
+
+<a href="#tit.server.overwrite_policy.check_overwrite_permission" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_overwrite_permission</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Reject outputs outside the project (422) and, without explicit confirmation, the
+replacement of existing ones (409).</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/overwrite_policy.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-61">61</a></span>
 <span class="normal"><a href="#__codelineno-0-62">62</a></span>
 <span class="normal"><a href="#__codelineno-0-63">63</a></span>
 <span class="normal"><a href="#__codelineno-0-64">64</a></span>
@@ -1134,97 +1242,20 @@ do not imply data loss: a first run remains valid even if its config permits rep
 <span class="normal"><a href="#__codelineno-0-71">71</a></span>
 <span class="normal"><a href="#__codelineno-0-72">72</a></span>
 <span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
-<span class="normal"><a href="#__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#__codelineno-0-85">85</a></span>
-<span class="normal"><a href="#__codelineno-0-86">86</a></span>
-<span class="normal"><a href="#__codelineno-0-87">87</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-10" name="__codelineno-0-10"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_overwrite_permission</span><span class="p">(</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Reject replacement of existing outputs while project overrides are disabled.</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18"></a>
-<a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">    Use the same filesystem-backed output resolution as the run receipt. Flags alone</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">    do not imply data loss: a first run remains valid even if its config permits replacement.</span>
-<a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-22" name="__codelineno-0-22"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">ALL_KINDS</span><span class="p">,</span> <span class="n">PlanRequest</span><span class="p">,</span> <span class="n">plan</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.settings</span><span class="w"> </span><span class="kn">import</span> <span class="n">_load_project_settings</span>
-<a id="__codelineno-0-24" name="__codelineno-0-24"></a>
-<a id="__codelineno-0-25" name="__codelineno-0-25"></a>    <span class="n">allowed</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">_load_project_settings</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;allow_unsafe_overrides&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
-<a id="__codelineno-0-26" name="__codelineno-0-26"></a>    <span class="k">if</span> <span class="n">allowed</span> <span class="ow">and</span> <span class="p">(</span><span class="n">kind</span> <span class="o">!=</span> <span class="s2">&quot;sim&quot;</span> <span class="ow">or</span> <span class="n">overwrite</span><span class="p">):</span>
-<a id="__codelineno-0-27" name="__codelineno-0-27"></a>        <span class="k">return</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a>    <span class="c1"># Reports have unique job output paths and no configurable plan. Preprocessing</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="c1"># without replace skips or refuses existing stages instead of deleting them.</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALL_KINDS</span><span class="p">:</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>        <span class="k">return</span>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">&quot;pre&quot;</span><span class="p">:</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;replace_existing_outputs&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">):</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>            <span class="k">return</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>        <span class="c1"># The receipt&#39;s stage directories are coarser than the destructive targets</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>        <span class="c1"># (DTI shares m2m with CHARM). Use the runner&#39;s exact deletion inventory.</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.pre.preflight</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>            <span class="n">existing_outputs_for_step</span><span class="p">,</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>            <span class="n">selected_preprocessing_steps</span><span class="p">,</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="p">)</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="n">steps</span> <span class="o">=</span> <span class="n">selected_preprocessing_steps</span><span class="p">(</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="n">run_freesurfer</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;run_freesurfer&quot;</span><span class="p">,</span> <span class="kc">False</span><span class="p">)),</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>            <span class="n">freesurfer_recon_all</span><span class="o">=</span><span class="nb">bool</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;freesurfer_recon_all&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)),</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>            <span class="n">freesurfer_subregions</span><span class="o">=</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;freesurfer_subregions&quot;</span><span class="p">,</span> <span class="p">[]),</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>            <span class="o">**</span><span class="p">{</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>                <span class="n">flag</span><span class="p">:</span> <span class="nb">bool</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">flag</span><span class="p">,</span> <span class="kc">False</span><span class="p">))</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>                <span class="k">for</span> <span class="n">flag</span> <span class="ow">in</span> <span class="p">(</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a>                    <span class="s2">&quot;convert_dicom&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>                    <span class="s2">&quot;create_m2m&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>                    <span class="s2">&quot;run_fastsurfer&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>                    <span class="s2">&quot;run_qsiprep&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>                    <span class="s2">&quot;run_qsirecon&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>                    <span class="s2">&quot;extract_dti&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>                <span class="p">)</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>            <span class="p">},</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>        <span class="p">)</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>        <span class="n">conflicts</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">output</span><span class="o">.</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>            <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">subject_ids</span> <span class="ow">or</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;subject_ids&quot;</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>            <span class="k">for</span> <span class="n">step</span> <span class="ow">in</span> <span class="n">steps</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>            <span class="k">for</span> <span class="n">output</span> <span class="ow">in</span> <span class="n">existing_outputs_for_step</span><span class="p">(</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>                <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">step</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>            <span class="p">)</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="p">]</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>        <span class="n">receipt</span> <span class="o">=</span> <span class="n">plan</span><span class="p">(</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>            <span class="n">kind</span><span class="p">,</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>            <span class="n">PlanRequest</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="o">=</span><span class="n">subject_ids</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">),</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="p">)</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="n">conflicts</span> <span class="o">=</span> <span class="p">[</span><span class="n">job</span><span class="o">.</span><span class="n">output_dir</span> <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">receipt</span><span class="o">.</span><span class="n">jobs</span> <span class="k">if</span> <span class="n">job</span><span class="o">.</span><span class="n">will_overwrite</span><span class="p">]</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="k">if</span> <span class="n">conflicts</span><span class="p">:</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="k">if</span> <span class="n">allowed</span><span class="p">:</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">409</span><span class="p">,</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>                <span class="n">detail</span><span class="o">=</span><span class="s2">&quot;Simulation outputs already exist. Explicit overwrite confirmation is required: &quot;</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>                <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conflicts</span><span class="p">),</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>            <span class="p">)</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>            <span class="n">detail</span><span class="o">=</span><span class="p">(</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>                <span class="s2">&quot;Overwriting existing outputs is disabled for this project. Enable &quot;</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>                <span class="s2">&quot;Allow unsafe overrides in Settings before replacing: &quot;</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>                <span class="o">+</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">conflicts</span><span class="p">)</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>            <span class="p">),</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_overwrite_permission</span><span class="p">(</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="w">    </span><span class="sd">"""Reject outputs outside the project (422) and, without explicit confirmation, the</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    replacement of existing ones (409)."""</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">refuse_unconfirmed_overwrite</span><span class="p">(</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="n">kind</span><span class="p">,</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="n">planned_outputs</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">),</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">,</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

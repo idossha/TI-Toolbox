@@ -21,7 +21,7 @@ from tit.blender.config import (
     carrier_mesh_paths,
     central_surface_path,
 )
-from tit.calc import get_TI_vectors
+from tit.calc import envelope, envelope_max
 
 logger = logging.getLogger(__name__)
 
@@ -209,36 +209,23 @@ def write_ply_arrows(
 # ──────────────────────────────────────────────────────────────────────────────
 
 
-def _barycenters_for_mesh(m):
-    """Compute element barycenters for a SimNIBS mesh."""
-    try:
-        return m.elements_baricenters().value
-    except Exception:
-        node_coords = m.nodes.node_coord
-        element_nodes = m.elm.node_number_list - 1
-        return np.mean(node_coords[element_nodes], axis=1)
-
-
 def _surface_normals_for_mesh(m):
-    """Approximate per-element surface normals for triangular elements."""
-    try:
-        node_coords = m.nodes.node_coord
-        element_nodes = m.elm.node_number_list - 1
-        normals = []
-        for element in element_nodes:
-            nodes = node_coords[element[:3]]
-            edge1 = nodes[1] - nodes[0]
-            edge2 = nodes[2] - nodes[0]
-            normal = np.cross(edge1, edge2)
-            norm = np.linalg.norm(normal)
-            if norm > 1e-12:
-                normal = normal / norm
-            else:
-                normal = np.array([0.0, 0.0, 1.0])
-            normals.append(normal)
-        return np.array(normals)
-    except Exception:
-        return np.tile(np.array([0.0, 0.0, 1.0]), (len(m.elm.node_number_list), 1))
+    """Per-element unit normals from each element's first three nodes (the triangle winding).
+
+    A degenerate (zero-area) triangle has no normal and gets a zero row, so its ``TI_normal``
+    arrow is 0.
+    """
+    node_coords = m.nodes.node_coord
+    element_nodes = m.elm.node_number_list - 1
+    normals = []
+    for element in element_nodes:
+        nodes = node_coords[element[:3]]
+        edge1 = nodes[1] - nodes[0]
+        edge2 = nodes[2] - nodes[0]
+        normal = np.cross(edge1, edge2)
+        norm = np.linalg.norm(normal)
+        normals.append(normal / norm if norm > 1e-12 else np.zeros(3))
+    return np.array(normals)
 
 
 def _get_surface_face_barycenters(surface_mesh):
@@ -256,39 +243,25 @@ def _get_surface_face_barycenters(surface_mesh):
 
 
 def _interpolate_field_to_surface(volumetric_mesh, target_positions, field_name="E"):
-    """Interpolate a field from a volumetric mesh to target positions.
+    """Interpolate an element field of a volumetric mesh to target positions.
 
-    Uses node-based interpolation via elm2node_matrix when available,
-    falls back to nearest-element interpolation.
+    The field is averaged to the nodes with SimNIBS ``Msh.elm2node_matrix`` and each target
+    takes its nearest node's value.
     """
+    from scipy.spatial import cKDTree
+
     if field_name not in volumetric_mesh.field:
         raise ValueError(f"Field '{field_name}' not found in volumetric mesh")
 
     field_elm = volumetric_mesh.field[field_name].value
+    M = volumetric_mesh.elm2node_matrix()
+    vol_field_nodes = np.zeros((M.shape[0], 3))
+    for i in range(3):
+        vol_field_nodes[:, i] = M.dot(field_elm[:, i])
 
-    try:
-        from scipy.spatial import cKDTree
-
-        M = volumetric_mesh.elm2node_matrix()
-        vol_field_nodes = np.zeros((M.shape[0], 3))
-        for i in range(3):
-            vol_field_nodes[:, i] = M.dot(field_elm[:, i])
-
-        vol_node_positions = volumetric_mesh.nodes.node_coord
-        tree = cKDTree(vol_node_positions)
-        _, indices = tree.query(target_positions)
-        return vol_field_nodes[indices]
-    except Exception:
-        from scipy.spatial import cKDTree
-
-        elm_positions = _barycenters_for_mesh(volumetric_mesh)
-        tree = cKDTree(elm_positions)
-        _, indices = tree.query(target_positions)
-
-        field_values = np.zeros((len(target_positions), 3))
-        for i in range(len(target_positions)):
-            field_values[i] = field_elm[indices[i]]
-        return field_values
+    tree = cKDTree(volumetric_mesh.nodes.node_coord)
+    _, indices = tree.query(target_positions)
+    return vol_field_nodes[indices]
 
 
 def _map_magnitude_to_colors_magscale(
@@ -372,30 +345,35 @@ def _load_meshes(config: VectorConfig, carrier_paths: list[str]):
 def _compute_fields(config, meshes, positions):
     """Interpolate every channel's E field and compute the TI / mTI vectors.
 
-    The envelope is :func:`tit.calc.get_TI_vectors` over ALL channels (paired
+    The envelope is :func:`tit.calc.envelope_max` over ALL channels (paired
     positionally, as ``tit/sim/mTI.py`` computes ``mTI_max``); ``E1``/``E2`` are
     the first two channels and ``E_sum`` the sum of every channel.
 
     Returns:
-        Dict with keys: positions, E1, E2, TI, E_sum (or None).
+        Dict with keys: positions, channels (every channel's E), E1, E2, TI,
+        E_sum (or None).
     """
     logger.info(
         "Interpolating E fields to %d surface face barycenters...", len(positions)
     )
     channels = [_interpolate_field_to_surface(m, positions, "E") for m in meshes]
 
-    # Align sizes
-    min_len = min(len(a) for a in [positions, *channels])
-    positions = positions[:min_len]
-    channels = [E[:min_len] for E in channels]
+    lengths = [len(E) for E in channels]
+    if any(n != len(positions) for n in lengths):
+        raise ValueError(
+            f"interpolated channel fields have {lengths} rows for "
+            f"{len(positions)} arrow positions; expected one per position"
+        )
 
-    TI = get_TI_vectors(channels)
+    amp, direction = envelope_max(channels, return_direction=True)
+    TI = amp[:, None] * direction
     E_sum = np.sum(channels, axis=0) if config.export_sum else None
 
     logger.info("Interpolated E fields to %d face barycenters", len(positions))
 
     return {
         "positions": positions,
+        "channels": channels,
         "E1": channels[0],
         "E2": channels[1],
         "TI": TI,
@@ -403,50 +381,35 @@ def _compute_fields(config, meshes, positions):
     }
 
 
-def _compute_ti_normal(config, central_mesh, m1, TI):
-    """Project the direction-maximized TI vector onto the surface normals.
+def _compute_ti_normal(config, central_mesh, channels):
+    """``TI_normal`` arrows: the envelope along each face normal, along that normal.
 
-    Visualization only. This is **not** the ``TI_normal`` field written by
-    :mod:`tit.sim.TI`, which recomputes the envelope along the normal from
-    the raw carrier fields (SimNIBS ``TI.get_dirTI``). Projecting an
-    already-maximized vector is a different quantity and the two will not
-    agree numerically.
+    The quantity the simulation writes as ``TI_normal``
+    (:func:`tit.calc.envelope` of every channel field along the normal), not
+    the projection of the ``TI`` vector: the envelope is not linear in the
+    fields, so the two differ wherever the fields are oblique to the surface.
+    The faces are the ones :func:`_get_surface_face_barycenters` places the
+    arrows on, so there is one normal per arrow.
 
     Returns:
-        Normal-component array or None.
+        ``(N, 3)`` arrows or None.
+
+    Raises:
+        ValueError: the channel fields are not one per central-surface face.
     """
     if not config.export_ti_normal:
         return None
 
-    try:
-        surf_normals = _surface_normals_for_mesh(central_mesh)
-        triangular_elements = central_mesh.elm.elm_type == 2
-        if not np.any(triangular_elements):
-            triangular_elements = np.ones(
-                len(central_mesh.elm.node_number_list), dtype=bool
-            )
-        triangle_normals = surf_normals[triangular_elements]
-
-        # Align normals with TI count
-        if len(triangle_normals) > len(TI):
-            surf_normals = triangle_normals[: len(TI)]
-        elif len(triangle_normals) < len(TI):
-            default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(TI) - len(triangle_normals), 1))
-            surf_normals = np.vstack([triangle_normals, pad])
-        else:
-            surf_normals = triangle_normals
-    except Exception:
-        # Fallback to TDCS mesh normals
-        surf_normals = _surface_normals_for_mesh(m1)
-        if len(surf_normals) > len(TI):
-            surf_normals = surf_normals[: len(TI)]
-        elif len(surf_normals) < len(TI):
-            default_normal = np.array([0.0, 0.0, 1.0])
-            pad = np.tile(default_normal, (len(TI) - len(surf_normals), 1))
-            surf_normals = np.vstack([surf_normals, pad])
-
-    return np.sum(TI * surf_normals, axis=1, keepdims=True) * surf_normals
+    surf_normals = _surface_normals_for_mesh(central_mesh)
+    triangular_elements = central_mesh.elm.elm_type == 2
+    if np.any(triangular_elements):
+        surf_normals = surf_normals[triangular_elements]
+    if len(surf_normals) != len(channels[0]):
+        raise ValueError(
+            f"TI_normal: {len(surf_normals)} central-surface faces for "
+            f"{len(channels[0])} arrows; expected one arrow per face"
+        )
+    return envelope(channels, surf_normals)[:, None] * surf_normals
 
 
 def _filter_and_sample(config, fields):
@@ -824,7 +787,7 @@ def run_vectors(config: VectorConfig) -> None:
         fields = _compute_fields(config, meshes, positions)
 
         # 3 -- TI_normal (optional)
-        TI_normal = _compute_ti_normal(config, central, meshes[0], fields["TI"])
+        TI_normal = _compute_ti_normal(config, central, fields["channels"])
         fields["TI_normal"] = TI_normal
 
         # Pre-filter full magnitudes for color normalization (magscale mode)

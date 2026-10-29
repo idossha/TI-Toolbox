@@ -996,7 +996,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1017,7 +1017,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1035,7 +1035,7 @@
     
     
       <li class="md-path__item">
-        <a href="../check_for_update/" class="md-path__link">
+        <a href="../electrode_overlay/" class="md-path__link">
           
   <span class="md-ellipsis">
     tools
@@ -1172,7 +1172,7 @@ output_file : str or Path, optional
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
 <span class="normal"><a href="#__codelineno-0-57">57</a></span>
 <span class="normal"><a href="#__codelineno-0-58">58</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="k">def</span><span class="w"> </span><span class="nf">extract_labels</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="n">labels</span><span class="p">,</span> <span class="n">output_file</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="w">    </span><span class="sd">"""</span>
 <a id="__codelineno-0-24" name="__codelineno-0-24"></a><span class="sd">    Extract specific labels from a NIfTI segmentation file.</span>
 <a id="__codelineno-0-25" name="__codelineno-0-25"></a>
 <a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">    Parameters</span>
@@ -1182,18 +1182,18 @@ output_file : str or Path, optional
 <a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">    labels : list of int</span>
 <a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">        List of label values to extract</span>
 <a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="sd">    output_file : str or Path, optional</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">        Path to output NIfTI file. If None, defaults to input_file with &#39;_extracted&#39; suffix</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">        Path to output NIfTI file. If None, defaults to input_file with '_extracted' suffix</span>
 <a id="__codelineno-0-34" name="__codelineno-0-34"></a>
 <a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">    Returns</span>
 <a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    -------</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    str</span>
 <a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">        Path to the output file</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    """</span>
 <a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">input_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">input_file</span><span class="p">)</span>
 <a id="__codelineno-0-41" name="__codelineno-0-41"></a>
 <a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="k">if</span> <span class="n">output_file</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
 <a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="n">output_file</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="n">input_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">input_path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">_extracted</span><span class="si">{</span><span class="n">input_path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="n">input_path</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">input_path</span><span class="o">.</span><span class="n">stem</span><span class="si">}</span><span class="s2">_extracted</span><span class="si">{</span><span class="n">input_path</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45"></a>        <span class="p">)</span>
 <a id="__codelineno-0-46" name="__codelineno-0-46"></a>
 <a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="n">output_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_file</span><span class="p">)</span>

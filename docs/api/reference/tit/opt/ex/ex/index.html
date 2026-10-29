@@ -891,6 +891,89 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="run_ex_search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.run_ex_search--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.run_ex_search--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.run_ex_search--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.run_ex_search--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.run_ex_search--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.leadfield_electrode_names" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        leadfield_electrode_names
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.ex.ex.refuse_electrodes_off_leadfield" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refuse_electrodes_off_leadfield
+      
+    </span>
+  </a>
+  
 </li>
         
       </ul>
@@ -946,7 +1029,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +1050,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -985,7 +1068,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../config/" class="md-path__link">
+        <a href="../../candidate_catalog/" class="md-path__link">
           
   <span class="md-ellipsis">
     opt
@@ -1076,24 +1159,331 @@
 
     <div class="doc doc-contents ">
 
-        <p>Run exhaustive search from a typed config object.</p>
+        <p>Run an exhaustive two-pair TI search over a precomputed leadfield.</p>
+<p>Enumerates every electrode-pair combination allowed by
+<code>config.electrodes</code> and every current split allowed by
+<code>total_current</code>/<code>current_step</code>/<code>channel_limit</code>, scores each
+against the ROI, and writes a ranked CSV plus a config JSON to the
+run directory under the subject's <code>ex-search/</code> folder.</p>
+<h5 id="tit.opt.ex.ex.run_ex_search--parameters">Parameters<a class="headerlink" href="#tit.opt.ex.ex.run_ex_search--parameters" title="Permanent link">&para;</a></h5>
+<p>config : ExConfig
+    Fully specified search configuration (subject, leadfield file,
+    ROI, electrode pool or buckets, current sweep).</p>
+<h5 id="tit.opt.ex.ex.run_ex_search--returns">Returns<a class="headerlink" href="#tit.opt.ex.ex.run_ex_search--returns" title="Permanent link">&para;</a></h5>
+<p>ExResult
+    <code>success</code>, <code>output_dir</code>, <code>n_combinations</code> evaluated, and the
+    <code>results_csv</code> / <code>config_json</code> paths.</p>
+<h5 id="tit.opt.ex.ex.run_ex_search--raises">Raises<a class="headerlink" href="#tit.opt.ex.ex.run_ex_search--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If no candidate montage can be enumerated (empty pool/buckets or
+    an over-restrictive symmetry rule), an electrode is not in the
+    leadfield (raised before it is loaded), a referenced ROI CSV or atlas
+    file does not exist, or the ROI selects no leadfield mesh element
+    (raised before the search; no results are written).
+FileNotFoundError
+    If <code>config.leadfield_hdf</code> cannot be found under the subject's
+    <code>leadfields/</code> directory.</p>
+<h5 id="tit.opt.ex.ex.run_ex_search--examples">Examples<a class="headerlink" href="#tit.opt.ex.ex.run_ex_search--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit.opt import ExConfig, run_ex_search
+cfg = ExConfig(
+...     subject_id="ernie",
+...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+...     roi_name="L-Insula",
+...     electrodes=ExConfig.PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4"]),
+...     total_current=2.0, current_step=0.5, channel_limit=1.2,
+...     run_name="insula_pool",
+... )
+res = run_ex_search(cfg)  # doctest: +SKIP
+res.success, res.n_combinations, res.results_csv  # doctest: +SKIP
+(True, 18, '.../ex-search/insula_pool/final_output.csv')</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<h5 id="tit.opt.ex.ex.run_ex_search--see-also">See Also<a class="headerlink" href="#tit.opt.ex.ex.run_ex_search--see-also" title="Permanent link">&para;</a></h5>
+<p>ExConfig : Configuration dataclass for this search.
+ExResult : Returned container.
+tit.opt.mex.mex.run_m_ex_search : Four-pair (mTI) variant.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/ex/ex.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-27">27</a></span>
-<span class="normal"><a href="#__codelineno-0-28">28</a></span>
-<span class="normal"><a href="#__codelineno-0-29">29</a></span>
-<span class="normal"><a href="#__codelineno-0-30">30</a></span>
-<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-31">31</a></span>
 <span class="normal"><a href="#__codelineno-0-32">32</a></span>
-<span class="normal"><a href="#__codelineno-0-33">33</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_ex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">ExConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExResult</span><span class="p">:</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run exhaustive search from a typed config object.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_EX_SEARCH</span><span class="p">):</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="k">return</span> <span class="n">_run_ex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_ex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">ExConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ExResult</span><span class="p">:</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a><span class="w">    </span><span class="sd">"""Run an exhaustive two-pair TI search over a precomputed leadfield.</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    Enumerates every electrode-pair combination allowed by</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">    ``config.electrodes`` and every current split allowed by</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    ``total_current``/``current_step``/``channel_limit``, scores each</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    against the ROI, and writes a ranked CSV plus a config JSON to the</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="sd">    run directory under the subject's ``ex-search/`` folder.</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">    config : ExConfig</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="sd">        Fully specified search configuration (subject, leadfield file,</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">        ROI, electrode pool or buckets, current sweep).</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    ExResult</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        ``success``, ``output_dir``, ``n_combinations`` evaluated, and the</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">        ``results_csv`` / ``config_json`` paths.</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        If no candidate montage can be enumerated (empty pool/buckets or</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        an over-restrictive symmetry rule), an electrode is not in the</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        leadfield (raised before it is loaded), a referenced ROI CSV or atlas</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        file does not exist, or the ROI selects no leadfield mesh element</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        (raised before the search; no results are written).</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    FileNotFoundError</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        If ``config.leadfield_hdf`` cannot be found under the subject's</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">        ``leadfields/`` directory.</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    &gt;&gt;&gt; from tit.opt import ExConfig, run_ex_search</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    &gt;&gt;&gt; cfg = ExConfig(</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    ...     subject_id="ernie",</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    ...     roi_name="L-Insula",</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    ...     electrodes=ExConfig.PoolElectrodes(electrodes=["Fp1", "Fp2", "C3", "C4"]),</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    ...     total_current=2.0, current_step=0.5, channel_limit=1.2,</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">    ...     run_name="insula_pool",</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    ... )</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">    &gt;&gt;&gt; res = run_ex_search(cfg)  # doctest: +SKIP</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    &gt;&gt;&gt; res.success, res.n_combinations, res.results_csv  # doctest: +SKIP</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    (True, 18, '.../ex-search/insula_pool/final_output.csv')</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    ExConfig : Configuration dataclass for this search.</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    ExResult : Returned container.</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    tit.opt.mex.mex.run_m_ex_search : Four-pair (mTI) variant.</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    """</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_EX_SEARCH</span><span class="p">):</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="k">return</span> <span class="n">_run_ex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.opt.ex.ex.leadfield_electrode_names" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">leadfield_electrode_names</span>
+
+
+<a href="#tit.opt.ex.ex.leadfield_electrode_names" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>The electrode names a leadfield HDF5 holds, read from its attributes only.</p>
+<p>The <code>electrode_names</code> attribute :func:<code>simnibs.utils.TI_utils.load_leadfield</code> builds
+its electrode index from (the reference electrode included), read without loading the
+multi-GB field.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/opt/ex/ex.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="k">def</span><span class="w"> </span><span class="nf">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="w">    </span><span class="sd">"""The electrode names a leadfield HDF5 holds, read from its attributes only.</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    The ``electrode_names`` attribute :func:`simnibs.utils.TI_utils.load_leadfield` builds</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    its electrode index from (the reference electrode included), read without loading the</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    multi-GB field.</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    """</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">attrs</span> <span class="o">=</span> <span class="n">handle</span><span class="p">[</span><span class="s2">"mesh_leadfield"</span><span class="p">][</span><span class="s2">"leadfields"</span><span class="p">][</span><span class="s2">"tdcs_leadfield"</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="k">return</span> <span class="p">[</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">"electrode_names"</span><span class="p">]</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.opt.ex.ex.refuse_electrodes_off_leadfield" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">refuse_electrodes_off_leadfield</span>
+
+
+<a href="#tit.opt.ex.ex.refuse_electrodes_off_leadfield" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">refuse_electrodes_off_leadfield</span><span class="p">(</span><span class="n">search</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n">leadfield_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Raise before the leadfield is loaded when an electrode label is not in it.</p>
+<p>Without this the engine loads the whole leadfield and the first unknown label then
+dies as a bare <code>KeyError</code> inside SimNIBS's <code>TI.get_field</code> (on a worker process
+when <code>n_jobs &gt; 1</code>). A missing file is left to the engine, whose load names it; so is
+a file whose name list reads empty (no real leadfield has one and SimNIBS's load
+refuses it; it is what the host suite's h5py stand-in reads).</p>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Naming the leadfield's net and every label it does not hold.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/opt/ex/ex.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_electrodes_off_leadfield</span><span class="p">(</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">search</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="w">    </span><span class="sd">"""Raise before the leadfield is loaded when an electrode label is not in it.</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    Without this the engine loads the whole leadfield and the first unknown label then</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    dies as a bare ``KeyError`` inside SimNIBS's ``TI.get_field`` (on a worker process</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    when ``n_jobs &gt; 1``). A missing file is left to the engine, whose load names it; so is</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    a file whose name list reads empty (no real leadfield has one and SimNIBS's load</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    refuses it; it is what the host suite's h5py stand-in reads).</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">        ValueError: Naming the leadfield's net and every label it does not hold.</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    """</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">):</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="k">return</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="n">names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">))</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">if</span> <span class="n">names</span> <span class="ow">and</span> <span class="n">missing</span><span class="p">:</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">net</span> <span class="o">=</span> <span class="n">net_name_from_leadfield</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">search</span><span class="si">}</span><span class="s2"> electrodes not in the leadfield of </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">: "</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">. Pick electrodes from </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">, or the leadfield of "</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>            <span class="s2">"the net these came from."</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

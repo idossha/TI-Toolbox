@@ -7,7 +7,7 @@ Real SimNIBS interpolation and native AppleDouble creation are outside this test
 2026-10-22 (p04 "mesh2nii-normal-substring"): the simulator leaves in one mesh directory
 the volume meshes (``<name>_TI.msh``, ``grey_<name>_TI.msh``, ``white_<name>_TI.msh``;
 ``<name>_mTI.msh`` and its copies for mTI) and one surface-only mesh (``<name>_normal.msh``
-or ``<name>_mTI_normal.msh``, ``TI.py``/``mTI.py`` ``_calculate_*_normal``), which has no
+or ``<name>_mTI_normal.msh``, ``tit/sim/base.py`` ``_write_ti_normal``), which has no
 volume elements and is the only one to skip; the HF directory holds
 ``<sid>_TDCS_<i>_<cond>.msh``. A substring test for "normal" skipped every mesh of a montage
 called "abnormal" and every carrier of a subject called "normal01". Expected tasks follow

@@ -346,7 +346,7 @@ class TestSelectFieldFileExplicitField:
     @pytest.mark.unit
     def test_mti_normal_resolves_mti_mesh(self, tmp_path):
         """For an mTI simulation, TI_normal resolves to the mTI normal mesh
-        written by _calculate_mti_normal."""
+        written by BaseSimulation._write_ti_normal."""
         sim_dir = tmp_path / "Simulations" / "montage1"
         mti_mesh_dir = sim_dir / "mTI" / "mesh"
         mti_mesh_dir.mkdir(parents=True)
@@ -707,6 +707,22 @@ class TestRunGroupAnalysis:
 # ===========================================================================
 
 
+class TestFieldUnit:
+    """Display units come from FIELD_REGISTRY, with ^2/^3 rendered as superscripts."""
+
+    @pytest.mark.parametrize(
+        "field, unit",
+        [
+            ("TI_max", "V/m"),
+            ("hf_sar", "(V/m)²"),
+            ("hf_power_density", "W/m³"),
+            ("magnE", "V/m"),
+        ],
+    )
+    def test_field_unit(self, field, unit):
+        assert visualizer.field_unit(field) == unit
+
+
 class TestSaveMeshRoiOverlay:
     """save_mesh_roi_overlay writes mesh and opt file."""
 
@@ -828,7 +844,9 @@ class TestSaveHistogram:
 
         with (
             patch("tit.plotting._common.savefig_close", side_effect=fake_save),
-            patch("matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())),
+            patch(
+                "matplotlib.pyplot.subplots", return_value=(MagicMock(), MagicMock())
+            ),
         ):
             result = visualizer.save_histogram(
                 whole_head_values=np.array([1.0, 2.0, 3.0, np.nan]),

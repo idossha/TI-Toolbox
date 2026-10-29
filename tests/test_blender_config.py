@@ -1,7 +1,7 @@
 """Unit tests for tit/blender/config.py -- Blender export configuration dataclasses.
 
 Covers:
-- Enum value checks (RegionConfig.Format, VectorConfig.Color/Anchor/Length, RegionConfig.Surface)
+- Enum value checks (RegionConfig.Format, VectorConfig.Color/Anchor/Length)
 - MontageConfig construction, defaults, and validation
 - VectorConfig construction, defaults, enum coercion, is_mti property, validation
 - RegionConfig construction, defaults, enum coercion, and validation
@@ -82,24 +82,6 @@ class TestVectorLength:
     def test_from_string(self):
         assert VectorConfig.Length("linear") is VectorConfig.Length.LINEAR
         assert VectorConfig.Length("visual") is VectorConfig.Length.VISUAL
-
-
-class TestRegionSurface:
-    """RegionConfig.Surface enum values."""
-
-    def test_central_value(self):
-        assert RegionConfig.Surface.CENTRAL.value == "central"
-
-    def test_pial_value(self):
-        assert RegionConfig.Surface.PIAL.value == "pial"
-
-    def test_white_value(self):
-        assert RegionConfig.Surface.WHITE.value == "white"
-
-    def test_from_string(self):
-        assert RegionConfig.Surface("central") is RegionConfig.Surface.CENTRAL
-        assert RegionConfig.Surface("pial") is RegionConfig.Surface.PIAL
-        assert RegionConfig.Surface("white") is RegionConfig.Surface.WHITE
 
 
 # ---------------------------------------------------------------------------
@@ -368,10 +350,7 @@ class TestRegionConfig:
         cfg = _region()
         assert cfg.format is RegionConfig.Format.PLY
         assert cfg.atlas == "DK40"
-        assert cfg.surface is RegionConfig.Surface.CENTRAL
         assert cfg.field_name == "TI_max"
-        assert cfg.msh2cortex_path is None
-        assert cfg.gm_mesh is None
         assert cfg.skip_regions is False
         assert cfg.skip_whole_gm is False
         assert cfg.regions == []
@@ -407,10 +386,6 @@ class TestRegionConfig:
         cfg = _region(format="ply")
         assert cfg.format is RegionConfig.Format.PLY
 
-    def test_string_surface_coerced(self):
-        cfg = _region(surface="pial")
-        assert cfg.surface is RegionConfig.Surface.PIAL
-
     def test_enum_format_accepted(self):
         cfg = _region(format=RegionConfig.Format.STL)
         assert cfg.format is RegionConfig.Format.STL
@@ -418,10 +393,6 @@ class TestRegionConfig:
     def test_invalid_format_string_raises(self):
         with pytest.raises(ValueError):
             _region(format="obj")
-
-    def test_invalid_surface_string_raises(self):
-        with pytest.raises(ValueError):
-            _region(surface="inflated")
 
     # -- Validation: required IDs --
 

@@ -16,7 +16,7 @@
         <link rel="prev" href="../atlas/voxel/">
       
       
-        <link rel="next" href="../catalog/">
+        <link rel="next" href="../caps/">
       
       
         
@@ -883,10 +883,10 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#tit.calc--public-api" class="md-nav__link">
+  <a href="#tit.calc.envelope" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Public API
+        envelope
       
     </span>
   </a>
@@ -894,10 +894,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.calc--attribution" class="md-nav__link">
+  <a href="#tit.calc.envelope_max" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Attribution
+        envelope_max
       
     </span>
   </a>
@@ -905,22 +905,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_vectors" class="md-nav__link">
+  <a href="#tit.calc.envelope_mean" class="md-nav__link">
     <span class="md-ellipsis">
       
-        get_TI_vectors
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="get_TI_vectors">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_vectors--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
+        envelope_mean
       
     </span>
   </a>
@@ -928,10 +916,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_vectors--returns" class="md-nav__link">
+  <a href="#tit.calc.hf_peak" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Returns
+        hf_peak
       
     </span>
   </a>
@@ -939,107 +927,13 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_vectors--raises" class="md-nav__link">
+  <a href="#tit.calc.hf_power" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Raises
+        hf_power
       
     </span>
   </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_vectors--references" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        References
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_avg" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        get_TI_avg
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="get_TI_avg">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_avg--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_avg--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Returns
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_dir" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        get_TI_dir
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="get_TI_dir">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_dir--parameters" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Parameters
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.calc.get_TI_dir--returns" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Returns
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
         
@@ -1096,7 +990,7 @@
     
     
       <li class="md-path__item">
-        <a href="../_mti_kernel/" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1117,7 +1011,7 @@
     
     
       <li class="md-path__item">
-        <a href="../_mti_kernel/" class="md-path__link">
+        <a href="../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1156,24 +1050,44 @@
 
     <div class="doc doc-contents first">
 
-        <p>Temporal interference field calculation utilities.</p>
-<p>Vectorised NumPy implementations of the TI/mTI modulation-amplitude
-envelope from Grossman et al. (2017), extended to an arbitrary even
-number of electrode pairs (mTI).</p>
-<h4 id="tit.calc--public-api">Public API<a class="headerlink" href="#tit.calc--public-api" title="Permanent link">&para;</a></h4>
-<p>get_TI_vectors
-    Modulation-amplitude vectors for K &gt;= 1 carriers (K=1 exact closed
-    form; K&gt;=2 direction search).
-get_TI_avg
-    Direction-averaged modulation depth for K &gt;= 1 carriers.
-get_TI_dir
-    Modulation depth evaluated along a fixed per-element direction
-    (e.g. the cortical surface normal); backs <code>TI_normal</code> for mTI.</p>
-<h4 id="tit.calc--attribution">Attribution<a class="headerlink" href="#tit.calc--attribution" title="Permanent link">&para;</a></h4>
-<p>The K &gt;= 2 envelope and the <code>_fibonacci_sphere</code> /
-<code>_validate_field_list</code> helpers originate from collaborator Larissa
-Albantakis's branch <code>alba/mTI_testing</code> and are ported here with
-attribution, not reimplemented.</p>
+        <p>Temporal-interference envelope and carrier-field metrics.</p>
+<p>Fields are zero-to-peak amplitudes, <code>(N, 3)</code> arrays in V/m for zero-to-peak
+channel currents, one array per channel (electrodes Ek+ and Ek-).  The
+envelope functions take <code>fields = [E1, E2, ..., E2K]</code> in channel order, paired
+positionally: channels <code>2k-1</code> and <code>2k</code> form beating pair <code>k</code> (carriers
+<code>f_k</code> and <code>f_k + df</code>, beating at the common difference frequency <code>df</code>), all
+K beats phase-aligned (K = 1 is TI, K &gt;= 2 is mTI).  In the formulas <code>E_ka</code> and
+<code>E_kb</code> are pair <code>k</code>'s two channel fields.  The carrier metrics take the
+fields of any number &gt;= 1 of channels, one carrier each.</p>
+<p>A channel with no beating partner enters the envelope functions with a zero
+field as its partner, <code>[E1, E2, Eu, np.zeros_like(Eu)]</code>: it adds to the
+carrier power but not to the beat, so it lowers the envelope.  :func:<code>hf_peak</code>
+and :func:<code>hf_power</code> take it as one more channel field in the list.</p>
+<ul>
+<li>:func:<code>envelope</code> -- envelope amplitude along a direction (<code>TI_normal</code>)</li>
+<li>:func:<code>envelope_max</code> -- its maximum over all directions (<code>TI_max</code>,
+  <code>mTI_max</code>) or within a plane (tangential maximum)</li>
+<li>:func:<code>envelope_mean</code> -- its mean over all directions (<code>TI_avg</code>)</li>
+<li>:func:<code>hf_peak</code> -- peak instantaneous carrier field</li>
+<li>:func:<code>hf_power</code> -- time-averaged mean-square carrier field, <code>E_rms^2</code></li>
+</ul>
+<p>The math and the accuracy table are in <code>docs/wiki/analyzer.md</code>.  The K &gt;= 2
+sphere maximum runs in the numba kernel :mod:<code>tit._calc_kernel</code>; numba is a
+hard dependency (the image ships it).</p>
+
+
+<details class="references" open>
+  <summary>References</summary>
+  <p>Grossman et al. 2017, Cell 169(6):1029-1041, STAR Methods (K = 1 envelope).
+Botzanowski et al. 2025, Bioelectron Med 11:7, doi:10.1186/s42234-025-00169-6,
+pp. 4-5 (K &gt;= 2 envelope, extending Grossman's: square, low-pass, square root).
+Hirata et al. 2024, Comput Biol Med 178:108697, Eq. 2 (K = 1 maximum).
+Cassarà et al. 2025, Bioelectromagnetics, Part I 46(2):e22542 and Part II
+46(1):e22536 (carrier metrics); IEEE C95.1-2019 p. 35 (SAR).</p>
+</details>        <p>The K &gt;= 2 envelope model and the Fibonacci direction grid behind
+<code>_hemisphere_directions</code> are ported from Larissa Albantakis's branch
+<code>alba/mTI_testing</code> (the solvers here are new); the unpaired-channel
+convention follows Michael Sutherland's <code>feature/uni_HF</code> work.</p>
 
 
 
@@ -1196,183 +1110,132 @@ attribution, not reimplemented.</p>
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.calc.get_TI_vectors" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">get_TI_vectors</span>
+<h3 id="tit.calc.envelope" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">envelope</span>
 
 
-<a href="#tit.calc.get_TI_vectors" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_TI_vectors</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<a href="#tit.calc.envelope" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">envelope</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">],</span> <span class="n">direction</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Compute TI modulation-amplitude vectors for K &gt;= 1 carriers.</p>
-<p><code>fields</code> is <code>[E_1a, E_1b, ..., E_Ka, E_Kb]</code>, 2K arrays of shape
-<code>(N, 3)</code> -- one per channel, paired positionally: each two
-consecutive fields are the two channels sharing one carrier. K=1
-(standard TI) is solved by an exact closed form (Grossman et al.
-2017; Hirata et al. 2024) with no direction search; K&gt;=2 (mTI)
-returns <code>best_direction * md</code> from the verified
-:func:<code>_mti_modulation_depth</code> envelope.</p>
-<h5 id="tit.calc.get_TI_vectors--parameters">Parameters<a class="headerlink" href="#tit.calc.get_TI_vectors--parameters" title="Permanent link">&para;</a></h5>
-<p>fields : list of np.ndarray, each shape (N, 3)
-    Channel field vectors, consecutive fields sharing a carrier.
-psi : array-like, shape (K,), or None
-    Per-carrier envelope phase offset (radians); <code>None</code> means
-    phase-aligned carriers (<code>psi_k=0</code>), the standard case. Ignored
-    at K=1 (phase-invariant there).</p>
-<h5 id="tit.calc.get_TI_vectors--returns">Returns<a class="headerlink" href="#tit.calc.get_TI_vectors--returns" title="Permanent link">&para;</a></h5>
-<p>np.ndarray, shape (N, 3)
-    Modulation-amplitude vectors [V/m]; norm is the modulation depth.</p>
-<h5 id="tit.calc.get_TI_vectors--raises">Raises<a class="headerlink" href="#tit.calc.get_TI_vectors--raises" title="Permanent link">&para;</a></h5>
-<p>ValueError
-    Invalid <code>fields</code> or <code>psi</code>; see :func:<code>_validate_field_list</code>
-    and :func:<code>_validate_psi</code>.</p>
-<h5 id="tit.calc.get_TI_vectors--references">References<a class="headerlink" href="#tit.calc.get_TI_vectors--references" title="Permanent link">&para;</a></h5>
-<p>Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).
-Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7 --
-multipolar TI (K carrier bands, phase-aligned envelopes); describes the
-square/low-pass/sqrt envelope procedure in prose (no published
-equation), which the (P, Q) form here formalizes.</p>
+        <p>Envelope modulation amplitude along a direction.</p>
+<p><code>E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)</code>, with
+<code>a_k = E_ka . n</code>, <code>b_k = E_kb . n</code> and <code>S</code>, <code>D</code> the K x 3 matrices
+of rows <code>E_ka + E_kb</code>, <code>E_ka - E_kb</code>; the right-hand form (no
+cancellation) is evaluated.  K = 1 gives <code>2 min(|a|, |b|)</code>.</p>
+<p>Method: closed form, exact for every K.  Literature: Grossman 2017's
+"envelope modulation amplitude along the direction n" (SimNIBS
+<code>get_dirTI</code>); along the cortical normal it is <code>TI_normal</code>.</p>
+<p>Defined edge cases: a zero <code>direction</code> row and a null field (every
+projection 0) give 0.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>[E1, E2, ..., E2K]</code>, one (N, 3) array per channel, in V/m.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>direction</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(3,) or (N, 3); normalised internally, a zero row gives 0.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) peak-to-trough envelope amplitude in V/m.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>odd or fewer than two fields, shapes not all one (N, 3),
+NaN or inf, or <code>direction</code> not (3,) or (N, 3).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-112">112</a></span>
-<span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#__codelineno-0-118">118</a></span>
-<span class="normal"><a href="#__codelineno-0-119">119</a></span>
-<span class="normal"><a href="#__codelineno-0-120">120</a></span>
-<span class="normal"><a href="#__codelineno-0-121">121</a></span>
-<span class="normal"><a href="#__codelineno-0-122">122</a></span>
-<span class="normal"><a href="#__codelineno-0-123">123</a></span>
-<span class="normal"><a href="#__codelineno-0-124">124</a></span>
-<span class="normal"><a href="#__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#__codelineno-0-126">126</a></span>
-<span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span>
-<span class="normal"><a href="#__codelineno-0-129">129</a></span>
-<span class="normal"><a href="#__codelineno-0-130">130</a></span>
-<span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span>
-<span class="normal"><a href="#__codelineno-0-133">133</a></span>
-<span class="normal"><a href="#__codelineno-0-134">134</a></span>
-<span class="normal"><a href="#__codelineno-0-135">135</a></span>
-<span class="normal"><a href="#__codelineno-0-136">136</a></span>
-<span class="normal"><a href="#__codelineno-0-137">137</a></span>
-<span class="normal"><a href="#__codelineno-0-138">138</a></span>
-<span class="normal"><a href="#__codelineno-0-139">139</a></span>
-<span class="normal"><a href="#__codelineno-0-140">140</a></span>
-<span class="normal"><a href="#__codelineno-0-141">141</a></span>
-<span class="normal"><a href="#__codelineno-0-142">142</a></span>
-<span class="normal"><a href="#__codelineno-0-143">143</a></span>
-<span class="normal"><a href="#__codelineno-0-144">144</a></span>
-<span class="normal"><a href="#__codelineno-0-145">145</a></span>
-<span class="normal"><a href="#__codelineno-0-146">146</a></span>
-<span class="normal"><a href="#__codelineno-0-147">147</a></span>
-<span class="normal"><a href="#__codelineno-0-148">148</a></span>
-<span class="normal"><a href="#__codelineno-0-149">149</a></span>
-<span class="normal"><a href="#__codelineno-0-150">150</a></span>
-<span class="normal"><a href="#__codelineno-0-151">151</a></span>
-<span class="normal"><a href="#__codelineno-0-152">152</a></span>
-<span class="normal"><a href="#__codelineno-0-153">153</a></span>
-<span class="normal"><a href="#__codelineno-0-154">154</a></span>
-<span class="normal"><a href="#__codelineno-0-155">155</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-155">155</a></span>
 <span class="normal"><a href="#__codelineno-0-156">156</a></span>
 <span class="normal"><a href="#__codelineno-0-157">157</a></span>
 <span class="normal"><a href="#__codelineno-0-158">158</a></span>
-<span class="normal"><a href="#__codelineno-0-159">159</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_TI_vectors</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute TI modulation-amplitude vectors for K &gt;= 1 carriers.</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a><span class="sd">    ``fields`` is ``[E_1a, E_1b, ..., E_Ka, E_Kb]``, 2K arrays of shape</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a><span class="sd">    ``(N, 3)`` -- one per channel, paired positionally: each two</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a><span class="sd">    consecutive fields are the two channels sharing one carrier. K=1</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="sd">    (standard TI) is solved by an exact closed form (Grossman et al.</span>
-<a id="__codelineno-0-119" name="__codelineno-0-119"></a><span class="sd">    2017; Hirata et al. 2024) with no direction search; K&gt;=2 (mTI)</span>
-<a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="sd">    returns ``best_direction * md`` from the verified</span>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="sd">    :func:`_mti_modulation_depth` envelope.</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    fields : list of np.ndarray, each shape (N, 3)</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">        Channel field vectors, consecutive fields sharing a carrier.</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    psi : array-like, shape (K,), or None</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">        Per-carrier envelope phase offset (radians); ``None`` means</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="sd">        phase-aligned carriers (``psi_k=0``), the standard case. Ignored</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="sd">        at K=1 (phase-invariant there).</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a><span class="sd">    np.ndarray, shape (N, 3)</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="sd">        Modulation-amplitude vectors [V/m]; norm is the modulation depth.</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">        Invalid ``fields`` or ``psi``; see :func:`_validate_field_list`</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="sd">        and :func:`_validate_psi`.</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    References</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    Grossman, N. et al. (2017). Cell, 169(6), 1029-1041 (K=1 closed form).</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    Botzanowski, B. et al. (2025). Bioelectronic Medicine, 11(1), 7 --</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    multipolar TI (K carrier bands, phase-aligned envelopes); describes the</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">    square/low-pass/sqrt envelope procedure in prose (no published</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    equation), which the (P, Q) form here formalizes.</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">arrs</span> <span class="o">=</span> <span class="n">_validate_field_list</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="n">n_pairs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrs</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>    <span class="n">_validate_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">n_pairs</span><span class="p">)</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>    <span class="k">if</span> <span class="n">n_pairs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>        <span class="k">return</span> <span class="n">_get_TI_vectors_k1</span><span class="p">(</span><span class="n">arrs</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">arrs</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">_mti_modulation_depth</span><span class="p">(</span><span class="n">arrs</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="n">psi</span><span class="p">)</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;best_direction&quot;</span><span class="p">]</span> <span class="o">*</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;md&quot;</span><span class="p">][:,</span> <span class="kc">None</span><span class="p">]</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.calc.get_TI_avg" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">get_TI_avg</span>
-
-
-<a href="#tit.calc.get_TI_avg" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_TI_avg</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Direction-averaged modulation depth for K &gt;= 1 electrode pairs.</p>
-<p><code>TI_max</code> (:func:<code>get_TI_vectors</code>) maximizes the envelope over
-direction -- a best case for a neuron aligned with the optimal axis.
-<code>TI_avg</code> instead averages the same coarse Fibonacci-sphere sweep
-over all sampled directions, giving what a randomly-oriented neuron
-sees on average. Local refinement (accurate for a single best
-direction only) is skipped as irrelevant to an average.</p>
-<h5 id="tit.calc.get_TI_avg--parameters">Parameters<a class="headerlink" href="#tit.calc.get_TI_avg--parameters" title="Permanent link">&para;</a></h5>
-<p>fields : list of np.ndarray, each shape (N, 3)
-    Channel field vectors, consecutive fields sharing a carrier.
-psi : array-like, shape (K,), or None
-    Per-carrier envelope phase offset (radians); see
-    :func:<code>get_TI_vectors</code>.</p>
-<h5 id="tit.calc.get_TI_avg--returns">Returns<a class="headerlink" href="#tit.calc.get_TI_avg--returns" title="Permanent link">&para;</a></h5>
-<p>np.ndarray, shape (N,)
-    Modulation depth [V/m], averaged over sampled directions.</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
+<span class="normal"><a href="#__codelineno-0-160">160</a></span>
+<span class="normal"><a href="#__codelineno-0-161">161</a></span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
 <span class="normal"><a href="#__codelineno-0-163">163</a></span>
 <span class="normal"><a href="#__codelineno-0-164">164</a></span>
 <span class="normal"><a href="#__codelineno-0-165">165</a></span>
@@ -1398,33 +1261,42 @@ psi : array-like, shape (K,), or None
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_TI_avg</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Direction-averaged modulation depth for K &gt;= 1 electrode pairs.</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    ``TI_max`` (:func:`get_TI_vectors`) maximizes the envelope over</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    direction -- a best case for a neuron aligned with the optimal axis.</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    ``TI_avg`` instead averages the same coarse Fibonacci-sphere sweep</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    over all sampled directions, giving what a randomly-oriented neuron</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    sees on average. Local refinement (accurate for a single best</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    direction only) is skipped as irrelevant to an average.</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    fields : list of np.ndarray, each shape (N, 3)</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">        Channel field vectors, consecutive fields sharing a carrier.</span>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    psi : array-like, shape (K,), or None</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">        Per-carrier envelope phase offset (radians); see</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">        :func:`get_TI_vectors`.</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="sd">    np.ndarray, shape (N,)</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="sd">        Modulation depth [V/m], averaged over sampled directions.</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="n">arrs</span> <span class="o">=</span> <span class="n">_validate_field_list</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="n">n_pairs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">arrs</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="n">psi_arr</span> <span class="o">=</span> <span class="n">_validate_psi</span><span class="p">(</span><span class="n">psi</span><span class="p">,</span> <span class="n">n_pairs</span><span class="p">)</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="k">return</span> <span class="n">_mti_modulation_depth_avg</span><span class="p">(</span><span class="n">arrs</span><span class="p">,</span> <span class="n">psi_arr</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="n">direction</span><span class="p">:</span> <span class="n">ArrayLike</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="w">    </span><span class="sd">"""Envelope modulation amplitude along a direction.</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    ``E_AM(n) = | |S n| - |D n| | = 4 |sum_k a_k b_k| / (|S n| + |D n|)``, with</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    ``a_k = E_ka . n``, ``b_k = E_kb . n`` and ``S``, ``D`` the K x 3 matrices</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">    of rows ``E_ka + E_kb``, ``E_ka - E_kb``; the right-hand form (no</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    cancellation) is evaluated.  K = 1 gives ``2 min(|a|, |b|)``.</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    Method: closed form, exact for every K.  Literature: Grossman 2017's</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    "envelope modulation amplitude along the direction n" (SimNIBS</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    ``get_dirTI``); along the cortical normal it is ``TI_normal``.</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">    Defined edge cases: a zero ``direction`` row and a null field (every</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">    projection 0) give 0.</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">        direction: (3,) or (N, 3); normalised internally, a zero row gives 0.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">        (N,) peak-to-trough envelope amplitude in V/m.</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">        ValueError: odd or fewer than two fields, shapes not all one (N, 3),</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">            NaN or inf, or ``direction`` not (3,) or (N, 3).</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="sd">    """</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">n</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">direction</span><span class="p">,</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="s2">"direction"</span><span class="p">)</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">p</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">p</span><span class="p">[</span><span class="mi">0</span><span class="p">::</span><span class="mi">2</span><span class="p">],</span> <span class="n">p</span><span class="p">[</span><span class="mi">1</span><span class="p">::</span><span class="mi">2</span><span class="p">]</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="c1"># w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="c1"># the weaker field of a pair to cancellation when the other dominates.</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="n">u</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">+</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="n">v</span> <span class="o">=</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">((</span><span class="n">a</span> <span class="o">-</span> <span class="n">b</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="k">return</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">a</span> <span class="o">*</span> <span class="n">b</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1434,46 +1306,195 @@ psi : array-like, shape (K,), or None
 <div class="doc doc-object doc-function">
 
 
-<h3 id="tit.calc.get_TI_dir" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">get_TI_dir</span>
+<h3 id="tit.calc.envelope_max" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">envelope_max</span>
 
 
-<a href="#tit.calc.get_TI_dir" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">get_TI_dir</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">directions</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<a href="#tit.calc.envelope_max" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">envelope_max</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">perpendicular_to</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">return_direction</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Modulation depth along a fixed per-element direction, K &gt;= 1.</p>
-<p>The multi-carrier analogue of SimNIBS's 2-field <code>TI.get_dirTI</code>:
-instead of maximizing the envelope over direction
-(:func:<code>get_TI_vectors</code>), evaluate it at a given direction per
-element -- typically the cortical surface normal, which yields the
-<code>TI_normal</code> quantity. Exact (no direction search) for any K.</p>
-<h5 id="tit.calc.get_TI_dir--parameters">Parameters<a class="headerlink" href="#tit.calc.get_TI_dir--parameters" title="Permanent link">&para;</a></h5>
-<p>fields : list of np.ndarray, each shape (N, 3)
-    Field vectors ordered <code>[E_1a, E_1b, E_2a, E_2b, ...]</code>, one per
-    channel; consecutive fields are the two channels of one carrier.
-directions : np.ndarray, shape (N, 3)
-    Per-element direction to evaluate the envelope along. Need not be
-    unit length; zero vectors yield 0.
-psi : array-like, shape (K,), or None
-    Per-carrier envelope phase offset (radians); see
-    :func:<code>get_TI_vectors</code>.</p>
-<h5 id="tit.calc.get_TI_dir--returns">Returns<a class="headerlink" href="#tit.calc.get_TI_dir--returns" title="Permanent link">&para;</a></h5>
-<p>np.ndarray, shape (N,)
-    Modulation depth [V/m] along <code>directions</code>.</p>
+        <p>Maximum of the envelope over all directions, or within a plane.</p>
+<p><code>max_n E_AM(n)</code> over unit <code>n</code> (:func:<code>envelope</code>), or over the unit <code>n</code>
+perpendicular to <code>perpendicular_to</code>, which equals the sphere maximum of
+the fields projected onto that plane.</p>
+<p>Method: K = 1, sphere or plane, is an exact closed form (SimNIBS
+<code>get_maxTI</code> to ~1e-15; 0 on null fields).  K &gt;= 2 is exact in a plane
+(polynomial roots); on the sphere, an eigen-branch root-find plus Newton
+polish, never measured more than 1e-6 relative below a dense direction
+search.  Literature: Grossman 2017's "maximal modulation
+amplitude along any orientation" (SimNIBS <code>TImax</code>), K = 1 in the form of
+Hirata 2024 Eq. 2.  Outputs <code>TI_max</code>/<code>mTI_max</code>; the plane form is the
+tangential maximum.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>[E1, E2, ..., E2K]</code>, one (N, 3) array per channel, in V/m.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>perpendicular_to</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>plane normal(s), (3,) or (N, 3); <code>None</code> maximises
+over the sphere.  Normalised internally; a zero row gives 0.</p>
+              </div>
+            </td>
+            <td>
+                  <code>None</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>return_direction</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>also return the maximising unit direction.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>], <a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>amp</code> (N,) in V/m, or <code>(amp, n_hat)</code> with <code>n_hat</code> (N, 3) unit.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>], <a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>-n_hat</code> is equally a maximiser; the sign gives <code>n_hat . E_L &gt;= 0</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>], <a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>for <code>E_L</code> the largest (projected) field, so at K = 1 <code>amp * n_hat</code></p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>], <a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>is the Grossman TI vector.  Where <code>amp == 0</code>, <code>n_hat</code> is (1, 0, 0),</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>] | <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>], <a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>or an in-plane unit vector for a plane.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the :func:<code>envelope</code> errors for <code>fields</code>, or
+<code>perpendicular_to</code> not (3,) or (N, 3) or containing NaN or inf.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError">RuntimeError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>K &gt;= 2 on the sphere, a 3x3 eigen-solve in the kernel did
+not converge (seen only for fields that overflow float64 once squared).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/calc.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-191">191</a></span>
-<span class="normal"><a href="#__codelineno-0-192">192</a></span>
-<span class="normal"><a href="#__codelineno-0-193">193</a></span>
-<span class="normal"><a href="#__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#__codelineno-0-195">195</a></span>
-<span class="normal"><a href="#__codelineno-0-196">196</a></span>
-<span class="normal"><a href="#__codelineno-0-197">197</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
@@ -1494,34 +1515,715 @@ psi : array-like, shape (K,), or None
 <span class="normal"><a href="#__codelineno-0-215">215</a></span>
 <span class="normal"><a href="#__codelineno-0-216">216</a></span>
 <span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_TI_dir</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">directions</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Modulation depth along a fixed per-element direction, K &gt;= 1.</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    The multi-carrier analogue of SimNIBS&#39;s 2-field ``TI.get_dirTI``:</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">    instead of maximizing the envelope over direction</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    (:func:`get_TI_vectors`), evaluate it at a given direction per</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    element -- typically the cortical surface normal, which yields the</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    ``TI_normal`` quantity. Exact (no direction search) for any K.</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    fields : list of np.ndarray, each shape (N, 3)</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">        Field vectors ordered ``[E_1a, E_1b, E_2a, E_2b, ...]``, one per</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        channel; consecutive fields are the two channels of one carrier.</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    directions : np.ndarray, shape (N, 3)</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">        Per-element direction to evaluate the envelope along. Need not be</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">        unit length; zero vectors yield 0.</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">    psi : array-like, shape (K,), or None</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">        Per-carrier envelope phase offset (radians); see</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">        :func:`get_TI_vectors`.</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    np.ndarray, shape (N,)</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">        Modulation depth [V/m] along ``directions``.</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>    <span class="n">result</span> <span class="o">=</span> <span class="n">_mti_modulation_depth</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">psi</span><span class="o">=</span><span class="n">psi</span><span class="p">,</span> <span class="n">directions</span><span class="o">=</span><span class="n">directions</span><span class="p">)</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>    <span class="k">return</span> <span class="n">result</span><span class="p">[</span><span class="s2">&quot;md&quot;</span><span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_max</span><span class="p">(</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="n">perpendicular_to</span><span class="p">:</span> <span class="n">ArrayLike</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="n">return_direction</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">],</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]]:</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="w">    </span><span class="sd">"""Maximum of the envelope over all directions, or within a plane.</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    ``max_n E_AM(n)`` over unit ``n`` (:func:`envelope`), or over the unit ``n``</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">    perpendicular to ``perpendicular_to``, which equals the sphere maximum of</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    the fields projected onto that plane.</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">    Method: K = 1, sphere or plane, is an exact closed form (SimNIBS</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    ``get_maxTI`` to ~1e-15; 0 on null fields).  K &gt;= 2 is exact in a plane</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    (polynomial roots); on the sphere, an eigen-branch root-find plus Newton</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    polish, never measured more than 1e-6 relative below a dense direction</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    search.  Literature: Grossman 2017's "maximal modulation</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    amplitude along any orientation" (SimNIBS ``TImax``), K = 1 in the form of</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    Hirata 2024 Eq. 2.  Outputs ``TI_max``/``mTI_max``; the plane form is the</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    tangential maximum.</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">        perpendicular_to: plane normal(s), (3,) or (N, 3); ``None`` maximises</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">            over the sphere.  Normalised internally; a zero row gives 0.</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">        return_direction: also return the maximising unit direction.</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">        ``amp`` (N,) in V/m, or ``(amp, n_hat)`` with ``n_hat`` (N, 3) unit.</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">        ``-n_hat`` is equally a maximiser; the sign gives ``n_hat . E_L &gt;= 0``</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">        for ``E_L`` the largest (projected) field, so at K = 1 ``amp * n_hat``</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">        is the Grossman TI vector.  Where ``amp == 0``, ``n_hat`` is (1, 0, 0),</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">        or an in-plane unit vector for a plane.</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">        ValueError: the :func:`envelope` errors for ``fields``, or</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">            ``perpendicular_to`` not (3,) or (N, 3) or containing NaN or inf.</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">        RuntimeError: K &gt;= 2 on the sphere, a 3x3 eigen-solve in the kernel did</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="sd">            not converge (seen only for fields that overflow float64 once squared).</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="sd">    """</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="n">plane</span> <span class="o">=</span> <span class="n">perpendicular_to</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="k">if</span> <span class="n">plane</span><span class="p">:</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="n">m</span> <span class="o">=</span> <span class="n">_unit_rows</span><span class="p">(</span><span class="n">perpendicular_to</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="s2">"perpendicular_to"</span><span class="p">)</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,nx-&gt;fn"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">m</span><span class="p">)[</span><span class="o">...</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="n">m</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="n">E</span><span class="p">[:,</span> <span class="o">~</span><span class="n">m</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)]</span> <span class="o">=</span> <span class="mf">0.0</span>  <span class="c1"># undefined plane -&gt; 0, like a zero direction</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="n">k</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">//</span> <span class="mi">2</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">amp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="n">n_hat</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">((</span><span class="n">n_el</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>        <span class="k">if</span> <span class="n">k</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_k1</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="k">elif</span> <span class="n">plane</span><span class="p">:</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_plane</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="n">amp</span><span class="p">[</span><span class="n">sl</span><span class="p">],</span> <span class="n">n_hat</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_max_sphere</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">return_direction</span><span class="p">:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="k">return</span> <span class="n">amp</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">if</span> <span class="n">k</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>        <span class="n">e_big</span> <span class="o">=</span> <span class="n">E</span><span class="p">[</span><span class="n">norms</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="n">n_el</span><span class="p">)]</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"nx,nx-&gt;n"</span><span class="p">,</span> <span class="n">n_hat</span><span class="p">,</span> <span class="n">e_big</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">0</span><span class="p">]</span> <span class="o">*=</span> <span class="o">-</span><span class="mf">1.0</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">null</span> <span class="o">=</span> <span class="n">amp</span> <span class="o">&lt;=</span> <span class="mf">0.0</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="k">if</span> <span class="n">null</span><span class="o">.</span><span class="n">any</span><span class="p">():</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">n_hat</span><span class="p">[</span><span class="n">null</span><span class="p">]</span> <span class="o">=</span> <span class="n">_frame</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="n">null</span><span class="p">])[</span><span class="mi">1</span><span class="p">]</span> <span class="k">if</span> <span class="n">plane</span> <span class="k">else</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="k">return</span> <span class="n">amp</span><span class="p">,</span> <span class="n">n_hat</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.calc.envelope_mean" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">envelope_mean</span>
+
+
+<a href="#tit.calc.envelope_mean" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">envelope_mean</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Mean of the envelope over all directions (<code>TI_avg</code>).</p>
+<p>The mean of <code>E_AM(n)</code> over the unit sphere; at K = 1 exactly
+<code>|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2</code>.  Never exceeds
+:func:<code>envelope_max</code>.</p>
+<p>Method: K = 1 closed form, exact.  K &gt;= 2: equal-area quadrature on 2048
+hemisphere directions (<code>E_AM(n) = E_AM(-n)</code>, so a 4096-point sphere
+rule), ~7e-4 relative error at worst.  Literature: none, <code>TI_avg</code> is
+defined by this toolbox.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>[E1, E2, ..., E2K]</code>, one (N, 3) array per channel, in V/m.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) direction-averaged envelope amplitude in V/m.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>as :func:<code>envelope</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/calc.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span>
+<span class="normal"><a href="#__codelineno-0-455">455</a></span>
+<span class="normal"><a href="#__codelineno-0-456">456</a></span>
+<span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
+<span class="normal"><a href="#__codelineno-0-460">460</a></span>
+<span class="normal"><a href="#__codelineno-0-461">461</a></span>
+<span class="normal"><a href="#__codelineno-0-462">462</a></span>
+<span class="normal"><a href="#__codelineno-0-463">463</a></span>
+<span class="normal"><a href="#__codelineno-0-464">464</a></span>
+<span class="normal"><a href="#__codelineno-0-465">465</a></span>
+<span class="normal"><a href="#__codelineno-0-466">466</a></span>
+<span class="normal"><a href="#__codelineno-0-467">467</a></span>
+<span class="normal"><a href="#__codelineno-0-468">468</a></span>
+<span class="normal"><a href="#__codelineno-0-469">469</a></span>
+<span class="normal"><a href="#__codelineno-0-470">470</a></span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="k">def</span><span class="w"> </span><span class="nf">envelope_mean</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="w">    </span><span class="sd">"""Mean of the envelope over all directions (``TI_avg``).</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    The mean of ``E_AM(n)`` over the unit sphere; at K = 1 exactly</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    ``|E1| + |E2| - (|E1 + E2| + |E1 - E2|) / 2``.  Never exceeds</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="sd">    :func:`envelope_max`.</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    Method: K = 1 closed form, exact.  K &gt;= 2: equal-area quadrature on 2048</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    hemisphere directions (``E_AM(n) = E_AM(-n)``, so a 4096-point sphere</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">    rule), ~7e-4 relative error at worst.  Literature: none, ``TI_avg`` is</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    defined by this toolbox.</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">        fields: ``[E1, E2, ..., E2K]``, one (N, 3) array per channel, in V/m.</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">        (N,) direction-averaged envelope amplitude in V/m.</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        ValueError: as :func:`envelope`.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    """</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="k">if</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="k">def</span><span class="w"> </span><span class="nf">norm</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="w">            </span><span class="sd">"""Row norms."""</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>        <span class="n">E1</span><span class="p">,</span> <span class="n">E2</span> <span class="o">=</span> <span class="n">E</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="k">return</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E2</span><span class="p">)</span> <span class="o">-</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="p">(</span><span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">+</span> <span class="n">E2</span><span class="p">)</span> <span class="o">+</span> <span class="n">norm</span><span class="p">(</span><span class="n">E1</span> <span class="o">-</span> <span class="n">E2</span><span class="p">))</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">_hemisphere_directions</span><span class="p">(</span><span class="mi">2048</span><span class="p">)</span>  <span class="c1"># the ~7e-4 rule of the docstring</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">dirs</span><span class="o">.</span><span class="n">T</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>    <span class="n">monomials</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">([</span><span class="n">x</span> <span class="o">*</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">y</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">x</span> <span class="o">*</span> <span class="n">z</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">y</span> <span class="o">*</span> <span class="n">z</span><span class="p">])</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">pack</span><span class="p">(</span><span class="n">C</span><span class="p">):</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="w">        </span><span class="sd">"""The 6 unique entries of each symmetric ``C``, in the order of ``monomials``."""</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">stack</span><span class="p">(</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>            <span class="p">[</span><span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">C</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">]],</span> <span class="mi">1</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>        <span class="p">)</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_MEAN_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_MEAN_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span> <span class="o">=</span> <span class="p">(</span><span class="n">pack</span><span class="p">(</span><span class="n">C</span><span class="p">)</span> <span class="o">@</span> <span class="n">monomials</span> <span class="k">for</span> <span class="n">C</span> <span class="ow">in</span> <span class="n">_forms</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">]))</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_env_uvw</span><span class="p">(</span><span class="n">u</span><span class="p">,</span> <span class="n">v</span><span class="p">,</span> <span class="n">w</span><span class="p">)</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="k">return</span> <span class="n">out</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.calc.hf_peak" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hf_peak</span>
+
+
+<a href="#tit.calc.hf_peak" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hf_peak</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Peak instantaneous carrier field, <code>max_s |sum_c s_c E_c|</code> over <code>s_c = +-1</code>.</p>
+<p>Equal to <code>max_n sum_c |E_c . n|</code>; two channels give <code>max(|E1 + E2|,
+|E1 - E2|)</code>.  The default is the worst case over channel phases (reached
+by incommensurate frequencies), the safety-relevant value.  <code>coherent=True</code>
+gives <code>|sum_c E_c|</code>, the phase-aligned sum some scripts call "peak HF".</p>
+<p>Method: exact for any number of channels; closed form up to two, zonotope
+vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).
+Literature: Cassarà et al. 2025 Part I Eq. 3.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>one or more channel fields (N, 3) in V/m, one per channel.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coherent</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>carrier-only control (all channels at one frequency, in phase,
+ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) peak carrier field magnitude in V/m (zero-to-peak).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>no fields, shapes not all one (N, 3), or NaN or inf.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/calc.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span>
+<span class="normal"><a href="#__codelineno-0-502">502</a></span>
+<span class="normal"><a href="#__codelineno-0-503">503</a></span>
+<span class="normal"><a href="#__codelineno-0-504">504</a></span>
+<span class="normal"><a href="#__codelineno-0-505">505</a></span>
+<span class="normal"><a href="#__codelineno-0-506">506</a></span>
+<span class="normal"><a href="#__codelineno-0-507">507</a></span>
+<span class="normal"><a href="#__codelineno-0-508">508</a></span>
+<span class="normal"><a href="#__codelineno-0-509">509</a></span>
+<span class="normal"><a href="#__codelineno-0-510">510</a></span>
+<span class="normal"><a href="#__codelineno-0-511">511</a></span>
+<span class="normal"><a href="#__codelineno-0-512">512</a></span>
+<span class="normal"><a href="#__codelineno-0-513">513</a></span>
+<span class="normal"><a href="#__codelineno-0-514">514</a></span>
+<span class="normal"><a href="#__codelineno-0-515">515</a></span>
+<span class="normal"><a href="#__codelineno-0-516">516</a></span>
+<span class="normal"><a href="#__codelineno-0-517">517</a></span>
+<span class="normal"><a href="#__codelineno-0-518">518</a></span>
+<span class="normal"><a href="#__codelineno-0-519">519</a></span>
+<span class="normal"><a href="#__codelineno-0-520">520</a></span>
+<span class="normal"><a href="#__codelineno-0-521">521</a></span>
+<span class="normal"><a href="#__codelineno-0-522">522</a></span>
+<span class="normal"><a href="#__codelineno-0-523">523</a></span>
+<span class="normal"><a href="#__codelineno-0-524">524</a></span>
+<span class="normal"><a href="#__codelineno-0-525">525</a></span>
+<span class="normal"><a href="#__codelineno-0-526">526</a></span>
+<span class="normal"><a href="#__codelineno-0-527">527</a></span>
+<span class="normal"><a href="#__codelineno-0-528">528</a></span>
+<span class="normal"><a href="#__codelineno-0-529">529</a></span>
+<span class="normal"><a href="#__codelineno-0-530">530</a></span>
+<span class="normal"><a href="#__codelineno-0-531">531</a></span>
+<span class="normal"><a href="#__codelineno-0-532">532</a></span>
+<span class="normal"><a href="#__codelineno-0-533">533</a></span>
+<span class="normal"><a href="#__codelineno-0-534">534</a></span>
+<span class="normal"><a href="#__codelineno-0-535">535</a></span>
+<span class="normal"><a href="#__codelineno-0-536">536</a></span>
+<span class="normal"><a href="#__codelineno-0-537">537</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-500" name="__codelineno-0-500"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_peak</span><span class="p">(</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="w">    </span><span class="sd">"""Peak instantaneous carrier field, ``max_s |sum_c s_c E_c|`` over ``s_c = +-1``.</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    Equal to ``max_n sum_c |E_c . n|``; two channels give ``max(|E1 + E2|,</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">    |E1 - E2|)``.  The default is the worst case over channel phases (reached</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    by incommensurate frequencies), the safety-relevant value.  ``coherent=True``</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">    gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">    Method: exact for any number of channels; closed form up to two, zonotope</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a><span class="sd">    vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).</span>
+<a id="__codelineno-0-512" name="__codelineno-0-512"></a><span class="sd">    Literature: Cassarà et al. 2025 Part I Eq. 3.</span>
+<a id="__codelineno-0-513" name="__codelineno-0-513"></a>
+<a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="sd">        fields: one or more channel fields (N, 3) in V/m, one per channel.</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a><span class="sd">            ΔF = 0): the fields add as vectors (Cassarà 2025 Part II p. 8).</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a><span class="sd">        (N,) peak carrier field magnitude in V/m (zero-to-peak).</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a><span class="sd">        ValueError: no fields, shapes not all one (N, 3), or NaN or inf.</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a><span class="sd">    """</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a>    <span class="k">if</span> <span class="n">coherent</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">),</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">E</span><span class="p">)</span> <span class="o">==</span> <span class="mi">2</span><span class="p">:</span>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a>            <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">linalg</span><span class="o">.</span><span class="n">norm</span><span class="p">(</span><span class="n">E</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="n">E</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="p">)</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">n_el</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">n_el</span><span class="p">)</span>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>    <span class="k">for</span> <span class="n">lo</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">n_el</span><span class="p">,</span> <span class="n">_CHUNK</span><span class="p">):</span>
+<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">sl</span> <span class="o">=</span> <span class="nb">slice</span><span class="p">(</span><span class="n">lo</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">lo</span> <span class="o">+</span> <span class="n">_CHUNK</span><span class="p">,</span> <span class="n">n_el</span><span class="p">))</span>
+<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">out</span><span class="p">[</span><span class="n">sl</span><span class="p">]</span> <span class="o">=</span> <span class="n">_hf_peak_vertices</span><span class="p">(</span><span class="n">E</span><span class="p">[:,</span> <span class="n">sl</span><span class="p">])</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a>    <span class="k">return</span> <span class="n">out</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.calc.hf_power" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">hf_power</span>
+
+
+<a href="#tit.calc.hf_power" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">hf_power</span><span class="p">(</span><span class="n">fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Time-averaged mean-square carrier field, <code>(1/2) sum_c |E_c|^2 = E_rms^2</code>.</p>
+<p>Channel fields at distinct frequencies add in power (their cross terms
+average out).  <code>sigma * hf_power</code> (isotropic <code>sigma</code>) is the absorbed
+power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time
+average: compare <code>sqrt(hf_power)</code> with RMS limits (at 1-10 kHz ICNIRP 2010
+and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:<code>hf_peak</code>
+with <code>sqrt(2)</code> times them.</p>
+<p>Method: closed form, exact for any number of channels.  Literature:
+Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Sequence" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Sequence">Sequence</a>[<a class="autorefs autorefs-external" title="numpy.typing.ArrayLike" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.ArrayLike">ArrayLike</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>one or more zero-to-peak channel fields (N, 3) in V/m.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>coherent</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>carrier-only control (all channels at one frequency, in phase,
+ΔF = 0): one sinusoid of amplitude <code>sum_c E_c</code>, so
+<code>(1/2) |sum_c E_c|^2</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>False</code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" title="numpy.typing.NDArray" href="https://numpy.org/doc/stable/reference/typing.html#numpy.typing.NDArray">NDArray</a>[<a class="autorefs autorefs-external" title="numpy.float64" href="https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.float64">float64</a>]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>(N,) mean-square carrier field in (V/m)^2.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>as :func:<code>hf_peak</code>.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/calc.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-578">578</a></span>
+<span class="normal"><a href="#__codelineno-0-579">579</a></span>
+<span class="normal"><a href="#__codelineno-0-580">580</a></span>
+<span class="normal"><a href="#__codelineno-0-581">581</a></span>
+<span class="normal"><a href="#__codelineno-0-582">582</a></span>
+<span class="normal"><a href="#__codelineno-0-583">583</a></span>
+<span class="normal"><a href="#__codelineno-0-584">584</a></span>
+<span class="normal"><a href="#__codelineno-0-585">585</a></span>
+<span class="normal"><a href="#__codelineno-0-586">586</a></span>
+<span class="normal"><a href="#__codelineno-0-587">587</a></span>
+<span class="normal"><a href="#__codelineno-0-588">588</a></span>
+<span class="normal"><a href="#__codelineno-0-589">589</a></span>
+<span class="normal"><a href="#__codelineno-0-590">590</a></span>
+<span class="normal"><a href="#__codelineno-0-591">591</a></span>
+<span class="normal"><a href="#__codelineno-0-592">592</a></span>
+<span class="normal"><a href="#__codelineno-0-593">593</a></span>
+<span class="normal"><a href="#__codelineno-0-594">594</a></span>
+<span class="normal"><a href="#__codelineno-0-595">595</a></span>
+<span class="normal"><a href="#__codelineno-0-596">596</a></span>
+<span class="normal"><a href="#__codelineno-0-597">597</a></span>
+<span class="normal"><a href="#__codelineno-0-598">598</a></span>
+<span class="normal"><a href="#__codelineno-0-599">599</a></span>
+<span class="normal"><a href="#__codelineno-0-600">600</a></span>
+<span class="normal"><a href="#__codelineno-0-601">601</a></span>
+<span class="normal"><a href="#__codelineno-0-602">602</a></span>
+<span class="normal"><a href="#__codelineno-0-603">603</a></span>
+<span class="normal"><a href="#__codelineno-0-604">604</a></span>
+<span class="normal"><a href="#__codelineno-0-605">605</a></span>
+<span class="normal"><a href="#__codelineno-0-606">606</a></span>
+<span class="normal"><a href="#__codelineno-0-607">607</a></span>
+<span class="normal"><a href="#__codelineno-0-608">608</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power</span><span class="p">(</span>
+<a id="__codelineno-0-579" name="__codelineno-0-579"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-580" name="__codelineno-0-580"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
+<a id="__codelineno-0-581" name="__codelineno-0-581"></a><span class="w">    </span><span class="sd">"""Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.</span>
+<a id="__codelineno-0-582" name="__codelineno-0-582"></a>
+<a id="__codelineno-0-583" name="__codelineno-0-583"></a><span class="sd">    Channel fields at distinct frequencies add in power (their cross terms</span>
+<a id="__codelineno-0-584" name="__codelineno-0-584"></a><span class="sd">    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed</span>
+<a id="__codelineno-0-585" name="__codelineno-0-585"></a><span class="sd">    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time</span>
+<a id="__codelineno-0-586" name="__codelineno-0-586"></a><span class="sd">    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010</span>
+<a id="__codelineno-0-587" name="__codelineno-0-587"></a><span class="sd">    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`</span>
+<a id="__codelineno-0-588" name="__codelineno-0-588"></a><span class="sd">    with ``sqrt(2)`` times them.</span>
+<a id="__codelineno-0-589" name="__codelineno-0-589"></a>
+<a id="__codelineno-0-590" name="__codelineno-0-590"></a><span class="sd">    Method: closed form, exact for any number of channels.  Literature:</span>
+<a id="__codelineno-0-591" name="__codelineno-0-591"></a><span class="sd">    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</span>
+<a id="__codelineno-0-592" name="__codelineno-0-592"></a>
+<a id="__codelineno-0-593" name="__codelineno-0-593"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-594" name="__codelineno-0-594"></a><span class="sd">        fields: one or more zero-to-peak channel fields (N, 3) in V/m.</span>
+<a id="__codelineno-0-595" name="__codelineno-0-595"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
+<a id="__codelineno-0-596" name="__codelineno-0-596"></a><span class="sd">            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so</span>
+<a id="__codelineno-0-597" name="__codelineno-0-597"></a><span class="sd">            ``(1/2) |sum_c E_c|^2``.</span>
+<a id="__codelineno-0-598" name="__codelineno-0-598"></a>
+<a id="__codelineno-0-599" name="__codelineno-0-599"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-600" name="__codelineno-0-600"></a><span class="sd">        (N,) mean-square carrier field in (V/m)^2.</span>
+<a id="__codelineno-0-601" name="__codelineno-0-601"></a>
+<a id="__codelineno-0-602" name="__codelineno-0-602"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="sd">        ValueError: as :func:`hf_peak`.</span>
+<a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="sd">    """</span>
+<a id="__codelineno-0-605" name="__codelineno-0-605"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-606" name="__codelineno-0-606"></a>    <span class="k">if</span> <span class="n">coherent</span><span class="p">:</span>
+<a id="__codelineno-0-607" name="__codelineno-0-607"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a>    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,fnx-&gt;n"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

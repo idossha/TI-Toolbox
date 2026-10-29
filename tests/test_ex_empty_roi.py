@@ -65,7 +65,6 @@ def _no_search_ti():
     return SimpleNamespace(
         load_leadfield=lambda path: (np.zeros(1), _mesh(), None),
         get_field=never,
-        get_maxTI=never,
     )
 
 

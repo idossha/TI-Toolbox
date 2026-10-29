@@ -17,10 +17,6 @@ What this pins
         module the image provides and the host suite never imports for real
         (``_IMAGE_ONLY``, each with its reason).
 
-    The two scripts only Blender's interpreter runs (``_BLENDER_SCRIPTS``) may import Blender's
-    own ``bpy``/``mathutils`` at module level; nothing in tit or the tests imports them, which
-    is checked too.
-
 Where the expectations come from
     ``pyproject.toml`` read with ``tomllib``, ``tests/conftest.py`` and every ``tit/**/*.py``
     read with ``ast``; nothing is imported from tit or the conftest. The red cases plant a
@@ -75,17 +71,9 @@ _IMAGE_ONLY = {
     "mathutils": "Blender's own module; the Blender exporters run inside Blender's Python",
     "dipy": "QSIRecon's DTI extraction (tit/pre/qsi) runs in the image",
     "jupyter_client": "notebook kernels are started by the server in the image",
-    "numba": "optional JIT kernel; tit falls back to NumPy when it is not importable",
     "seaborn": "statistics figures are drawn in the image; host tests stub the plot",
     "stl": "numpy-stl writes nifti_to_mesh's STL output in the image",
     "threadpoolctl": "caps BLAS threads in ex-search workers, under an import guard",
-}
-
-#: Scripts only Blender's interpreter runs (``blender --python``); they import Blender's own
-#: modules at module level, and nothing in tit or the tests imports them.
-_BLENDER_SCRIPTS = {
-    "tit/blender/helpers/extract_metadata.py",
-    "tit/blender/helpers/inspect_blend.py",
 }
 
 #: The ``test`` extra CircleCI #1265 (45f47171) installed, from ``git show
@@ -243,9 +231,7 @@ def violations(imports: list[Import], extra: set[str], mocks: set[str]) -> list[
     for imp in imports:
         if imp.module in mocks or _installed_by(imp.module, extra):
             continue
-        if imp.module in _IMAGE_ONLY and (
-            not imp.eager or imp.path in _BLENDER_SCRIPTS
-        ):
+        if imp.module in _IMAGE_ONLY and not imp.eager:
             continue
         where = "module-level" if imp.eager else "deferred"
         found.append(
@@ -308,23 +294,6 @@ def test_every_allowance_is_still_used() -> None:
     modules = {imp.module for imp in imports}
     for table in (_DISTRIBUTION_OF, _BROUGHT_BY, _IMAGE_ONLY):
         assert set(table) <= modules, set(table) - modules
-    paths = {imp.path for imp in imports}
-    assert _BLENDER_SCRIPTS <= paths
-
-
-def test_the_blender_scripts_are_imported_by_nothing() -> None:
-    """The exemption holds only while no Python module or test imports them."""
-    names = [Path(path).stem for path in _BLENDER_SCRIPTS]
-    for base in (ROOT / "tit", ROOT / "tests"):
-        for path in base.rglob("*.py"):
-            if path.relative_to(ROOT).as_posix() in _BLENDER_SCRIPTS:
-                continue
-            text = path.read_text(encoding="utf-8")
-            if path == Path(__file__).resolve():
-                continue
-            for name in names:
-                pattern = rf"^\s*(from|import)\s.*\b{name}\b"
-                assert not re.search(pattern, text, re.M), (path, name)
 
 
 # ── red cases ────────────────────────────────────────────────────────────────
@@ -347,10 +316,12 @@ def test_the_extra_ci_1265_installed_names_the_lines_that_failed_there() -> None
         and "'PIL'" in line
         for line in found
     ), found
-    # Only those two modules are missing from that extra.
+    # Only those two modules are missing from that extra, plus numba, which tit.calc has
+    # imported unconditionally since 2026-10-27.
     assert {re.search(r"import of '(\w+)'", line).group(1) for line in found} == {
         "PIL",
         "skimage",
+        "numba",
     }
 
 
@@ -396,7 +367,7 @@ def test_an_image_only_module_is_allowed_deferred_and_refused_at_module_level(
     extra, mocks = _real_lists()
     deferred = (
         "def kernel():\n"
-        "    import numba\n"
+        "    import dipy\n"
         "\n"
         "try:\n"
         "    import threadpoolctl\n"
@@ -407,9 +378,9 @@ def test_an_image_only_module_is_allowed_deferred_and_refused_at_module_level(
     assert [imp.eager for imp in imports] == [False, False]
     assert violations(imports, extra, mocks) == []
 
-    _, imports = scan(_tree(tmp_path / "b", "import numba\n"))
+    _, imports = scan(_tree(tmp_path / "b", "import dipy\n"))
     assert violations(imports, extra, mocks) == [
-        "tit/planted.py:1: module-level import of 'numba' is not in the test extra, "
+        "tit/planted.py:1: module-level import of 'dipy' is not in the test extra, "
         "not mocked by tests/conftest.py, and image-only modules must be deferred"
     ]
 

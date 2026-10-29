@@ -212,7 +212,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
   });
 
   // SimulationConfig.carrier_only (tit/sim/config.py): ΔF = 0 has no envelope, so the server
-  // rejects any output field but hf_peak/hf_sar and any montage that is not 2-pair TI.
+  // rejects any output field but hf_peak/hf_sar/hf_power_density and any montage that is not 2-pair TI.
   const tiRow: SelectedRow = {
     id: "carrier",
     subjectId: "ernie",
@@ -234,7 +234,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
     expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
   });
 
-  it("a carrier-only job with no carrier field ticked computes both carrier fields", () => {
+  it("a carrier-only job with no carrier field ticked computes hf_peak and hf_sar", () => {
     const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max"] });
     expect(config.output_fields).toEqual(["hf_peak", "hf_sar"]);
   });

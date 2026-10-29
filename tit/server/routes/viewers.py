@@ -1,4 +1,4 @@
-"""``/api/view/{kind}`` and ``/api/view/args`` (v1).
+"""``/api/view/{kind}`` and the Viewer's scene-file routes (v1).
 
 The ViewSpec is built entirely in :mod:`tit.viewspec` (layer rules, LUT
 lookups, the six audit-bug fixes, percentile resolution, the Tetravox
@@ -10,7 +10,7 @@ launch routes (``POST /api/viewers/freeview``, ``POST /api/viewers/gmsh``),
 ``_require_x11`` and the ``viewer`` job-kind submission they drove are
 **removed** -- there is no X11 in this runtime. ``freeview_args`` itself
 stays on the response for one release (deprecated) so an old client
-mid-migration does not break; :func:`view_args` still exists to preview it.
+mid-migration does not break.
 
 V2 (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``): viewing is the
 **host-installed Tetravox desktop app**, not an embed served from this
@@ -43,12 +43,8 @@ run. The client submits::
 (see ``tit/tools/electrode_overlay.py::main`` for the exact positional
 ``config``/``reference``/``output`` argv and the optional ``--montage``/
 ``--eeg-positions-dir`` flags). Once that job succeeds,
-``GET /api/catalog/electrode-overlays?subject=&simulation=``
-(``tit.catalog.electrode_overlays``) reports the resulting file's
-presence/path per TI/mTI mode -- ``tit.viewspec._electrode_overlay_layer``
-already builds the ViewSpec layer for it once the file exists on disk, so no
-viewspec change was needed for the *viewing* half of this gap, only the
-*listing* half.
+``tit.viewspec._electrode_overlay_layer`` builds the ViewSpec layer for the
+file it wrote, so no route is needed for the *viewing* half of this gap.
 """
 
 from __future__ import annotations
@@ -64,80 +60,10 @@ from urllib.parse import unquote
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 
 from tit import viewspec
-from tit.catalog import classify_view_file
 from tit.host_path import to_host
 from tit.server.schemas import EntityName, SubjectId, ViewerOpen, ViewSpec
 
 router = APIRouter()
-
-
-def _jail_viewspec_layers(spec: dict[str, Any]) -> dict[str, Any]:
-    """*spec* with every layer's ``path`` resolved against :func:`viewspec.jail_roots`.
-
-    ``spec`` (``body.viewspec``) is client-supplied at preview time -- a
-    layer's ``path`` is not necessarily one this server generated, so it
-    must be re-jailed here exactly like any other externally-supplied file
-    path, not trusted just because it arrived inside a ``ViewSpec`` shape
-    (ra_14 finding 11). The raw string is replaced with its resolved
-    absolute form so a later symlink swap can't matter, and so every
-    resulting Freeview arg is guaranteed to start with ``/`` -- never ``-``.
-    A layer's optional ``lut`` and ``attachments`` are files too: an absolute
-    ``lut`` must be jailed, and an attachment outside the jail is dropped
-    rather than probed.
-
-    Returns a new document rather than mutating the one that arrived: what
-    goes on to be resolved is built here from checked paths only.
-    """
-    layers = []
-    for layer in spec.get("layers", []):
-        raw = layer.get("path")
-        resolved = viewspec.resolve_jailed(raw) if isinstance(raw, str) else None
-        if resolved is None:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Layer path escapes the project/resources jail: {raw!r}",
-            )
-        jailed = {**layer, "path": str(resolved)}
-        lut = layer.get("lut")
-        if isinstance(lut, str) and os.path.isabs(lut):
-            lut_resolved = viewspec.resolve_jailed(lut)
-            if lut_resolved is None:
-                raise HTTPException(
-                    status_code=403,
-                    detail=f"Layer LUT escapes the project/resources jail: {lut!r}",
-                )
-            jailed["lut"] = str(lut_resolved)
-        attachments = [
-            str(kept)
-            for kept in (
-                viewspec.resolve_jailed(item)
-                for item in layer.get("attachments", [])
-                if isinstance(item, str)
-            )
-            if kept is not None
-        ]
-        if "attachments" in layer:
-            jailed["attachments"] = attachments
-        layers.append(jailed)
-    return {**spec, "layers": layers}
-
-
-def _reject_option_like_args(args: list[str]) -> None:
-    """Refuse any argv entry that looks like a flag (ra_14 finding 11).
-
-    Every argument this route ever builds comes from
-    :func:`viewspec.to_freeview_args` (one
-    ``<jailed-absolute-path>:key=value...`` string per layer) -- always
-    starts with ``/`` once jailed. A leading ``-`` can therefore only mean a
-    layer path was not actually resolved through the jail (a bug here);
-    refuse rather than let a malformed argv reach a client-side launcher.
-    """
-    for arg in args:
-        if arg.startswith("-"):
-            raise HTTPException(
-                status_code=422,
-                detail=f"Refusing option-like viewer argument: {arg!r}",
-            )
 
 
 @router.get(
@@ -183,38 +109,6 @@ def view(
             status_code=404, detail="Unknown subject/simulation/analysis"
         )
     return spec
-
-
-@router.post(
-    "/api/view/args",
-    summary="The exact Freeview argv/command and Tetravox scene for a (possibly edited) ViewSpec",
-)
-def view_args(body: dict[str, Any]) -> dict[str, Any]:
-    """``{viewspec}`` -> ``{freeview_args, freeview_command, scene}``.
-
-    Exists so the Viewer page's "preview command" panel can show the *real*
-    command -- generated by the same :func:`viewspec.to_freeview_args` a
-    launch would use, on the same jailed/percentile-resolved spec -- instead
-    of a hand-rolled TypeScript mirror that can (and did) drift from the
-    server's actual argument grammar (ra_13 finding 9). Read-only: this
-    never submits a job and launches nothing; layer paths are jailed but
-    nothing runs.
-    """
-    spec = body.get("viewspec")
-    if not isinstance(spec, dict):
-        raise HTTPException(status_code=422, detail="body.viewspec is required")
-    spec = _jail_viewspec_layers(spec)
-    viewspec.resolve_percentiles(spec)
-    # The same finishing step GET /api/view/{kind} runs, so an edited spec's
-    # argv and its scene can never be built by two different sets of rules.
-    viewspec.finish_spec(spec)
-    args = spec["freeview_args"]
-    _reject_option_like_args(args)
-    return {
-        "freeview_args": args,
-        "freeview_command": ["freeview"] + args,
-        "scene": spec["scene"],
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -686,91 +580,3 @@ def viewer_candidates(
     guessing -- and one of these files is routinely 64 MB.
     """
     return {"candidates": viewspec.viewer_candidates(subject, simulation, space)}
-
-
-# ---------------------------------------------------------------------------
-# VM -- saved viewer selections.
-#
-# A composition panel is only worth its keystrokes if a person can get the
-# same composition back.  These live beside the scene files, in the project,
-# as plain JSON: ``<project>/code/ti-toolbox/viewer/presets/<slug>.json``.
-# The project is the unit people copy, archive and share, so a preset that
-# lived in browser storage would be lost exactly when the work it describes
-# was passed on.
-#
-# The path is ``/api/viewer/presets``, not ``/api/view/presets``: the latter
-# is shadowed by ``GET /api/view/{kind}``, which would answer "presets" with a
-# 404 from ``build_view`` rather than a list -- a routing accident that would
-# have looked like an empty preset list.
-# ---------------------------------------------------------------------------
-
-_PRESET_SUFFIX = ".json"
-
-
-def viewer_preset_dir() -> str:
-    return checked_viewer_path(os.path.join(viewer_scene_dir(), "presets"))
-
-
-def _preset_slug(name: str) -> str:
-    """A file name from a display name, or a 422.
-
-    Deliberately strict rather than sanitising: a name that quietly becomes a
-    different file is worse than a refusal, and every character kept here is
-    one a person typed on purpose.
-    """
-    slug = "".join(c if (c.isalnum() or c in "-_ ") else "-" for c in name).strip()
-    slug = slug.replace(" ", "_")
-    if not slug or slug in (".", "..") or len(slug) > 80:
-        raise HTTPException(status_code=422, detail=f"Unusable preset name: {name!r}")
-    return slug
-
-
-@router.get("/api/viewer/presets", summary="Saved Viewer selections")
-def viewer_presets() -> dict[str, Any]:
-    directory = viewer_preset_dir()
-    out: list[dict[str, Any]] = []
-    try:
-        names = sorted(os.listdir(directory))
-    except OSError:
-        names = []
-    for entry in names:
-        if not entry.endswith(_PRESET_SUFFIX):
-            continue
-        try:
-            with open(
-                checked_viewer_path(os.path.join(directory, entry)), encoding="utf-8"
-            ) as handle:
-                body = json.load(handle)
-        except (OSError, ValueError, HTTPException):
-            # A hand-edited or half-written preset is skipped, not fatal: one
-            # bad file must not empty the menu.
-            continue
-        if not isinstance(body, dict):
-            continue
-        body.setdefault("name", entry[: -len(_PRESET_SUFFIX)])
-        out.append(body)
-    return {"presets": out}
-
-
-@router.put("/api/viewer/presets/{name}", summary="Save one Viewer selection")
-def save_viewer_preset(name: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
-    slug = _preset_slug(name)
-    directory = viewer_preset_dir()
-    os.makedirs(directory, exist_ok=True)
-    document = dict(body or {})
-    document["name"] = name
-    target = os.path.join(directory, f"{slug}{_PRESET_SUFFIX}")
-    atomic_viewer_write(target, json.dumps(document, indent=1).encode("utf-8"))
-    return document
-
-
-@router.delete("/api/viewer/presets/{name}", summary="Forget one saved selection")
-def delete_viewer_preset(name: str) -> dict[str, Any]:
-    target = checked_viewer_path(
-        os.path.join(viewer_preset_dir(), f"{_preset_slug(name)}{_PRESET_SUFFIX}")
-    )
-    try:
-        os.remove(target)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail=f"No preset named {name!r}")
-    return {"name": name, "deleted": True}

@@ -91,7 +91,6 @@ def get_field(channel, leadfield, idx):
 ti = types.ModuleType("simnibs.utils.TI_utils")
 ti.load_leadfield = lambda path: (np.zeros(1), mesh, None)
 ti.get_field = get_field
-ti.get_maxTI = lambda e1, e2: np.linalg.norm(e1, axis=1) + np.linalg.norm(e2, axis=1)
 sys.modules["simnibs.utils"].TI_utils = ti
 sys.modules["simnibs.utils.TI_utils"] = ti
 
@@ -104,7 +103,7 @@ ti_metrics.plot_intensity_vs_focality = lambda **kw: kw["output_file"]
 if kind == "mex":
     import tit.opt.mex.engine as mex_engine
 
-    mex_engine.get_TI_vectors = lambda fields: sum(fields)
+    mex_engine.envelope_max = lambda fields: np.linalg.norm(sum(fields), axis=1)
     from tit.opt.mex.__main__ import main
 else:
     from tit.opt.ex.__main__ import main

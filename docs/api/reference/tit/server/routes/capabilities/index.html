@@ -16,7 +16,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../catalog/">
+        <link rel="next" href="../caps/">
       
       
         
@@ -946,7 +946,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +967,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1042,11 +1042,7 @@
 
     <div class="doc doc-contents first">
 
-        <p><code>GET /api/capabilities</code> — what this runtime can do (UI greys out the rest).</p>
-<p>D3 (<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>): X11/Freeview/Gmsh/FreeSurfer
-are gone from this runtime entirely -- viewing is the Tetravox embed
-(<code>tetravox_embed</code>, served at <code>/tetravox/</code> by :mod:<code>tit.server.static</code>) and
-voxel-space cortical parcellation is FastSurfer <code>--seg_only</code> (<code>fastsurfer</code>).</p>
+        <p>Cheap capability probes for the scientific server runtime.</p>
 
 
 
@@ -1074,78 +1070,43 @@ voxel-space cortical parcellation is FastSurfer <code>--seg_only</code> (<code>f
 
 
 <a href="#tit.server.routes.capabilities.probe_capabilities" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">probe_capabilities</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">tetravox_embed_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">settings</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><span title="tit.server.schemas.Capabilities">Capabilities</span></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">probe_capabilities</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><span title="tit.server.schemas.Capabilities">Capabilities</span></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Cheap filesystem/env probes only — nothing heavy is imported.</p>
-<p><em>settings</em> is a <code>ServerSettings</code>; without one, <em>tetravox_embed_dir</em> is
-treated as the baked floor (defaulting to the image's own path) so a direct
-call from a test or a script still probes something real.</p>
+        <p>Probe server dependencies; native viewer availability belongs to the host.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/capabilities.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
-<span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
-<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
-<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
-<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
-<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
-<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
-<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
-<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
-<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
-<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
-<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
-<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
-<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
-<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
-<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
-<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
-<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
-<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
-<span class="normal"><a href="#__codelineno-0-100">100</a></span>
-<span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span>
-<span class="normal"><a href="#__codelineno-0-103">103</a></span>
-<span class="normal"><a href="#__codelineno-0-104">104</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">probe_capabilities</span><span class="p">(</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="n">tetravox_embed_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">settings</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Capabilities</span><span class="p">:</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Cheap filesystem/env probes only — nothing heavy is imported.</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    *settings* is a ``ServerSettings``; without one, *tetravox_embed_dir* is</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    treated as the baked floor (defaulting to the image&#39;s own path) so a direct</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    call from a test or a script still probes something real.</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">if</span> <span class="n">settings</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="n">settings</span> <span class="o">=</span> <span class="n">SimpleNamespace</span><span class="p">(</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="n">tetravox_embed_dir</span><span class="o">=</span><span class="n">tetravox_embed_dir</span> <span class="ow">or</span> <span class="n">DEFAULT_TETRAVOX_EMBED_DIR</span><span class="p">,</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="n">tetravox_embed_override</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="n">tetravox_install_root</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="p">)</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="k">return</span> <span class="n">Capabilities</span><span class="p">(</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="n">docker_socket</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">DOCKER_SOCKET</span><span class="p">),</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="n">bpy</span><span class="o">=</span><span class="n">_module_available</span><span class="p">(</span><span class="s2">&quot;bpy&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="c1"># `jupyter` (the meta-package) importable in this same interpreter --</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>        <span class="c1"># the container&#39;s `NOTEBOOK` alias runs `simnibs_python -m jupyter</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>        <span class="c1"># lab`, and the server itself runs under `simnibs_python`, so</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>        <span class="c1"># `find_spec` here answers the same question that alias depends on</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>        <span class="c1"># (ra_13 finding 3e; there is no in-app start control yet, see</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="c1"># `pages/settings/index.tsx`&#39;s Jupyter card).</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>        <span class="n">jupyter</span><span class="o">=</span><span class="n">_module_available</span><span class="p">(</span><span class="s2">&quot;jupyter&quot;</span><span class="p">),</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>        <span class="n">tetravox_embed</span><span class="o">=</span><span class="n">_probe_tetravox_embed</span><span class="p">(</span><span class="n">settings</span><span class="p">),</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>        <span class="n">fastsurfer</span><span class="o">=</span><span class="n">_fastsurfer_home</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="k">def</span><span class="w"> </span><span class="nf">probe_capabilities</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Capabilities</span><span class="p">:</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="w">    </span><span class="sd">"""Probe server dependencies; native viewer availability belongs to the host."""</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="k">return</span> <span class="n">Capabilities</span><span class="p">(</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>        <span class="n">docker_socket</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">DOCKER_SOCKET</span><span class="p">),</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="n">bpy</span><span class="o">=</span><span class="n">_module_available</span><span class="p">(</span><span class="s2">"bpy"</span><span class="p">),</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>        <span class="c1"># `jupyter` (the meta-package) importable in this same interpreter --</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="c1"># the container's `NOTEBOOK` alias runs `simnibs_python -m jupyter</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>        <span class="c1"># lab`, and the server itself runs under `simnibs_python`, so</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>        <span class="c1"># `find_spec` here answers the same question that alias depends on</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>        <span class="c1"># (ra_13 finding 3e; there is no in-app start control yet, see</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>        <span class="c1"># `pages/settings/index.tsx`'s Jupyter card).</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>        <span class="n">jupyter</span><span class="o">=</span><span class="n">_module_available</span><span class="p">(</span><span class="s2">"jupyter"</span><span class="p">),</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>        <span class="n">fastsurfer</span><span class="o">=</span><span class="n">_fastsurfer_home</span><span class="p">()</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

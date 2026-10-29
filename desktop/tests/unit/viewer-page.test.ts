@@ -352,6 +352,7 @@ describe("fieldOfNode", () => {
     // and a substring match called it TI_max.
     expect(fieldOfNode("L_Insula_TI_subject_TI_max.nii.gz")).toBe("TI_max");
     expect(fieldOfNode("L_Insula_TI_subject_hf_peak.nii.gz")).toBe("hf_peak");
+    expect(fieldOfNode("L_Insula_TI_subject_hf_power_density.nii.gz")).toBe("hf_power_density");
     expect(fieldOfNode("grey_L_Insula_TI_subject_TI_normal.nii.gz")).toBe("TI_normal");
     expect(fieldOfNode("101_TDCS_1_scalar_subject_magnE.nii.gz")).toBe("magnE");
   });

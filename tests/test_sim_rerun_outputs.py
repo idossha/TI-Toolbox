@@ -146,14 +146,17 @@ def _fake_simnibs(sessions: list):
     mesh_io.read_msh.return_value.crop_mesh.return_value.field.__getitem__.return_value.value = np.zeros(
         (8, 3)
     )
+    # the central overlays carry E_normal, as SimNIBS writes them
+    mesh_io.read_msh.return_value.field.__contains__.return_value = True
     with (
         patch.object(TISimulation, "_build_session", build),
         patch.object(base_mod, "run_simnibs", side_effect=lambda s: s.run()),
         patch.object(base_mod, "run_montage_visualization"),
         patch.object(base_mod, "subprocess"),
         patch.object(base_mod.BaseSimulation, "_write_report"),
-        patch.object(ti_mod, "mesh_io", mesh_io),
-        patch.object(ti_mod, "TI"),
+        patch.object(base_mod, "mesh_io", mesh_io),
+        patch.object(base_mod, "envelope_max"),
+        patch.object(base_mod, "envelope"),
         patch.object(ti_mod, "extract_fields"),
         patch.object(ti_mod, "transform_dirs_to_nifti"),
     ):

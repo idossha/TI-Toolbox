@@ -95,13 +95,14 @@ DOCKER_MOUNT_PREFIX = "/mnt"
 # ============================================================================
 
 # Field names (SimNIBS convention)
-FIELD_TI_MAX = "TI_max"  # TI field name in 2-pair simulation meshes
-FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4-pair simulation meshes
+FIELD_TI_MAX = "TI_max"  # TI field name in 2-channel simulation meshes
+FIELD_MTI_MAX = "mTI_max"  # mTI field name in 4+-channel simulation meshes
 FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
-FIELD_TI_AVG = "TI_avg"  # Modulation depth averaged over direction (get_TI_avg)
+FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
-FIELD_HF_SAR = "hf_sar"  # carrier heating driver, sum_i |E_i|^2 (∝ SAR)
+FIELD_HF_SAR = "hf_sar"  # sum_i |E_i|^2 = 2 * calc.hf_power (rename pending)
+FIELD_HF_POWER_DENSITY = "hf_power_density"  # sigma * calc.hf_power, W/m^3
 
 # Field "kind" classification used by FieldSpec below. This groups fields by
 # what they are computed from -- the low-frequency envelope versus the carrier
@@ -138,7 +139,7 @@ class FieldSpec:
     description: str
 
 
-#: Single source of truth for the six output field quantities. Order here
+#: Single source of truth for the seven output field quantities. Order here
 #: is the canonical display order (``get_field_names()`` preserves it; the
 #: desktop app's field lists mirror it).
 FIELD_REGISTRY: tuple[FieldSpec, ...] = (
@@ -159,7 +160,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         units="V/m",
         description=(
             "Modulation depth (peak-to-trough envelope), maximum over direction "
-            "(4-pair/mTI mesh spelling)."
+            "(mTI mesh spelling, 4 or more channels)."
         ),
     ),
     FieldSpec(
@@ -176,7 +177,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         units="V/m",
         description=(
             "Envelope modulation depth (peak-to-trough), averaged over "
-            "sampled directions rather than maximised."
+            "all directions rather than maximised."
         ),
     ),
     FieldSpec(
@@ -200,6 +201,17 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
             "calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)."
         ),
     ),
+    FieldSpec(
+        name=FIELD_HF_POWER_DENSITY,
+        label=FIELD_HF_POWER_DENSITY,
+        kind=FIELD_KIND_SAFETY,
+        units="W/m^3",
+        description=(
+            "Time-averaged carrier power absorbed per volume, "
+            "(1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity; "
+            "SAR = hf_power_density/rho (IEEE C95.1-2019)."
+        ),
+    ),
 )
 
 
@@ -218,8 +230,8 @@ def get_field_names(kind: str | None = None) -> tuple[str, ...]:
 
 #: Definition of each selectable output field, as
 #: ``(name, units, definition, equation, reference)``. Equations match the
-#: implementations in :mod:`tit.calc` and :mod:`tit.fields`; ``E_i`` is the
-#: field from electrode pair *i* and ``n`` a unit direction. No route serves
+#: implementations in :mod:`tit.calc`; ``E_i`` is the
+#: field of channel *i* and ``n`` a unit direction. No route serves
 #: it and the desktop app writes its own help text; it is the cited statement
 #: of each equation that the test suite checks against the registry.
 OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
@@ -228,20 +240,22 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "V/m",
         "Depth of the low-frequency envelope modulation (peak-to-trough), "
         "maximised over direction.",
-        "Two pairs: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
-        "closed form. K channels: sqrt(2)*(sqrt(P+Q) - sqrt(P-Q)), where "
-        "P = 0.5*sum_k(a_k^2 + b_k^2), Q = |sum_k a_k*b_k*exp(i*psi_k)|, "
-        "a_k = E_ka.n and b_k = E_kb.n; maximised over n.",
+        "Two channels: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
+        "closed form. K beating pairs (2K channels): | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
+        "(|S n| + |D n|), where a_k = E_ka.n, b_k = E_kb.n and S, D have rows "
+        "E_ka + E_kb, E_ka - E_kb; maximised over n by an eigen-branch "
+        "root-find.",
         "Grossman et al. 2017, Cell 169(6):1029-1041; "
         "Hirata et al. 2024, Comput Biol Med 178:108697.",
     ),
     (
         FIELD_TI_AVG,
         "V/m",
-        "The same envelope depth averaged over sampled directions instead of "
+        "The same envelope depth averaged over all directions instead of "
         "maximised, i.e. what an arbitrarily oriented element sees on average.",
-        "Mean over a Fibonacci-sphere direction sweep of the expression above "
-        "(no local refinement, which only sharpens a single best direction).",
+        "Mean over all directions of the expression above: exact closed form "
+        "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two channels, a 4096-direction "
+        "sphere quadrature for K >= 2 beating pairs.",
         "Direction-averaged form of Grossman et al. 2017.",
     ),
     (
@@ -249,9 +263,8 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "V/m",
         "Largest instantaneous magnitude the summed carrier fields can reach "
         "(peak-to-zero, not peak-to-trough).",
-        "max over s_i in {-1,+1} of |sum_i s_i*E_i| -- exact sign enumeration "
-        "up to 8 fields, otherwise a direction sweep whose implied sign "
-        "pattern is evaluated exactly.",
+        "max over s_i in {-1,+1} of |sum_i s_i*E_i|, exact for any number of "
+        "fields (zonotope vertices).",
         "Cassara et al. 2025, Eq. 3.",
     ),
     (
@@ -263,6 +276,17 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "(sigma/2*rho)*hf_sar and needs per-tissue conductivity and density.",
         "sum_i |E_i|^2",
         "Cassara et al. 2025.",
+    ),
+    (
+        FIELD_HF_POWER_DENSITY,
+        "W/m^3",
+        "Time-averaged carrier power absorbed per unit volume (Joule heating), "
+        "with the per-element conductivity the simulation solved with. Divided "
+        "by tissue density it is SAR; at 1-10 kHz, though, the exposure "
+        "standards limit the RMS in-situ field, not SAR.",
+        "(1/2) sum_i E_i^T sigma E_i: sigma*hf_power for isotropic conductivity, "
+        "the conductivity tensor for anisotropic (DTI) models.",
+        "IEEE C95.1-2019, p. 35; Cassara et al. 2025, Part II Eq. 1.",
     ),
 )
 
@@ -281,7 +305,7 @@ def get_field_spec(name: str) -> FieldSpec:
     raise KeyError(f"Unknown field name: {name!r}")
 
 
-#: The four volume-mesh output fields a simulation may selectively compute
+#: The five volume-mesh output fields a simulation may selectively compute
 #: and write (``SimulationConfig.output_fields``). Excludes ``FIELD_MTI_MAX``
 #: (the mTI on-disk spelling of ``FIELD_TI_MAX``, not a distinct user choice)
 #: and ``FIELD_TI_NORMAL`` (a node field on a separate surface mesh, not a
@@ -293,13 +317,26 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 )
 
 
+#: The selectable fields defined without an envelope: what a carrier-only
+#: (ΔF = 0) simulation may compute (``SimulationConfig.carrier_only``).
+CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
+    FIELD_HF_PEAK,
+    FIELD_HF_SAR,
+    FIELD_HF_POWER_DENSITY,
+)
+
+
 #: Field names valid on the fsaverage surface: every registered field except
-#: ``FIELD_MTI_MAX`` ("mTI_max") and ``FIELD_TI_AVG`` ("TI_avg"). The
+#: ``FIELD_MTI_MAX`` ("mTI_max"), ``FIELD_TI_AVG`` ("TI_avg") and
+#: ``FIELD_HF_POWER_DENSITY`` ("hf_power_density"). The
 #: central-surface pipeline always emits ``TI_max`` regardless of whether the
-#: simulation was 2-pair or 4-pair, so there is no separate mTI fsaverage
+#: simulation was TI (2 channels) or mTI (4+), so there is no separate mTI fsaverage
 #: field; ``TI_avg`` has no central-surface overlay to project (it is only
 #: written as a volume field), so it is excluded too rather than added to
-#: :mod:`tit.source.fsaverage` sight-unseen. Derived here (rather than in
+#: :mod:`tit.source.fsaverage` sight-unseen. ``hf_power_density`` is excluded
+#: because that module interpolates only the carrier E-fields onto the central
+#: surface; the conductivity (a tensor field under DTI models) would have to be
+#: interpolated with them, which it does not do. Derived here (rather than in
 #: each consumer) so :mod:`tit.source.config` and :mod:`tit.stats.config`
 #: cannot drift apart. Lives in this leaf module because importing
 #: ``tit.source.config`` would execute ``tit/source/__init__.py`` and pull in
@@ -307,7 +344,7 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 FSAVG_FIELD_NAMES: tuple[str, ...] = tuple(
     spec.name
     for spec in FIELD_REGISTRY
-    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG)
+    if spec.name not in (FIELD_MTI_MAX, FIELD_TI_AVG, FIELD_HF_POWER_DENSITY)
 )
 
 
@@ -327,8 +364,8 @@ FSAVG_NODES = {5: 20484, 6: 81924, 7: 327684}
 # ----------------------------------------------------------------------------
 # One electrode pair is one current channel. The engine is quasi-static: each
 # FEM field is a phasor amplitude vector, and every channel must be paired with
-# another to form a beat, so the pair count is always **even**. Two pairs is
-# standard TI (one beat); four or more even pairs is mTI (2, 4, 6, 8, 12, 16 …).
+# another to form a beat, so the channel count is always **even**. Two
+# channels is standard TI (one beat); four or more (even) is mTI (2, 4, 6, 8, 12 …).
 # This is the single rule -- the config validators, tit.calc's field-list
 # validation and the montage editors all state it in terms of these constants.
 
@@ -358,9 +395,6 @@ PAIR_COUNT_RULE = (
 
 # Mesh tissue tag ranges for brain cropping
 BRAIN_TISSUE_TAG_RANGES = ((1, 100), (1001, 1100))
-
-# Tissue tag values
-GM_TISSUE_TAG = 2  # Grey matter element tag in SimNIBS meshes
 
 
 # ============================================================================
@@ -473,8 +507,7 @@ FS_LICENSE_PATH = "/usr/local/freesurfer/license.txt"
 # Environment variable to disable telemetry (any truthy value)
 ENV_NO_TELEMETRY = "TIT_NO_TELEMETRY"
 
-# Config directory and file
-TELEMETRY_CONFIG_DIR = "ti-toolbox"
+# Config file
 TELEMETRY_CONFIG_FILE = "telemetry.json"
 
 # User-level config directory inside Docker container

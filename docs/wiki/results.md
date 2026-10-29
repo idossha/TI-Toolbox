@@ -26,7 +26,7 @@ derivatives/SimNIBS/sub-<ID>/
 ├── m2m_<ID>/                      # head model
 ├── Simulations/<name>/
 │   ├── TI/ (or mTI/)              # the envelope fields, and montage_imgs/
-│   ├── high_Frequency/            # the per-pair carrier fields
+│   ├── high_Frequency/            # the per-channel carrier fields
 │   ├── documentation/             # the config the run was launched with
 │   └── Analyses/{Mesh,Voxel}/     # per-analysis outputs
 ├── flex-search/<run>/             # flex_meta.json, optimised positions, mappings,

@@ -741,7 +741,7 @@ def _assert_dispatch(kind: str, config: dict, rec: Recorder) -> None:
         # their own names.
         _set_values_kept(rec.written, _plain(config), "config.json")
         on_file = {k: v for k, v in rec.written.items() if k != "project_dir"}
-        kwargs = _plain({k: v for k, v in typed.items() if k != "logger_callback"})
+        kwargs = _plain(typed)
         _subset_equal(kwargs, on_file, "run_pipeline")
     else:
         _assert_fields_match(kind, typed, config, skip={"_type", "project_dir", "mode"})

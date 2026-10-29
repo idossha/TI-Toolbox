@@ -20,7 +20,7 @@ X11 and no FreeSurfer. Wire contract: `contracts/openapi.yaml`.
 
 ```
 desktop/        Electron main/preload + React renderer; the UI bundle tit.server serves
-tit/            the science core (paths, sim, opt, analyzer, stats, calc, fields, pre, reporting)
+tit/            the science core (paths, sim, opt, analyzer, stats, calc, pre, reporting)
 tit/server/     FastAPI app + routes; tit/jobs/ is the job engine
 contracts/      openapi.yaml is the one hand-written contract; generated/ is build output (npm run gen)
 tests/          host pytest (heavy libs mocked); tests/numerical/ runs the real ones
@@ -68,7 +68,7 @@ Run checks appropriate to the change, and the full gate for a release candidate.
 cd desktop && npm run typecheck && npm run lint && npx vitest run
 .venv/bin/python -m pytest tests/ -q --ignore=tests/numerical          # host, heavy libs mocked
 docker exec -w /ti-toolbox <c> simnibs_python -m pytest tests/numerical -q   # separate real-library leg
-python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && python3 dev/contracts_check.py
+python3 dev/documentation_policy.py && python3 dev/route_import_guard.py && .venv/bin/python dev/contracts_check.py  # needs numba
 cd desktop && TIT_E2E_OFFSCREEN=1 npm run e2e:quiet          # full mock suite, under the lock
 cd desktop && npx playwright test --project=real …           # against the dev container
 actionlint                      # if you touched .github/workflows
@@ -100,7 +100,7 @@ Several agents may be in one worktree at once. Each of these cost a lane real wo
 
 ## Science integrity
 
-A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` needs:
+A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc` or `tit/sim` needs:
 
 1. a test in `tests/numerical/` running against the **real** libraries (the host `tests/conftest.py`
    mocks scipy/nibabel/…), asserting the claim independently rather than retyping the

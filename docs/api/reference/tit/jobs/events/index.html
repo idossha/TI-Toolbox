@@ -1001,7 +1001,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1022,7 +1022,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1130,9 +1130,7 @@ call and reuses them here.</p>
 
 
 <a href="#tit.jobs.events.emit_stage" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_stage</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">stage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_stage</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1158,20 +1156,20 @@ call and reuses them here.</p>
 <span class="normal"><a href="#__codelineno-0-70">70</a></span>
 <span class="normal"><a href="#__codelineno-0-71">71</a></span>
 <span class="normal"><a href="#__codelineno-0-72">72</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_stage</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">i</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">n</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;A named stage started (``i`` of ``n`` when the stage is one of a known sequence).&quot;&quot;&quot;</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="w">    </span><span class="sd">"""A named stage started (``i`` of ``n`` when the stage is one of a known sequence)."""</span>
 <a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="k">with</span> <span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;stage&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">stage</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;i&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">"stage"</span><span class="p">]</span> <span class="o">=</span> <span class="n">stage</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">"i"</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>        <span class="n">_current</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
 <a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
 <a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TIT_EVENTS_FILE not set; emit_stage(</span><span class="si">{</span><span class="n">stage</span><span class="si">!r}</span><span class="s2">) is a no-op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"TIT_EVENTS_FILE not set; emit_stage(</span><span class="si">{</span><span class="n">stage</span><span class="si">!r}</span><span class="s2">) is a no-op"</span><span class="p">)</span>
 <a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="k">return</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;stage&quot;</span><span class="p">,</span> <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">}</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"stage"</span><span class="p">,</span> <span class="s2">"stage"</span><span class="p">:</span> <span class="n">stage</span><span class="p">}</span>
 <a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="k">if</span> <span class="n">i</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">&quot;i&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">"i"</span><span class="p">]</span> <span class="o">=</span> <span class="n">i</span>
 <a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="k">if</span> <span class="n">n</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="o">=</span> <span class="n">n</span>
 <a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1187,7 +1185,7 @@ call and reuses them here.</p>
 
 
 <a href="#tit.jobs.events.emit_progress" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_progress</span><span class="p">(</span><span class="n">pct</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_progress</span><span class="p">(</span><span class="n">pct</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1225,29 +1223,29 @@ docstring's final paragraph.</p>
 <span class="normal"><a href="#__codelineno-0-97">97</a></span>
 <span class="normal"><a href="#__codelineno-0-98">98</a></span>
 <span class="normal"><a href="#__codelineno-0-99">99</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_progress</span><span class="p">(</span><span class="n">pct</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">msg</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Determinate progress within the current stage, 0-100.</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="w">    </span><span class="sd">"""Determinate progress within the current stage, 0-100.</span>
 <a id="__codelineno-0-77" name="__codelineno-0-77"></a>
 <a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    ``stage``/``i``/``n`` (required by the events schema) are carried over</span>
 <a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    from the most recent :func:`emit_stage` call -- see the module</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    docstring&#39;s final paragraph.</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    docstring's final paragraph.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    """</span>
 <a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
 <a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TIT_EVENTS_FILE not set; emit_progress(</span><span class="si">{</span><span class="n">pct</span><span class="si">!r}</span><span class="s2">) is a no-op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"TIT_EVENTS_FILE not set; emit_progress(</span><span class="si">{</span><span class="n">pct</span><span class="si">!r}</span><span class="s2">) is a no-op"</span><span class="p">)</span>
 <a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="k">return</span>
 <a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">with</span> <span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="n">stage</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;stage&quot;</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">&quot;progress&quot;</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>        <span class="n">i</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;i&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;i&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="n">n</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="k">if</span> <span class="n">_current</span><span class="p">[</span><span class="s2">&quot;n&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">100</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="n">stage</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">"stage"</span><span class="p">]</span> <span class="ow">or</span> <span class="s2">"progress"</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>        <span class="n">i</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">"i"</span><span class="p">]</span> <span class="k">if</span> <span class="n">_current</span><span class="p">[</span><span class="s2">"i"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">0</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="n">n</span> <span class="o">=</span> <span class="n">_current</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="k">if</span> <span class="n">_current</span><span class="p">[</span><span class="s2">"n"</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="mi">100</span>
 <a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;progress&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">,</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="s2">&quot;i&quot;</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="s2">&quot;n&quot;</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="s2">&quot;pct&quot;</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct</span><span class="p">))),</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="s2">"type"</span><span class="p">:</span> <span class="s2">"progress"</span><span class="p">,</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="s2">"stage"</span><span class="p">:</span> <span class="n">stage</span><span class="p">,</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="s2">"i"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="s2">"n"</span><span class="p">:</span> <span class="n">n</span><span class="p">,</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="s2">"pct"</span><span class="p">:</span> <span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="mf">100.0</span><span class="p">,</span> <span class="nb">float</span><span class="p">(</span><span class="n">pct</span><span class="p">))),</span>
 <a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="p">}</span>
 <a id="__codelineno-0-97" name="__codelineno-0-97"></a>    <span class="k">if</span> <span class="n">msg</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">&quot;msg&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">"msg"</span><span class="p">]</span> <span class="o">=</span> <span class="n">msg</span>
 <a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1263,9 +1261,7 @@ docstring's final paragraph.</p>
 
 
 <a href="#tit.jobs.events.emit_artifact" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_artifact</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_artifact</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1295,22 +1291,22 @@ job's whole artifact list.</p>
 <span class="normal"><a href="#__codelineno-0-116">116</a></span>
 <span class="normal"><a href="#__codelineno-0-117">117</a></span>
 <span class="normal"><a href="#__codelineno-0-118">118</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_artifact</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;An output file exists now (``kind`` in report|nifti|mesh|csv|json|pdf|png|txt|dir).</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="w">    </span><span class="sd">"""An output file exists now (``kind`` in report|nifti|mesh|csv|json|pdf|png|txt|dir).</span>
 <a id="__codelineno-0-104" name="__codelineno-0-104"></a>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    Written as its own flat ``path``/``kind``/``label`` fields (the schema&#39;s ``artifact`` event</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    Written as its own flat ``path``/``kind``/``label`` fields (the schema's ``artifact`` event</span>
 <a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    shape), and remembered in :data:`_artifacts` so a later :func:`emit_result` can report the</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    job&#39;s whole artifact list.</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;path&quot;</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span> <span class="s2">&quot;kind&quot;</span><span class="p">:</span> <span class="n">kind</span><span class="p">}</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    job's whole artifact list.</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    """</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">item</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"path"</span><span class="p">:</span> <span class="n">path</span><span class="p">,</span> <span class="s2">"kind"</span><span class="p">:</span> <span class="n">kind</span><span class="p">}</span>
 <a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">if</span> <span class="n">label</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="n">item</span><span class="p">[</span><span class="s2">&quot;label&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="n">item</span><span class="p">[</span><span class="s2">"label"</span><span class="p">]</span> <span class="o">=</span> <span class="n">label</span>
 <a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="k">with</span> <span class="n">_lock</span><span class="p">:</span>
 <a id="__codelineno-0-113" name="__codelineno-0-113"></a>        <span class="n">_artifacts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
 <a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
 <a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TIT_EVENTS_FILE not set; emit_artifact(</span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">) is a no-op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"TIT_EVENTS_FILE not set; emit_artifact(</span><span class="si">{</span><span class="n">path</span><span class="si">!r}</span><span class="s2">) is a no-op"</span><span class="p">)</span>
 <a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="k">return</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;artifact&quot;</span><span class="p">,</span> <span class="o">**</span><span class="n">item</span><span class="p">})</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"artifact"</span><span class="p">,</span> <span class="o">**</span><span class="n">item</span><span class="p">})</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1325,7 +1321,7 @@ job's whole artifact list.</p>
 
 
 <a href="#tit.jobs.events.emit_result" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_result</span><span class="p">(</span><span class="n">outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_result</span><span class="p">(</span><span class="n">outputs</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1357,22 +1353,22 @@ the job's full output-file list alongside its metrics.</p>
 <span class="normal"><a href="#__codelineno-0-136">136</a></span>
 <span class="normal"><a href="#__codelineno-0-137">137</a></span>
 <span class="normal"><a href="#__codelineno-0-138">138</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_result</span><span class="p">(</span><span class="n">outputs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The runner&#39;s final structured result (written last, before ``exit``).</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="w">    </span><span class="sd">"""The runner's final structured result (written last, before ``exit``).</span>
 <a id="__codelineno-0-123" name="__codelineno-0-123"></a>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">    *outputs* -- the runner&#39;s arbitrary result payload (mixes file paths and scalar metrics) --</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    is written verbatim as the event&#39;s ``outputs`` object. ``artifacts`` carries every artifact</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">    *outputs* -- the runner's arbitrary result payload (mixes file paths and scalar metrics) --</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    is written verbatim as the event's ``outputs`` object. ``artifacts`` carries every artifact</span>
 <a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">    seen so far via :func:`emit_artifact`, so a consumer reading only this one event still gets</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    the job&#39;s full output-file list alongside its metrics.</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    the job's full output-file list alongside its metrics.</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">    """</span>
 <a id="__codelineno-0-129" name="__codelineno-0-129"></a>    <span class="k">with</span> <span class="n">_lock</span><span class="p">:</span>
 <a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="n">artifacts</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">_artifacts</span><span class="p">)</span>
 <a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
 <a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;TIT_EVENTS_FILE not set; emit_result(...) is a no-op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"TIT_EVENTS_FILE not set; emit_result(...) is a no-op"</span><span class="p">)</span>
 <a id="__codelineno-0-134" name="__codelineno-0-134"></a>        <span class="k">return</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;result&quot;</span><span class="p">,</span> <span class="s2">&quot;outputs&quot;</span><span class="p">:</span> <span class="n">outputs</span><span class="p">}</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="n">event</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"result"</span><span class="p">,</span> <span class="s2">"outputs"</span><span class="p">:</span> <span class="n">outputs</span><span class="p">}</span>
 <a id="__codelineno-0-136" name="__codelineno-0-136"></a>    <span class="k">if</span> <span class="n">artifacts</span><span class="p">:</span>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">&quot;artifacts&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">artifacts</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>        <span class="n">event</span><span class="p">[</span><span class="s2">"artifacts"</span><span class="p">]</span> <span class="o">=</span> <span class="n">artifacts</span>
 <a id="__codelineno-0-138" name="__codelineno-0-138"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">event</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
@@ -1388,7 +1384,7 @@ the job's full output-file list alongside its metrics.</p>
 
 
 <a href="#tit.jobs.events.emit_exit" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_exit</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_exit</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1411,16 +1407,16 @@ field.</p>
 <span class="normal"><a href="#__codelineno-0-149">149</a></span>
 <span class="normal"><a href="#__codelineno-0-150">150</a></span>
 <span class="normal"><a href="#__codelineno-0-151">151</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_exit</span><span class="p">(</span><span class="n">code</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Always written in the runner&#39;s ``finally`` so ``lost`` vs ``failed`` is decidable.</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="w">    </span><span class="sd">"""Always written in the runner's ``finally`` so ``lost`` vs ``failed`` is decidable.</span>
 <a id="__codelineno-0-143" name="__codelineno-0-143"></a>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    *code* is the runner&#39;s actual (integer) process exit code, carried as the event&#39;s ``code``</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">    *code* is the runner's actual (integer) process exit code, carried as the event's ``code``</span>
 <a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">    field.</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">    """</span>
 <a id="__codelineno-0-147" name="__codelineno-0-147"></a>    <span class="n">sink</span> <span class="o">=</span> <span class="n">get_event_sink</span><span class="p">()</span>
 <a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="k">if</span> <span class="n">sink</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;TIT_EVENTS_FILE not set; emit_exit(</span><span class="si">{</span><span class="n">code</span><span class="si">!r}</span><span class="s2">) is a no-op&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="sa">f</span><span class="s2">"TIT_EVENTS_FILE not set; emit_exit(</span><span class="si">{</span><span class="n">code</span><span class="si">!r}</span><span class="s2">) is a no-op"</span><span class="p">)</span>
 <a id="__codelineno-0-150" name="__codelineno-0-150"></a>        <span class="k">return</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">&quot;type&quot;</span><span class="p">:</span> <span class="s2">&quot;exit&quot;</span><span class="p">,</span> <span class="s2">&quot;code&quot;</span><span class="p">:</span> <span class="n">code</span><span class="p">})</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">sink</span><span class="o">.</span><span class="n">write</span><span class="p">({</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"exit"</span><span class="p">,</span> <span class="s2">"code"</span><span class="p">:</span> <span class="n">code</span><span class="p">})</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1435,9 +1431,7 @@ field.</p>
 
 
 <a href="#tit.jobs.events.emit_new_artifacts" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_new_artifacts</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">200</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">emit_new_artifacts</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">=</span> <span class="mi">200</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1478,12 +1472,12 @@ science code having to know about events. Returns the emitted paths (sorted).</p
 <span class="normal"><a href="#__codelineno-0-194">194</a></span>
 <span class="normal"><a href="#__codelineno-0-195">195</a></span>
 <span class="normal"><a href="#__codelineno-0-196">196</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="k">def</span><span class="w"> </span><span class="nf">emit_new_artifacts</span><span class="p">(</span><span class="n">root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">since</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">200</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Emit one ``artifact`` event per file under *root* modified at or after *since*.</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="w">    </span><span class="sd">"""Emit one ``artifact`` event per file under *root* modified at or after *since*.</span>
 <a id="__codelineno-0-171" name="__codelineno-0-171"></a>
 <a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    Runners whose output directory is decided deep inside a pipeline (the analyzer, for one)</span>
 <a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    call this after the pipeline returns, so the Jobs panel lists what was written without the</span>
 <a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">    science code having to know about events. Returns the emitted paths (sorted).</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a><span class="sd">    """</span>
 <a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
 <a id="__codelineno-0-177" name="__codelineno-0-177"></a>
 <a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="n">found</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
@@ -1502,7 +1496,7 @@ science code having to know about events. Returns the emitted paths (sorted).</p
 <a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">found</span><span class="p">[:</span><span class="n">limit</span><span class="p">]:</span>
 <a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="n">ext</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">splitext</span><span class="p">(</span><span class="n">path</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
 <a id="__codelineno-0-193" name="__codelineno-0-193"></a>        <span class="n">emit_artifact</span><span class="p">(</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="n">path</span><span class="p">,</span> <span class="n">_ARTIFACT_KIND_BY_EXT</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ext</span><span class="p">,</span> <span class="s2">&quot;txt&quot;</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="n">path</span><span class="p">,</span> <span class="n">_ARTIFACT_KIND_BY_EXT</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ext</span><span class="p">,</span> <span class="s2">"txt"</span><span class="p">),</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
 <a id="__codelineno-0-195" name="__codelineno-0-195"></a>        <span class="p">)</span>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="k">return</span> <span class="n">found</span><span class="p">[:</span><span class="n">limit</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>

@@ -22,9 +22,8 @@ pre
     Preprocessing pipelines (DICOM conversion, FastSurfer, CHARM, optional
     FreeSurfer, QSIPrep/QSIRecon and DTI fit).
 calc
-    TI envelope calculations (``get_TI_vectors``, ``get_TI_avg``, ``get_TI_dir``).
-fields
-    Carrier-derived high-frequency field metrics.
+    TI/mTI envelope (``envelope``, ``envelope_max``, ``envelope_mean``) and
+    carrier metrics (``hf_peak``, ``hf_power``).
 source
     EEG source-forward preparation and fsaverage field mapping.
 server

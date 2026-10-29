@@ -151,7 +151,7 @@ Python uses type hints, Google-style public API docstrings, exception types defi
 and module loggers. Run `black` on changed Python files. Scientific logic stays in `tit`; paths go
 through PathManager. Use existing shared frontend controls and strict TypeScript.
 
-Changes to `tit/stats`, `tit/analyzer`, `tit/calc`, `tit/fields` or `tit/sim` require real-library
+Changes to `tit/stats`, `tit/analyzer`, `tit/calc` or `tit/sim` require real-library
 numerical coverage. If published outputs change, document affected workflows/versions and rerun
 or rescaling guidance in the relevant [release note](docs/releases/v3.0.0.md#scientific-corrections).
 

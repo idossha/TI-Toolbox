@@ -1,31 +1,32 @@
 #!/usr/bin/env simnibs_python
-"""N-pair Multi-channel Temporal Interference (mTI) simulation.
+"""N-channel Multi-channel Temporal Interference (mTI) simulation.
 
 Implements :class:`mTISimulation`, the concrete ``BaseSimulation`` subclass
-for multi-channel TI stimulation with an arbitrary even number of electrode
-pairs (4, 6, 8, ...):
+for multi-channel TI stimulation with an arbitrary even number of channels
+(4, 6, 8, ...):
 
-* Each pair produces one HF E-field via SimNIBS TDCS.
-* Adjacent pairs are combined into intermediate 2-pair TI vector fields,
-  saved for inspection only.
-* The final mTI envelope is the verified multi-carrier modulation-depth
-  envelope (:func:`tit.calc.get_TI_vectors`) over all N channel fields
+* Each channel produces one HF E-field via SimNIBS TDCS.
+* Each beating pair's two channels are combined into an intermediate TI
+  vector field, saved for inspection only.
+* The final mTI envelope is the joint envelope maximum
+  (:func:`tit.calc.envelope_max`) over all N channel fields
   jointly -- *not* a recursive TI-of-TI combination of the intermediate
   fields above (that approximation is physically invalid).
-* Channels are paired positionally: each two consecutive channels share
-  a carrier and beat against each other (A&B on the first carrier, C&D
-  on the second, and so on).
+* Channels are paired positionally: each two consecutive channels form a
+  beating pair at a common difference frequency (channels 1 and 2 the first
+  pair, 3 and 4 the second, and so on; on disk the channels are lettered
+  ``A``, ``B``, ``C``, ``D`` ...).
 
-Example with 4 channels (A/B/C/D)::
+Example with 4 channels (on disk A/B/C/D)::
 
-    TI_AB = TI(E_A, E_B)                       # intermediate, inspection only
-    TI_CD = TI(E_C, E_D)                       # intermediate, inspection only
-    mTI   = get_TI_vectors([E_A, E_B, E_C, E_D])
+    TI_AB = _ti_vectors([E_A, E_B])            # intermediate, inspection only
+    TI_CD = _ti_vectors([E_C, E_D])            # intermediate, inspection only
+    mTI   = envelope_max([E_A, E_B, E_C, E_D])
 
 See Also
 --------
 BaseSimulation : Abstract base class providing the ``run`` template.
-TISimulation : Standard 2-pair TI variant.
+TISimulation : Standard two-channel TI variant.
 SimulationConfig : Configuration consumed by the simulation.
 run_simulation : Top-level orchestration that dispatches to this class.
 """
@@ -35,13 +36,10 @@ import os
 import string
 from copy import deepcopy
 
-import numpy as np
 from simnibs import mesh_io, sim_struct
-from simnibs.utils import TI_utils as TI
 
 from tit import constants as const
-from tit.calc import get_TI_avg, get_TI_dir, get_TI_vectors
-from tit.fields import hf_peak, hf_sar
+from tit.calc import envelope_max
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
@@ -52,30 +50,34 @@ from tit.sim.utils import (
     transform_dirs_to_nifti,
 )
 
-# Brain tissue crop mask — ranges defined in constants.BRAIN_TISSUE_TAG_RANGES
-_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
+
+def _ti_vectors(fields):
+    """TI vectors: the envelope maximum times its (oriented) maximising direction."""
+    amp, direction = envelope_max(fields, return_direction=True)
+    return amp[:, None] * direction
 
 
 class mTISimulation(BaseSimulation):
-    """Run a single N-pair mTI simulation (N >= 4, even).
+    """Run a single N-channel mTI simulation (N >= 4, even).
 
     Pipeline
     --------
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION (N TDCS lists), run FEM.
-    4. Compute intermediate 2-pair TI vector fields (adjacent pairings,
-       saved for inspection only).
-    5. Compute final ``mTI_max`` from the verified multi-carrier
+    4. Compute each beating pair's intermediate TI vector field (adjacent
+       channels, saved for inspection only).
+    5. Compute final ``mTI_max`` from the verified
        modulation-depth envelope over all N channel fields jointly, plus
        its orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
-       ``hf_sar`` kHz-exposure safety maps (always over all N fields).
+       ``hf_sar``/``hf_power_density`` kHz-exposure safety maps (always over
+       all N fields).
     6. Extract GM/WM meshes, convert to NIfTI, organize outputs.
 
     See Also
     --------
     BaseSimulation : Parent class with shared setup and template ``run``.
-    TISimulation : Standard 2-pair variant.
+    TISimulation : Standard two-channel variant.
     """
 
     @property
@@ -96,7 +98,7 @@ class mTISimulation(BaseSimulation):
     # ── Session building ────────────────────────────────────────────────────────────────
 
     def _build_session(self, output_dir: str) -> sim_struct.SESSION:
-        """Build SimNIBS SESSION for N-pair mTI.
+        """Build SimNIBS SESSION for N-channel mTI.
 
         Parameters
         ----------
@@ -106,7 +108,7 @@ class mTISimulation(BaseSimulation):
         Returns
         -------
         sim_struct.SESSION
-            Configured session with N TDCS lists (one per pair).
+            Configured session with N TDCS lists (one per channel).
         """
         S = self._init_session(output_dir)
         n_pairs = self.montage.num_pairs
@@ -139,10 +141,9 @@ class mTISimulation(BaseSimulation):
         Raises
         ------
         ValueError
-            If the montage has more than 26 electrode pairs (A-Z limit).
+            If the montage has more than 26 channels (A-Z limit).
         """
         sid = self.config.subject_id
-        cond = self.config.conductivity
         name = self.montage.name
         n_pairs = self.montage.num_pairs
         if n_pairs > 26:
@@ -151,70 +152,28 @@ class mTISimulation(BaseSimulation):
             )
         letters = list(string.ascii_uppercase[:n_pairs])
 
-        # Load and crop all N HF meshes
-        meshes = []
-        for i in range(1, n_pairs + 1):
-            m = mesh_io.read_msh(
-                os.path.join(dirs["hf_dir"], f"{sid}_TDCS_{i}_{cond}.msh")
-            )
-            meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
-
-        # Extract E-field arrays
+        meshes = self._cropped_carriers(dirs["hf_dir"], n_pairs)
         e_fields = [m.field["E"].value for m in meshes]
 
         # Save intermediate pairwise TI fields (adjacent pairs)
         ti_pair_suffixes = []
         for i in range(0, n_pairs, 2):
-            ltr1, ltr2 = letters[i], letters[i + 1]
-            suffix = f"TI_{ltr1}{ltr2}"
+            suffix = f"TI_{letters[i]}{letters[i + 1]}"
             ti_pair_suffixes.append(suffix)
-            ti_vecs = get_TI_vectors([e_fields[i], e_fields[i + 1]])
+            ti_vecs = _ti_vectors([e_fields[i], e_fields[i + 1]])
             self._save_ti_vectors(
                 meshes[0], ti_vecs, dirs["ti_mesh"], f"{name}_{suffix}.msh"
             )
 
-        # Final mTI: verified multi-carrier modulation-depth envelope over
-        # all N channel fields jointly (tit.calc.get_TI_vectors) -- not a
-        # recursive TI-of-TI combination of the intermediate pairwise
-        # fields saved above (that approximation is physically invalid).
-        # Channels are paired positionally: each two consecutive channels
-        # share a carrier.
-        selected = set(self.config.output_fields)
-
-        mout = deepcopy(meshes[0])
-        mout.elmdata = []
-        if const.FIELD_TI_MAX in selected:
-            mti_vectors = get_TI_vectors(e_fields)
-            mti_field = np.linalg.norm(mti_vectors, axis=1)
-            mout.add_element_field(mti_field, const.FIELD_MTI_MAX)
-        if const.FIELD_TI_AVG in selected:
-            # TI_avg: orientation-averaged companion to mTI_max, over all N
-            # channel fields jointly (tit.calc.get_TI_avg).
-            mti_avg = get_TI_avg(e_fields)
-            mout.add_element_field(mti_avg, const.FIELD_TI_AVG)
-        if const.FIELD_HF_PEAK in selected:
-            # Carrier-exposure safety map (Cassarà 2025 Part I, Eq. 3): peak
-            # carrier field. Wiring is positional, so one channel field is one
-            # carrier; the worst-case sign enumeration runs over all N of them.
-            mout.add_element_field(hf_peak(*e_fields), const.FIELD_HF_PEAK)
-        if const.FIELD_HF_SAR in selected:
-            # Carrier-exposure safety map: heating driver. Power (incoherent)
-            # sum across the N carriers -- Cassarà 2025 Part II, p. 8.
-            mout.add_element_field(hf_sar(*e_fields), const.FIELD_HF_SAR)
-
-        view_field = (
-            const.FIELD_MTI_MAX
-            if const.FIELD_TI_MAX in selected
-            else next(iter(selected))
-        )
+        # Final mTI: the envelope of all N channel fields jointly -- not a
+        # recursive TI-of-TI combination of the pairwise fields saved above.
         mti_path = os.path.join(dirs["mti_mesh"], f"{name}_mTI.msh")
-        mesh_io.write_msh(mout, mti_path)
-        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(
-            mti_path
+        self._write_volume_mesh(meshes, const.FIELD_MTI_MAX, mti_path)
+        self._write_ti_normal(
+            dirs["hf_dir"],
+            n_pairs,
+            os.path.join(dirs["mti_mesh"], f"{name}_mTI_normal.msh"),
         )
-        self.logger.info(f"mTI mesh saved: {mti_path}")
-
-        self._calculate_mti_normal(dirs["hf_dir"], dirs["mti_mesh"], name, n_pairs)
 
         # Field extraction — mTI mesh and all intermediate TI meshes
         self.logger.info("Field extraction: Started")
@@ -263,47 +222,6 @@ class mTISimulation(BaseSimulation):
 
         return mti_path
 
-    def _calculate_mti_normal(
-        self, hf_dir: str, output_dir: str, montage_name: str, n_pairs: int
-    ) -> None:
-        """Compute ``TI_normal`` on the cortical surface for mTI.
-
-        Mirrors ``TISimulation._calculate_ti_normal``: reads the N
-        per-channel SimNIBS central-surface overlays and evaluates the
-        multi-carrier envelope along the node normals
-        (:func:`tit.calc.get_TI_dir`) instead of maximizing over
-        direction.
-        """
-        sid = self.config.subject_id
-        cond = self.config.conductivity
-        overlays = os.path.join(hf_dir, "subject_overlays")
-
-        cms = [
-            mesh_io.read_msh(
-                os.path.join(overlays, f"{sid}_TDCS_{i}_{cond}_central.msh")
-            )
-            for i in range(1, n_pairs + 1)
-        ]
-
-        normals = cms[0].nodes_normals().value
-        if "E" in cms[0].field:
-            e_fields = [cm.field["E"].value for cm in cms]
-        else:
-            e_fields = [
-                cm.field["E_normal"].value.reshape(-1, 1) * normals for cm in cms
-            ]
-
-        ti_normal = get_TI_dir(e_fields, normals)
-
-        mout = deepcopy(cms[0])
-        mout.nodedata = []
-        mout.add_node_field(ti_normal, "TI_normal")
-
-        normal_path = os.path.join(output_dir, f"{montage_name}_mTI_normal.msh")
-        mesh_io.write_msh(mout, normal_path)
-        mout.view(visible_fields=["TI_normal"]).write_opt(normal_path)
-        self.logger.debug(f"TI_normal saved: {normal_path}")
-
     def _save_ti_vectors(
         self, base_mesh, ti_vectors, output_dir: str, filename: str
     ) -> None:
@@ -319,7 +237,7 @@ class mTISimulation(BaseSimulation):
         self.logger.debug(f"Saved: {path}")
 
     def _organize_files(self, dirs: dict) -> None:
-        """Move HF files, renaming pairs ``1..N`` to ``A..Z`` for mTI convention."""
+        """Move HF files, renaming channels ``1..N`` to ``A..Z`` for mTI convention."""
         hf = dirs["hf_dir"]
         n_pairs = self.montage.num_pairs
         letters = string.ascii_uppercase

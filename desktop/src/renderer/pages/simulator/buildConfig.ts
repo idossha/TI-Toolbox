@@ -1,4 +1,4 @@
-import { CARRIER_FIELDS, carrierOnlyAllowed, rowCurrents, sendsXyz, settingsFor, type JobSettings, type SelectedRow } from "./types";
+import { CARRIER_FIELDS, DEFAULT_CARRIER_FIELDS, carrierOnlyAllowed, rowCurrents, sendsXyz, settingsFor, type JobSettings, type SelectedRow } from "./types";
 import type { CustomConductivities } from "./ConductivityDialog";
 
 /**
@@ -21,7 +21,7 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
   // ordinary mTI, whose carriers are distinct frequencies by construction.
   const carrierOnly = !!params.carrierOnly && carrierOnlyAllowed(row);
   const carrierFields = params.outputFields.filter((f) => CARRIER_FIELDS.includes(f));
-  const outputFields = carrierOnly ? (carrierFields.length ? carrierFields : [...CARRIER_FIELDS]) : params.outputFields;
+  const outputFields = carrierOnly ? (carrierFields.length ? carrierFields : [...DEFAULT_CARRIER_FIELDS]) : params.outputFields;
   // A flex row is `flex_mapped` when it carries an EEG net (its electrodes are that cap's labels)
   // and `flex_free` when it does not (the optimiser's own XYZ coordinates) — the same distinction
   // `Montage.Mode` makes, and the reason a run with no mapping file is still simulable.

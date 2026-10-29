@@ -131,9 +131,9 @@ This mode exports electric field vectors from TDCS simulations as arrow clouds i
 **What is produced:**
 - **CH1 (Channel 1)**: Vector field from the first TDCS electrode configuration. Represents the electric field distribution (E1) when current flows through channel 1. **Color**: Red (RGB: 255, 0, 0) in RGB mode.
 - **CH2 (Channel 2)**: Vector field from the second TDCS electrode configuration. Represents the electric field distribution (E2) when current flows through channel 2. **Color**: Blue (RGB: 0, 0, 255) in RGB mode.
-- **TI (Temporal Interference)**: Modulation amplitude vectors representing the temporal interference pattern when two electric fields with slightly different frequencies interfere. The TI vector indicates both the spatial direction of maximum envelope modulation and the magnitude of maximum envelope amplitude (2 × effective amplitude). Calculated using the Grossman et al. 2017 algorithm, which computes the modulation amplitude when two sinusoidal fields $$\mathbf{E}_1(t)$$ and $$\mathbf{E}_2(t)$$ create a beating pattern. **Color**: Green (RGB: 0, 255, 0) in RGB mode.
+- **TI (Temporal Interference)**: Modulation amplitude vectors representing the temporal interference pattern when two electric fields with slightly different frequencies interfere. The TI vector indicates both the spatial direction of maximum envelope modulation and the magnitude of maximum envelope amplitude (2 × effective amplitude). Calculated with `tit.calc.envelope_max(fields, return_direction=True)` (Grossman et al. 2017; any number of channels), the length being `TI_max` and the direction that of the maximum, when two sinusoidal fields $$\mathbf{E}_1(t)$$ and $$\mathbf{E}_2(t)$$ create a beating pattern. **Color**: Green (RGB: 0, 255, 0) in RGB mode.
 - **TI_sum**: Optional output representing the vector addition of CH1 and CH2, $$\mathbf{E}_1 + \mathbf{E}_2$$. This is the direct vector sum of the two electric field vectors, useful for visualizing the combined field distribution. **Color**: Yellow (RGB: 255, 255, 0) in RGB mode.
-- **TI_normal**: Optional output representing the component of the TI vector normal to the cortical surface. This is particularly useful for understanding stimulation perpendicular to the cortex, as it isolates the component of the modulation amplitude that is orthogonal to the gray matter surface. **Color**: Cyan (RGB: 0, 255, 255) in RGB mode.
+- **TI_normal**: Optional output: at each face, the TI envelope along the cortical surface normal, drawn along the outward normal (out of the cortex). It is the simulation's `TI_normal` quantity (`tit.calc.envelope` of every channel field along the normal), not the projection of the TI vector onto the normal, which generally differs. This is particularly useful for understanding stimulation perpendicular to the cortex, as it isolates the modulation along the direction orthogonal to the gray matter surface. **Color**: Cyan (RGB: 0, 255, 255) in RGB mode.
 
 **Vector properties:**
 - Each arrow's direction represents the electric field direction at that point.
@@ -189,7 +189,7 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 - **`scalp.stl`** and **`gm.stl`**: the extracted scalp and grey-matter surfaces, for reference.
 
 **Electrode configuration:**
-- The EEG net and the montage's electrode pairs come from the selected simulation.
+- The EEG net and the montage's channels come from the selected simulation.
 - **Show only montage electrodes** places only the montage's electrodes; otherwise the whole net is placed.
 - **Electrode diameter** and **Electrode height** size the electrode cylinders (defaults 10 mm and 6 mm).
 
@@ -288,7 +288,6 @@ config = RegionConfig(
     simulation_name="HIPP_L",
     format=RegionConfig.Format.PLY,
     atlas="DK40",
-    surface="central",        # central | pial | white
     field_name="TI_max",
 )
 run_regions(config)

@@ -174,7 +174,6 @@ class TestRunSubjectPipeline:
             qsi_recon_config=None,
             extract_dti_step=False,
             runner=MagicMock(),
-            callback=None,
             skip_existing_outputs=False,
             replace_existing_outputs=False,
         )

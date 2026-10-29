@@ -954,6 +954,34 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tit.server.routes.validate.refuse_unknown_keys" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refuse_unknown_keys
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="refuse_unknown_keys">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.server.routes.validate.refuse_unknown_keys--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1007,7 +1035,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1028,7 +1056,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1121,7 +1149,10 @@ discriminator convention :mod:<code>tit.config_io</code> already uses for union-
 electrodes, montages) -- just applied here to the top-level kind/class choice. <code>_type</code> is not a
 field of any of these dataclasses, so :func:<code>~tit.config_io.deserialize_config</code> silently ignores
 it (documented behavior: "keys in <em>data</em> that are not fields of <em>cls</em> ... are ignored"), making
-this additive rather than a contract change. <code>NO_SCHEMA_KINDS</code> is empty as of the runners
+this additive rather than a contract change. The tag is read exactly as each runner dispatches:
+<code>blender</code> requires it (<code>tit.blender.__main__</code> has no default), and <code>stats</code> lets the older
+<code>mode</code> key win over it (<code>tit.stats.__main__</code>), so the server never plans one class while
+the runner runs another. <code>NO_SCHEMA_KINDS</code> is empty as of the runners
 lane registering <code>NiftiAverageConfig</code>/<code>NilearnConfig</code> in
 :data:<code>~tit.config_io.CONFIG_CLASS_REGISTRY</code> -- kept as a (currently-empty) frozenset rather
 than removed outright since <code>contracts/generated/config.schema.json</code> has not been regenerated with these two
@@ -1162,10 +1193,10 @@ wants an explicit discriminant instead.</p>
 
     <div class="doc doc-contents ">
             <p class="doc doc-class-bases">
-              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/exceptions.html#ValueError">ValueError</a></code></p>
+              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code></p>
 
 
-        <p>Raised by :func:<code>cls_for</code> for an unknown <code>_type</code> on an ambiguous kind.</p>
+        <p>Raised by :func:<code>cls_for</code> when an ambiguous kind's config names no class it can run.</p>
 
 
 
@@ -1187,54 +1218,34 @@ wants an explicit discriminant instead.</p>
 
 
 <a href="#tit.server.routes.validate.cls_for" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cls_for</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config_body</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#type">type</a></span> <span class="o">|</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cls_for</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config_body</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#type">type</a></span> <span class="o">|</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Resolve <em>kind</em> (and, for an ambiguous kind, <code>config_body["_type"]</code>) to a dataclass.</p>
+        <p>Resolve <em>kind</em> (and, for an ambiguous kind, the config's own tag) to a dataclass.</p>
+<p>An ambiguous kind is read the way its runner dispatches it: <code>stats</code> by its <code>mode</code> key
+when present (:data:<code>STATS_MODE_CLASSES</code>), else by <code>_type</code>, else
+<code>GroupComparisonConfig</code>; <code>blender</code> by <code>_type</code> only.</p>
 <h5 id="tit.server.routes.validate.cls_for--parameters">Parameters<a class="headerlink" href="#tit.server.routes.validate.cls_for--parameters" title="Permanent link">&para;</a></h5>
 <p>kind : str
     A :data:<code>ALL_KINDS</code> member (callers should 404 first for anything else).
 config_body : dict
-    The request's raw <code>config</code> object (read for <code>_type</code> only when <em>kind</em> is
-    ambiguous; never mutated).</p>
+    The request's raw <code>config</code> object (read for <code>_type</code> -- and, for <code>stats</code>,
+    <code>mode</code> -- only when <em>kind</em> is ambiguous; never mutated).</p>
 <h5 id="tit.server.routes.validate.cls_for--returns">Returns<a class="headerlink" href="#tit.server.routes.validate.cls_for--returns" title="Permanent link">&para;</a></h5>
 <p>type or None
     <code>None</code> for a :data:<code>NO_SCHEMA_KINDS</code> member (nothing to validate against yet).</p>
 <h5 id="tit.server.routes.validate.cls_for--raises">Raises<a class="headerlink" href="#tit.server.routes.validate.cls_for--raises" title="Permanent link">&para;</a></h5>
 <p>KindNotConfigurable
     If <em>kind</em> is ambiguous and <code>_type</code> (or its default) does not name one of its
-    known classes.</p>
+    known classes, a <code>blender</code> config has no <code>_type</code>, or a <code>stats</code> config's
+    <code>mode</code> is unknown or contradicts its <code>_type</code>.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/validate.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-122">122</a></span>
-<span class="normal"><a href="#__codelineno-0-123">123</a></span>
-<span class="normal"><a href="#__codelineno-0-124">124</a></span>
-<span class="normal"><a href="#__codelineno-0-125">125</a></span>
-<span class="normal"><a href="#__codelineno-0-126">126</a></span>
-<span class="normal"><a href="#__codelineno-0-127">127</a></span>
-<span class="normal"><a href="#__codelineno-0-128">128</a></span>
-<span class="normal"><a href="#__codelineno-0-129">129</a></span>
-<span class="normal"><a href="#__codelineno-0-130">130</a></span>
-<span class="normal"><a href="#__codelineno-0-131">131</a></span>
-<span class="normal"><a href="#__codelineno-0-132">132</a></span>
-<span class="normal"><a href="#__codelineno-0-133">133</a></span>
-<span class="normal"><a href="#__codelineno-0-134">134</a></span>
-<span class="normal"><a href="#__codelineno-0-135">135</a></span>
-<span class="normal"><a href="#__codelineno-0-136">136</a></span>
-<span class="normal"><a href="#__codelineno-0-137">137</a></span>
-<span class="normal"><a href="#__codelineno-0-138">138</a></span>
-<span class="normal"><a href="#__codelineno-0-139">139</a></span>
-<span class="normal"><a href="#__codelineno-0-140">140</a></span>
-<span class="normal"><a href="#__codelineno-0-141">141</a></span>
-<span class="normal"><a href="#__codelineno-0-142">142</a></span>
-<span class="normal"><a href="#__codelineno-0-143">143</a></span>
-<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-144">144</a></span>
 <span class="normal"><a href="#__codelineno-0-145">145</a></span>
 <span class="normal"><a href="#__codelineno-0-146">146</a></span>
 <span class="normal"><a href="#__codelineno-0-147">147</a></span>
@@ -1252,47 +1263,219 @@ config_body : dict
 <span class="normal"><a href="#__codelineno-0-159">159</a></span>
 <span class="normal"><a href="#__codelineno-0-160">160</a></span>
 <span class="normal"><a href="#__codelineno-0-161">161</a></span>
-<span class="normal"><a href="#__codelineno-0-162">162</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="k">def</span><span class="w"> </span><span class="nf">cls_for</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config_body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">type</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Resolve *kind* (and, for an ambiguous kind, ``config_body[&quot;_type&quot;]``) to a dataclass.</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="sd">    kind : str</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="sd">        A :data:`ALL_KINDS` member (callers should 404 first for anything else).</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="sd">    config_body : dict</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="sd">        The request&#39;s raw ``config`` object (read for ``_type`` only when *kind* is</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">        ambiguous; never mutated).</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="sd">    type or None</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a><span class="sd">        ``None`` for a :data:`NO_SCHEMA_KINDS` member (nothing to validate against yet).</span>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    KindNotConfigurable</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="sd">        If *kind* is ambiguous and ``_type`` (or its default) does not name one of its</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">        known classes.</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_config_class</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">NO_SCHEMA_KINDS</span><span class="p">:</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="k">return</span> <span class="kc">None</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">SIMPLE_KIND_CLASS</span><span class="p">:</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>        <span class="k">return</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">SIMPLE_KIND_CLASS</span><span class="p">[</span><span class="n">kind</span><span class="p">])</span>
+<span class="normal"><a href="#__codelineno-0-162">162</a></span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span>
+<span class="normal"><a href="#__codelineno-0-164">164</a></span>
+<span class="normal"><a href="#__codelineno-0-165">165</a></span>
+<span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
+<span class="normal"><a href="#__codelineno-0-169">169</a></span>
+<span class="normal"><a href="#__codelineno-0-170">170</a></span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span>
+<span class="normal"><a href="#__codelineno-0-175">175</a></span>
+<span class="normal"><a href="#__codelineno-0-176">176</a></span>
+<span class="normal"><a href="#__codelineno-0-177">177</a></span>
+<span class="normal"><a href="#__codelineno-0-178">178</a></span>
+<span class="normal"><a href="#__codelineno-0-179">179</a></span>
+<span class="normal"><a href="#__codelineno-0-180">180</a></span>
+<span class="normal"><a href="#__codelineno-0-181">181</a></span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+<span class="normal"><a href="#__codelineno-0-183">183</a></span>
+<span class="normal"><a href="#__codelineno-0-184">184</a></span>
+<span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
+<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span>
+<span class="normal"><a href="#__codelineno-0-194">194</a></span>
+<span class="normal"><a href="#__codelineno-0-195">195</a></span>
+<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+<span class="normal"><a href="#__codelineno-0-197">197</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="k">def</span><span class="w"> </span><span class="nf">cls_for</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config_body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">type</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="w">    </span><span class="sd">"""Resolve *kind* (and, for an ambiguous kind, the config's own tag) to a dataclass.</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">    An ambiguous kind is read the way its runner dispatches it: ``stats`` by its ``mode`` key</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="sd">    when present (:data:`STATS_MODE_CLASSES`), else by ``_type``, else</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    ``GroupComparisonConfig``; ``blender`` by ``_type`` only.</span>
 <a id="__codelineno-0-150" name="__codelineno-0-150"></a>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">choices</span> <span class="o">=</span> <span class="n">AMBIGUOUS_KIND_CLASSES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="k">if</span> <span class="n">choices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>        <span class="n">type_tag</span> <span class="o">=</span> <span class="n">config_body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;_type&quot;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">AMBIGUOUS_KIND_DEFAULT</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="n">registry_key</span> <span class="o">=</span> <span class="n">choices</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">type_tag</span><span class="p">)</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>        <span class="k">if</span> <span class="n">registry_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>            <span class="k">raise</span> <span class="n">KindNotConfigurable</span><span class="p">(</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>                <span class="sa">f</span><span class="s2">&quot;kind=</span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2"> config._type must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span><span class="si">}</span><span class="s2">, &quot;</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>                <span class="sa">f</span><span class="s2">&quot;got </span><span class="si">{</span><span class="n">type_tag</span><span class="si">!r}</span><span class="s2">&quot;</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a>            <span class="p">)</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a>        <span class="k">return</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">registry_key</span><span class="p">)</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="k">raise</span> <span class="n">KindNotConfigurable</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;unknown kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    kind : str</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">        A :data:`ALL_KINDS` member (callers should 404 first for anything else).</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    config_body : dict</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">        The request's raw ``config`` object (read for ``_type`` -- and, for ``stats``,</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">        ``mode`` -- only when *kind* is ambiguous; never mutated).</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    type or None</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">        ``None`` for a :data:`NO_SCHEMA_KINDS` member (nothing to validate against yet).</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    KindNotConfigurable</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">        If *kind* is ambiguous and ``_type`` (or its default) does not name one of its</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">        known classes, a ``blender`` config has no ``_type``, or a ``stats`` config's</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">        ``mode`` is unknown or contradicts its ``_type``.</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    """</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">resolve_config_class</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">NO_SCHEMA_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>        <span class="k">return</span> <span class="kc">None</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">SIMPLE_KIND_CLASS</span><span class="p">:</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>        <span class="k">return</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">SIMPLE_KIND_CLASS</span><span class="p">[</span><span class="n">kind</span><span class="p">])</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>    <span class="n">choices</span> <span class="o">=</span> <span class="n">AMBIGUOUS_KIND_CLASSES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">)</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="k">if</span> <span class="n">choices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>        <span class="n">type_tag</span> <span class="o">=</span> <span class="n">config_body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">)</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"stats"</span> <span class="ow">and</span> <span class="n">config_body</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"mode"</span><span class="p">):</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>            <span class="n">type_tag</span> <span class="o">=</span> <span class="n">_stats_mode_class</span><span class="p">(</span><span class="n">config_body</span><span class="p">[</span><span class="s2">"mode"</span><span class="p">],</span> <span class="n">type_tag</span><span class="p">)</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">type_tag</span> <span class="ow">and</span> <span class="n">kind</span> <span class="ow">in</span> <span class="n">TYPE_REQUIRED_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>            <span class="k">raise</span> <span class="n">KindNotConfigurable</span><span class="p">(</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>                <span class="sa">f</span><span class="s2">"kind=</span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2"> config._type is required, one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span><span class="si">}</span><span class="s2">: "</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>                <span class="s2">"the runner picks the export by it and has no default"</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>            <span class="p">)</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="n">type_tag</span> <span class="o">=</span> <span class="n">type_tag</span> <span class="ow">or</span> <span class="n">AMBIGUOUS_KIND_DEFAULT</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="n">registry_key</span> <span class="o">=</span> <span class="n">choices</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">type_tag</span><span class="p">)</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="k">if</span> <span class="n">registry_key</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>            <span class="k">raise</span> <span class="n">KindNotConfigurable</span><span class="p">(</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>                <span class="sa">f</span><span class="s2">"kind=</span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2"> config._type must be one of </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">choices</span><span class="p">)</span><span class="si">}</span><span class="s2">, "</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>                <span class="sa">f</span><span class="s2">"got </span><span class="si">{</span><span class="n">type_tag</span><span class="si">!r}</span><span class="s2">"</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>            <span class="p">)</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>        <span class="k">return</span> <span class="n">resolve_config_class</span><span class="p">(</span><span class="n">registry_key</span><span class="p">)</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>    <span class="k">raise</span> <span class="n">KindNotConfigurable</span><span class="p">(</span><span class="sa">f</span><span class="s2">"unknown kind: </span><span class="si">{</span><span class="n">kind</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.routes.validate.refuse_unknown_keys" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">refuse_unknown_keys</span>
+
+
+<a href="#tit.server.routes.validate.refuse_unknown_keys" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">refuse_unknown_keys</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Raise :class:<code>ValueError</code> when <em>config</em> has a key <code>/api/validate/{kind}</code> calls unknown.</p>
+<p>The submission routes (<code>POST /api/jobs</code>, <code>/api/jobs/groups</code>, rerun, an approved
+proposal) read configs leniently, as the runners do, so a misspelled or renamed key used
+to be accepted and silently ignored. This applies the validate route's strictness, with the
+same envelope (<code>project_dir</code>) and dispatch (stats <code>mode</code>) keys set aside, to that one
+rule: a config that is invalid for another reason is left to <code>check_job_config</code>, the
+preflight and the runner (the analyzer and source runners still read their older layouts).
+Kinds with no config class (<code>tools</code>, <code>project_init</code>) have nothing to check. A <code>pre</code>
+key from before the FastSurfer stage (<code>tit.pre.config.LEGACY_KEYS</code>) is not unknown here:
+the runner and <code>POST /api/plan/pre</code> translate it (<code>migrate_legacy_keys</code>), and
+<code>check_job_config</code> checks the translated config. <code>/api/validate</code> itself still flags it.</p>
+<h5 id="tit.server.routes.validate.refuse_unknown_keys--raises">Raises<a class="headerlink" href="#tit.server.routes.validate.refuse_unknown_keys--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    Naming the unknown key(s) and the class's fields.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/routes/validate.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span>
+<span class="normal"><a href="#__codelineno-0-221">221</a></span>
+<span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+<span class="normal"><a href="#__codelineno-0-224">224</a></span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_unknown_keys</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="w">    </span><span class="sd">"""Raise :class:`ValueError` when *config* has a key ``/api/validate/{kind}`` calls unknown.</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    The submission routes (``POST /api/jobs``, ``/api/jobs/groups``, rerun, an approved</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    proposal) read configs leniently, as the runners do, so a misspelled or renamed key used</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    to be accepted and silently ignored. This applies the validate route's strictness, with the</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    same envelope (``project_dir``) and dispatch (stats ``mode``) keys set aside, to that one</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    rule: a config that is invalid for another reason is left to ``check_job_config``, the</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    preflight and the runner (the analyzer and source runners still read their older layouts).</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    Kinds with no config class (``tools``, ``project_init``) have nothing to check. A ``pre``</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    key from before the FastSurfer stage (``tit.pre.config.LEGACY_KEYS``) is not unknown here:</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    the runner and ``POST /api/plan/pre`` translate it (``migrate_legacy_keys``), and</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    ``check_job_config`` checks the translated config. ``/api/validate`` itself still flags it.</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">        Naming the unknown key(s) and the class's fields.</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    """</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.config_io</span><span class="w"> </span><span class="kn">import</span> <span class="n">deserialize_config</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ALL_KINDS</span><span class="p">:</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="k">return</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="bp">cls</span> <span class="o">=</span> <span class="n">cls_for</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">except</span> <span class="n">KindNotConfigurable</span><span class="p">:</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">return</span>  <span class="c1"># refused by the overwrite check's own cls_for, with its own message</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="k">if</span> <span class="bp">cls</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="k">return</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="n">ignored</span> <span class="o">=</span> <span class="n">ENVELOPE_KEYS</span> <span class="o">|</span> <span class="n">DISPATCH_KEYS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="nb">frozenset</span><span class="p">())</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.pre.config</span><span class="w"> </span><span class="kn">import</span> <span class="n">LEGACY_KEYS</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>        <span class="n">ignored</span> <span class="o">|=</span> <span class="nb">frozenset</span><span class="p">(</span><span class="n">LEGACY_KEYS</span><span class="p">)</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">data</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">k</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">ignored</span><span class="p">}</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">strict</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">)</span> <span class="k">as</span> <span class="n">strict_error</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="n">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">):</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>            <span class="k">return</span>  <span class="c1"># invalid regardless of its keys: not this check's to judge</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="c1"># Strict adds only the unknown-key rule, so that is what failed.</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">strict_error</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

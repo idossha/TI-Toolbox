@@ -14,7 +14,7 @@ ExConfig
 ExResult
     Result container for a completed exhaustive search run.
 MExConfig
-    Full configuration for multipolar (4-pair) exhaustive search.
+    Full configuration for multipolar (four-channel) exhaustive search.
 MExResult
     Result container for a completed multipolar exhaustive search run.
 
@@ -217,7 +217,7 @@ class FlexConfig:
         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
         or ``"dir_TI_tangential"``).
     current_mA : float
-        Current per channel in mA -- each of the two electrode pairs
+        Current per channel in mA -- each of the two channels
         injects ``+current_mA`` / ``-current_mA`` (a 1:1 split), so the
         total injected current is ``2 * current_mA``.
     electrode : ElectrodeConfig
@@ -446,11 +446,12 @@ class FlexConfig:
         Attributes
         ----------
         MAX_TI : str
-            Maximum TI amplitude (direction-independent).
+            Maximum TI envelope over all directions.
         DIR_TI_NORMAL : str
-            TI component normal to the cortical surface.
+            TI envelope along the cortical surface normal.
         DIR_TI_TANGENTIAL : str
-            TI component tangential to the cortical surface.
+            Maximum TI envelope over the directions tangential to the
+            cortical surface (within its plane).
         """
 
         MAX_TI = "max_TI"
@@ -1171,9 +1172,9 @@ class ExConfig:
         unset, it is inferred from the leadfield's net name.
     symmetry_pairing : str
         Symmetry interpretation when *symmetric_bucket* is True.
-        ``"within_pairs"``: each pair's minus electrode is the mirror of
-        its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
-        mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
+        ``"within_pairs"``: each channel's minus electrode is the mirror of
+        its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: channel 2 is the
+        mirror image of channel 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
 
     Raises
     ------
@@ -1397,12 +1398,12 @@ class ExResult:
 
 @dataclass
 class MExConfig:
-    """Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.
+    """Full configuration for multipolar (four-channel) exhaustive search.
 
-    Evaluates every valid combination of four bipolar electrode pairs from
-    a user-defined pool or bucket set, at one fixed current per pair, and
-    scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_TI_vectors`).
+    Evaluates every valid combination of four channels (eight electrodes)
+    from a user-defined pool or bucket set, at one fixed current per channel,
+    and scores each candidate with the joint K-pair envelope maximum
+    (:func:`tit.calc.envelope_max`).
 
     Attributes
     ----------
@@ -1417,11 +1418,11 @@ class MExConfig:
         missing.
     electrodes : BucketElectrodes or PoolElectrodes
         Electrode specification, either a single shared pool
-        (:class:`PoolElectrodes`) or four separate per-pair buckets
+        (:class:`PoolElectrodes`) or separate per-channel buckets
         (:class:`BucketElectrodes`).  A plain dict is auto-converted in
         ``__post_init__``.
     current_mA : float
-        Current in mA delivered by each of the four pairs.  Default ``2.0``.
+        Current in mA delivered by each of the four channels.  Default ``2.0``.
     roi_radius : float
         Spherical ROI radius in mm for the target region.  Default ``3.0``.
     roi_names : list of str or None
@@ -1451,15 +1452,16 @@ class MExConfig:
         on it.
     symmetric_bucket : bool
         When True in bucket mode, evaluate only left/right mirrored
-        electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+        montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
     symmetry_eeg_csv : str or None
         EEG-position CSV used to derive mirrored electrode pairs.  If
         unset, it is inferred from the leadfield's net name.
     symmetry_pairing : str
         Symmetry interpretation for bucket mode when *symmetric_bucket*
-        is True.  ``"within_pairs"`` mirrors each pair's plus/minus
-        electrodes independently; ``"cross_pairs"`` additionally mirrors
-        pair 1<->3 and pair 2<->4.
+        is True.  ``"within_pairs"``: each channel's minus electrode is the
+        mirror of its plus electrode.  ``"cross_pairs"`` instead (not in
+        addition): channel 3 mirrors channel 1 and channel 4 mirrors
+        channel 2 (``e3+ = mirror(e1+)``, ``e3- = mirror(e1-)``, and so on).
 
     Raises
     ------
@@ -1489,7 +1491,7 @@ class MExConfig:
     --------
     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-    tit.calc.get_TI_vectors : Modulation-amplitude envelope.
+    tit.calc.envelope_max : Maximum of the TI/mTI envelope over direction.
     """
 
     # ── Nested ROI types ─────────────────────────────────────────────────
@@ -1528,12 +1530,12 @@ class MExConfig:
     # ── Nested electrode types ─────────────────────────────────────────
     @dataclass
     class BucketElectrodes:
-        """Separate electrode lists for each of the four bipolar pairs.
+        """Separate electrode lists for each of the four channels' electrodes.
 
         Attributes
         ----------
         e1_plus, e1_minus, e2_plus, e2_minus, e3_plus, e3_minus, e4_plus, e4_minus : list of str
-            Candidate electrodes for each pair's anode/cathode position.
+            Candidate electrodes for each channel's Ek+ / Ek- position.
         """
 
         e1_plus: list[str]
@@ -1552,7 +1554,7 @@ class MExConfig:
         Attributes
         ----------
         electrodes : list of str
-            List of electrode names available for any pair position.
+            List of electrode names available for any of the eight positions.
         """
 
         electrodes: list[str]

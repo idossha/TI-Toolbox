@@ -50,7 +50,7 @@ DOCS = sorted(PLUGIN.glob("skills/*/SKILL.md")) + [PLUGIN / "README.md"]
 
 #: Paths the plugin names *because* they are gone; each must stay gone.
 DELETED_ON_PURPOSE = {
-    "tit/gui": "the PyQt GUI, deleted in v3.0.0 -- cited as 'never cite'"
+    "tit/gui": "the PyQt GUI, deleted in v3.0.0 -- cited as 'never cite'",
 }
 #: Example names for a file a developer would create; the directory must exist.
 EXAMPLE_NAMES = {

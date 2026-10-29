@@ -52,15 +52,21 @@ def _leadfield(net: str, **kw) -> float | None:
 
 
 def test_rosetta_vendor_string_is_detected_as_emulation() -> None:
-    assert eta_model._is_emulated("x86_64", "vendor_id\t: VirtualApple\nflags\t: fpu sse2\n")
+    assert eta_model._is_emulated(
+        "x86_64", "vendor_id\t: VirtualApple\nflags\t: fpu sse2\n"
+    )
 
 
 def test_x86_without_avx_is_detected_as_emulation() -> None:
-    assert eta_model._is_emulated("x86_64", "vendor_id\t: GenuineIntel\nflags : fpu sse2 sse4_2\n")
+    assert eta_model._is_emulated(
+        "x86_64", "vendor_id\t: GenuineIntel\nflags : fpu sse2 sse4_2\n"
+    )
 
 
 def test_a_real_x86_host_is_not_emulated() -> None:
-    assert not eta_model._is_emulated("x86_64", "vendor_id : GenuineIntel\nflags : fpu avx avx2\n")
+    assert not eta_model._is_emulated(
+        "x86_64", "vendor_id : GenuineIntel\nflags : fpu avx avx2\n"
+    )
 
 
 def test_arm_is_never_emulation() -> None:
@@ -68,7 +74,11 @@ def test_arm_is_never_emulation() -> None:
 
 
 def test_more_cores_is_never_slower_and_the_factor_is_clamped() -> None:
-    assert eta_model._cpu_factor(4) > eta_model._cpu_factor(12) >= eta_model._cpu_factor(64)
+    assert (
+        eta_model._cpu_factor(4)
+        > eta_model._cpu_factor(12)
+        >= eta_model._cpu_factor(64)
+    )
     assert 0.7 <= eta_model._cpu_factor(1024) <= 2.0
     assert eta_model._cpu_factor(1) == 2.0
 
@@ -92,7 +102,9 @@ def test_simulation_grows_with_the_number_of_pairs(caps) -> None:
     def sim(n_pairs: int, **cfg) -> float:
         montage = {"electrode_pairs": [["a", "b"]] * n_pairs}
         return eta_minutes(
-            "sim", {"subject_id": "ernie", "montages": [montage], **cfg}, system=EMULATED
+            "sim",
+            {"subject_id": "ernie", "montages": [montage], **cfg},
+            system=EMULATED,
         )
 
     assert sim(2) < sim(4) < sim(8)
@@ -101,19 +113,45 @@ def test_simulation_grows_with_the_number_of_pairs(caps) -> None:
 
 
 def test_a_batch_of_montages_costs_more_than_one(caps) -> None:
-    one = {"subject_id": "ernie", "montages": [{"electrode_pairs": [["a", "b"], ["c", "d"]]}]}
+    one = {
+        "subject_id": "ernie",
+        "montages": [{"electrode_pairs": [["a", "b"], ["c", "d"]]}],
+    }
     two = {"subject_id": "ernie", "montages": one["montages"] * 2}
-    assert eta_minutes("sim", two, system=EMULATED) > eta_minutes("sim", one, system=EMULATED)
+    assert eta_minutes("sim", two, system=EMULATED) > eta_minutes(
+        "sim", one, system=EMULATED
+    )
 
 
 def test_ex_grows_with_the_combinations_the_buckets_imply(caps) -> None:
     def ex(n: int) -> float:
         return eta_minutes(
-            "ex", {"subject_id": "ernie"}, resolved={"search_space": {"n_combinations": n}},
+            "ex",
+            {"subject_id": "ernie"},
+            resolved={"search_space": {"n_combinations": n}},
             system=EMULATED,
         )
 
     assert ex(7) < ex(2401) < ex(16807)
+
+
+def test_a_mex_candidate_costs_the_measured_mti_slowdown_over_an_ex_candidate(
+    caps,
+) -> None:
+    """mEx scores the exact mTI maximum: 0.71-0.74 s against ex's sweep at 0.18-0.22 s per
+    200,000-element candidate (docs/dev/BENCHMARKS.md, 2026-10-26), so 0.725 / 0.20 per extra
+    candidate."""
+
+    def slope(kind):
+        def at(n):
+            space = {"search_space": {"n_combinations": n}}
+            return eta_minutes(
+                kind, {"subject_id": "ernie"}, resolved=space, system=NATIVE
+            )
+
+        return (at(2_000_000) - at(1_000_000)) / 1_000_000
+
+    assert slope("mex") / slope("ex") == pytest.approx(0.725 / 0.20, rel=0.01)
 
 
 def test_ex_without_a_resolved_search_space_has_no_estimate(caps) -> None:
@@ -150,7 +188,9 @@ def test_emulation_multiplies_by_exactly_the_documented_factor(caps) -> None:
     native = eta_minutes(
         "leadfield", {"subject_id": "ernie", "eeg_net": "medium"}, system=NATIVE
     )
-    assert _leadfield("medium") == pytest.approx(native * eta_model.EMULATION_FACTOR, rel=0.01)
+    assert _leadfield("medium") == pytest.approx(
+        native * eta_model.EMULATION_FACTOR, rel=0.01
+    )
 
 
 def test_a_bigger_mesh_costs_more(caps) -> None:
@@ -188,12 +228,20 @@ def test_parallel_lanes_beyond_the_job_count_do_not_help(caps) -> None:
         # one TI montage (2 pairs): 00:50:33 -> 00:56:10.
         (
             "sim",
-            {"subject_id": "ernie", "montages": [{"electrode_pairs": [["a", "b"], ["c", "d"]]}]},
+            {
+                "subject_id": "ernie",
+                "montages": [{"electrode_pairs": [["a", "b"], ["c", "d"]]}],
+            },
             None,
             5.6,
         ),
         # ex-search `docs_ex_large`, 16 807 combinations: ~14 min.
-        ("ex", {"subject_id": "ernie"}, {"search_space": {"n_combinations": 16807}}, 14.0),
+        (
+            "ex",
+            {"subject_id": "ernie"},
+            {"search_space": {"n_combinations": 16807}},
+            14.0,
+        ),
     ],
 )
 def test_the_model_reproduces_the_runs_it_was_calibrated_on(

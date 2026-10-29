@@ -1,13 +1,11 @@
 """Multipolar exhaustive-search engine."""
 
-import logging
 import time
 from collections import deque
 
-import numpy as np
 from simnibs.utils import TI_utils as TI
 
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import format_current_mA
 from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
@@ -16,32 +14,22 @@ from .logic import count_multipolar_combinations, generate_multipolar_combinatio
 
 
 class MExSearchEngine(ExSearchEngine):
-    """Exhaustive search engine for four-pair (eight-electrode) mTI montages.
+    """Exhaustive search engine for four-channel (eight-electrode) mTI montages.
 
-    Scores each candidate with the verified N>2 mTI envelope
-    (:func:`tit.calc.get_TI_vectors`), not a recursive envelope-of-envelopes
-    dispatch -- that path is not the TI envelope for N>2 fields (see the
-    ``get_TI_vectors`` docstring in ``tit/calc.py``).
+    Scores each candidate with the joint K-pair envelope maximum
+    (:func:`tit.calc.envelope_max`), not a recursive envelope-of-envelopes
+    dispatch -- that is not the TI envelope for more than two fields.
     """
-
-    def __init__(
-        self,
-        leadfield_hdf: str,
-        roi_file: str | tuple[str, int] | list[str | tuple[str, int]],
-        roi_name: str,
-        logger: logging.Logger,
-    ):
-        super().__init__(leadfield_hdf, roi_file, roi_name, logger)
 
     def compute_mti_field(
         self,
         electrodes: tuple[str, str, str, str, str, str, str, str],
         current_mA: float,
     ) -> dict[str, float]:
-        """Compute one four-pair mTI candidate and return ROI metrics.
+        """Compute one four-channel mTI candidate and return ROI metrics.
 
-        The K>=2 envelope (:func:`tit.calc.get_TI_vectors`) is a per-element
-        direction search -- far costlier than the 2-pair closed form -- so it
+        The K>=2 envelope maximum (:func:`tit.calc.envelope_max`) is a
+        per-element root-find -- far costlier than the two-channel closed form -- so it
         is evaluated only on ``ROI | GM`` (:meth:`_evaluation_subset`).
         """
         subset, roi_pos, gm_pos = self._evaluation_subset()
@@ -54,8 +42,7 @@ class MExSearchEngine(ExSearchEngine):
             for idx in range(0, 8, 2)
         ]
 
-        vectors = get_TI_vectors(fields)
-        metric = np.linalg.norm(vectors, axis=1)
+        metric = envelope_max(fields)
 
         data = self._roi_metrics(metric[roi_pos], metric[gm_pos])
         for ch in range(1, 5):
@@ -91,7 +78,7 @@ class MExSearchEngine(ExSearchEngine):
         if symmetry_mirror_map is not None:
             mode += f", left/right symmetric ({symmetry_pairing})"
         self.logger.info("Multipolar Exhaustive Search (%s)", mode)
-        self.logger.info("Current per pair: %.3f mA", current_mA)
+        self.logger.info("Current per channel: %.3f mA", current_mA)
         self.logger.info("Total combinations: %d", total)
         n_jobs = resolve_n_jobs(n_jobs)
         self.logger.info("Workers: %d", n_jobs)
@@ -123,7 +110,6 @@ class MExSearchEngine(ExSearchEngine):
         for data in evaluations:
             i += 1
             electrodes = pending.popleft()
-            sim_start = time.time()
 
             pair_names = [
                 f"{electrodes[idx]}_{electrodes[idx + 1]}" for idx in range(0, 8, 2)

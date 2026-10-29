@@ -1,6 +1,6 @@
 #!/usr/bin/env simnibs_python
 """
-Unit tests for sim.config module and calc.get_TI_vectors.
+Unit tests for sim.config module and calc.envelope_max.
 
 Tests configuration dataclasses for TI simulations including:
 - SimulationMode enum
@@ -8,7 +8,7 @@ Tests configuration dataclasses for TI simulations including:
 - Montage dataclass (is_xyz, simulation_mode, num_pairs)
 - SimulationConfig dataclass (flat fields, conductivity validation)
 - parse_intensities helper function
-- get_TI_vectors for multi-carrier TI computation
+- envelope_max for multi-channel (mTI) computation
 """
 
 import sys
@@ -26,7 +26,7 @@ from tit.sim.config import (
     SimulationConfig,
     parse_intensities,
 )
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 
 
 class TestSimulationMode:
@@ -330,7 +330,7 @@ class TestSimulationConfig:
             electrode_pairs=[("C3", "C4"), ("F3", "F4"), ("P3", "P4"), ("O1", "O2")],
             eeg_net="net.csv",
         )
-        with pytest.raises(ValueError, match="2-pair TI"):
+        with pytest.raises(ValueError, match="two-channel TI"):
             SimulationConfig(
                 subject_id="001",
                 montages=[m],
@@ -390,11 +390,11 @@ class TestSimulationConfig:
             )
 
 
-# -- get_TI_vectors field-count tests --
+# -- envelope_max field-count tests --
 
 
 class TestGetMTIVectorsFieldCounts:
-    """Test get_TI_vectors with various field counts."""
+    """Test envelope_max with various field counts."""
 
     @pytest.fixture
     def random_fields(self):
@@ -408,34 +408,34 @@ class TestGetMTIVectorsFieldCounts:
 
     def test_six_fields_shape(self, random_fields):
         fs = random_fields(6, n_elements=50)
-        result = get_TI_vectors(fs)
-        assert result.shape == (50, 3)
+        result = envelope_max(fs)
+        assert result.shape == (50,)
 
     def test_eight_fields_shape(self, random_fields):
         fs = random_fields(8, n_elements=50)
-        result = get_TI_vectors(fs)
-        assert result.shape == (50, 3)
+        result = envelope_max(fs)
+        assert result.shape == (50,)
 
     def test_odd_number_raises(self, random_fields):
         with pytest.raises(ValueError, match="even number"):
-            get_TI_vectors(random_fields(3))
+            envelope_max(random_fields(3))
 
     def test_one_field_raises(self, random_fields):
         with pytest.raises(ValueError, match="even number"):
-            get_TI_vectors(random_fields(1))
+            envelope_max(random_fields(1))
 
     def test_six_fields_differ_from_four(self, random_fields):
         """Extra fields (5th & 6th) must actually contribute to the result."""
         fs6 = random_fields(6, n_elements=50)
-        result_6 = get_TI_vectors(fs6)
-        result_4 = get_TI_vectors(fs6[:4])
+        result_6 = envelope_max(fs6)
+        result_4 = envelope_max(fs6[:4])
         assert not np.allclose(
             result_6, result_4
         ), "6-field result should differ from 4-field result"
 
     def test_empty_raises(self):
         with pytest.raises(ValueError, match="even number"):
-            get_TI_vectors([])
+            envelope_max([])
 
 
 class TestIntensityRoundTrip:

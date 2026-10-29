@@ -933,6 +933,34 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.jobs.runner.ResourceSampler" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ResourceSampler
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="ResourceSampler">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.jobs.runner.ResourceSampler.sample" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sample
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.jobs.runner.runner_env" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -948,17 +976,6 @@
     <span class="md-ellipsis">
       
         is_alive
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#tit.jobs.runner.cpu_percent_and_rss" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        cpu_percent_and_rss
       
     </span>
   </a>
@@ -1051,7 +1068,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1072,7 +1089,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1129,8 +1146,8 @@
 
     <div class="doc doc-contents first">
 
-        <p>Runner interface + the local subprocess implementation (TODO.md §2.3).</p>
-<p><code>Runner</code> is deliberately narrow (<code>spawn</code> only) so a future <code>SbatchRunner</code> (3.1, HPC) can
+        <p>Runner interface + the local subprocess implementation.</p>
+<p><code>Runner</code> is deliberately narrow (<code>spawn</code> only) so a future <code>SbatchRunner</code> (HPC) can
 drop in: everything else — waiting for exit, killing a process tree — works on a bare pid and
 doesn't care how the process was started, which is also what makes cancelling a <em>re-attached</em>
 job (one this server process never spawned) possible.</p>
@@ -1165,13 +1182,7 @@ job (one this server process never spawned) possible.</p>
   </span>
 
 <a href="#tit.jobs.runner.RunRequest" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RunRequest</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">argv</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">],</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">cwd</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">(),</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">stdout_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="os.devnull" href="https://docs.python.org/3/library/os.html#os.devnull">devnull</a></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">RunRequest</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">argv</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="n">cwd</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">(),</span> <span class="n">stdout_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="n"><a class="autorefs autorefs-external" title="os.devnull" href="https://docs.python.org/3/library/os.html#os.devnull">devnull</a></span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1266,11 +1277,11 @@ job (one this server process never spawned) possible.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-83">83</a></span>
-<span class="normal"><a href="#__codelineno-0-84">84</a></span>
-<span class="normal"><a href="#__codelineno-0-85">85</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">RunRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">subprocess</span><span class="o">.</span><span class="n">Process</span><span class="p">:</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Start the process; must not block until exit (fire-and-return).&quot;&quot;&quot;</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">spawn</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">request</span><span class="p">:</span> <span class="n">RunRequest</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">subprocess</span><span class="o">.</span><span class="n">Process</span><span class="p">:</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="w">    </span><span class="sd">"""Start the process; must not block until exit (fire-and-return)."""</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1301,7 +1312,7 @@ job (one this server process never spawned) possible.</p>
               Bases: <code><a class="autorefs autorefs-internal" title="tit.jobs.runner.Runner" href="#tit.jobs.runner.Runner">Runner</a></code></p>
 
 
-        <p><code>asyncio.create_subprocess_exec</code> with the safe-spawn options from TODO.md §2.3.</p>
+        <p><code>asyncio.create_subprocess_exec</code> with safe-spawn options.</p>
 <p>Its own process group (:func:<code>tit.jobs.processes.spawn_kwargs</code> -- POSIX
 <code>start_new_session</code>, Windows <code>CREATE_NEW_PROCESS_GROUP</code> -- so a cancel's SIGTERM/SIGKILL
 (or their Windows equivalents) never hits the server itself), stdin <code>DEVNULL</code>, stdout
@@ -1336,6 +1347,189 @@ of leaving it to finish on its own).</p>
 
 </div>
 
+<div class="doc doc-object doc-class">
+
+
+
+<h3 id="tit.jobs.runner.ResourceSampler" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">ResourceSampler</span>
+
+
+<a href="#tit.jobs.runner.ResourceSampler" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ResourceSampler</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">)</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+
+        <p>Per-job CPU%/RSS sampler over the job's whole process tree, kept for the job's lifetime.</p>
+<p><code>psutil.Process.cpu_percent(interval=None)</code> is a <em>delta</em> against the previous call on the
+same object, so a fresh <code>Process(pid)</code> per poll always reads 0.0. One sampler therefore
+owns one <code>Process</code> per pid it has seen (the root and every descendant --
+SimNIBS/FastSurfer/PARDISO spawn workers), created on first sight and dropped when it exits,
+and every :meth:<code>sample</code> sums CPU% and RSS across the live tree.</p>
+<p>Memory is the tree's <strong>PSS</strong> (proportional set size) where the platform reports it (Linux,
+<code>/proc/&lt;pid&gt;/smaps_rollup</code>, ~0.06 ms per process), so the leadfield a dozen joblib workers
+share copy-on-write is counted once, not twelve times -- summing plain RSS over an ex-search
+tree read 54 GB where PSS reads 9 GB. Elsewhere it falls back to RSS. The field keeps the
+name <code>rss</code> on the wire.</p>
+<p>Running statistics: <code>cpu_peak</code>/<code>rss_peak</code> are the maxima; <code>cpu_avg</code>/<code>rss_avg</code> are
+<strong>simple means over samples</strong> (samples are taken at a fixed cadence by the manager, so this
+is time-weighted to within one interval). The very first CPU reading of every process is
+0.0 by psutil convention and is not counted, so a one-sample job does not report 0 %.</p>
+
+
+
+
+
+
+
+                  <details class="quote">
+                    <summary>Source code in <code>tit/jobs/runner.py</code></summary>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span>
+<span class="normal"><a href="#__codelineno-0-243">243</a></span>
+<span class="normal"><a href="#__codelineno-0-244">244</a></span>
+<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+<span class="normal"><a href="#__codelineno-0-246">246</a></span>
+<span class="normal"><a href="#__codelineno-0-247">247</a></span>
+<span class="normal"><a href="#__codelineno-0-248">248</a></span>
+<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+<span class="normal"><a href="#__codelineno-0-250">250</a></span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span>
+<span class="normal"><a href="#__codelineno-0-252">252</a></span>
+<span class="normal"><a href="#__codelineno-0-253">253</a></span>
+<span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pid</span> <span class="o">=</span> <span class="n">pid</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_primed</span><span class="p">:</span> <span class="nb">set</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cpu_peak</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cpu_avg</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">rss_peak</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">rss_avg</span><span class="p">:</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_cpu_sum</span> <span class="o">=</span> <span class="mf">0.0</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_rss_sum</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_procs</span><span class="p">[</span><span class="n">pid</span><span class="p">]</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="k">pass</span>
+</code></pre></div></td></tr></table></div>
+                  </details>
+
+
+
+  <div class="doc doc-children">
+
+
+
+
+
+
+
+
+
+<div class="doc doc-object doc-function">
+
+
+<h4 id="tit.jobs.runner.ResourceSampler.sample" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">sample</span>
+
+
+<a href="#tit.jobs.runner.ResourceSampler.sample" class="headerlink" title="Permanent link">&para;</a></h4>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">sample</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>One reading of (CPU %, RSS bytes) summed over the tree; <code>(None, None)</code> if the
+root is gone. Updates the running peak/average.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/jobs/runner.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#__codelineno-0-274">274</a></span>
+<span class="normal"><a href="#__codelineno-0-275">275</a></span>
+<span class="normal"><a href="#__codelineno-0-276">276</a></span>
+<span class="normal"><a href="#__codelineno-0-277">277</a></span>
+<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+<span class="normal"><a href="#__codelineno-0-279">279</a></span>
+<span class="normal"><a href="#__codelineno-0-280">280</a></span>
+<span class="normal"><a href="#__codelineno-0-281">281</a></span>
+<span class="normal"><a href="#__codelineno-0-282">282</a></span>
+<span class="normal"><a href="#__codelineno-0-283">283</a></span>
+<span class="normal"><a href="#__codelineno-0-284">284</a></span>
+<span class="normal"><a href="#__codelineno-0-285">285</a></span>
+<span class="normal"><a href="#__codelineno-0-286">286</a></span>
+<span class="normal"><a href="#__codelineno-0-287">287</a></span>
+<span class="normal"><a href="#__codelineno-0-288">288</a></span>
+<span class="normal"><a href="#__codelineno-0-289">289</a></span>
+<span class="normal"><a href="#__codelineno-0-290">290</a></span>
+<span class="normal"><a href="#__codelineno-0-291">291</a></span>
+<span class="normal"><a href="#__codelineno-0-292">292</a></span>
+<span class="normal"><a href="#__codelineno-0-293">293</a></span>
+<span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-272" name="__codelineno-0-272"></a><span class="k">def</span><span class="w"> </span><span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a><span class="w">    </span><span class="sd">"""One reading of (CPU %, RSS bytes) summed over the tree; ``(None, None)`` if the</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a><span class="sd">    root is gone. Updates the running peak/average."""</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="n">procs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_tree</span><span class="p">()</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">procs</span><span class="p">:</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>    <span class="n">cpu</span> <span class="o">=</span> <span class="mf">0.0</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>    <span class="n">rss</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>    <span class="n">counted</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>    <span class="n">seen_any</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>            <span class="n">c</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">cpu_percent</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="n">rss</span> <span class="o">+=</span> <span class="n">_resident_bytes</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>        <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="n">seen_any</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>        <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">pid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_primed</span><span class="p">:</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>            <span class="n">cpu</span> <span class="o">+=</span> <span class="n">c</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>            <span class="n">counted</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_primed</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">seen_any</span><span class="p">:</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>    <span class="n">cpu</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">cpu</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">rss_peak</span> <span class="o">=</span> <span class="n">rss</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">rss_peak</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">rss_peak</span><span class="p">,</span> <span class="n">rss</span><span class="p">)</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>    <span class="k">if</span> <span class="n">counted</span><span class="p">:</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_cpu_sum</span> <span class="o">+=</span> <span class="n">cpu</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_rss_sum</span> <span class="o">+=</span> <span class="n">rss</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cpu_peak</span> <span class="o">=</span> <span class="n">cpu</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cpu_peak</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">max</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">cpu_peak</span><span class="p">,</span> <span class="n">cpu</span><span class="p">)</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cpu_avg</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_cpu_sum</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">rss_avg</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_rss_sum</span> <span class="o">/</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_samples</span><span class="p">)</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="k">return</span> <span class="p">(</span><span class="n">cpu</span> <span class="k">if</span> <span class="n">counted</span> <span class="k">else</span> <span class="kc">None</span><span class="p">),</span> <span class="n">rss</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+
+
+  </div>
+
+    </div>
+
+</div>
+
 
 <div class="doc doc-object doc-function">
 
@@ -1345,21 +1539,12 @@ of leaving it to finish on its own).</p>
 
 
 <a href="#tit.jobs.runner.runner_env" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">runner_env</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">events_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">interface</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;api&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">base_env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">runner_env</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">events_file</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">interface</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'api'</span><span class="p">,</span> <span class="n">base_env</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">cpus</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>The child process environment (TODO.md §2.3): unbuffered/faulthandler Python, job
+        <p>The child process environment: unbuffered/faulthandler Python, job
 identity, thread knobs derived from the budget, and <code>TIT_SERVER_TOKEN</code> /
 <code>TIT_SERVER_SETTINGS_FILE</code> scrubbed so a job can never read the server's own auth secret
 directly, or the 0600 settings file a <code>--reload</code> parent hands its child (which itself
@@ -1372,7 +1557,9 @@ crash block; a value the caller already set is kept and appended to.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-120">120</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
 <span class="normal"><a href="#__codelineno-0-121">121</a></span>
 <span class="normal"><a href="#__codelineno-0-122">122</a></span>
 <span class="normal"><a href="#__codelineno-0-123">123</a></span>
@@ -1423,58 +1610,66 @@ crash block; a value the caller already set is kept and appended to.</p>
 <span class="normal"><a href="#__codelineno-0-168">168</a></span>
 <span class="normal"><a href="#__codelineno-0-169">169</a></span>
 <span class="normal"><a href="#__codelineno-0-170">170</a></span>
-<span class="normal"><a href="#__codelineno-0-171">171</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-120" name="__codelineno-0-120"></a><span class="k">def</span><span class="w"> </span><span class="nf">runner_env</span><span class="p">(</span>
-<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="n">events_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="n">interface</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;api&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="n">base_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;The child process environment (TODO.md §2.3): unbuffered/faulthandler Python, job</span>
-<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">    identity, thread knobs derived from the budget, and ``TIT_SERVER_TOKEN`` /</span>
-<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">    ``TIT_SERVER_SETTINGS_FILE`` scrubbed so a job can never read the server&#39;s own auth secret</span>
-<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    directly, or the 0600 settings file a ``--reload`` parent hands its child (which itself</span>
-<a id="__codelineno-0-134" name="__codelineno-0-134"></a><span class="sd">    carries the token in plain JSON) -- see ``tit/server/__main__.py``&#39;s module docstring,</span>
-<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="sd">    which promises both are scrubbed (ra_14 finding #10: only the first one actually was).</span>
-<a id="__codelineno-0-136" name="__codelineno-0-136"></a>
-<a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="sd">    Also adds ``-no_signal_handler`` to ``PETSC_OPTIONS`` (see</span>
-<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    :data:`PETSC_NO_SIGNAL_HANDLER`) so cancelling a job does not end its log in a PETSc/MPI</span>
-<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    crash block; a value the caller already set is kept and appended to.</span>
-<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="n">env</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">base_env</span> <span class="k">if</span> <span class="n">base_env</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
-<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="n">env</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;TIT_SERVER_TOKEN&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-143" name="__codelineno-0-143"></a>    <span class="n">env</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">&quot;TIT_SERVER_SETTINGS_FILE&quot;</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-144" name="__codelineno-0-144"></a>    <span class="n">existing_pythonpath</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;PYTHONPATH&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-145" name="__codelineno-0-145"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PYTHONPATH&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-146" name="__codelineno-0-146"></a>        <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">_TIT_ROOT</span><span class="p">,</span> <span class="n">existing_pythonpath</span><span class="p">])</span>
-<a id="__codelineno-0-147" name="__codelineno-0-147"></a>        <span class="k">if</span> <span class="n">existing_pythonpath</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a>        <span class="k">else</span> <span class="n">_TIT_ROOT</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="p">)</span>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PYTHONUNBUFFERED&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">&quot;PYTHONFAULTHANDLER&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;1&quot;</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a>    <span class="n">existing_petsc</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">PETSC_OPTIONS_ENV</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>    <span class="k">if</span> <span class="n">PETSC_NO_SIGNAL_HANDLER</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_petsc</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a>        <span class="n">env</span><span class="p">[</span><span class="n">PETSC_OPTIONS_ENV</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a>            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">existing_petsc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">PETSC_NO_SIGNAL_HANDLER</span><span class="si">}</span><span class="s2">&quot;</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a>            <span class="k">if</span> <span class="n">existing_petsc</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a>            <span class="k">else</span> <span class="n">PETSC_NO_SIGNAL_HANDLER</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a>        <span class="p">)</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_ID</span><span class="p">]</span> <span class="o">=</span> <span class="n">job_id</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a>    <span class="k">if</span> <span class="n">kind</span><span class="p">:</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>        <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_KIND</span><span class="p">]</span> <span class="o">=</span> <span class="n">kind</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="k">if</span> <span class="n">subject_ids</span><span class="p">:</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a>        <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_SUBJECT_IDS</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">subject_ids</span><span class="p">)</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_EVENTS_FILE</span><span class="p">]</span> <span class="o">=</span> <span class="n">events_file</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_INTERFACE</span><span class="p">]</span> <span class="o">=</span> <span class="n">interface</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a>    <span class="k">if</span> <span class="n">cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cpus</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a>        <span class="n">threads</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">cpus</span><span class="p">)))</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">&quot;OMP_NUM_THREADS&quot;</span><span class="p">,</span> <span class="s2">&quot;MKL_NUM_THREADS&quot;</span><span class="p">,</span> <span class="s2">&quot;NUMBA_NUM_THREADS&quot;</span><span class="p">):</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a>            <span class="n">env</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">threads</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a>        <span class="n">env</span><span class="p">[</span><span class="s2">&quot;TI_NIFTI_WORKERS&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">threads</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="k">return</span> <span class="n">env</span>
+<span class="normal"><a href="#__codelineno-0-171">171</a></span>
+<span class="normal"><a href="#__codelineno-0-172">172</a></span>
+<span class="normal"><a href="#__codelineno-0-173">173</a></span>
+<span class="normal"><a href="#__codelineno-0-174">174</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-118" name="__codelineno-0-118"></a><span class="k">def</span><span class="w"> </span><span class="nf">runner_env</span><span class="p">(</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="n">events_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>    <span class="n">interface</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"api"</span><span class="p">,</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="n">base_env</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="n">cpus</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a><span class="w">    </span><span class="sd">"""The child process environment: unbuffered/faulthandler Python, job</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a><span class="sd">    identity, thread knobs derived from the budget, and ``TIT_SERVER_TOKEN`` /</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a><span class="sd">    ``TIT_SERVER_SETTINGS_FILE`` scrubbed so a job can never read the server's own auth secret</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a><span class="sd">    directly, or the 0600 settings file a ``--reload`` parent hands its child (which itself</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="sd">    carries the token in plain JSON) -- see ``tit/server/__main__.py``'s module docstring,</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="sd">    which promises both are scrubbed (ra_14 finding #10: only the first one actually was).</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="sd">    Also adds ``-no_signal_handler`` to ``PETSC_OPTIONS`` (see</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a><span class="sd">    :data:`PETSC_NO_SIGNAL_HANDLER`) so cancelling a job does not end its log in a PETSc/MPI</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="sd">    crash block; a value the caller already set is kept and appended to.</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a><span class="sd">    """</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>    <span class="n">env</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">base_env</span> <span class="k">if</span> <span class="n">base_env</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="p">)</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>    <span class="n">env</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"TIT_SERVER_TOKEN"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>    <span class="n">env</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"TIT_SERVER_SETTINGS_FILE"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a>    <span class="n">existing_pythonpath</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"PYTHONPATH"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">"PYTHONPATH"</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a>        <span class="n">os</span><span class="o">.</span><span class="n">pathsep</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">_TIT_ROOT</span><span class="p">,</span> <span class="n">existing_pythonpath</span><span class="p">])</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a>        <span class="k">if</span> <span class="n">existing_pythonpath</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a>        <span class="k">else</span> <span class="n">_TIT_ROOT</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a>    <span class="p">)</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">"PYTHONUNBUFFERED"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a>    <span class="n">env</span><span class="p">[</span><span class="s2">"PYTHONFAULTHANDLER"</span><span class="p">]</span> <span class="o">=</span> <span class="s2">"1"</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a>    <span class="n">existing_petsc</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">PETSC_OPTIONS_ENV</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a>    <span class="k">if</span> <span class="n">PETSC_NO_SIGNAL_HANDLER</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">existing_petsc</span><span class="o">.</span><span class="n">split</span><span class="p">():</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a>        <span class="n">env</span><span class="p">[</span><span class="n">PETSC_OPTIONS_ENV</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">existing_petsc</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">PETSC_NO_SIGNAL_HANDLER</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>            <span class="k">if</span> <span class="n">existing_petsc</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a>            <span class="k">else</span> <span class="n">PETSC_NO_SIGNAL_HANDLER</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a>        <span class="p">)</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_ID</span><span class="p">]</span> <span class="o">=</span> <span class="n">job_id</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a>    <span class="k">if</span> <span class="n">kind</span><span class="p">:</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>        <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_KIND</span><span class="p">]</span> <span class="o">=</span> <span class="n">kind</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>    <span class="k">if</span> <span class="n">subject_ids</span><span class="p">:</span>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>        <span class="n">env</span><span class="p">[</span><span class="n">ENV_JOB_SUBJECT_IDS</span><span class="p">]</span> <span class="o">=</span> <span class="s2">","</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">sid</span><span class="p">)</span> <span class="k">for</span> <span class="n">sid</span> <span class="ow">in</span> <span class="n">subject_ids</span><span class="p">)</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_EVENTS_FILE</span><span class="p">]</span> <span class="o">=</span> <span class="n">events_file</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="n">env</span><span class="p">[</span><span class="n">ENV_INTERFACE</span><span class="p">]</span> <span class="o">=</span> <span class="n">interface</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a>    <span class="k">if</span> <span class="n">cpus</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">cpus</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>        <span class="n">threads</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="n">cpus</span><span class="p">)))</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"OMP_NUM_THREADS"</span><span class="p">,</span> <span class="s2">"MKL_NUM_THREADS"</span><span class="p">,</span> <span class="s2">"NUMBA_NUM_THREADS"</span><span class="p">):</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>            <span class="n">env</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">threads</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>        <span class="n">env</span><span class="p">[</span><span class="s2">"TI_NIFTI_WORKERS"</span><span class="p">]</span> <span class="o">=</span> <span class="n">threads</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>        <span class="c1"># The same number, named rather than inferred, for code that picks a *worker count*</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>        <span class="c1"># rather than a thread count (`tit.opt.ex.parallel.resolve_n_jobs`,</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>        <span class="c1"># `tit.opt.flex`): a solver's "use every core" default must not exceed -- or fall</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>        <span class="c1"># short of -- the CPUs the plan showed the user. See `tit.cpu.job_cpus`.</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="n">env</span><span class="p">[</span><span class="n">JOB_CPUS_ENV</span><span class="p">]</span> <span class="o">=</span> <span class="n">threads</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="k">return</span> <span class="n">env</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1489,7 +1684,7 @@ crash block; a value the caller already set is kept and appended to.</p>
 
 
 <a href="#tit.jobs.runner.is_alive" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_alive</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_alive</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1502,10 +1697,7 @@ this server's own pid, regardless of what <code>create_time</code> claims (see
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
@@ -1520,64 +1712,28 @@ this server's own pid, regardless of what <code>create_time</code> claims (see
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
-<span class="normal"><a href="#__codelineno-0-201">201</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_alive</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;True if *pid* is a live, non-zombie process — and, when *create_time* is known, it&#39;s</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="sd">    still the same process (not pid reuse after the original exited). Never true for pid 1 or</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="sd">    this server&#39;s own pid, regardless of what ``create_time`` claims (see</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    :func:`_is_untouchable_pid`).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="k">if</span> <span class="n">_is_untouchable_pid</span><span class="p">(</span><span class="n">pid</span><span class="p">):</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a>        <span class="n">proc</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">status</span><span class="p">()</span> <span class="o">==</span> <span class="n">psutil</span><span class="o">.</span><span class="n">STATUS_ZOMBIE</span><span class="p">:</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>            <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>        <span class="k">if</span> <span class="p">(</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>            <span class="n">create_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>            <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">create_time</span><span class="p">()</span> <span class="o">-</span> <span class="n">create_time</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">PID_REUSE_TOLERANCE_S</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="p">):</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="k">return</span> <span class="kc">False</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="k">return</span> <span class="kc">True</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="k">return</span> <span class="kc">False</span>
-</code></pre></div></td></tr></table></div>
-            </details>
-    </div>
-
-</div>
-
-<div class="doc doc-object doc-function">
-
-
-<h3 id="tit.jobs.runner.cpu_percent_and_rss" class="doc doc-heading">
-            <span class="doc doc-object-name doc-function-name">cpu_percent_and_rss</span>
-
-
-<a href="#tit.jobs.runner.cpu_percent_and_rss" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">cpu_percent_and_rss</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">]</span>
-</code></pre></div>
-
-    <div class="doc doc-contents ">
-
-        <p>Best-effort CPU%/RSS of <em>pid</em> (0.0 CPU on the first sample — psutil convention).</p>
-
-
-            <details class="quote">
-              <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-204">204</a></span>
-<span class="normal"><a href="#__codelineno-0-205">205</a></span>
-<span class="normal"><a href="#__codelineno-0-206">206</a></span>
-<span class="normal"><a href="#__codelineno-0-207">207</a></span>
-<span class="normal"><a href="#__codelineno-0-208">208</a></span>
-<span class="normal"><a href="#__codelineno-0-209">209</a></span>
-<span class="normal"><a href="#__codelineno-0-210">210</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="nf">cpu_percent_and_rss</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort CPU%/RSS of *pid* (0.0 CPU on the first sample — psutil convention).&quot;&quot;&quot;</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>        <span class="n">proc</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="k">return</span> <span class="n">proc</span><span class="o">.</span><span class="n">cpu_percent</span><span class="p">(</span><span class="n">interval</span><span class="o">=</span><span class="kc">None</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">memory_info</span><span class="p">()</span><span class="o">.</span><span class="n">rss</span><span class="p">)</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_alive</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="w">    </span><span class="sd">"""True if *pid* is a live, non-zombie process — and, when *create_time* is known, it's</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    still the same process (not pid reuse after the original exited). Never true for pid 1 or</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    this server's own pid, regardless of what ``create_time`` claims (see</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">    :func:`_is_untouchable_pid`)."""</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">if</span> <span class="n">_is_untouchable_pid</span><span class="p">(</span><span class="n">pid</span><span class="p">):</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>        <span class="n">proc</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>        <span class="k">if</span> <span class="n">proc</span><span class="o">.</span><span class="n">status</span><span class="p">()</span> <span class="o">==</span> <span class="n">psutil</span><span class="o">.</span><span class="n">STATUS_ZOMBIE</span><span class="p">:</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>            <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="n">create_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">proc</span><span class="o">.</span><span class="n">create_time</span><span class="p">()</span> <span class="o">-</span> <span class="n">create_time</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">PID_REUSE_TOLERANCE_S</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="p">):</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>            <span class="k">return</span> <span class="kc">False</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="k">return</span> <span class="kc">True</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="k">return</span> <span class="kc">False</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1596,12 +1752,7 @@ this server's own pid, regardless of what <code>create_time</code> claims (see
   </span>
 
 <a href="#tit.jobs.runner.terminate_tree" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">terminate_tree</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">create_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">grace_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DEFAULT_GRACE_S">DEFAULT_GRACE_S</span></span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">terminate_tree</span><span class="p">(</span><span class="n">pid</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">grace_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DEFAULT_GRACE_S">DEFAULT_GRACE_S</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1616,77 +1767,77 @@ no-op for pid 1 or this server's own pid (ra_14 finding #5, see :func:<code>_is_
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-213">213</a></span>
-<span class="normal"><a href="#__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
-<span class="normal"><a href="#__codelineno-0-246">246</a></span>
-<span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">terminate_tree</span><span class="p">(</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_GRACE_S</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Snapshot descendants, SIGTERM the tree, wait up to *grace_s*, SIGKILL survivors.</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">    Uses ``asyncio.sleep`` for the grace period so the caller&#39;s event loop keeps servicing other</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    jobs while this one shuts down. Never raises: a pid that&#39;s already gone is a no-op. Also a</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    no-op for pid 1 or this server&#39;s own pid (ra_14 finding #5, see :func:`_is_untouchable_pid`)</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    -- a re-attached &quot;running&quot; job can only ever point there via a corrupted or crafted</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    ``status.json``, never a job this server actually spawned itself.</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>    <span class="k">if</span> <span class="n">_is_untouchable_pid</span><span class="p">(</span><span class="n">pid</span><span class="p">):</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;terminate_tree refused to signal untouchable pid </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">pid</span><span class="p">)</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="k">return</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>        <span class="n">root</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="k">if</span> <span class="n">create_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">create_time</span><span class="p">()</span> <span class="o">-</span> <span class="n">create_time</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">2.0</span><span class="p">:</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>            <span class="k">return</span>  <span class="c1"># pid was reused; nothing to do</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>        <span class="k">return</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">procs</span> <span class="o">=</span> <span class="p">[</span><span class="n">root</span><span class="p">]</span> <span class="o">+</span> <span class="n">root</span><span class="o">.</span><span class="n">children</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">with</span> <span class="n">_ignore_gone</span><span class="p">():</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="n">send_terminate</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="n">deadline</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">grace_s</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="k">while</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">_still_running</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">):</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>            <span class="k">return</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.2</span><span class="p">)</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>        <span class="k">if</span> <span class="n">_still_running</span><span class="p">(</span><span class="n">proc</span><span class="p">):</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>            <span class="k">with</span> <span class="n">_ignore_gone</span><span class="p">():</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                <span class="n">send_kill</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span>
+<span class="normal"><a href="#__codelineno-0-333">333</a></span>
+<span class="normal"><a href="#__codelineno-0-334">334</a></span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span>
+<span class="normal"><a href="#__codelineno-0-336">336</a></span>
+<span class="normal"><a href="#__codelineno-0-337">337</a></span>
+<span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
+<span class="normal"><a href="#__codelineno-0-341">341</a></span>
+<span class="normal"><a href="#__codelineno-0-342">342</a></span>
+<span class="normal"><a href="#__codelineno-0-343">343</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">terminate_tree</span><span class="p">(</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>    <span class="n">pid</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">create_time</span><span class="p">:</span> <span class="nb">float</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">grace_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DEFAULT_GRACE_S</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="w">    </span><span class="sd">"""Snapshot descendants, SIGTERM the tree, wait up to *grace_s*, SIGKILL survivors.</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">    Uses ``asyncio.sleep`` for the grace period so the caller's event loop keeps servicing other</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">    jobs while this one shuts down. Never raises: a pid that's already gone is a no-op. Also a</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">    no-op for pid 1 or this server's own pid (ra_14 finding #5, see :func:`_is_untouchable_pid`)</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">    -- a re-attached "running" job can only ever point there via a corrupted or crafted</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">    ``status.json``, never a job this server actually spawned itself.</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">    """</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="k">if</span> <span class="n">_is_untouchable_pid</span><span class="p">(</span><span class="n">pid</span><span class="p">):</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"terminate_tree refused to signal untouchable pid </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="k">return</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="n">root</span> <span class="o">=</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">(</span><span class="n">pid</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="k">if</span> <span class="n">create_time</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">abs</span><span class="p">(</span><span class="n">root</span><span class="o">.</span><span class="n">create_time</span><span class="p">()</span> <span class="o">-</span> <span class="n">create_time</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mf">2.0</span><span class="p">:</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>            <span class="k">return</span>  <span class="c1"># pid was reused; nothing to do</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">psutil</span><span class="o">.</span><span class="n">NoSuchProcess</span><span class="p">,</span> <span class="n">psutil</span><span class="o">.</span><span class="n">AccessDenied</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">):</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>        <span class="k">return</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="n">procs</span> <span class="o">=</span> <span class="p">[</span><span class="n">root</span><span class="p">]</span> <span class="o">+</span> <span class="n">root</span><span class="o">.</span><span class="n">children</span><span class="p">(</span><span class="n">recursive</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="k">with</span> <span class="n">_ignore_gone</span><span class="p">():</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>            <span class="n">send_terminate</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="n">deadline</span> <span class="o">=</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">+</span> <span class="n">grace_s</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="k">while</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">get_event_loop</span><span class="p">()</span><span class="o">.</span><span class="n">time</span><span class="p">()</span> <span class="o">&lt;</span> <span class="n">deadline</span><span class="p">:</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">any</span><span class="p">(</span><span class="n">_still_running</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">):</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>            <span class="k">return</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>        <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="mf">0.2</span><span class="p">)</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="k">for</span> <span class="n">proc</span> <span class="ow">in</span> <span class="n">procs</span><span class="p">:</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="k">if</span> <span class="n">_still_running</span><span class="p">(</span><span class="n">proc</span><span class="p">):</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>            <span class="k">with</span> <span class="n">_ignore_gone</span><span class="p">():</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>                <span class="n">send_kill</span><span class="p">(</span><span class="n">proc</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1705,56 +1856,54 @@ no-op for pid 1 or this server's own pid (ra_14 finding #5, see :func:<code>_is_
   </span>
 
 <a href="#tit.jobs.runner.stop_docker_siblings" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">stop_docker_siblings</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DOCKER_CLI_TIMEOUT_S">DOCKER_CLI_TIMEOUT_S</span></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">stop_docker_siblings</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DOCKER_CLI_TIMEOUT_S">DOCKER_CLI_TIMEOUT_S</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
         <p>Best-effort <code>docker stop</code> for any container labelled <code>tit.job_id=&lt;id&gt;</code>.</p>
-<p>QSIPrep/QSIRecon's DooD builders add this label (TODO.md §2.3); a job that never spawned a
+<p>QSIPrep/QSIRecon's DooD builders add this label (:mod:<code>tit.jobs.docker_engine</code>); a job that never spawned a
 sibling container, or a host without a docker CLI, makes this a silent no-op. Every call is
 bounded by <em>timeout_s</em> so an unresponsive daemon degrades to a logged warning.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-293">293</a></span>
-<span class="normal"><a href="#__codelineno-0-294">294</a></span>
-<span class="normal"><a href="#__codelineno-0-295">295</a></span>
-<span class="normal"><a href="#__codelineno-0-296">296</a></span>
-<span class="normal"><a href="#__codelineno-0-297">297</a></span>
-<span class="normal"><a href="#__codelineno-0-298">298</a></span>
-<span class="normal"><a href="#__codelineno-0-299">299</a></span>
-<span class="normal"><a href="#__codelineno-0-300">300</a></span>
-<span class="normal"><a href="#__codelineno-0-301">301</a></span>
-<span class="normal"><a href="#__codelineno-0-302">302</a></span>
-<span class="normal"><a href="#__codelineno-0-303">303</a></span>
-<span class="normal"><a href="#__codelineno-0-304">304</a></span>
-<span class="normal"><a href="#__codelineno-0-305">305</a></span>
-<span class="normal"><a href="#__codelineno-0-306">306</a></span>
-<span class="normal"><a href="#__codelineno-0-307">307</a></span>
-<span class="normal"><a href="#__codelineno-0-308">308</a></span>
-<span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_docker_siblings</span><span class="p">(</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DOCKER_CLI_TIMEOUT_S</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Best-effort ``docker stop`` for any container labelled ``tit.job_id=&lt;id&gt;``.</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    QSIPrep/QSIRecon&#39;s DooD builders add this label (TODO.md §2.3); a job that never spawned a</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    sibling container, or a host without a docker CLI, makes this a silent no-op. Every call is</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    bounded by *timeout_s* so an unresponsive daemon degrades to a logged warning.</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>    <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_run_docker</span><span class="p">(</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="p">[</span><span class="s2">&quot;ps&quot;</span><span class="p">,</span> <span class="s2">&quot;-q&quot;</span><span class="p">,</span> <span class="s2">&quot;--filter&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;label=tit.job_id=</span><span class="si">{</span><span class="n">job_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span> <span class="n">timeout_s</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>    <span class="p">)</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">out</span><span class="p">:</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>        <span class="k">return</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>    <span class="n">ids</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">ids</span><span class="p">:</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>        <span class="k">return</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="k">await</span> <span class="n">_run_docker</span><span class="p">([</span><span class="s2">&quot;stop&quot;</span><span class="p">,</span> <span class="o">*</span><span class="n">ids</span><span class="p">],</span> <span class="n">timeout_s</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_docker_siblings</span><span class="p">(</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DOCKER_CLI_TIMEOUT_S</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="w">    </span><span class="sd">"""Best-effort ``docker stop`` for any container labelled ``tit.job_id=&lt;id&gt;``.</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">    QSIPrep/QSIRecon's DooD builders add this label (:mod:`tit.jobs.docker_engine`); a job that never spawned a</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">    sibling container, or a host without a docker CLI, makes this a silent no-op. Every call is</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    bounded by *timeout_s* so an unresponsive daemon degrades to a logged warning.</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">    """</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>    <span class="n">out</span> <span class="o">=</span> <span class="k">await</span> <span class="n">_run_docker</span><span class="p">(</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a>        <span class="p">[</span><span class="s2">"ps"</span><span class="p">,</span> <span class="s2">"-q"</span><span class="p">,</span> <span class="s2">"--filter"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"label=tit.job_id=</span><span class="si">{</span><span class="n">job_id</span><span class="si">}</span><span class="s2">"</span><span class="p">],</span> <span class="n">timeout_s</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="p">)</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">out</span><span class="p">:</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>        <span class="k">return</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>    <span class="n">ids</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span><span class="o">.</span><span class="n">split</span><span class="p">()</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">ids</span><span class="p">:</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>        <span class="k">return</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="k">await</span> <span class="n">_run_docker</span><span class="p">([</span><span class="s2">"stop"</span><span class="p">,</span> <span class="o">*</span><span class="n">ids</span><span class="p">],</span> <span class="n">timeout_s</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1773,9 +1922,7 @@ bounded by <em>timeout_s</em> so an unresponsive daemon degrades to a logged war
   </span>
 
 <a href="#tit.jobs.runner.stop_docker_siblings_via_engine" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">stop_docker_siblings_via_engine</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DOCKER_CLI_TIMEOUT_S">DOCKER_CLI_TIMEOUT_S</span></span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">stop_docker_siblings_via_engine</span><span class="p">(</span><span class="n">job_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="n"><span title="tit.jobs.runner.DOCKER_CLI_TIMEOUT_S">DOCKER_CLI_TIMEOUT_S</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1790,57 +1937,57 @@ or wedged daemon degrades to a logged warning and <code>0</code>.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/jobs/runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-334">334</a></span>
-<span class="normal"><a href="#__codelineno-0-335">335</a></span>
-<span class="normal"><a href="#__codelineno-0-336">336</a></span>
-<span class="normal"><a href="#__codelineno-0-337">337</a></span>
-<span class="normal"><a href="#__codelineno-0-338">338</a></span>
-<span class="normal"><a href="#__codelineno-0-339">339</a></span>
-<span class="normal"><a href="#__codelineno-0-340">340</a></span>
-<span class="normal"><a href="#__codelineno-0-341">341</a></span>
-<span class="normal"><a href="#__codelineno-0-342">342</a></span>
-<span class="normal"><a href="#__codelineno-0-343">343</a></span>
-<span class="normal"><a href="#__codelineno-0-344">344</a></span>
-<span class="normal"><a href="#__codelineno-0-345">345</a></span>
-<span class="normal"><a href="#__codelineno-0-346">346</a></span>
-<span class="normal"><a href="#__codelineno-0-347">347</a></span>
-<span class="normal"><a href="#__codelineno-0-348">348</a></span>
-<span class="normal"><a href="#__codelineno-0-349">349</a></span>
-<span class="normal"><a href="#__codelineno-0-350">350</a></span>
-<span class="normal"><a href="#__codelineno-0-351">351</a></span>
-<span class="normal"><a href="#__codelineno-0-352">352</a></span>
-<span class="normal"><a href="#__codelineno-0-353">353</a></span>
-<span class="normal"><a href="#__codelineno-0-354">354</a></span>
-<span class="normal"><a href="#__codelineno-0-355">355</a></span>
-<span class="normal"><a href="#__codelineno-0-356">356</a></span>
-<span class="normal"><a href="#__codelineno-0-357">357</a></span>
-<span class="normal"><a href="#__codelineno-0-358">358</a></span>
-<span class="normal"><a href="#__codelineno-0-359">359</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_docker_siblings_via_engine</span><span class="p">(</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DOCKER_CLI_TIMEOUT_S</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Stop this job&#39;s sibling containers through the bounded Engine-API client.</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">    Used by startup reconciliation (``JobManager._reconcile_all``), which must not shell out:</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">    at startup a ``docker`` CLI may not be on PATH at all, and every step before the server</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">    accepts requests has to be hard-bounded. :func:`stop_docker_siblings` (the CLI form) stays</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="sd">    for the cancel path, whose behaviour and tests predate this. Never raises — an unreachable</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="sd">    or wedged daemon degrades to a logged warning and ``0``.</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a><span class="sd">    &quot;&quot;&quot;</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>            <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">_stop_siblings_via_engine_blocking</span><span class="p">,</span> <span class="n">job_id</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">),</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">,</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="p">)</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">,</span> <span class="ne">TimeoutError</span><span class="p">):</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="s2">&quot;job </span><span class="si">%s</span><span class="s2">: Docker did not answer within </span><span class="si">%.1f</span><span class="s2">s; leaving any sibling containers alone&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>            <span class="n">job_id</span><span class="p">,</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>            <span class="n">timeout_s</span><span class="p">,</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="p">)</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="k">return</span> <span class="mi">0</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># daemon absent, socket refused, API error</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">&quot;job </span><span class="si">%s</span><span class="s2">: could not stop sibling containers: </span><span class="si">%s</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">job_id</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>        <span class="k">return</span> <span class="mi">0</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span>
+<span class="normal"><a href="#__codelineno-0-445">445</a></span>
+<span class="normal"><a href="#__codelineno-0-446">446</a></span>
+<span class="normal"><a href="#__codelineno-0-447">447</a></span>
+<span class="normal"><a href="#__codelineno-0-448">448</a></span>
+<span class="normal"><a href="#__codelineno-0-449">449</a></span>
+<span class="normal"><a href="#__codelineno-0-450">450</a></span>
+<span class="normal"><a href="#__codelineno-0-451">451</a></span>
+<span class="normal"><a href="#__codelineno-0-452">452</a></span>
+<span class="normal"><a href="#__codelineno-0-453">453</a></span>
+<span class="normal"><a href="#__codelineno-0-454">454</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-429" name="__codelineno-0-429"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">stop_docker_siblings_via_engine</span><span class="p">(</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="n">job_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="n">DOCKER_CLI_TIMEOUT_S</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a><span class="w">    </span><span class="sd">"""Stop this job's sibling containers through the bounded Engine-API client.</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a><span class="sd">    Used by startup reconciliation (``JobManager._reconcile_all``), which must not shell out:</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a><span class="sd">    at startup a ``docker`` CLI may not be on PATH at all, and every step before the server</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a><span class="sd">    accepts requests has to be hard-bounded. :func:`stop_docker_siblings` (the CLI form) stays</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a><span class="sd">    for the cancel path, whose behaviour and tests predate this. Never raises — an unreachable</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a><span class="sd">    or wedged daemon degrades to a logged warning and ``0``.</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a><span class="sd">    """</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>        <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">wait_for</span><span class="p">(</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>            <span class="n">asyncio</span><span class="o">.</span><span class="n">to_thread</span><span class="p">(</span><span class="n">_stop_siblings_via_engine_blocking</span><span class="p">,</span> <span class="n">job_id</span><span class="p">,</span> <span class="n">timeout_s</span><span class="p">),</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>            <span class="n">timeout</span><span class="o">=</span><span class="n">timeout_s</span><span class="p">,</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>        <span class="p">)</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>    <span class="k">except</span> <span class="p">(</span><span class="n">asyncio</span><span class="o">.</span><span class="n">TimeoutError</span><span class="p">,</span> <span class="ne">TimeoutError</span><span class="p">):</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>            <span class="s2">"job </span><span class="si">%s</span><span class="s2">: Docker did not answer within </span><span class="si">%.1f</span><span class="s2">s; leaving any sibling containers alone"</span><span class="p">,</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>            <span class="n">job_id</span><span class="p">,</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>            <span class="n">timeout_s</span><span class="p">,</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>        <span class="p">)</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>        <span class="k">return</span> <span class="mi">0</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># daemon absent, socket refused, API error</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"job </span><span class="si">%s</span><span class="s2">: could not stop sibling containers: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">job_id</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>        <span class="k">return</span> <span class="mi">0</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

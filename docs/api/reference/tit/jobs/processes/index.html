@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://idossha.github.io/TI-Toolbox/api/reference/tit/jobs/processes/">
       
       
-        <link rel="prev" href="../plans/">
+        <link rel="prev" href="../preflight/">
       
       
         <link rel="next" href="../registry/">
@@ -979,7 +979,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1000,7 +1000,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1101,7 +1101,7 @@ interpreter to run them on natively.</p>
 
 
 <a href="#tit.jobs.processes.is_windows" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_windows</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">is_windows</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1114,8 +1114,8 @@ interpreter to run them on natively.</p>
               <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-38">38</a></span>
 <span class="normal"><a href="#__codelineno-0-39">39</a></span>
 <span class="normal"><a href="#__codelineno-0-40">40</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_windows</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;True when running on Windows.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">&quot;win32&quot;</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="w">    </span><span class="sd">"""True when running on Windows."""</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="k">return</span> <span class="n">sys</span><span class="o">.</span><span class="n">platform</span> <span class="o">==</span> <span class="s2">"win32"</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1130,7 +1130,7 @@ interpreter to run them on natively.</p>
 
 
 <a href="#tit.jobs.processes.spawn_kwargs" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">spawn_kwargs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#int">int</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span><span class="p">]</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">spawn_kwargs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span><span class="p">]</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1172,25 +1172,25 @@ independently of the server itself.</p>
 <span class="normal"><a href="#__codelineno-0-60">60</a></span>
 <span class="normal"><a href="#__codelineno-0-61">61</a></span>
 <span class="normal"><a href="#__codelineno-0-62">62</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-43" name="__codelineno-0-43"></a><span class="k">def</span><span class="w"> </span><span class="nf">spawn_kwargs</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span> <span class="o">|</span> <span class="nb">bool</span><span class="p">]:</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Extra kwargs for ``asyncio.create_subprocess_exec``/``subprocess.Popen`` that give a</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="w">    </span><span class="sd">"""Extra kwargs for ``asyncio.create_subprocess_exec``/``subprocess.Popen`` that give a</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    spawned job its own process group, so a later :func:`send_terminate`/:func:`send_kill` can</span>
 <a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    signal the whole tree without also hitting whatever spawned it.</span>
 <a id="__codelineno-0-47" name="__codelineno-0-47"></a>
 <a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    POSIX: ``start_new_session=True`` -- the libc ``setsid()`` call, made safely by the C</span>
 <a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    runtime around fork+exec (never ``preexec_fn=os.setsid``, which runs user Python code</span>
 <a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    between fork and exec and is unsafe in a process with other threads alive -- see</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    ``tit/pre/utils.py``&#39;s own comment on the same tradeoff for the *other* runner in this repo).</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    ``tit/pre/utils.py``'s own comment on the same tradeoff for the *other* runner in this repo).</span>
 <a id="__codelineno-0-52" name="__codelineno-0-52"></a>
 <a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    Windows: ``creationflags=CREATE_NEW_PROCESS_GROUP``. ``start_new_session`` is a *silent*</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    no-op there -- CPython&#39;s Windows ``subprocess._execute_child`` receives it as</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    ``unused_start_new_session`` (verified by reading this host&#39;s own installed ``subprocess.py``;</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    no-op there -- CPython's Windows ``subprocess._execute_child`` receives it as</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    ``unused_start_new_session`` (verified by reading this host's own installed ``subprocess.py``;</span>
 <a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    the parameter is documented POSIX-only) -- so passing it alone would leave a spawned job in</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    the *server&#39;s own* process group on Windows, with no group ``terminate_tree`` could target</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    the *server's own* process group on Windows, with no group ``terminate_tree`` could target</span>
 <a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    independently of the server itself.</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    """</span>
 <a id="__codelineno-0-60" name="__codelineno-0-60"></a>    <span class="k">if</span> <span class="n">is_windows</span><span class="p">():</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;creationflags&quot;</span><span class="p">:</span> <span class="n">CREATE_NEW_PROCESS_GROUP</span><span class="p">}</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;start_new_session&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>        <span class="k">return</span> <span class="p">{</span><span class="s2">"creationflags"</span><span class="p">:</span> <span class="n">CREATE_NEW_PROCESS_GROUP</span><span class="p">}</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"start_new_session"</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1235,15 +1235,15 @@ subprocesses) has exactly one place to change.</p>
 <span class="normal"><a href="#__codelineno-0-76">76</a></span>
 <span class="normal"><a href="#__codelineno-0-77">77</a></span>
 <span class="normal"><a href="#__codelineno-0-78">78</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="k">def</span><span class="w"> </span><span class="nf">send_terminate</span><span class="p">(</span><span class="n">proc</span><span class="p">:</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Graceful stop. POSIX: SIGTERM (a signal the child can trap/ignore/clean up on).</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="w">    </span><span class="sd">"""Graceful stop. POSIX: SIGTERM (a signal the child can trap/ignore/clean up on).</span>
 <a id="__codelineno-0-67" name="__codelineno-0-67"></a>
 <a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    Windows: ``psutil.Process.terminate()``, itself an alias for ``TerminateProcess`` there</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    (psutil&#39;s own docs: &quot;On Windows this is an alias for kill()&quot;) -- Windows has no signal a</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    (psutil's own docs: "On Windows this is an alias for kill()") -- Windows has no signal a</span>
 <a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    receiving process can trap the way POSIX SIGTERM allows, so this and :func:`send_kill`</span>
 <a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    necessarily converge on the same primitive there; kept as two call sites (not one) so a</span>
 <a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    future Windows-specific graceful path (e.g. ``GenerateConsoleCtrlEvent`` for console</span>
 <a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">    subprocesses) has exactly one place to change.</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    """</span>
 <a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">if</span> <span class="n">is_windows</span><span class="p">():</span>
 <a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="n">proc</span><span class="o">.</span><span class="n">terminate</span><span class="p">()</span>
 <a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">else</span><span class="p">:</span>
@@ -1298,18 +1298,18 @@ at <code>tit/jobs/runner.py:213</code> before this module existed -- see
 <span class="normal"><a href="#__codelineno-0-95">95</a></span>
 <span class="normal"><a href="#__codelineno-0-96">96</a></span>
 <span class="normal"><a href="#__codelineno-0-97">97</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="k">def</span><span class="w"> </span><span class="nf">send_kill</span><span class="p">(</span><span class="n">proc</span><span class="p">:</span> <span class="n">psutil</span><span class="o">.</span><span class="n">Process</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Hard kill, no grace. POSIX: SIGKILL, via ``proc.send_signal(signal.SIGKILL)`` -- the</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">    </span><span class="sd">"""Hard kill, no grace. POSIX: SIGKILL, via ``proc.send_signal(signal.SIGKILL)`` -- the</span>
 <a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    exact call ``tit/jobs/runner.py`` made before this module existed, unchanged here.</span>
 <a id="__codelineno-0-84" name="__codelineno-0-84"></a>
 <a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    Windows: ``psutil.Process.kill()`` -- *never* ``signal.SIGKILL``, which is not merely</span>
 <a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    unsupported on Windows but does not exist as a ``signal`` module attribute there at all</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    (&quot;Availability: Unix&quot;, per the signal docs cited in the module docstring); referencing it</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    unconditionally raises ``AttributeError`` at the point of use, before ``runner.py``&#39;s own</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    ("Availability: Unix", per the signal docs cited in the module docstring); referencing it</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    unconditionally raises ``AttributeError`` at the point of use, before ``runner.py``'s own</span>
 <a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    ``psutil.NoSuchProcess``/``AccessDenied`` guard around the call site ever gets a chance to</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    catch it (that guard&#39;s exception tuple never included ``AttributeError``). This was the bug</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    catch it (that guard's exception tuple never included ``AttributeError``). This was the bug</span>
 <a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    at ``tit/jobs/runner.py:213`` before this module existed -- see</span>
 <a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    ``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)`` for the fix and how it was verified.</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    &quot;&quot;&quot;</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    """</span>
 <a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="k">if</span> <span class="n">is_windows</span><span class="p">():</span>
 <a id="__codelineno-0-95" name="__codelineno-0-95"></a>        <span class="n">proc</span><span class="o">.</span><span class="n">kill</span><span class="p">()</span>
 <a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="k">else</span><span class="p">:</span>

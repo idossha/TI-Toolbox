@@ -34,7 +34,7 @@ def select_field_file(
 ) -> tuple[Path, str]:
     """Return the field file path and SimNIBS field name.
 
-    Detects whether the simulation is TI (2-pair) or mTI (4-pair) by checking
+    Detects whether the simulation is TI (2 channels) or mTI (4+) by checking
     for the existence of the mTI mesh directory.
 
     Parameters
@@ -109,7 +109,7 @@ def is_mti_simulation(subject_id: str, simulation: str) -> bool:
     Returns
     -------
     bool
-        ``True`` for an mTI simulation, ``False`` for 2-pair TI.
+        ``True`` for an mTI simulation, ``False`` for two-channel TI.
     """
     sim_dir = Path(get_path_manager().simulation(subject_id, simulation))
     return (sim_dir / "mTI" / "mesh").is_dir()
@@ -120,7 +120,7 @@ def simulation_nifti_path(
 ) -> Path:
     """The NIfTI *nifti_file_pattern* names in *simulation*, for TI and mTI alike.
 
-    Patterns use the 2-pair spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
+    Patterns use the TI spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
     read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``
     into ``mTI/niftis/``, and of its fields only the envelope is spelled differently
     (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep their names). So for mTI the
@@ -159,7 +159,7 @@ def simulation_nifti_path(
 
 #: The ``_TI_`` of the mesh stem, right before mesh2nii's space token.
 _MTI_MESH_TOKEN = re.compile(r"_TI_(?=subject_|MNI_)")
-#: The envelope field at the end of a 2-pair name; mTI meshes call it ``mTI_max``.
+#: The envelope field at the end of a TI name; mTI meshes call it ``mTI_max``.
 _TI_MAX_SUFFIX = re.compile(r"_TI_max(?=\.nii(?:\.gz)?$)")
 
 
@@ -167,7 +167,7 @@ def _canonical_field_name(field_name: str, is_mti: bool) -> str:
     """Resolve the TI_max/mTI_max alias pair to the on-disk spelling.
 
     ``TI_max`` and ``mTI_max`` are the same quantity (modulation depth) — the
-    2-pair TI mesh and the 4-pair/mTI mesh just name it differently. Callers
+    two-channel TI mesh and the mTI mesh just name it differently. Callers
     (e.g. the GUI) should not need to know which spelling a given simulation
     used; only *is_mti* decides it.
     """
@@ -187,8 +187,8 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by _calculate_ti_normal /
-    # _calculate_mti_normal), not the main TI/mTI output mesh.
+    # TI_normal lives in a separate mesh (written by
+    # BaseSimulation._write_ti_normal), not the main TI/mTI output mesh.
     if field_name == const.FIELD_TI_NORMAL:
         if is_mti:
             normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"

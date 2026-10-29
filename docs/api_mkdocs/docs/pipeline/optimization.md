@@ -1,6 +1,6 @@
 # Optimization
 
-TI-Toolbox provides **flex-search** (differential evolution) for continuous electrode-position optimization, **exhaustive search** for two-pair TI, and **multipolar exhaustive search** for four-pair mTI.
+TI-Toolbox provides **flex-search** (differential evolution) for continuous electrode-position optimization, **exhaustive search** for two-channel TI, and **multipolar exhaustive search** for four-channel mTI.
 
 ```mermaid
 graph LR
@@ -129,11 +129,11 @@ config = ExConfig(
 
 ## Multipolar Exhaustive Search
 
-Use `MExConfig` and `run_m_ex_search` from `tit.opt` for a four-pair search.
-Like two-pair exhaustive search, it requires a precomputed leadfield and target ROI.
+Use `MExConfig` and `run_m_ex_search` from `tit.opt` for a four-channel search.
+Like two-channel exhaustive search, it requires a precomputed leadfield and target ROI.
 `MExConfig.PoolElectrodes` draws all eight electrode positions from a shared pool;
-`MExConfig.BucketElectrodes` provides separate pair buckets. `current_mA` sets the
-fixed current delivered by each pair. See the generated API below for configuration.
+`MExConfig.BucketElectrodes` provides a separate bucket per electrode (`e1_plus` … `e4_minus`).
+`current_mA` sets the fixed current delivered by each channel. See the generated API below for configuration.
 
 ## Leadfield Generation
 

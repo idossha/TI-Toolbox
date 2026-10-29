@@ -5,8 +5,8 @@ branch = True
 # tit/ (tests/test_coveragerc.py). Package __init__.py files are measured: some carry
 # real code (tit/examples/__init__.py is the example-data downloader).
 omit =
-    # tit/blender: the scene half (montage_scene, scene_setup, electrode_placement,
-    # helpers/) runs inside Blender's own Python with bpy, which neither the host suite
+    # tit/blender: the scene half (montage_scene, scene_setup, electrode_placement)
+    # runs inside Blender's own Python with bpy, which neither the host suite
     # nor the image leg has; the package is omitted as one unit so its number is not
     # read as a measurement of the bpy code. Its config/io/exporter half is still
     # exercised by tests/test_blender_*.py.

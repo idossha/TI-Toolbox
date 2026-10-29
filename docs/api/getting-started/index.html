@@ -1459,18 +1459,18 @@ initialization makes scripts portable to other container sessions.</p>
 <a id="__codelineno-1-17" name="__codelineno-1-17" href="#__codelineno-1-17"></a>    <span class="n">intensities</span><span class="o">=</span><span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">],</span>
 <a id="__codelineno-1-18" name="__codelineno-1-18" href="#__codelineno-1-18"></a>    <span class="n">electrode_shape</span><span class="o">=</span><span class="s2">"ellipse"</span><span class="p">,</span>
 <a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a>    <span class="n">electrode_dimensions</span><span class="o">=</span><span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">],</span>
-<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span>
+<a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a>    <span class="n">gel_thickness</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
 <a id="__codelineno-1-21" name="__codelineno-1-21" href="#__codelineno-1-21"></a><span class="p">)</span>
 <a id="__codelineno-1-22" name="__codelineno-1-22" href="#__codelineno-1-22"></a>
-<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="c1"># Run (auto-detects TI vs mTI based on number of electrode pairs)</span>
+<a id="__codelineno-1-23" name="__codelineno-1-23" href="#__codelineno-1-23"></a><span class="c1"># Run (auto-detects TI vs mTI from the number of channels)</span>
 <a id="__codelineno-1-24" name="__codelineno-1-24" href="#__codelineno-1-24"></a><span class="n">results</span> <span class="o">=</span> <span class="n">run_simulation</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div>
 <h3 id="simulation-types">Simulation Types<a class="headerlink" href="#simulation-types" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>TI (2-pair)</strong>: Standard temporal interference with 2 electrode pairs</li>
-<li><strong>mTI (4+ even pairs)</strong>: Multi-channel TI with N electrode pairs (binary-tree combination)</li>
+<li><strong>TI (2 channels)</strong>: Standard temporal interference; a channel is one electrode pair (Ek+, Ek-)</li>
+<li><strong>mTI (4 or more channels, even)</strong>: Multi-channel TI: 4 or more channels, beating in pairs at a common Δf, and <code>mTI_max</code> is the joint envelope of all of them</li>
 </ul>
-<p>Mode is auto-detected from the montage: 2 pairs -&gt; TI, 4+ even pairs -&gt; mTI.</p>
+<p>Mode is auto-detected from the montage: 2 channels -&gt; TI, 4 or more (even) -&gt; mTI.</p>
 <h2 id="analyzing-results">Analyzing Results<a class="headerlink" href="#analyzing-results" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">tit.analyzer</span><span class="w"> </span><span class="kn">import</span> <span class="n">Analyzer</span>
 <a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
@@ -1647,9 +1647,10 @@ software check, advisory, reported) and citation, and the rules are in
 <p>All paths are managed by <code>PathManager</code>, which enforces a BIDS-compliant directory structure. You never construct paths manually.</p>
 <h3 id="field-types">Field Types<a class="headerlink" href="#field-types" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>TI_max</strong>: Maximum TI envelope magnitude (2-pair simulations)</li>
-<li><strong>TI_normal</strong>: TI field component normal to the cortical surface</li>
-<li><strong>mTI_max</strong>: Multi-channel TI maximum envelope (4+ even-pair mTI simulations, from binary-tree combination)</li>
+<li><strong>TI_max</strong>: Maximum TI envelope over all directions (two-channel simulations; <code>tit.calc.envelope_max</code>)</li>
+<li><strong>TI_normal</strong>: TI envelope along the cortical surface normal (<code>tit.calc.envelope</code>)</li>
+<li><strong>mTI_max</strong>: Maximum of the joint envelope of all channels (mTI simulations, 4 or more channels; <code>tit.calc.envelope_max</code>)</li>
+<li><strong>TI_avg</strong>, <strong>hf_peak</strong>, <strong>hf_sar</strong>, <strong>hf_power_density</strong>: optional outputs (direction-averaged envelope, peak carrier field, <code>hf_sar</code> = Σ|E_c|² = 2 × <code>tit.calc.hf_power</code>, absorbed carrier power in W/m³)</li>
 </ul>
 <h3 id="coordinate-spaces">Coordinate Spaces<a class="headerlink" href="#coordinate-spaces" title="Permanent link">&para;</a></h3>
 <ul>

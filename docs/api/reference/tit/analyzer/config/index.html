@@ -1119,7 +1119,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -1140,7 +1140,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../_mti_kernel/" class="md-path__link">
+        <a href="../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1207,8 +1207,8 @@ against that schema before submitting the job.</p>
 <p>This module does not change <code>tit.analyzer.__main__</code> in any way -- it is a
 read of what that entry point already accepts (see its docstring and the
 <code>_run_single</code> / <code>_run_group</code> dict lookups), not a new contract the
-runner must adopt. See <code>AnalyzerConfig</code>'s "Notes" for the two runner
-behaviors this dataclass cannot yet express.</p>
+runner must adopt. See <code>AnalyzerConfig</code>'s "Notes" for the one runner
+behavior this dataclass does not express.</p>
 <h4 id="tit.analyzer.config--see-also">See Also<a class="headerlink" href="#tit.analyzer.config--see-also" title="Permanent link">&para;</a></h4>
 <p>tit.analyzer.<strong>main</strong> : Reads the exact dict keys this dataclass mirrors.
 tit.analyzer.group.run_group_analysis : Consumed by the <code>"group"</code> branch.
@@ -1350,12 +1350,14 @@ VOXEL : str
         <p>Region-of-interest shape.</p>
 <h5 id="tit.analyzer.config.AnalysisType--attributes">Attributes<a class="headerlink" href="#tit.analyzer.config.AnalysisType--attributes" title="Permanent link">&para;</a></h5>
 <p>SPHERICAL : str
-    A sphere at <em>center</em> with radius <em>radius</em> (implemented today).
+    A sphere at <em>center</em> with radius <em>radius</em>.
 CORTICAL : str
-    An atlas <em>region</em> on <em>atlas</em> (implemented today).
+    An atlas <em>region</em> on <em>atlas</em>.
 SUBCORTICAL : str
-    A volumetric atlas region. <strong>Not implemented by the runner yet</strong> --
-    see :class:<code>AnalyzerConfig</code>'s Notes.</p>
+    Label(s) <em>region</em> of the volume atlas <em>atlas</em>, in <em>coordinate_space</em>
+    (a subject atlas, or a shipped MNI atlas warped to the subject).
+MASK : str
+    The positive voxels of the NIfTI <em>mask_path</em>.</p>
 
 
 
@@ -1447,24 +1449,7 @@ MNI : str
   </span>
 
 <a href="#tit.analyzer.config.AnalyzerConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AnalyzerConfig</span><span class="p">(</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    <span class="n">mode</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalysisMode" href="#tit.analyzer.config.AnalysisMode">AnalysisMode</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalysisMode.SINGLE">SINGLE</span></span><span class="p">,</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerConfig.field">field</span></span><span class="p">(</span><span class="n"><span title="tit.analyzer.config.AnalyzerConfig.field(default_factory)">default_factory</span></span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">),</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalyzerSpace" href="#tit.analyzer.config.AnalyzerSpace">AnalyzerSpace</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerSpace.MESH">MESH</span></span><span class="p">,</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s2">&quot;GM&quot;</span><span class="p">,</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">analysis_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalysisType" href="#tit.analyzer.config.AnalysisType">AnalysisType</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalysisType.SPHERICAL">SPHERICAL</span></span><span class="p">,</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">center</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>    <span class="n">radius</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">coordinate_space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalyzerCoordinateSpace" href="#tit.analyzer.config.AnalyzerCoordinateSpace">AnalyzerCoordinateSpace</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerCoordinateSpace.SUBJECT">SUBJECT</span></span><span class="p">,</span>
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>    <span class="n">atlas</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="n">region</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>    <span class="n">visualize</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="n">mask_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/library/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">AnalyzerConfig</span><span class="p">(</span><span class="n">mode</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalysisMode" href="#tit.analyzer.config.AnalysisMode">AnalysisMode</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalysisMode.SINGLE">SINGLE</span></span><span class="p">,</span> <span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerConfig.field">field</span></span><span class="p">(</span><span class="n"><span title="tit.analyzer.config.AnalyzerConfig.field(default_factory)">default_factory</span></span><span class="o">=</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">),</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">''</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalyzerSpace" href="#tit.analyzer.config.AnalyzerSpace">AnalyzerSpace</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerSpace.MESH">MESH</span></span><span class="p">,</span> <span class="n">tissue_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'GM'</span><span class="p">,</span> <span class="n">analysis_type</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalysisType" href="#tit.analyzer.config.AnalysisType">AnalysisType</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalysisType.SPHERICAL">SPHERICAL</span></span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">center</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">radius</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">coordinate_space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-internal" title="tit.analyzer.config.AnalyzerCoordinateSpace" href="#tit.analyzer.config.AnalyzerCoordinateSpace">AnalyzerCoordinateSpace</a></span> <span class="o">=</span> <span class="n"><span title="tit.analyzer.config.AnalyzerCoordinateSpace.SUBJECT">SUBJECT</span></span><span class="p">,</span> <span class="n">atlas</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">region</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">visualize</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">mask_path</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1497,12 +1482,13 @@ center : list of float or None
 radius : float or None
     Sphere radius in mm. Required for <code>analysis_type="spherical"</code>.
 coordinate_space : AnalyzerCoordinateSpace
-    Space of <em>center</em> (spherical only).
+    Space of <em>center</em> (spherical), of the volume <em>atlas</em> (subcortical) or
+    of <em>mask_path</em> (mask).
 atlas : str or None
-    Atlas name. Required for <code>analysis_type="cortical"</code>.
+    Atlas name. Required for <code>analysis_type="cortical"</code> and
+    <code>"subcortical"</code>.
 region : str or list of str or None
-    Region name(s) within <em>atlas</em>. Required for
-    <code>analysis_type="cortical"</code>.
+    Region name(s) within <em>atlas</em> (cortical, subcortical).
 mask_path : str or None
     NIfTI mask; positive voxels select the ROI in <em>coordinate_space</em>.
 output_dir : str or None
@@ -1513,22 +1499,14 @@ visualize : bool
 <p>ValueError
     If <em>mode</em> is <code>"single"</code> without <em>subject_id</em>, <code>"group"</code> without
     <em>subject_ids</em>, if <em>analysis_type</em> is <code>"spherical"</code> without both
-    <em>center</em> and <em>radius</em>, or <code>"cortical"</code> without <em>atlas</em>.</p>
+    <em>center</em> and <em>radius</em>, or <code>"cortical"</code>/<code>"subcortical"</code> without
+    <em>atlas</em>.</p>
 <h5 id="tit.analyzer.config.AnalyzerConfig--notes">Notes<a class="headerlink" href="#tit.analyzer.config.AnalyzerConfig--notes" title="Permanent link">&para;</a></h5>
-<p>Two things this dataclass models but the runner does not (yet) honor,
-reported rather than silently patched into <code>tit/analyzer/__main__.py</code>
-(owned by agent B4):</p>
-<ul>
-<li><code>analysis_type="subcortical"</code> is accepted here (and by
-  :class:<code>AnalysisType</code>) but <code>tit.analyzer.__main__._run_single</code> only
-  branches on <code>"spherical"</code> and <code>"cortical"</code> -- a subcortical
-  request is silently a no-op today.</li>
-<li><code>region</code> is a single canonical field here; the runner reads
-  <code>data.get("regions") or data.get("region")</code> (two keys, <code>"regions"</code>
-  preferred). Serializing this dataclass writes only <code>"region"</code>, which
-  the runner already falls back to, so single-region submissions work
-  unchanged; only the plural alias is not reproduced.</li>
-</ul>
+<p><code>region</code> is a single canonical field here; the runner reads
+<code>data.get("regions") or data.get("region")</code> (two keys, <code>"regions"</code>
+preferred). Serializing this dataclass writes only <code>"region"</code>, which
+the runner already falls back to, so single-region submissions work
+unchanged; only the plural alias is not reproduced.</p>
 <h5 id="tit.analyzer.config.AnalyzerConfig--see-also">See Also<a class="headerlink" href="#tit.analyzer.config.AnalyzerConfig--see-also" title="Permanent link">&para;</a></h5>
 <p>tit.analyzer.<strong>main</strong> : The entry point whose accepted keys this
     dataclass mirrors.</p>

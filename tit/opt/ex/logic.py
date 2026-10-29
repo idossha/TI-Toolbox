@@ -12,8 +12,6 @@ Public API
 ----------
 generate_current_ratios
     Enumerate valid two-channel current splits.
-generate_montage_combinations
-    Yield ``(e1+, e1-, e2+, e2-, (ch1_mA, ch2_mA))`` tuples.
 count_combinations
     Count total montage combinations without materializing them.
 format_current_mA
@@ -291,52 +289,6 @@ def explain_zero_combinations(
     )
 
 
-def generate_montage_combinations(
-    e1_plus,
-    e1_minus,
-    e2_plus,
-    e2_minus,
-    current_ratios,
-    all_combinations,
-    symmetry_mirror_map=None,
-    symmetry_pairing=SYMMETRY_PAIRING_WITHIN_PAIRS,
-):
-    """Yield every electrode + current-ratio combination for evaluation.
-
-    Parameters
-    ----------
-    e1_plus, e1_minus, e2_plus, e2_minus : list of str
-        Electrode name lists for each bucket position.
-    current_ratios : list of tuple of (float, float)
-        Valid current splits from :func:`generate_current_ratios`.
-    all_combinations : bool
-        When *True*, treat *e1_plus* as a single pool and yield each
-        physical montage once (see :func:`_pool_montages`).
-    symmetry_mirror_map : dict or None
-        Electrode mirror map for symmetric bucket mode (see
-        :mod:`tit.opt.ex.symmetry`); ``None`` disables the constraint.
-    symmetry_pairing : str
-        ``"within_pairs"`` or ``"cross_pairs"``.
-
-    Yields
-    ------
-    tuple
-        ``(e1p, e1m, e2p, e2m, (ch1_mA, ch2_mA))``.
-    """
-    for electrodes in _electrode_combinations(
-        e1_plus,
-        e1_minus,
-        e2_plus,
-        e2_minus,
-        all_combinations,
-        symmetry_mirror_map,
-        symmetry_pairing,
-        both_channel_orders=not ratios_mirror_symmetric(current_ratios),
-    ):
-        for ratio in current_ratios:
-            yield (*electrodes, ratio)
-
-
 def count_combinations(
     e1_plus,
     e1_minus,
@@ -356,7 +308,7 @@ def count_combinations(
     current_ratios : list of tuple of (float, float)
         Valid current splits.
     all_combinations : bool
-        Pool mode flag (see :func:`generate_montage_combinations`).
+        Pool mode flag (see :func:`_pool_montages`).
 
     Returns
     -------

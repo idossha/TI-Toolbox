@@ -891,6 +891,67 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="run_m_ex_search">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.mex.mex.run_m_ex_search--parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parameters
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.mex.mex.run_m_ex_search--returns" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Returns
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.mex.mex.run_m_ex_search--raises" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Raises
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.mex.mex.run_m_ex_search--examples" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Examples
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#tit.opt.mex.mex.run_m_ex_search--see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
       </ul>
@@ -946,7 +1007,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -967,7 +1028,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -985,7 +1046,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../config/" class="md-path__link">
+        <a href="../../candidate_catalog/" class="md-path__link">
           
   <span class="md-ellipsis">
     opt
@@ -1042,7 +1103,7 @@
 
     <div class="doc doc-contents first">
 
-        <p>Multipolar (4-pair) exhaustive search optimization.</p>
+        <p>Multipolar (four-channel) exhaustive search optimization.</p>
 <p>Public API: <code>run_m_ex_search(config) -&gt; MExResult</code></p>
 
 
@@ -1076,16 +1137,160 @@
 
     <div class="doc doc-contents ">
 
-        <p>Run multipolar exhaustive search from a typed config object.</p>
+        <p>Run an exhaustive four-channel (eight-electrode) mTI search over a leadfield.</p>
+<p>Enumerates every four-channel combination allowed by
+<code>config.electrodes</code> at one fixed <code>current_mA</code> per channel, scores each
+candidate with the joint K-pair envelope maximum
+(:func:<code>tit.calc.envelope_max</code>), and writes a ranked CSV plus a
+config JSON under the subject's <code>m-ex-search/</code> folder.</p>
+<h5 id="tit.opt.mex.mex.run_m_ex_search--parameters">Parameters<a class="headerlink" href="#tit.opt.mex.mex.run_m_ex_search--parameters" title="Permanent link">&para;</a></h5>
+<p>config : MExConfig
+    Fully specified search configuration.</p>
+<h5 id="tit.opt.mex.mex.run_m_ex_search--returns">Returns<a class="headerlink" href="#tit.opt.mex.mex.run_m_ex_search--returns" title="Permanent link">&para;</a></h5>
+<p>MExResult
+    <code>success</code>, <code>output_dir</code>, <code>n_combinations</code> evaluated, and the
+    <code>results_csv</code> / <code>config_json</code> paths.</p>
+<h5 id="tit.opt.mex.mex.run_m_ex_search--raises">Raises<a class="headerlink" href="#tit.opt.mex.mex.run_m_ex_search--raises" title="Permanent link">&para;</a></h5>
+<p>ValueError
+    If no candidate montage can be enumerated, an electrode is not in
+    the leadfield (raised before it is loaded), a referenced ROI CSV or
+    atlas file does not exist, or the ROI selects no leadfield mesh
+    element (raised before the search; no results are written).
+FileNotFoundError
+    If <code>config.leadfield_hdf</code> cannot be found under the subject's
+    <code>leadfields/</code> directory.</p>
+<h5 id="tit.opt.mex.mex.run_m_ex_search--examples">Examples<a class="headerlink" href="#tit.opt.mex.mex.run_m_ex_search--examples" title="Permanent link">&para;</a></h5>
+<blockquote>
+<blockquote>
+<blockquote>
+<p>from tit.opt import MExConfig, run_m_ex_search
+cfg = MExConfig(
+...     subject_id="ernie",
+...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",
+...     roi_name="L-Insula",
+...     electrodes=MExConfig.PoolElectrodes(
+...         electrodes=["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4"]),
+...     current_mA=1.0,
+... )
+res = run_m_ex_search(cfg)  # doctest: +SKIP
+res.success, res.n_combinations  # doctest: +SKIP
+(True, 105)</p>
+</blockquote>
+</blockquote>
+</blockquote>
+<h5 id="tit.opt.mex.mex.run_m_ex_search--see-also">See Also<a class="headerlink" href="#tit.opt.mex.mex.run_m_ex_search--see-also" title="Permanent link">&para;</a></h5>
+<p>MExConfig : Configuration dataclass for this search.
+MExResult : Returned container.
+tit.opt.ex.ex.run_ex_search : Two-channel (TI) variant.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/mex/mex.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-28">28</a></span>
-<span class="normal"><a href="#__codelineno-0-29">29</a></span>
-<span class="normal"><a href="#__codelineno-0-30">30</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_m_ex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">MExConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MExResult</span><span class="p">:</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Run multipolar exhaustive search from a typed config object.&quot;&quot;&quot;</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="k">return</span> <span class="n">_run_m_ex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-30">30</a></span>
+<span class="normal"><a href="#__codelineno-0-31">31</a></span>
+<span class="normal"><a href="#__codelineno-0-32">32</a></span>
+<span class="normal"><a href="#__codelineno-0-33">33</a></span>
+<span class="normal"><a href="#__codelineno-0-34">34</a></span>
+<span class="normal"><a href="#__codelineno-0-35">35</a></span>
+<span class="normal"><a href="#__codelineno-0-36">36</a></span>
+<span class="normal"><a href="#__codelineno-0-37">37</a></span>
+<span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
+<span class="normal"><a href="#__codelineno-0-54">54</a></span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span>
+<span class="normal"><a href="#__codelineno-0-65">65</a></span>
+<span class="normal"><a href="#__codelineno-0-66">66</a></span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span>
+<span class="normal"><a href="#__codelineno-0-72">72</a></span>
+<span class="normal"><a href="#__codelineno-0-73">73</a></span>
+<span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_m_ex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">MExConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">MExResult</span><span class="p">:</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="w">    </span><span class="sd">"""Run an exhaustive four-channel (eight-electrode) mTI search over a leadfield.</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a><span class="sd">    Enumerates every four-channel combination allowed by</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a><span class="sd">    ``config.electrodes`` at one fixed ``current_mA`` per channel, scores each</span>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a><span class="sd">    candidate with the joint K-pair envelope maximum</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="sd">    (:func:`tit.calc.envelope_max`), and writes a ranked CSV plus a</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="sd">    config JSON under the subject's ``m-ex-search/`` folder.</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="sd">    config : MExConfig</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="sd">        Fully specified search configuration.</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    MExResult</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        ``success``, ``output_dir``, ``n_combinations`` evaluated, and the</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">        ``results_csv`` / ``config_json`` paths.</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        If no candidate montage can be enumerated, an electrode is not in</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        the leadfield (raised before it is loaded), a referenced ROI CSV or</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        atlas file does not exist, or the ROI selects no leadfield mesh</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        element (raised before the search; no results are written).</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    FileNotFoundError</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        If ``config.leadfield_hdf`` cannot be found under the subject's</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        ``leadfields/`` directory.</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    &gt;&gt;&gt; from tit.opt import MExConfig, run_m_ex_search</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    &gt;&gt;&gt; cfg = MExConfig(</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">    ...     subject_id="ernie",</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    ...     leadfield_hdf="ernie_leadfield_EEG10-10_UI_Jurak_2007.hdf5",</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    ...     roi_name="L-Insula",</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    ...     electrodes=MExConfig.PoolElectrodes(</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    ...         electrodes=["Fp1", "Fp2", "F3", "F4", "C3", "C4", "P3", "P4"]),</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    ...     current_mA=1.0,</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    ... )</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    &gt;&gt;&gt; res = run_m_ex_search(cfg)  # doctest: +SKIP</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">    &gt;&gt;&gt; res.success, res.n_combinations  # doctest: +SKIP</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">    (True, 105)</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    MExConfig : Configuration dataclass for this search.</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    MExResult : Returned container.</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    tit.opt.ex.ex.run_ex_search : Two-channel (TI) variant.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    """</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="k">return</span> <span class="n">_run_m_ex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

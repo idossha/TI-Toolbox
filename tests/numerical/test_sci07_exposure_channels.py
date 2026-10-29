@@ -14,7 +14,7 @@ at its own carrier frequency, so *one FEM field is one carrier* and the
 coherent pre-sum within a frequency is the identity.  The exposure metrics
 therefore sum incoherently over the N fields:
 
-    ``hf_sar = sum_i |E_i|^2``            (power adds; distinct frequencies)
+    ``hf_power = sum_i |E_i|^2 / 2``      (power adds; the on-disk ``hf_sar`` is 2x this)
     ``hf_peak = max_s |sum_i s_i E_i|``   (worst-case realisable phase)
 
 with the sinusoid's ``1/2`` applied exactly once, in the SAR calibration
@@ -111,11 +111,11 @@ def test_hf_sar_matches_measured_time_average(n_carriers):
 
     The ``1/2`` is the sinusoid's time-average (Cassarà Part II, p. 6: "For
     sinusoidal currents, root mean square (RMS) peak E-field and current
-    density differ by a factor of sqrt(2)").  It is applied exactly once, in
-    the SAR calibration ``(sigma / 2 rho) * hf_sar``, and this test pins that
-    the field-domain quantity itself carries no factor.
+    density differ by a factor of sqrt(2)").  Since 2026-10-26 it is inside
+    ``hf_power`` (``E_rms^2``; ``SAR = sigma hf_power / rho``, IEEE C95.1-2019
+    p. 35), so ``hf_power`` *is* the measured time average.
     """
-    from tit.fields import hf_sar
+    from tit.calc import hf_power
 
     rng = np.random.default_rng(20260907 + n_carriers)
     vecs = [rng.normal(size=3) for _ in range(n_carriers)]
@@ -125,11 +125,11 @@ def test_hf_sar_matches_measured_time_average(n_carriers):
     phases = [0.37 * i for i in range(n_carriers)]
 
     measured = _true_mean_square(vecs, freqs, phases)
-    got = hf_sar(*fields)
+    got = hf_power(fields)
     assert got.shape == (4,)
-    assert float(got[0]) == pytest.approx(2.0 * measured, rel=1e-9)
-    # ... and it is the longhand incoherent sum (summation order aside).
-    assert float(got[0]) == pytest.approx(_reference_hf_sar(vecs), rel=1e-15)
+    assert float(got[0]) == pytest.approx(measured, rel=1e-9)
+    # ... and it is half the longhand incoherent sum (summation order aside).
+    assert float(got[0]) == pytest.approx(0.5 * _reference_hf_sar(vecs), rel=1e-15)
 
 
 def test_hf_sar_is_phase_blind():
@@ -139,7 +139,7 @@ def test_hf_sar_is_phase_blind():
     of two different frequencies integrate to zero over the common period, so
     ``hf_sar`` is a function of the amplitudes alone.
     """
-    from tit.fields import hf_sar
+    from tit.calc import hf_power
 
     rng = np.random.default_rng(9091)
     vecs = [rng.normal(size=3) for _ in range(4)]
@@ -148,7 +148,7 @@ def test_hf_sar_is_phase_blind():
     a = _true_mean_square(vecs, freqs, [0.0, 0.0, 0.0, 0.0])
     b = _true_mean_square(vecs, freqs, [0.0, 1.3, 2.9, 0.6])
     assert a == pytest.approx(b, rel=1e-9)
-    assert float(hf_sar(*_as_rows(*vecs))[0]) == pytest.approx(2.0 * a, rel=1e-9)
+    assert float(hf_power(_as_rows(*vecs))[0]) == pytest.approx(a, rel=1e-9)
 
 
 # --------------------------------------------------------------------------
@@ -164,12 +164,12 @@ def test_hf_peak_matches_measured_peak_two_carriers():
     the *relative* phase sweep the whole circle within one beat period, so the
     supremum is actually attained and the measurement is exact.
     """
-    from tit.fields import hf_peak
+    from tit.calc import hf_peak
 
     e0 = np.array([0.9, -0.3, 0.2])
     e1 = np.array([0.1, 0.5, -0.4])
     measured = _true_peak([e0, e1], (_FREQS[0], _FREQS[1]), (0.0, 0.0))
-    got = float(hf_peak(*_as_rows(e0, e1))[0])
+    got = float(hf_peak(_as_rows(e0, e1))[0])
     assert got == pytest.approx(measured, rel=2e-4)
     assert got == pytest.approx(_reference_hf_peak([e0, e1]), rel=1e-12)
 
@@ -185,11 +185,11 @@ def test_hf_peak_is_conservative_for_more_carriers(n_carriers):
     instantaneous magnitude, and the supremum over the torus is the sign
     enumeration it reports.
     """
-    from tit.fields import hf_peak
+    from tit.calc import hf_peak
 
     rng = np.random.default_rng(808 + n_carriers)
     vecs = [rng.normal(size=3) for _ in range(n_carriers)]
-    got = float(hf_peak(*_as_rows(*vecs))[0])
+    got = float(hf_peak(_as_rows(*vecs))[0])
 
     assert got == pytest.approx(_reference_hf_peak(vecs), rel=1e-12)
     for phases in ((0.0,) * n_carriers, tuple(0.31 * i for i in range(n_carriers))):
@@ -198,46 +198,38 @@ def test_hf_peak_is_conservative_for_more_carriers(n_carriers):
 
 def test_hf_peak_two_carriers_is_cassara_eq3():
     """At two carriers the sign enumeration *is* ``max(|E1+E2|, |E1-E2|)``."""
-    from tit.fields import hf_peak
+    from tit.calc import hf_peak
 
     rng = np.random.default_rng(3131)
     for _ in range(20):
         e1, e2 = rng.normal(size=3), rng.normal(size=3)
         eq3 = max(np.linalg.norm(e1 + e2), np.linalg.norm(e1 - e2))
-        assert float(hf_peak(*_as_rows(e1, e2))[0]) == pytest.approx(eq3, rel=1e-14)
+        assert float(hf_peak(_as_rows(e1, e2))[0]) == pytest.approx(eq3, rel=1e-14)
 
 
 def test_hf_peak_never_below_any_single_carrier():
     """A safety metric must dominate every one of its constituents."""
-    from tit.fields import hf_peak
+    from tit.calc import hf_peak
 
     rng = np.random.default_rng(555)
     vecs = [rng.normal(size=3) for _ in range(6)]
-    peak = float(hf_peak(*_as_rows(*vecs))[0])
+    peak = float(hf_peak(_as_rows(*vecs))[0])
     assert peak >= max(float(np.linalg.norm(v)) for v in vecs) - 1e-12
 
 
-def test_hf_peak_is_exact_counts_carriers():
-    """One field is one carrier, so the flag is a plain count threshold."""
-    from tit.fields import EXACT_SIGN_ENUM_MAX_FIELDS, hf_peak_is_exact
+@pytest.mark.parametrize("n_carriers", [9, 10, 12])
+def test_hf_peak_is_exact_above_eight_carriers(n_carriers):
+    """No enumeration cap: past 8 carriers the value is still the exact maximum.
 
-    assert hf_peak_is_exact(2) is True
-    assert hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS) is True
-    assert hf_peak_is_exact(EXACT_SIGN_ENUM_MAX_FIELDS + 1) is False
-    assert hf_peak_is_exact(12) is False
+    (Until 2026-10-26 a direction sweep took over above 8 fields and could
+    under-report by ~5e-4.)  The reference enumerates all ``2**N`` signs.
+    """
+    from tit.calc import hf_peak
 
-
-def test_hf_peak_sweep_is_a_lower_bound_on_the_exact_enumeration():
-    """Above the enumeration cap the sweep may under-report, never over-report."""
-    from tit.fields import EXACT_SIGN_ENUM_MAX_FIELDS, hf_peak
-
-    n = EXACT_SIGN_ENUM_MAX_FIELDS + 2
-    rng = np.random.default_rng(24601)
-    vecs = [rng.normal(size=3) for _ in range(n)]
-    swept = float(hf_peak(*_as_rows(*vecs))[0])
-    exact = _reference_hf_peak(vecs)
-    assert swept <= exact + 1e-9
-    assert swept == pytest.approx(exact, rel=5e-2)
+    rng = np.random.default_rng(24601 + n_carriers)
+    vecs = [rng.normal(size=3) for _ in range(n_carriers)]
+    got = float(hf_peak(_as_rows(*vecs))[0])
+    assert got == pytest.approx(_reference_hf_peak(vecs), rel=1e-12)
 
 
 # --------------------------------------------------------------------------
@@ -278,13 +270,13 @@ def test_directional_envelope_matches_time_domain_beat_depth():
 
 
 def test_max_envelope_matches_the_best_direction_of_the_measured_beat():
-    """``get_TI_vectors``'s norm is the largest beat depth over any direction.
+    """``envelope_max`` is the largest beat depth over any direction.
 
     The per-direction depth is Eq. 1 (checked against the time domain in the
     test above); maximising it over a dense direction sweep is an independent
     reconstruction of the K=1 closed form the engine uses.
     """
-    from tit.calc import get_TI_vectors
+    from tit.calc import envelope_max
 
     e1 = np.array([0.8, 0.2, -0.1])
     e2 = np.array([0.3, -0.5, 0.4])
@@ -301,11 +293,7 @@ def test_max_envelope_matches_the_best_direction_of_the_measured_beat():
     b = dirs @ e2
     swept = float(np.max(np.abs(np.abs(a + b) - np.abs(a - b))))
 
-    got = float(
-        np.linalg.norm(
-            get_TI_vectors([np.tile(e1, (4, 1)), np.tile(e2, (4, 1))])[0]
-        )
-    )
+    got = float(envelope_max([np.tile(e1, (4, 1)), np.tile(e2, (4, 1))])[0])
     assert got == pytest.approx(swept, rel=1e-3)
     assert got >= swept - 1e-12
 
@@ -320,27 +308,26 @@ def test_envelope_and_exposure_consume_the_same_positional_field_list(n_fields):
     """One field list, one carrier per entry, both paths.
 
     ``tit.calc`` pairs ``fields`` positionally into ``n_fields // 2`` beating
-    carriers and ``tit.fields`` sums the same ``n_fields`` entries
+    carriers and ``hf_peak``/``hf_power`` sum the same ``n_fields`` entries
     incoherently.  There is no grouping argument on either side to drift, so
     what this pins is the *shape* contract: both accept exactly the montage's
     field list, in order, and neither drops or re-pairs an entry.
     """
-    from tit.calc import get_TI_vectors
-    from tit.fields import hf_peak, hf_sar
+    from tit.calc import envelope_max, hf_peak, hf_power
 
     rng = np.random.default_rng(1729 + n_fields)
     fields = [rng.normal(size=(8, 3)) for _ in range(n_fields)]
 
-    assert get_TI_vectors(fields).shape == (8, 3)
-    assert hf_sar(*fields).shape == (8,)
-    assert hf_peak(*fields).shape == (8,)
+    assert envelope_max(fields).shape == (8,)
+    assert hf_power(fields).shape == (8,)
+    assert hf_peak(fields).shape == (8,)
 
     # Permuting whole positional pairs re-labels carriers but changes neither
     # metric: both are symmetric under carrier exchange.
     pairs = [(fields[2 * k], fields[2 * k + 1]) for k in range(n_fields // 2)]
     reordered = [f for p in reversed(pairs) for f in p]
-    assert np.allclose(hf_sar(*reordered), hf_sar(*fields), rtol=0, atol=1e-12)
-    assert np.allclose(hf_peak(*reordered), hf_peak(*fields), rtol=0, atol=1e-12)
+    assert np.allclose(hf_power(reordered), hf_power(fields), rtol=0, atol=1e-12)
+    assert np.allclose(hf_peak(reordered), hf_peak(fields), rtol=0, atol=1e-12)
 
 
 def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
@@ -359,7 +346,7 @@ def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
     """
     from dataclasses import fields as dataclass_fields
 
-    from tit.fields import hf_sar
+    from tit.calc import hf_power
     from tit.sim.config import Montage
 
     e_a = np.array([1.0, 0.0, 0.0])
@@ -372,13 +359,11 @@ def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
 
     # The toolbox computes the distinct-frequency value, which is correct for
     # the only wiring it can express.
-    assert float(hf_sar(*_as_rows(e_a, e_b))[0]) == pytest.approx(
-        2.0 * distinct, rel=1e-12
-    )
+    assert float(hf_power(_as_rows(e_a, e_b))[0]) == pytest.approx(distinct, rel=1e-12)
 
     # And there is no way to declare the shared-frequency wiring.
     assert "channels" not in {f.name for f in dataclass_fields(Montage)}
-    assert "channels" not in hf_sar.__code__.co_varnames
+    assert "channels" not in hf_power.__code__.co_varnames
 
 
 def test_carrier_only_coherent_metrics_match_a_measured_same_frequency_field():
@@ -390,7 +375,7 @@ def test_carrier_only_coherent_metrics_match_a_measured_same_frequency_field():
     case ``|E1 - E2|``.  The worked example (|E1| = 1, |E2| = 0.8, 120 deg)
     is where the two differ most visibly: 0.917 against the TI 1.562.
     """
-    from tit.fields import hf_peak, hf_sar
+    from tit.calc import hf_peak, hf_power
 
     e1 = np.array([1.0, 0.0, 0.0])
     e2 = 0.8 * np.array([np.cos(np.radians(120)), np.sin(np.radians(120)), 0.0])
@@ -400,93 +385,80 @@ def test_carrier_only_coherent_metrics_match_a_measured_same_frequency_field():
     peak = _true_peak([e1, e2], same, in_phase)
     mean_square = _true_mean_square([e1, e2], same, in_phase)
 
-    got_peak = float(hf_peak(*_as_rows(e1, e2), coherent=True)[0])
-    got_sar = float(hf_sar(*_as_rows(e1, e2), coherent=True)[0])
-    assert got_peak == pytest.approx(peak, rel=1e-5)  # sampling grid: 2000 samples/cycle
-    assert got_sar == pytest.approx(2.0 * mean_square, rel=1e-9)
+    got_peak = float(hf_peak(_as_rows(e1, e2), coherent=True)[0])
+    got_sar = float(hf_power(_as_rows(e1, e2), coherent=True)[0])
+    assert got_peak == pytest.approx(
+        peak, rel=1e-5
+    )  # sampling grid: 2000 samples/cycle
+    assert got_sar == pytest.approx(mean_square, rel=1e-9)
     assert got_peak == pytest.approx(0.9165, abs=1e-4)  # sqrt(1 + 0.64 - 0.8)
     # The TI worst case is what a beat would reach, and the in-phase field never does.
-    assert float(hf_peak(*_as_rows(e1, e2))[0]) == pytest.approx(1.5620, abs=1e-4)  # sqrt(2.44)
+    assert float(hf_peak(_as_rows(e1, e2))[0]) == pytest.approx(
+        1.5620, abs=1e-4
+    )  # sqrt(2.44)
 
 
 # --------------------------------------------------------------------------
-# 5. The rationalised envelope form at extreme P/Q.
+# 5. The rationalised envelope form at extreme modulation.
 # --------------------------------------------------------------------------
 
 
-def test_envelope_from_pq_survives_catastrophic_cancellation():
-    """``2 sqrt(2) Q / (sqrt(P+Q) + sqrt(P-Q))`` where the naive form collapses.
-
-    The ill-conditioned regime is **weak modulation**, ``Q / P -> 0``: there
-    the two roots of ``sqrt(2(P+Q)) - sqrt(2(P-Q))`` converge and the
-    subtraction throws away the leading digits -- absolute error ~``eps*sqrt(P)``
-    regardless of how small the true depth is, so the *relative* error grows
-    without bound and the result is exactly ``0`` once ``Q/P < eps/2``.  The
-    rationalised form has no subtraction of near-equal terms and stays
-    accurate to the last bit.
-
-    (The opposite extreme, ``Q -> P``, is benign in both forms: ``sqrt(P-Q)``
-    simply goes to zero.  It is checked here too, to pin that the rewrite did
-    not trade one regime for the other.)
-
-    The reference is the same expression in 60-digit ``decimal`` arithmetic.
-    """
+def _decimal_envelope(a, b):
+    """``| |S n| - |D n| |`` for projections ``a_k``, ``b_k`` in 60-digit decimal."""
     from decimal import Decimal, getcontext
 
-    from tit.calc import _envelope_from_PQ
-
     getcontext().prec = 60
-    P = 1.0
+    a = [Decimal(x) for x in a]
+    b = [Decimal(x) for x in b]
+    s = sum((x + y) ** 2 for x, y in zip(a, b)).sqrt()
+    d = sum((x - y) ** 2 for x, y in zip(a, b)).sqrt()
+    return abs(s - d)
 
-    worst_ours = 0.0
-    worst_naive = 0.0
+
+def test_envelope_survives_catastrophic_cancellation():
+    """``4|sum a_k b_k| / (|S n| + |D n|)`` where ``| |S n| - |D n| |`` collapses.
+
+    The ill-conditioned regime is **weak modulation**, ``|sum a_k b_k| << |S n|^2``:
+    ``|S n|`` and ``|D n|`` converge and their difference keeps an absolute error
+    of ~``eps |S n|`` however small the true depth is, so the relative error grows
+    without bound.  The rationalised form has no subtraction of near-equal terms.
+    The opposite extreme (``|D n| -> 0``) is benign in both and is checked too.
+    The reference is the unrationalised expression in 60-digit ``decimal``.
+    """
+    from tit.calc import envelope
+
+    x = np.array([1.0, 0.0, 0.0])
+    worst_ours = worst_naive = 0.0
     for q in (1e-8, 1e-11, 1e-13, 1e-15, 1e-17, 1e-20):
-        Q = P * q
-        dP, dQ = Decimal(P), Decimal(Q)
-        exact = (2 * (dP + dQ)).sqrt() - (2 * (dP - dQ)).sqrt()
-
-        got = float(_envelope_from_PQ(np.array([P]), np.array([Q]))[0])
-        naive = np.sqrt(2 * (P + Q)) - np.sqrt(2 * (P - Q))
-
-        assert got == pytest.approx(float(exact), rel=1e-14), (
-            f"Q/P={q}: got {got}, exact {exact}"
-        )
-        worst_ours = max(worst_ours, abs(got / float(exact) - 1.0))
-        worst_naive = max(worst_naive, abs(naive / float(exact) - 1.0))
-
+        a, b = (1.0, 0.7), (q, -0.5 * q)
+        fields = [np.array([v * x]) for pair in zip(a, b) for v in pair]
+        exact = float(_decimal_envelope(a, b))
+        got = float(envelope(fields, x)[0])
+        s = np.hypot(a[0] + b[0], a[1] + b[1])
+        d = np.hypot(a[0] - b[0], a[1] - b[1])
+        assert got == pytest.approx(exact, rel=1e-14), (q, got, exact)
+        worst_ours = max(worst_ours, abs(got / exact - 1.0))
+        worst_naive = max(worst_naive, abs(abs(s - d) / exact - 1.0))
     assert worst_ours < 1e-14
     assert worst_naive > 0.1
 
-    for rel in (1e-13, 0.0):
-        Q = P * (1.0 - rel)
-        dP, dQ = Decimal(P), Decimal(Q)
-        exact = (2 * (dP + dQ)).sqrt() - (2 * (dP - dQ)).sqrt()
-        got = float(_envelope_from_PQ(np.array([P]), np.array([Q]))[0])
-        assert got == pytest.approx(float(exact), rel=1e-14)
+    for a, b in (((1.0, 0.7), (1.0 - 1e-13, 0.7)), ((1.0, 0.7), (1.0, 0.7))):
+        fields = [np.array([v * x]) for pair in zip(a, b) for v in pair]
+        got = float(envelope(fields, x)[0])
+        assert got == pytest.approx(float(_decimal_envelope(a, b)), rel=1e-14)
 
 
-def test_envelope_from_pq_null_field_is_zero():
-    """``P = Q = 0`` (a null field) yields ``0``, not a division by zero."""
-    from tit.calc import _envelope_from_PQ
+def test_envelope_of_a_null_field_is_zero():
+    """All-zero fields yield ``0``, not a division by zero."""
+    from tit.calc import envelope, envelope_max, envelope_mean
 
-    out = _envelope_from_PQ(np.array([0.0, 1.0]), np.array([0.0, 0.5]))
-    assert out[0] == 0.0
-    assert np.isfinite(out).all()
-
-
-def test_numba_kernel_envelope_agrees_with_the_numpy_form():
-    """``tit._mti_kernel._envelope`` carries the same conditioning fix.
-
-    The accelerated K>=2 sweep has its own scalar copy of the envelope; if the
-    two forms ever diverge, the numba and NumPy paths would report different
-    modulation depths for the same montage.
-    """
-    from tit._mti_kernel import _envelope
-    from tit.calc import _envelope_from_PQ
-
-    for P, Q in [(1.0, 1e-20), (1.0, 1e-13), (1.0, 0.5), (1.0, 1.0), (0.0, 0.0)]:
-        vec = float(_envelope_from_PQ(np.array([P]), np.array([Q]))[0])
-        assert float(_envelope(P, Q)) == pytest.approx(vec, rel=1e-14, abs=1e-300)
+    zero = [np.zeros((2, 3))] * 4
+    for out in (
+        envelope(zero, [0.0, 0.0, 1.0]),
+        envelope_max(zero),
+        envelope_mean(zero),
+    ):
+        assert np.array_equal(out, np.zeros(2))
 
 
 # --------------------------------------------------------------------------
@@ -495,8 +467,19 @@ def test_numba_kernel_envelope_agrees_with_the_numpy_form():
 
 
 @pytest.mark.parametrize(
-    "n, ok", [(0, False), (1, False), (2, True), (3, False), (4, True),
-              (5, False), (6, True), (8, True), (12, True), (16, True)]
+    "n, ok",
+    [
+        (0, False),
+        (1, False),
+        (2, True),
+        (3, False),
+        (4, True),
+        (5, False),
+        (6, True),
+        (8, True),
+        (12, True),
+        (16, True),
+    ],
 )
 def test_allowed_electrode_pair_counts(n, ok):
     """One current channel per electrode pair; every channel needs a partner.
@@ -512,12 +495,12 @@ def test_allowed_electrode_pair_counts(n, ok):
 
 def test_calc_rejects_disallowed_field_counts():
     """``tit.calc`` enforces the same rule as the montage config."""
-    from tit.calc import get_TI_vectors
+    from tit.calc import envelope_max
 
     rng = np.random.default_rng(5)
     three = [rng.normal(size=(4, 3)) for _ in range(3)]
-    with pytest.raises(ValueError, match="even number of fields"):
-        get_TI_vectors(three)
+    with pytest.raises(ValueError, match="even number"):
+        envelope_max(three)
 
 
 def test_montage_rejects_odd_pair_counts():

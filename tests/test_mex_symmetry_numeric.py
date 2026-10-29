@@ -1,7 +1,7 @@
 """mEx pool mode keeps one montage per class of montages the mTI envelope scores identically.
 
 What this pins (2026-10-22): ``tit.opt.mex.logic._pool_electrode_combinations`` claims (module
-comment above ``_DEFAULT_CHANNELS``) that the envelope of ``tit.calc.get_TI_vectors`` -- with the
+comment above ``_CHANNELS``) that the envelope of ``tit.calc.envelope_max`` -- with the
 fields ``[pair1, pair2, pair3, pair4]``, carrier 1 = pairs 1+2, carrier 2 = pairs 3+4 -- is
 unchanged by exactly 64 operations on a montage, so ``permutations(pool, 8)`` (40 320 orderings of
 8 electrodes) collapses to 40 320 / 64 = 630 canonical montages. The existing tests check that
@@ -16,22 +16,19 @@ claim as algebra over index tuples; here it is checked against envelope VALUES o
 
 The symmetry group is written out here from the physics, not read from ``_slot_automorphisms``:
 the envelope is ``sqrt2*(sqrt(P+Q) - sqrt(P-Q))`` with ``P = 0.5*sum_k(a_k^2+b_k^2)`` and
-``Q = |a_1 b_1 + a_2 b_2|`` (``tit/calc.py``, ``_mti_modulation_depth``). ``P`` ignores order and
-sign; ``Q`` is unchanged by swapping the two pairs of one carrier, swapping the two carriers, and
-flipping pair signs ``s`` with ``s1*s2 == s3*s4`` (both products flip together or neither): 8 slot
-permutations x 8 sign patterns = 64.
+``Q = |a_1 b_1 + a_2 b_2|`` (the same function as ``tit/calc.py``'s ``4Q / (|S n| + |D n|)``).
+``P`` ignores order and sign; ``Q`` is unchanged by swapping the two pairs of one carrier, swapping
+the two carriers, and flipping pair signs ``s`` with ``s1*s2 == s3*s4`` (both products flip
+together or neither): 8 slot permutations x 8 sign patterns = 64.
 
 Physics bounds per element, from the same form: ``0 <= MD`` and, since ``|a_k| <= |E_ka|`` and
 ``Q <= P``, ``MD <= sqrt2*sqrt(2P) <= sqrt(2*sum_k(|E_ka|^2 + |E_kb|^2))``. With carrier 2 zero
 the envelope is K=1 TI: ``2*min(|a|,|b|)`` for collinear fields (Grossman et al. 2017).
 
 Tolerances: images agree to 1e-9 V/m (measured worst 5e-12: the same sums in another order).
-The K=2 path is a direction search (192 Fibonacci directions + 3 local refinement rounds) that
-evaluates the exact envelope at the directions it samples, so it never exceeds the true maximum
-and falls short of it by the sampling error: measured <= 1.6e-5 relative, bounded here at 1e-4.
-
-Host leg: the NumPy sweep (numba is absent on the host). The numba kernel leg is
-``tests/numerical/test_mti_kernel_symmetry.py``. Reproduce:
+The K=2 maximum is an eigen-branch root-find with a Newton polish whose candidates include each
+pair's own K=1 optimum, so with carrier 2 zero it is the closed form to round-off (1e-12).
+Reproduce:
 ``.venv/bin/python -m pytest tests/test_mex_symmetry_numeric.py -q -p no:cacheprovider``.
 """
 
@@ -44,7 +41,7 @@ from unittest.mock import MagicMock
 import numpy as np
 import pytest
 
-from tit.calc import get_TI_vectors
+from tit.calc import envelope_max
 from tit.opt.mex.logic import _pool_electrode_combinations
 
 N_ELEMENTS = 3
@@ -97,8 +94,8 @@ def _pair_fields(montages, fields):
 
 
 def _md(montages, fields):
-    vec = get_TI_vectors(_pair_fields(montages, fields))
-    return np.linalg.norm(vec, axis=1).reshape(len(montages), N_ELEMENTS)
+    md = envelope_max(_pair_fields(montages, fields))
+    return md.reshape(len(montages), N_ELEMENTS)
 
 
 def test_the_claimed_group_has_64_operations():
@@ -134,7 +131,7 @@ def test_a_lone_flip_inside_a_beating_channel_changes_the_value(canonical, field
 
 def test_the_envelope_stays_inside_its_physical_bounds(canonical, fields):
     pair_fields = _pair_fields(canonical, fields)
-    md = np.linalg.norm(get_TI_vectors(pair_fields), axis=1)
+    md = envelope_max(pair_fields)
     bound = np.sqrt(2 * sum(np.sum(f**2, axis=1) for f in pair_fields))
     assert np.all(md >= 0)
     assert np.all(md <= bound + 1e-12)
@@ -152,14 +149,9 @@ def test_a_zero_second_carrier_is_the_k1_closed_form():
         [-1.0, 1.0], n
     )  # parallel or antiparallel
     zero = np.zeros((n, 3))
-    md = np.linalg.norm(
-        get_TI_vectors([a[:, None] * axis, b[:, None] * axis, zero, zero]), axis=1
-    )
+    md = envelope_max([a[:, None] * axis, b[:, None] * axis, zero, zero])
     exact = 2 * np.minimum(np.abs(a), np.abs(b))
-    assert np.all(
-        md <= exact * (1 + 1e-12)
-    )  # a sampled direction never beats the maximum
-    assert np.all(md >= exact * (1 - 1e-4))
+    np.testing.assert_allclose(md, exact, rtol=1e-12)
 
 
 def test_the_engine_assembles_pairs_and_carriers_as_the_symmetry_assumes(
@@ -177,7 +169,7 @@ def test_the_engine_assembles_pairs_and_carriers_as_the_symmetry_assumes(
     )
     monkeypatch.setattr(engine_mod, "TI", fake_ti)
     # The real envelope, whatever an earlier test module left bound in the engine module.
-    monkeypatch.setattr(engine_mod, "get_TI_vectors", get_TI_vectors)
+    monkeypatch.setattr(engine_mod, "envelope_max", envelope_max)
     engine = MExSearchEngine("/lf.hdf5", [], "roi", MagicMock())
     engine.leadfield, engine.idx_lf = leadfield, names
     engine.roi_indices = np.array([0, 2])

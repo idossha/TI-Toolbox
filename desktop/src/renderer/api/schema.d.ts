@@ -770,55 +770,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/electrode-overlays": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Electrode-overlay NIfTI presence for one simulation, per TI/mTI mode
-         * @description Listing-only: whether `tit.tools.electrode_overlay` (a `tools` job) has already produced `<simulation>/<mode>/montage_imgs/electrode_overlay_subject.nii.gz` for each mode, and its path. Building the overlay is out of scope here; see `tit/server/routes/viewers.py` and `tit/catalog.py::electrode_overlays`.
-         */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    simulation: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ElectrodeOverlay"][];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description unknown subject or simulation */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/montages": {
         parameters: {
             query?: never;
@@ -1515,48 +1466,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/ex-runs/{run}/results": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Full results table (every montage/current-split scored) of one ex/mEx run */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    kind: "ex" | "mex";
-                };
-                header?: never;
-                path: {
-                    run: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/analyses": {
         parameters: {
             query?: never;
@@ -1909,42 +1818,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/catalog/subject-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Presence matrix (subject x data-stage) across the whole project */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/catalog/project-summary": {
         parameters: {
             query?: never;
@@ -2054,53 +1927,6 @@ export interface paths {
                     };
                 };
                 401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/schema/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One resolved $def from schema.json, by config class name */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description unknown config class name */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
             };
         };
         put?: never;
@@ -2596,45 +2422,6 @@ export interface paths {
             requestBody?: never;
             responses: {
                 200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["JobStatus"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/jobs/{id}/rerun": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Submit a new job with the same spec as a finished one */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                201: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -3414,128 +3201,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/viewer/compositions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Saved Viewer compositions
-         * @description A composition is *what a person chose* -- a subject, a space and the inputs ticked in the tree, by stable id (the container path). Small, diffable, and it survives a re-run of the pipeline: reloading it re-resolves today's choices against whatever is on disk then, and reports what has gone missing rather than failing. Distinct from a saved *scene*, which is what a person was looking at. One unreadable file is skipped, never fatal.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            compositions: components["schemas"]["ViewerComposition"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/compositions/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save one Viewer composition */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ViewerComposition"];
-                };
-            };
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ViewerComposition"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description a name that cannot become a file (refused rather than silently renamed) */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** Forget one composition */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            name?: string;
-                            deleted?: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description no composition by that name */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/viewer/scenes": {
         parameters: {
             query?: never;
@@ -3803,122 +3468,6 @@ export interface paths {
                     };
                     content?: never;
                 };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Saved Viewer selections
-         * @description VM. Plain JSON documents under <project>/code/ti-toolbox/viewer/presets/. They live in the project, not in browser storage, because the project is the unit people copy, archive and share -- a preset kept in a browser would be lost exactly when the work it describes was passed on. The path is /api/viewer/presets and not /api/view/presets because the latter is shadowed by GET /api/view/{kind}. A preset that cannot be parsed is skipped, not fatal.
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            presets: components["schemas"]["ViewerPreset"][];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/viewer/presets/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Save one Viewer selection */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["ViewerPreset"];
-                };
-            };
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ViewerPreset"];
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description a name that cannot become a file (refused rather than silently renamed) */
-                422: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        post?: never;
-        /** Forget one saved selection */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    name: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            name?: string;
-                            deleted?: boolean;
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                404: components["responses"]["NotFound"];
             };
         };
         options?: never;
@@ -4216,52 +3765,6 @@ export interface paths {
                     };
                     content: {
                         "text/plain": string;
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description path escapes the project jail */
-                403: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                404: components["responses"]["NotFound"];
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/files/csv": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** A CSV file parsed into a table, jailed to the project directory */
-        get: {
-            parameters: {
-                query: {
-                    path: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["TableData"];
                     };
                 };
                 401: components["responses"]["Unauthorized"];
@@ -4734,7 +4237,6 @@ export interface paths {
                             volumes: {
                                 id: string;
                                 url: string;
-                                legend_url: string;
                             }[];
                             cache: {
                                 /** @enum {string} */
@@ -5037,62 +4539,6 @@ export interface paths {
                 };
                 401: components["responses"]["Unauthorized"];
                 /** @description `detail` is one sentence a user can act on, never "unknown subject": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a net file this subject does not have. */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/scene/volume-legend": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The label volume's id -> name/colour legend
-         * @description Parsed from `m2m_<id>/segmentation/labeling_LUT.txt` with the same line parser the optimizer's ROI picker uses, so the scene legend and the ROI dropdown cannot disagree about what a label is called. `color` is `null` when the table carries no RGB columns.
-         */
-        get: {
-            parameters: {
-                query: {
-                    subject: string;
-                    id?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id: string;
-                            entries: {
-                                id: number;
-                                name: string;
-                                color: string;
-                            }[];
-                        };
-                    };
-                };
-                401: components["responses"]["Unauthorized"];
-                /** @description `detail` is one sentence a user can act on, never "unknown subject": a subject the project does not have is told which ids it does have; a subject whose head model has not been built yet (listed by `GET /api/catalog/subjects`, including one whose raw data is only staged under `sourcedata/`) is told that `m2m_<id>/` is missing and what to run. Every `/api/scene/*` route answers a subject-level question the same way. Also: a volume id with no `labeling_LUT.txt` beside it. */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -6350,20 +5796,6 @@ export interface components {
             /** @description why the tree is empty -- "no subject chosen" and "no head model" are different problems and the Menu has to be able to say which */
             reason?: string | null;
         };
-        /** @description What a person chose, by stable id. Unknown keys are kept rather than rejected: the tree's vocabulary will grow, and a server that refused new keys would make every Menu change a two-repository change. */
-        ViewerComposition: {
-            name: string;
-            version?: number;
-            saved_at?: string;
-            subject?: string | null;
-            /** @enum {string|null} */
-            space?: "subject" | "mni" | null;
-            /** @description chosen input ids (container paths), in layer order */
-            inputs?: string[];
-            simulations?: string[];
-        } & {
-            [key: string]: unknown;
-        };
         SavedScene: {
             name: string;
             slug: string;
@@ -6390,20 +5822,6 @@ export interface components {
             health?: "valid" | "missing" | "invalid" | "unchecked";
             missing_count?: number;
             health_message?: string;
-        };
-        /** @description VM/VM2. One saved Viewer selection -- the source and, when the person edited it, the file list, exactly as POST /api/view/open takes them, so restoring a preset is replaying a request rather than reconstructing one. `extras`/`overrides` are still accepted for a preset saved by the VM panel that briefly exposed them. */
-        ViewerPreset: {
-            name: string;
-            /** @description kind, subject, simulation, analysis, field, atlas, roi, path, space */
-            selection?: {
-                [key: string]: unknown;
-            };
-            /** @description the edited list, or null when the view type's own set was saved */
-            files?: string[] | null;
-            extras?: string[];
-            overrides?: {
-                [key: string]: unknown;
-            };
         };
         ViewerSceneFile: {
             id?: string | null;
@@ -6879,13 +6297,6 @@ export interface components {
             path: string;
             /** Format: date-time */
             created: string;
-        };
-        ElectrodeOverlay: {
-            /** @enum {string} */
-            mode: "TI" | "mTI";
-            /** @description container path (may not exist yet -- see `exists`) */
-            path: string;
-            exists: boolean;
         };
         ElectrodePosition: {
             label?: string;
@@ -7367,7 +6778,7 @@ export interface components {
             cal_min?: number | null;
             cal_max?: number | null;
             lut?: string | null;
-            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind} or POST /api/view/args), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
+            /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind}), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
             percentile?: {
                 lo: number;
                 hi: number;
@@ -7376,7 +6787,7 @@ export interface components {
         ViewSpec: {
             /** @enum {string} */
             space: "subject" | "mni";
-            /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind} or is accepted by POST /api/view/args), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
+            /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
             layers: components["schemas"]["ViewLayer"][];
             /** @description DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
             freeview_args: string[];
@@ -7539,8 +6950,8 @@ export interface components {
          *         Subject identifier without the ``sub-`` prefix (e.g. ``"ernie"``,
          *         ``"101"``); must match an existing ``m2m_<subject_id>`` directory.
          *     montages : list[Montage]
-         *         One or more :class:`Montage` definitions to simulate.  Two pairs
-         *         per montage is TI, four or more (even) pairs is mTI -- detected
+         *         One or more :class:`Montage` definitions to simulate.  Two channels
+         *         (electrode pairs) is TI, four or more (even) is mTI -- detected
          *         per montage, so a list may mix both.
          *     conductivity : str
          *         Tissue conductivity model.  One of:
@@ -7553,10 +6964,10 @@ export interface components {
          *         The anisotropic modes (``"vn"``, ``"dir"``, ``"mc"``) require
          *         DTI tensors registered to the head mesh.
          *     intensities : list[float]
-         *         Current per electrode pair in mA, in ``electrode_pairs`` order.
-         *         A TI montage reads the first two values; an mTI montage needs one
-         *         value per pair (``len(intensities) >= num_pairs``).  A single
-         *         value is **not** broadcast -- a 4-pair montage with the default
+         *         Current per channel in mA, in ``electrode_pairs`` order (one value
+         *         per channel).  A TI montage reads the first two values; an mTI montage
+         *         needs one value per channel (``len(intensities) >= num_pairs``).  A
+         *         single value is **not** broadcast -- a 4-channel montage with the default
          *         two values is rejected.  Default ``[1.0, 1.0]``.
          *     electrode_shape : str
          *         Electrode shape, ``"ellipse"`` or ``"rect"``.  Default
@@ -7603,10 +7014,12 @@ export interface components {
          *     output_fields : list[str]
          *         Which volume-mesh fields to compute and write. Logical names from
          *         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
-         *         ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``. ``"TI_max"`` maps to
-         *         ``mTI_max`` on disk for mTI meshes. Defaults to
+         *         ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``, ``"hf_power_density"``.
+         *         ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. Defaults to
          *         ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
-         *         (``hf_peak``, ``hf_sar``) must be opted into.
+         *         (``hf_peak``, ``hf_sar``, ``hf_power_density``) must be opted into.
+         *         ``hf_power_density`` (W/m^3) uses the conductivity of this run's own
+         *         solve, the full tensor under the anisotropic models.
          *     tissue_conductivities : dict[int, float] or None
          *         Per-tissue conductivity overrides (S/m), keyed by SimNIBS tissue
          *         number (1-based, matching ``tdcs.cond`` index + 1). ``None`` (the
@@ -7622,23 +7035,24 @@ export interface components {
          *         visible in the job's config and its manifest instead of being an
          *         invisible process-environment side channel.
          *     carrier_only : bool
-         *         Carrier-only control: both pairs run at the same frequency, in phase
-         *         (ΔF = 0), so there is no beat.  ``hf_peak``/``hf_sar`` then add the
-         *         carriers coherently (``|E1+E2|``, see :mod:`tit.fields`) and no
-         *         envelope field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.
-         *         Requires a 2-pair TI montage and ``output_fields`` from ``hf_peak``/
-         *         ``hf_sar``.  Default ``False``.
+         *         Carrier-only control: both channels run at the same frequency, in
+         *         phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
+         *         ``hf_sar`` and ``hf_power_density`` then add the two channel fields
+         *         coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope
+         *         field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
+         *         two-channel TI montage and ``output_fields`` from those carrier fields.
+         *         Default ``False``.
          *
          *     Raises
          *     ------
          *     ValueError
          *         If *conductivity* is not one of the valid model names, if
          *         *output_fields* contains an unknown name or is empty, if any
-         *         montage has a pair that is not exactly two electrodes, if
+         *         montage has a channel that is not exactly two electrodes, if
          *         *intensities* is shorter than a montage needs (2 for TI, one per
-         *         pair for mTI), if *tissue_conductivities* contains a
+         *         channel for mTI), if *tissue_conductivities* contains a
          *         non-positive value, or if *carrier_only* is set with an envelope
-         *         output field or a montage that is not 2-pair TI.  Filesystem checks (the m2m directory, the
+         *         output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
          *         EEG-net CSV) happen later, in :func:`run_simulation`.
          *
          *     Examples
@@ -7661,7 +7075,7 @@ export interface components {
          *     >>> cfg.map_to_surf, cfg.output_fields
          *     (True, ['TI_max', 'hf_peak'])
          *
-         *     A carrier-only control of the same montage (both pairs at one
+         *     A carrier-only control of the same montage (both channels at one
          *     frequency, in phase; no envelope, so only carrier fields):
          *
          *     >>> sham = SimulationConfig(
@@ -7768,12 +7182,13 @@ export interface components {
          * Montage
          * @description A named electrode montage used in a TI/mTI simulation.
          *
-         *     Wraps the electrode pair definitions for a single montage.  Electrodes
+         *     Wraps the channel definitions of a single montage: one electrode pair
+         *     per channel, channel k being electrodes Ek+ and Ek-.  Electrodes
          *     may be referenced by EEG-cap label names (``NET`` / ``FLEX_MAPPED``
          *     modes) or by 3-D XYZ coordinates (``FLEX_FREE`` / ``FREEHAND`` modes).
          *
-         *     The simulation type is auto-detected from the number of electrode
-         *     pairs: 2 pairs = standard TI, 4+ pairs = multi-channel mTI.
+         *     The simulation type is auto-detected from the number of channels:
+         *     2 channels = standard TI, 4 or more (even) = multi-channel mTI.
          *
          *     Attributes
          *     ----------
@@ -7782,8 +7197,9 @@ export interface components {
          *     mode : MontageMode
          *         How electrode positions are specified.  See :class:`MontageMode`.
          *     electrode_pairs : list[tuple]
-         *         List of electrode pairs.  Each element is a tuple of two electrode
-         *         identifiers (label strings or XYZ coordinate lists).
+         *         One entry per channel, in channel order.  Each element is a tuple of
+         *         two electrode identifiers (label strings or XYZ coordinate lists),
+         *         ``(Ek+, Ek-)``.
          *     eeg_net : str or None
          *         Filename of the EEG-net CSV (e.g. ``"GSN-HydroCel-185.csv"``).
          *         Required for ``NET`` and ``FLEX_MAPPED`` modes, ignored otherwise.
@@ -7887,7 +7303,7 @@ export interface components {
          *         Field post-processing method (``"max_TI"``, ``"dir_TI_normal"``,
          *         or ``"dir_TI_tangential"``).
          *     current_mA : float
-         *         Current per channel in mA -- each of the two electrode pairs
+         *         Current per channel in mA -- each of the two channels
          *         injects ``+current_mA`` / ``-current_mA`` (a 1:1 split), so the
          *         total injected current is ``2 * current_mA``.
          *     electrode : ElectrodeConfig
@@ -8317,9 +7733,9 @@ export interface components {
          *         unset, it is inferred from the leadfield's net name.
          *     symmetry_pairing : str
          *         Symmetry interpretation when *symmetric_bucket* is True.
-         *         ``"within_pairs"``: each pair's minus electrode is the mirror of
-         *         its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: pair 2 is the
-         *         mirror image of pair 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
+         *         ``"within_pairs"``: each channel's minus electrode is the mirror of
+         *         its plus electrode (e.g. F7-F8).  ``"cross_pairs"``: channel 2 is the
+         *         mirror image of channel 1 (``e2+ = mirror(e1+)``, ``e2- = mirror(e1-)``).
          *
          *     Raises
          *     ------
@@ -8431,12 +7847,12 @@ export interface components {
         };
         /**
          * MExConfig
-         * @description Full configuration for multipolar (4-pair, 8-electrode) exhaustive search.
+         * @description Full configuration for multipolar (four-channel) exhaustive search.
          *
-         *     Evaluates every valid combination of four bipolar electrode pairs from
-         *     a user-defined pool or bucket set, at one fixed current per pair, and
-         *     scores each candidate with the verified N>2 mTI envelope
-         *     (:func:`tit.calc.get_TI_vectors`).
+         *     Evaluates every valid combination of four channels (eight electrodes)
+         *     from a user-defined pool or bucket set, at one fixed current per channel,
+         *     and scores each candidate with the joint K-pair envelope maximum
+         *     (:func:`tit.calc.envelope_max`).
          *
          *     Attributes
          *     ----------
@@ -8451,11 +7867,11 @@ export interface components {
          *         missing.
          *     electrodes : BucketElectrodes or PoolElectrodes
          *         Electrode specification, either a single shared pool
-         *         (:class:`PoolElectrodes`) or four separate per-pair buckets
+         *         (:class:`PoolElectrodes`) or separate per-channel buckets
          *         (:class:`BucketElectrodes`).  A plain dict is auto-converted in
          *         ``__post_init__``.
          *     current_mA : float
-         *         Current in mA delivered by each of the four pairs.  Default ``2.0``.
+         *         Current in mA delivered by each of the four channels.  Default ``2.0``.
          *     roi_radius : float
          *         Spherical ROI radius in mm for the target region.  Default ``3.0``.
          *     roi_names : list of str or None
@@ -8485,15 +7901,16 @@ export interface components {
          *         on it.
          *     symmetric_bucket : bool
          *         When True in bucket mode, evaluate only left/right mirrored
-         *         electrode pairs (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
+         *         montages (see :func:`tit.opt.ex.buckets.build_electrode_mirror_map`).
          *     symmetry_eeg_csv : str or None
          *         EEG-position CSV used to derive mirrored electrode pairs.  If
          *         unset, it is inferred from the leadfield's net name.
          *     symmetry_pairing : str
          *         Symmetry interpretation for bucket mode when *symmetric_bucket*
-         *         is True.  ``"within_pairs"`` mirrors each pair's plus/minus
-         *         electrodes independently; ``"cross_pairs"`` additionally mirrors
-         *         pair 1<->3 and pair 2<->4.
+         *         is True.  ``"within_pairs"``: each channel's minus electrode is the
+         *         mirror of its plus electrode.  ``"cross_pairs"`` instead (not in
+         *         addition): channel 3 mirrors channel 1 and channel 4 mirrors
+         *         channel 2 (``e3+ = mirror(e1+)``, ``e3- = mirror(e1-)``, and so on).
          *
          *     Raises
          *     ------
@@ -8523,7 +7940,7 @@ export interface components {
          *     --------
          *     MExResult : Result container returned by :func:`~tit.opt.mex.mex.run_m_ex_search`.
          *     tit.opt.mex.mex.run_m_ex_search : Consumes this config.
-         *     tit.calc.get_TI_vectors : Modulation-amplitude envelope.
+         *     tit.calc.envelope_max : Maximum of the TI/mTI envelope over direction.
          */
         MExConfig: {
             /** Subject Id */
@@ -9552,7 +8969,7 @@ export interface components {
          *     export_sum : bool
          *         Export E-field sum arrows.
          *     export_ti_normal : bool
-         *         Export surface-normal projected TI arrows.
+         *         Export ``TI_normal`` arrows: the envelope along the surface normal.
          *     export_combined : bool
          *         Export all channels merged into one PLY.
          *     top_percent : float or None
@@ -9735,8 +9152,6 @@ export interface components {
          *         Output mesh format (``"stl"`` or ``"ply"``).
          *     atlas : str
          *         Atlas name, e.g. ``"DK40"``.
-         *     surface : Surface
-         *         Cortical surface type (``"central"``, ``"pial"``, or ``"white"``).
          *     field_name : str
          *         Scalar field to map onto region meshes.
          *     skip_regions : bool
@@ -9773,23 +9188,11 @@ export interface components {
              * @default DK40
              */
             atlas: string;
-            /** @default central */
-            surface: components["schemas"]["Surface"];
             /**
              * Field Name
              * @default TI_max
              */
             field_name: string;
-            /**
-             * Msh2Cortex Path
-             * @default null
-             */
-            msh2cortex_path: string | null;
-            /**
-             * Gm Mesh
-             * @default null
-             */
-            gm_mesh: string | null;
             /**
              * Skip Regions
              * @default false
@@ -10245,11 +9648,12 @@ export interface components {
          *     Attributes
          *     ----------
          *     MAX_TI : str
-         *         Maximum TI amplitude (direction-independent).
+         *         Maximum TI envelope over all directions.
          *     DIR_TI_NORMAL : str
-         *         TI component normal to the cortical surface.
+         *         TI envelope along the cortical surface normal.
          *     DIR_TI_TANGENTIAL : str
-         *         TI component tangential to the cortical surface.
+         *         Maximum TI envelope over the directions tangential to the
+         *         cortical surface (within its plane).
          * @enum {string}
          */
         FieldPostproc: "max_TI" | "dir_TI_normal" | "dir_TI_tangential";
@@ -10639,12 +10043,12 @@ export interface components {
         };
         /**
          * BucketElectrodes
-         * @description Separate electrode lists for each of the four bipolar pairs.
+         * @description Separate electrode lists for each of the four channels' electrodes.
          *
          *     Attributes
          *     ----------
          *     e1_plus, e1_minus, e2_plus, e2_minus, e3_plus, e3_minus, e4_plus, e4_minus : list of str
-         *         Candidate electrodes for each pair's anode/cathode position.
+         *         Candidate electrodes for each channel's Ek+ / Ek- position.
          */
         MExConfigBucketElectrodes: {
             /** E1 Plus */
@@ -10676,7 +10080,7 @@ export interface components {
          *     Attributes
          *     ----------
          *     electrodes : list of str
-         *         List of electrode names available for any pair position.
+         *         List of electrode names available for any of the eight positions.
          */
         MExConfigPoolElectrodes: {
             /** Electrodes */
@@ -11179,12 +10583,6 @@ export interface components {
          * @enum {string}
          */
         Format: "stl" | "ply";
-        /**
-         * Surface
-         * @description Cortical surface type for msh2cortex extraction.
-         * @enum {string}
-         */
-        Surface: "central" | "pial" | "white";
         /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.

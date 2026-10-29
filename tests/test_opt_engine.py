@@ -440,16 +440,18 @@ def _one_split(engine):
 
 @pytest.mark.unit
 class TestComputeTiField:
-    def test_computes_metrics(self):
+    def test_computes_metrics(self, monkeypatch):
         import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
         _setup_engine_fields(engine)
 
-        # Mock TI functions to return known arrays
+        # Mock the leadfield gather and the envelope to return known arrays
         ti_field = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=ti_field)
+        )
 
         result = _one_split(engine)
 
@@ -471,9 +473,9 @@ class TestComputeTiField:
         engine_mod.TI.get_field.assert_any_call(
             ["E3", "E4", 1.0], engine.leadfield, engine.idx_lf
         )
-        engine_mod.TI.get_maxTI.assert_called_once()
+        engine_mod.envelope_max.assert_called_once()
 
-    def test_ratio_batching_scales_unit_fields(self):
+    def test_ratio_batching_scales_unit_fields(self, monkeypatch):
         """All current splits of one montage reuse the two unit fields, and
         each split's field equals ``current/1000 * unit`` bit for bit."""
         import tit.opt.ex.engine as engine_mod
@@ -486,11 +488,14 @@ class TestComputeTiField:
         engine_mod.TI.get_field = MagicMock(side_effect=[unit1, unit2])
         seen = []
 
-        def fake_maxti(e1, e2):
+        def fake_maxti(fields):
+            e1, e2 = fields
             seen.append((e1.copy(), e2.copy()))
             return np.linalg.norm(e1 + e2, axis=1)
 
-        engine_mod.TI.get_maxTI = MagicMock(side_effect=fake_maxti)
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(side_effect=fake_maxti)
+        )
 
         ratios = [(1.5, 0.5), (1.0, 1.0), (0.5, 1.5)]
         results = engine.compute_ti_fields("E1", "E2", "E3", "E4", ratios)
@@ -501,7 +506,7 @@ class TestComputeTiField:
             np.testing.assert_array_equal(e1, (ch1 / 1000) * unit1)
             np.testing.assert_array_equal(e2, (ch2 / 1000) * unit2)
 
-    def test_subset_restricts_to_roi_and_gm(self):
+    def test_subset_restricts_to_roi_and_gm(self, monkeypatch):
         """Fields are evaluated on ROI | GM only, with metrics unchanged."""
         import tit.opt.ex.engine as engine_mod
 
@@ -513,7 +518,9 @@ class TestComputeTiField:
         engine.gm_volumes = np.array([1.0, 1.0, 1.0, 1.0])
         full = np.arange(30, dtype=float).reshape(10, 3)
         engine_mod.TI.get_field = MagicMock(return_value=full)
-        engine_mod.TI.get_maxTI = MagicMock(side_effect=lambda a, b: a[:, 0])
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(side_effect=lambda f: f[0][:, 0])
+        )
 
         result = _one_split(engine)
 
@@ -524,10 +531,10 @@ class TestComputeTiField:
             (6 + 15 + 21 + 27) / 4 / 1000
         )
         assert result["TestROI_n_elements"] == 2
-        (e1, e2), _ = engine_mod.TI.get_maxTI.call_args
+        ((e1, e2),), _ = engine_mod.envelope_max.call_args
         assert e1.shape == (4, 3)
 
-    def test_empty_roi(self):
+    def test_empty_roi(self, monkeypatch):
         """The metric helper stays total (zeros, never a NaN or a crash) on purpose: the search
         can no longer reach it with an empty ROI, because ``initialize`` refuses one before the
         search starts (``tests/test_ex_empty_roi.py``)."""
@@ -540,7 +547,9 @@ class TestComputeTiField:
 
         ti_field = np.array([0.1, 0.2, 0.3, 0.15, 0.25])
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=ti_field)
+        )
 
         result = _one_split(engine)
 
@@ -550,7 +559,7 @@ class TestComputeTiField:
         assert result["TestROI_Focality"] == 0.0
         assert result["TestROI_n_elements"] == 0
 
-    def test_zero_gm_mean(self):
+    def test_zero_gm_mean(self, monkeypatch):
         import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
@@ -561,7 +570,9 @@ class TestComputeTiField:
         # All-zero GM field
         ti_field = np.array([0.1, 0.2, 0.3, 0.0, 0.0])
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((5, 3)))
-        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=ti_field)
+        )
 
         result = _one_split(engine)
 
@@ -572,7 +583,7 @@ class TestComputeTiField:
         assert result["TestROI_TImean_GM"] == pytest.approx(0.0)
         assert result["TestROI_Focality"] == 0.0
 
-    def test_empty_gm(self):
+    def test_empty_gm(self, monkeypatch):
         import tit.opt.ex.engine as engine_mod
 
         engine = _make_engine()
@@ -582,7 +593,9 @@ class TestComputeTiField:
 
         ti_field = np.array([0.1, 0.2, 0.3])
         engine_mod.TI.get_field = MagicMock(return_value=np.zeros((3, 3)))
-        engine_mod.TI.get_maxTI = MagicMock(return_value=ti_field)
+        monkeypatch.setattr(
+            engine_mod, "envelope_max", MagicMock(return_value=ti_field)
+        )
 
         result = _one_split(engine)
 
@@ -715,13 +728,5 @@ class TestLogConfigSummary:
     def test_logs_summary(self):
         logger = MagicMock()
         engine = _make_engine(logger=logger)
-        engine._log_config_summary(
-            ["E1"],
-            ["E2"],
-            ["E3"],
-            ["E4"],
-            [(1.0, 1.0)],
-            False,
-            1,
-        )
+        engine._log_config_summary([(1.0, 1.0)], False, 1)
         assert logger.info.call_count >= 3

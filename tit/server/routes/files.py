@@ -11,7 +11,6 @@ directly for generic artifacts, matching the other v1 route modules.
 
 from __future__ import annotations
 
-import csv
 import hashlib
 import mimetypes
 import os
@@ -315,19 +314,6 @@ def text(
     if tail is not None:
         lines = lines[-tail:]
     return PlainTextResponse("".join(lines))
-
-
-@router.get(
-    "/api/files/csv", summary="A CSV file parsed into a table, jailed to the project"
-)
-def csv_file(path: str = Query(...)) -> dict:
-    resolved = _resolve_jailed(path)
-    with open(resolved, newline="") as f:
-        rows = list(csv.reader(f))
-    if not rows:
-        return {"columns": [], "rows": []}
-    columns, *data = rows
-    return {"columns": columns, "rows": data}
 
 
 @router.post(

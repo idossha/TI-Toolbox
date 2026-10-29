@@ -16,7 +16,7 @@
         <link rel="prev" href="../schema/">
       
       
-        <link rel="next" href="../system/">
+        <link rel="next" href="../surfer_settings/">
       
       
         
@@ -904,6 +904,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#tit.server.routes.settings.agent_auto_submit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        agent_auto_submit
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -957,7 +968,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     API Reference
@@ -978,7 +989,7 @@
     
     
       <li class="md-path__item">
-        <a href="../../../_mti_kernel/" class="md-path__link">
+        <a href="../../../_calc_kernel/" class="md-path__link">
           
   <span class="md-ellipsis">
     tit
@@ -1064,7 +1075,7 @@
 <li><code>code/ti-toolbox/config/settings.json</code> (project-level, new in v1 --
   no prior file covered this shape) for <code>panels</code> (replaces
   <code>extensions.json</code>'s <code>{"extensions": {name: bool}}</code> with a plain enabled
-  list), <code>image_tag</code>, <code>allow_unsafe_overrides</code>, and <code>theme</code>.</li>
+  list), <code>image_tag</code>, and <code>theme</code>.</li>
 </ul>
 
 
@@ -1174,6 +1185,35 @@
 
 </div>
 
+
+<div class="doc doc-object doc-function">
+
+
+<h3 id="tit.server.routes.settings.agent_auto_submit" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">agent_auto_submit</span>
+
+
+<a href="#tit.server.routes.settings.agent_auto_submit" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">agent_auto_submit</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>Project setting: may an agent submit jobs directly? Off (the default) means it proposes.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/routes/settings.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="k">def</span><span class="w"> </span><span class="nf">agent_auto_submit</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="w">    </span><span class="sd">"""Project setting: may an agent submit jobs directly? Off (the default) means it proposes."""</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">return</span> <span class="n">_load_project_settings</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"agent_auto_submit"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
 
 
 

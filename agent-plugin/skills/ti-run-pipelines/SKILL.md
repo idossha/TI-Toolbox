@@ -161,8 +161,8 @@ different targets (an ROI CSV and a leadfield); read `get_config_schema(kind="ex
   optimised XYZ positions) and the run's own current.
 - A named montage: a `sim` step (or `submit_job` in direct mode) with
   `config={"montages": [{"_type": "Montage", "name": ..., "mode": "net", "electrode_pairs":
-  [[a, b], [c, d]], "eeg_net": ...}], "intensities": [mA, mA]}`. Two pairs is TI; four or more
-  is mTI with one current per pair.
+  [[a, b], [c, d]], "eeg_net": ...}], "intensities": [mA, mA]}`. Each `[a, b]` is one channel
+  (Ek+, Ek-): two channels is TI; four or more is mTI with one current per channel.
 
 ## When something goes wrong
 
