@@ -5,14 +5,14 @@
  *
  * The focus is whatever the user last touched — a job row, the open montage form or the open
  * placement form — and nothing else feeds the scene: no "last net touched", no preview pushed up
- * by an effect. A row with no net draws no electrodes; the montage form draws its own net; closing
- * a form falls back to the row focused before it, because that row was never forgotten.
+ * by an effect. The head is always that row's subject's (the form's row, the placement's subject),
+ * the electrodes only what the row or form names, and the hint says what a click does there.
  */
 import type { FlexRun } from "./api";
 import { candidateOriginalPairs } from "./candidateHandoff";
 import { OPTIMIZED, placementsFor } from "./FlexTab";
 import type { MontageDraft } from "./MontageManager";
-import type { SelectedRow } from "./types";
+import type { MontageSource, SelectedRow } from "./types";
 
 /** What the page stores: the row last touched, and whether an open form was touched after it. */
 export interface FocusState {
@@ -27,13 +27,13 @@ export interface SceneFocus {
 }
 
 /**
- * The stored state against what exists now: a form counts only while it is open (closing one needs
- * no bookkeeping), and a row that was removed gives way to the first row.
+ * The stored state against what is open now: a form counts only while it is shown (the placement
+ * form covers a montage draft kept behind it), and a removed row gives way to the first row.
  */
 export function resolveFocus(state: FocusState, rows: SelectedRow[], draftOpen: boolean, placementOpen: boolean): SceneFocus {
   const rowId = (rows.find((r) => r.id === state.rowId) ?? rows[0])?.id ?? null;
-  if (state.form && draftOpen) return { on: "montage-form", rowId };
   if (state.form && placementOpen) return { on: "placement-form", rowId };
+  if (state.form && draftOpen) return { on: "montage-form", rowId };
   return { on: "row", rowId };
 }
 
@@ -41,7 +41,8 @@ type Xyz = { x: number; y: number; z: number };
 
 /** Everything the scene shows, as the props `ScenePane` takes. */
 export interface SceneView {
-  /** The research subject whose head is drawn, or `null` for the packaged guide. */
+  /** The research subject whose head is drawn (the pane falls back to the guide, labelled, while
+   *  it has none), or `null` for the guide. */
   subject: string | null;
   net: string | null;
   pairs?: [string, string][];
@@ -52,8 +53,9 @@ export interface SceneView {
   showing: { montage: string; net: string } | null;
   /** Which draft a pick writes: the montage form's pairs, the placement's positions, or nothing. */
   edits: "montage" | "placement" | null;
-  /** The focused row, whose own electrode settings size the drawn electrodes. */
+  /** The focused row, or the form's row: its own electrode settings size the drawn electrodes. */
   rowId?: string;
+  /** What a click does, or what to choose first — said whenever the pane's own hint would not fit. */
   note?: string;
 }
 
@@ -63,66 +65,49 @@ export interface SceneData {
   placementSubject: string | null;
   /** subject -> its flex runs, for a mapped row's optimised origins. */
   flexRuns: Record<string, FlexRun[]>;
-  /** The packaged guide's net file names; `undefined` until the manifest arrives. */
-  guideNets: string[] | undefined;
-  subjectNets: Record<string, string[]>;
-  /** Subjects that may draw a net the guide lacks, in order of preference. */
-  subjects: (string | null | undefined)[];
+  /** The form shown below the table, if any — a click on a row's net returns to it. */
+  openForm: "montage" | "placement" | null;
 }
 
-const NO_NET = "Choose an EEG net to see its electrodes.";
+const CHOOSE: Record<MontageSource, string> = {
+  montage: "Choose an EEG net to see its electrodes.",
+  flex: "Choose a flex run to see its electrodes.",
+  freehand: "Choose a free-hand set to see its positions.",
+};
 const xyz = (pairs: NonNullable<SelectedRow["xyzPairs"]>): Xyz[] => pairs.flat().map(([x, y, z]) => ({ x, y, z }));
 
 export function sceneFor(focus: SceneFocus, d: SceneData): SceneView {
-  const headFor = (net: string | null, first?: string) => subjectForOffGuideNet(net, d.guideNets, [first, ...d.subjects], d.subjectNets);
-  if (focus.on === "placement-form") return { subject: d.placementSubject, net: null, showing: null, edits: "placement" };
+  const row = d.rows.find((r) => r.id === focus.rowId);
+  const rowId = row?.id;
+  const subject = row?.subjectId || null;
+  if (focus.on === "placement-form") return { rowId, subject: d.placementSubject, net: null, showing: null, edits: "placement" };
   if (focus.on === "montage-form") {
     const net = d.draft?.net ?? null;
-    return { subject: headFor(net), net, pairs: d.draft?.pairs, showing: null, edits: "montage", note: net ? undefined : NO_NET };
+    return { rowId, subject, net, pairs: d.draft?.pairs, showing: null, edits: "montage", note: net ? undefined : CHOOSE.montage };
   }
-  const row = d.rows.find((r) => r.id === focus.rowId);
   if (!row) return { subject: null, net: null, showing: null, edits: null };
-  const base = { rowId: row.id, edits: null };
-  // Coordinates mean something only on the head they came from.
+  const base = { rowId, subject, edits: null };
   if (row.xyzPairs?.length) {
     const positions = xyz(row.xyzPairs);
-    return { ...base, subject: row.subjectId || null, net: null, positions, showing: row.name ? { montage: row.name, net: `${positions.length} placed positions` } : null };
+    return { ...base, net: null, positions, showing: row.name ? { montage: row.name, net: `${positions.length} placed positions` } : null };
   }
-  const net = row.eegNet ?? null;
-  if (!net) return { ...base, subject: null, net: null, showing: null, note: row.source === "montage" ? NO_NET : undefined };
+  // A net is drawn only where the row shows one: a montage row's net, a flex run's placement.
+  const net = row.source === "montage" || (row.source === "flex" && row.name) ? (row.eegNet ?? null) : null;
+  if (!net) return { ...base, net: null, showing: null, note: CHOOSE[row.source] };
   const pairs = row.pairs?.length ? row.pairs : undefined;
   const run = d.flexRuns[row.subjectId]?.find((r) => r.name === row.name);
   const origins = row.source === "flex" && pairs
     ? (candidateOriginalPairs(row) ?? (run ? placementsFor(run).find((p) => p.value === OPTIMIZED)?.xyzPairs : undefined))
     : undefined;
-  const originalPositions = origins?.length ? xyz(origins) : undefined;
   return {
     ...base,
-    // Named montages are browsed on the guide; snap displacements keep the subject's geometry.
-    subject: originalPositions ? row.subjectId : headFor(net, row.subjectId),
     net,
     pairs,
-    originalPositions,
+    originalPositions: origins?.length ? xyz(origins) : undefined,
     showing: pairs && row.name ? { montage: row.name, net } : null,
+    // A click on a row's net starts a montage — or, with a form already open, goes back to it.
+    note: d.openForm
+      ? `Click an electrode to go back to the open ${d.openForm} form.`
+      : "Click an electrode to start a new montage on this net.",
   };
-}
-
-/**
- * The subject whose own head draws `net` when the packaged guide does not carry it, else `null`.
- *
- * Named montages are drawn on the guide, which packages the standard caps only; a cap warped onto
- * a subject (BioSemi-64-10-10, GSN-HydroCel-128) is a file in that subject's `eeg_positions` and
- * nowhere else, so on the guide its electrodes were simply missing. The first of `candidates`
- * that has the net wins. `null` too while the guide's net list has not arrived, so the pane never
- * flips head on a guess.
- */
-export function subjectForOffGuideNet(
-  net: string | null,
-  guideNets: string[] | undefined,
-  candidates: (string | null | undefined)[],
-  subjectNets: Record<string, string[]>,
-): string | null {
-  const bare = (name: string) => name.replace(/\.csv$/i, "");
-  if (!net || !guideNets || guideNets.some((name) => bare(name) === bare(net))) return null;
-  return candidates.find((id): id is string => !!id && (subjectNets[id] ?? []).some((name) => bare(name) === bare(net))) ?? null;
 }

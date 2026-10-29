@@ -30,7 +30,6 @@ import { resolveFocus, sceneFor, type FocusState, type SceneView } from "./scene
 import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
 import { ScenePane, firstEmptySlot, withSlot } from "../_shared/scene";
-import { useGuideManifest } from "../_shared/scene/queries";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
@@ -119,7 +118,9 @@ function SimulatorPage() {
   /** What the scene draws: the row or the form the user last touched (`sceneFocus.ts`). */
   const [focusState, setFocusState] = usePageSession<FocusState>("sceneFocus", { rowId: null, form: false });
   const focusRow = (rowId: string | null) => setFocusState({ rowId, form: false });
-  const focusForm = () => setFocusState((state) => (state.form ? state : { ...state, form: true }));
+  /** The form gets the scene; `rowId`, when given, is the row it came from (Edit's row). */
+  const focusForm = (rowId?: string) =>
+    setFocusState((state) => (state.form && (rowId ?? state.rowId) === state.rowId ? state : { rowId: rowId ?? state.rowId, form: true }));
   const candidateState = location.state as { optimizationCandidate?: unknown } | null;
   // A router handoff becomes local draft state once, including when this page was retained.
   if (candidateState?.optimizationCandidate && handledCandidate !== location.key) {
@@ -208,10 +209,8 @@ function SimulatorPage() {
   const digest = plan.model ? (jobCountLabel(plan.model) ?? "Resolving the plan…") : (plan.blockedReason ?? "Resolving the plan…");
 
   function setDraftPairs(pairs: [string, string][]): void {
-    setMontageDraft((draft) => (draft ? { ...draft, pairs } : { ...emptyDraft(), pairs }));
+    setMontageDraft((draft) => draft && { ...draft, pairs });
   }
-  // The pane's own manifest query (same key), so this costs no request.
-  const guideNets = useGuideManifest().data?.nets.map((entry) => entry.name);
   const focus = resolveFocus(focusState, rows, !!montageDraft, freehand.open);
   // Serialised and parsed back so the pane gets the same arrays until the scene really changes:
   // `sceneFor` is pure, but its inputs (query maps, rows) are fresh objects on most renders.
@@ -221,23 +220,20 @@ function SimulatorPage() {
       draft: montageDraft,
       placementSubject: freehand.subject ?? usable[0] ?? null,
       flexRuns,
-      guideNets,
-      subjectNets,
-      subjects: [shellSubject, ...usable],
+      openForm: freehand.open ? "placement" : montageDraft ? "montage" : null,
     }),
   );
   const view = useMemo(() => JSON.parse(viewJson) as SceneView, [viewJson]);
   const placing = view.edits === "placement";
   const drafting = view.edits === "montage";
 
-  /** A pick on the pane with no montage open starts one on the drawn net, with that electrode in
+  /** A pick on the pane with no form open starts a montage on the drawn net, with that electrode in
    *  E1+ — otherwise the first click would do nothing and the gesture would be undiscoverable.
-   *  With one already open (a row has the scene) the pick hands the scene back to that draft
-   *  rather than replacing it. */
+   *  With a form open (a row has the scene) the pick hands the scene back to that form: a pick
+   *  never replaces or hides a draft. */
   function startDraftFromScene(electrode: string): void {
-    if (montageDraft) return focusForm();
+    if (montageDraft || freehand.open) return focusForm();
     const pairs = withSlot(emptyDraft().pairs, 0, electrode);
-    freehand.setOpen(false);
     setMontageDraft({ ...emptyDraft(), net: view.net ?? undefined, pairs });
     setDraftSlot(firstEmptySlot(pairs));
     focusForm();
@@ -286,7 +282,7 @@ function SimulatorPage() {
    * this page, so it is `SimulationConfig`'s default, as in the job it builds.
    */
   const focusedRow = rows.find((r) => r.id === view.rowId);
-  const padSettings = (settingsRowId ? liveSettings : null) ?? (focusedRow ? settingsFor(focusedRow, params) : (seedSettings ?? params));
+  const padSettings = (settingsRowId && settingsRowId === view.rowId ? liveSettings : null) ?? (focusedRow ? settingsFor(focusedRow, params) : (seedSettings ?? params));
   const scenePad = useMemo(
     () =>
       electrodePad({
@@ -316,9 +312,8 @@ function SimulatorPage() {
             scene={
               <ScenePane
                 mode="montage"
-                /* The subject's own scalp, so a click on it is a millimetre in the head the job
-                   runs on (maintainer, 2026-09-06). The guide remains the fallback and remains
-                   what the Optimizer and the Analyzer draw. */
+                /* The focused row's (or form's) own subject: the head the job runs on. The pane
+                   shows the reference head, labelled, only while that subject's is unavailable. */
                 subject={view.subject}
                 onPlace={placing ? freehand.place : undefined}
                 onPlacedPick={placing ? (index) => freehand.setActive(rowOfMarkerIndex(freehand.positions, index)) : undefined}

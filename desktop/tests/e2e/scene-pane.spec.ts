@@ -127,7 +127,7 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the pane draws the bundled guide with our own renderer — no iframe anywhere", async () => {
+test("the pane draws the job's own head with our own renderer — no iframe anywhere", async () => {
   await expectRunPaneTab(page, "scene");
   const host = page.locator('[data-page-panel="simulator"]').getByTestId("scene-pane-host");
   await expect(host).toHaveAttribute("data-renderer", "native");
@@ -150,10 +150,11 @@ test("the pane draws the bundled guide with our own renderer — no iframe anywh
       firstPaintMs: number | null;
     };
   });
-  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: null });
-  expect(debug.guide).toBe("ernie");
-  expect(debug.space).toBe("guide-ras");
-  expect(debug.parts.map((part) => part.id).sort()).toEqual(["gm", "skin"]);
+  // The Simulator draws the head the job runs on (ARCHITECTURE §7.2): the row's subject, ernie.
+  expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: SUBJECT });
+  expect(debug.guide).toBeNull();
+  expect(debug.space).toBe("subject-ras");
+  expect(debug.parts.map((part) => part.id)).toEqual(expect.arrayContaining(["gm", "skin"]));
   expect(debug.firstPaintMs).not.toBeNull();
 });
 

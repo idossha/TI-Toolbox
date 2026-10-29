@@ -141,7 +141,7 @@ coordinate space `guide-ras`; a guide pick may select an electrode name, net cha
 but must never become a research subject's coordinate. Optimizer and Analyzer use this fixed guide.
 Changing a subject must not rebuild or refetch a guide scene.
 
-The Simulator also supports subject-specific anatomy for placement and recorded montage previews.
+The Simulator draws subject-specific anatomy: the head of the job (or form) the user is working on.
 Its subject-scoped scene is the coordinate authority for scalp placement; when subject geometry is
 unavailable, the guide remains a visual fallback and does not authorize coordinate picking.
 Typed subject coordinates remain valid inputs independently of the guide.
@@ -562,14 +562,20 @@ slot is listed but not pickable in another. Coordinate picking remains constrain
 **The Simulator's scene draws one focus, and nothing else.** The focus is what the user last
 touched — a job row (the row or any control in it), the open New montage form, or the open New
 placement form — and the pane's props are a pure function of it and the page's data
-(`pages/simulator/sceneFocus.ts`: `resolveFocus`, `sceneFor`). A row draws its own net only if it
-has one, and its channels; the montage form draws the net its draft names (it opens on the focused
-row's net, else none) and takes the picks; the placement form draws the placement subject and takes
-the clicks. Opening a form focuses it; clicking a row while a form is open focuses the row and
-leaves the form and its draft open; touching the form, or a scene pick, focuses it again; a closed
-form or a removed row falls back to a row that exists. The form's net lives in its draft. Excluded:
-a "last net touched" or a preview pushed up from the table by an effect — two sources of truth that
-drifted (a fresh page drew a net no row had, a draft hid the row the user clicked).
+(`pages/simulator/sceneFocus.ts`: `resolveFocus`, `sceneFor`). The head is always the focused
+row's own subject (the montage form's row's; the placement's subject) — the guide stands in,
+labelled in the hint, only while that head is unavailable, and a net the subject lacks is said to be
+missing, never drawn on another subject. A row draws only the net its cells show (a montage row's
+net, a flex run's placement) and its channels, and the hint says what a click does or what to
+choose; the montage form draws the net its draft names (it opens on the focused row's net, else
+none) and takes the picks; the placement form takes the clicks. Opening a form focuses it; clicking
+a row while a form is open focuses the row and leaves the form and its draft open; touching the
+form, or a scene pick, focuses it again; a closed form or a removed row falls back to a row that
+exists. A row's action buttons (remove, settings) leave the focus where it is; Duplicate focuses
+the copy. No button discards a draft: New montage shows the open one, the placement form opens over
+it, and Edit with a draft open shows the draft and says why. Excluded: a "last net touched" or a
+preview pushed up from the table by an effect — two sources of truth that drifted (a fresh page
+drew a net no row had, a draft hid the row the user clicked).
 
 Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
 Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share
@@ -578,11 +584,7 @@ atlas/mode/region state; switching atlas clears incompatible labels. Subcortical
 non-subcortical compartments. No subject atlas extraction runs when browsing these guides.
 Only the selected atlas surface and skin are fetched. Guide coordinates never become scientific
 coordinates. Masks, spheres and saved coordinate targets retain explicit native TetraVox inspection.
-Simulator also uses the guide for named montage browsing — the focused job row's net, or the open
-New montage form's — except for a net the guide does not package (a cap warped onto subjects), which
-is drawn on a subject that has it (`subjectForOffGuideNet`); actual freehand/XYZ placements and snap
-displacements retain subject geometry to preserve their coordinate meaning. Peeling and isolation
-controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
+Peeling and isolation controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
 
 Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
 coordinates; MNI masks use SimNIBS’ subject registration with nearest-neighbor resampling,

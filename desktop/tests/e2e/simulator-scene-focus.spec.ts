@@ -31,7 +31,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
-import { addJobRow, jobBlank, jobRows, setJobMontage, setJobNet, setJobSubject } from "./_jobs";
+import { addJobRow, jobBlank, jobRows, setJobMontage, setJobNet, setJobSource, setJobSubject } from "./_jobs";
 import { waitForScene } from "./_runPane";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
 
@@ -254,6 +254,9 @@ test("e. clicking a row while drafting shows the row; touching the form shows th
   // The form is still open with its picks, just not what the scene shows.
   await expect(editor()).toBeVisible();
   await expect(editor().locator('.electrode-slot[data-slot="0"]').getByRole("combobox")).toHaveText(picks[0]!.id);
+  // Only what the scene shows is marked: no active slot in a form that is not in the scene.
+  await expect(editor().locator('[data-active-slot="true"]')).toHaveCount(0);
+  await expect(active().getByTestId("scene-pane-hint")).toHaveText("Click an electrode to go back to the open montage form.");
   await shot("row2-while-form-open");
   // A click on an electrode of the row's net hands the scene back to the open draft, untouched.
   const [other] = await frontMarkers(1);
@@ -314,7 +317,7 @@ test("g. New placement draws the placement on its subject; Cancel returns to the
   await placementEditor().getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(placementEditor()).toHaveCount(0);
   await expect(row(0)).toHaveAttribute("data-active", "true");
-  await expect.poll(async () => (await pane())?.subject).toBeNull();
+  await expect.poll(async () => (await pane())?.subject).toBe("ernie");
   await expectPaneNet(BIG);
   await shot("placement-cancel-row1");
 });
@@ -371,4 +374,127 @@ test("j. leaving the Simulator and coming back keeps the focus and the form", as
   await editor().getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(row(0)).toHaveAttribute("data-active", "true");
   await expectPaneNet(BIG);
+});
+
+/* Paths an exploratory review found broken (2026-10-28), kept fixed. */
+
+async function pickInForm(slot: number, electrode: string): Promise<void> {
+  await editor().locator(`.electrode-slot[data-slot="${slot}"]`).getByRole("combobox").click();
+  await page.getByRole("dialog").getByPlaceholder("Filter electrodes…").fill(electrode);
+  await page.getByTestId(`pair-${Math.floor(slot / 2)}-${slot % 2 === 0 ? "a" : "b"}-row-${electrode}`).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
+}
+
+test("k. a row's actions do not take the scene from the focused row, except Duplicate", async () => {
+  await twoRows();
+  await setJobSubject(page, await addJobRow(page), "ernie");
+  await selectRow(0);
+  await active().getByRole("button", { name: "Remove job 3", exact: true }).click();
+  await expect(jobRows(page)).toHaveCount(2);
+  await expect(row(0)).toHaveAttribute("data-active", "true");
+  await expectPaneNet(BIG);
+  await row(1).getByRole("button", { name: "Job settings 2", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(row(0)).toHaveAttribute("data-active", "true");
+  await active().getByRole("button", { name: "Duplicate job 2", exact: true }).click();
+  await expect(row(2)).toHaveAttribute("data-active", "true");
+  await expectPaneNet(SMALL);
+});
+
+test("l. a row's cells show what the row has: a cleared montage, a net kept across a source round trip", async () => {
+  await twoRows();
+  await setJobMontage(page, row(0), "F3_F4 · TI");
+  await setJobNet(page, row(0), SMALL.net);
+  await expect(row(0).getByRole("combobox", { name: "Montage", exact: true })).toHaveText("Choose a montage");
+  await expectChips([]);
+  await setJobSource(page, row(0), "Flex result");
+  await expectNoNet();
+  await expect(active().getByTestId("scene-pane-hint")).toHaveText("Choose a flex run to see its electrodes.");
+  await setJobSource(page, row(0), "Free-hand");
+  await expect(active().getByTestId("scene-pane-hint")).toHaveText("Choose a free-hand set to see its positions.");
+  await setJobSource(page, row(0), "Montage");
+  await expect(row(0).getByRole("combobox", { name: "EEG net", exact: true })).toHaveText(SMALL.net);
+  await expectPaneNet(SMALL);
+  await setJobNet(page, row(0), BIG.net);
+  await expectPaneNet(BIG);
+});
+
+test("m. no button discards a draft: New montage, New placement and Edit return to it", async () => {
+  await twoRows();
+  await setJobMontage(page, row(1), "F3_F4 · TI");
+  await selectRow(0);
+  await openNewMontage();
+  await pickInForm(0, "E200");
+  const draft = ["E1+ E200 · E1- —", "E2+ — · E2- —"];
+  await expectChips(draft);
+  await openNewMontage();
+  await expectChips(draft);
+  await active().getByRole("button", { name: "New placement", exact: true }).click();
+  await expect(placementEditor()).toBeVisible();
+  await expect(editor()).toHaveCount(0);
+  await openNewMontage();
+  await expect(placementEditor()).toHaveCount(0);
+  await expectChips(draft);
+  await row(1).getByRole("button", { name: "Edit F3_F4", exact: true }).click();
+  await expect(editor().getByText("Save or cancel this montage before editing", { exact: false })).toBeVisible();
+  await expect(formNet()).toHaveText(BIG.net);
+  await expectChips(draft);
+  await shot("edit-refused");
+});
+
+test("n. the head is the row's own subject, also for its montage form and its placement", async () => {
+  await setJobSubject(page, row(0), "101");
+  await setJobNet(page, row(0), SMALL.net);
+  await setJobMontage(page, row(0), "F3_F4 · TI");
+  await expect.poll(async () => (await pane())?.subject ?? null).toBe("101");
+  await expectPaneNet(SMALL);
+  await openNewMontage();
+  await chooseFormNet(WARPED.net);
+  // Only ernie carries this cap: it is never drawn on ernie's head for a 101 job.
+  await expect.poll(async () => (await pane())?.subject ?? null).toBe("101");
+  await expect.poll(async () => (await pane())?.markers ?? -1).toBe(0);
+  await expect(active().getByTestId("scene-pane-hint")).toHaveText(`101 has no ${WARPED.net} electrode positions.`);
+  await shot("warped-on-101");
+  await editor().getByRole("button", { name: "Cancel", exact: true }).click();
+  await active().getByRole("button", { name: "New placement", exact: true }).click();
+  await expect(placementEditor().getByRole("combobox").first()).toHaveText("101");
+  await expect.poll(async () => (await pane())?.subject ?? null).toBe("101");
+});
+
+test("o. a late net switch never undoes a newer one, and a net that cannot load is refused", async () => {
+  await twoRows();
+  await selectRow(0);
+  await openNewMontage();
+  await pickInForm(0, "E200"); // on BIG only
+  await pickInForm(1, "E5");
+  const hint = active().getByTestId("scene-pane-hint");
+  await expect(hint).toHaveText("Click an electrode to set E2+ (Channel 2).");
+  // The first electrode request (the switch to SMALL) answers only after the switch back to BIG.
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  let calls = 0;
+  let answered = 0;
+  await page.route("**/api/catalog/eeg-nets?**", async (route) => {
+    calls += 1;
+    if (calls === 1) await held;
+    await route.fulfill({ response: await route.fetch() });
+    answered += 1;
+  });
+  await chooseFormNet(SMALL.net);
+  await chooseFormNet(BIG.net);
+  release();
+  // BIG's electrodes come from the cache; the held answer is SMALL's, after BIG was chosen again.
+  await expect.poll(() => answered).toBeGreaterThanOrEqual(1);
+  await page.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+  await expectChips(["E1+ E200 · E1- E5", "E2+ — · E2- —"]);
+  await expect(hint).toHaveText("Click an electrode to set E2+ (Channel 2).");
+  await page.unroute("**/api/catalog/eeg-nets?**");
+  // A net whose electrodes cannot be loaded (one not fetched yet): the form stays on its net, and
+  // says so.
+  await page.route("**/api/catalog/eeg-nets?**", (route) => route.fulfill({ status: 500, json: { detail: "boom" } }));
+  await chooseFormNet(WARPED.net).catch(() => undefined);
+  await expect(page.getByText(`Could not load the electrodes of ${WARPED.net}`, { exact: false })).toBeVisible();
+  await expect(formNet()).toHaveText(BIG.net);
+  await expectChips(["E1+ E200 · E1- E5", "E2+ — · E2- —"]);
+  await page.unroute("**/api/catalog/eeg-nets?**");
 });

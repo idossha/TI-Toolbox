@@ -46,6 +46,7 @@ import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlex
 import { flexCurrents, FlexSnapWarning, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
+import { isPlaced } from "./freehandPlacement";
 import "./simulator-page.css";
 import {
   SOURCE_OPTIONS,
@@ -394,8 +395,9 @@ export interface JobsTableProps {
   focus?: SceneFocus;
   /** The user touched a row (or a control in it); `null` when the table has none left. */
   onFocusRow?: (rowId: string | null) => void;
-  /** The user opened or touched the montage or placement form. */
-  onFocusForm?: () => void;
+  /** The user opened or touched the montage or placement form; `rowId` is the row it came from
+   *  when that is not the row last touched (Edit on another row). */
+  onFocusForm?: (rowId?: string) => void;
   /** What a NEW row starts from: the settings of the row the user configured last, if any. */
   seedSettings?: JobSettings;
   /** Open this row's own settings editor (electrodes · conductivity · output fields). */
@@ -470,11 +472,13 @@ export function JobsTable({
    */
   // The draft itself (open, subject, name, rows) is the page's, not this table's: the 3-D pane
   // writes into the same rows. See `freehandDraft.tsx`.
-  const { open: freehandOpen, setOpen: setFreehandOpen } = useFreehandDraft();
+  const { open: freehandOpen, setOpen: setFreehandOpen, positions: freehandPositions, setSubject: setFreehandSubject } = useFreehandDraft();
   /** The row the scene draws — highlighted only while no form has the scene. */
   const activeId = focus?.on === "row" ? focus.rowId : null;
   /** The row the user last touched, which a new montage starts from and a closed form returns to. */
   const homeRow = rows.find((r) => r.id === focus?.rowId);
+  /** A net this project offers, else none: a row's (a candidate's, a flex mapping's) may not be. */
+  const offered = (net: string | undefined) => (net && availableNets.includes(net) ? net : undefined);
 
   const electrodesOf = (net: string | undefined) => ({
     queryKey: ["eeg-net-electrodes", net, usable[0]],
@@ -487,19 +491,31 @@ export function JobsTable({
   });
   const netElectrodes = useQuery({ ...electrodesOf(editing?.net), enabled: !!editing?.net && usable.length > 0 });
 
-  /** Switching the form's net redraws the scene at once, then keeps the draft's electrodes the new
-   *  net also has, blanks the rest and aims the cursor at the first empty slot. */
+  // The draft as last rendered, for a net switch's late continuation: it must act on the draft as
+  // it is when the answer arrives, not as it was when the net was chosen.
+  const draftRef = useRef(editing);
+  useEffect(() => {
+    draftRef.current = editing;
+  }, [editing]);
+
+  /** Switching the form's net redraws the scene at once, then blanks the draft's electrodes the new
+   *  net lacks and aims the cursor at the first empty slot — unless another net was chosen or the
+   *  form closed meanwhile. A net whose electrodes cannot be loaded is refused, not half-applied. */
   async function chooseNet(net: string) {
-    if (!editing) return;
+    const previous = editing?.net;
     setEditing((d) => d && { ...d, net });
-    let electrodes: string[];
     try {
-      electrodes = await queryClient.fetchQuery(electrodesOf(net));
-    } catch {
-      return; // the form's own query shows the failure
+      const electrodes = await queryClient.fetchQuery(electrodesOf(net));
+      const d = draftRef.current;
+      if (!d || d.net !== net) return;
+      const pairs = pairsOnNet(d.pairs, electrodes);
+      if (pairs === d.pairs) return;
+      setEditing({ ...d, pairs });
+      onDraftSlotChange?.(firstEmptySlot(pairs));
+    } catch (err) {
+      setEditing((d) => (d && d.net === net ? { ...d, net: previous } : d));
+      notify.error(`Could not load the electrodes of ${net}; the montage stays on ${previous ?? "no net"}.`, err instanceof Error ? err.message : undefined);
     }
-    setEditing((d) => (d && d.net === net ? { ...d, pairs: pairsOnNet(d.pairs, electrodes) } : d));
-    onDraftSlotChange?.(firstEmptySlot(pairsOnNet(editing.pairs, electrodes)));
   }
 
   /** Every montage of one net, both buckets, in one list — the Montage cell's options. */
@@ -610,7 +626,10 @@ export function JobsTable({
       kind: undefined,
       pairs: undefined,
       xyzPairs: undefined,
-      eegNet: source === "montage" ? row.eegNet : undefined,
+      // The net stays, so Montage → Free-hand → Montage gives the row its net back (a free-hand job
+      // never sends it, and a flex run sets its own placement) — as long as it is one of the nets
+      // the Montage cell offers (a flex mapping may name it otherwise).
+      eegNet: source === "montage" && !netsForSubject(row.subjectId).includes(row.eegNet ?? "") ? undefined : row.eegNet,
       currents: "1.0,1.0",
     });
   }
@@ -761,16 +780,14 @@ export function JobsTable({
       const b = config.electrode_positions[i + 1]!;
       pairs.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
     }
-    patch(row.id, { name, kind: undefined, eegNet: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
+    patch(row.id, { name, kind: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
   }
 
   function addRow() {
-    const last = rows[rows.length - 1];
-    const seedSubject = last?.subjectId || usable[0] || "";
-    // A new row starts from the settings the user configured last — assembling a batch is
-    // configuring one job and adding the next one like it — and from the built-ins before that.
-    // Its net, likewise, is the previous row's: visible in its own cell, never a hidden "last net".
-    const row = { ...emptyRow(seedSubject, "montage", last?.source === "montage" ? last.eegNet : undefined), settings: seedSettings };
+    // A new row is like the job the user has selected — its subject and its net, visible in its own
+    // cells — and starts from the settings the user configured last, else the built-ins.
+    const seed = homeRow ?? rows[rows.length - 1];
+    const row = { ...emptyRow(seed?.subjectId || usable[0] || "", "montage", offered(homeRow?.eegNet)), settings: seedSettings };
     onRowsChange([...rows, row]);
     onFocusRow?.(row.id);
   }
@@ -789,22 +806,52 @@ export function JobsTable({
     onRowsChange(rows.filter((r) => r.id !== id));
   }
 
-  /** A brand-new montage always starts as a 2-pair draft (adding pairs makes it multi-polar), on
-   *  the net of the row the user last touched — or on none, until the form names one. */
+  /**
+   * A brand-new montage starts as a 2-pair draft (adding pairs makes it multi-polar) on the net of
+   * the row the user last touched, or on none until the form names one. A draft already open is
+   * shown again as it is: no button discards a draft — only its own Cancel does. The placement
+   * form steps aside, its draft kept.
+   */
   function startNewMontage() {
     setFreehandOpen(false);
-    setEditing({ ...emptyDraft(), net: homeRow?.eegNet });
-    onDraftSlotChange?.(0);
+    if (!editing) {
+      setEditing({ ...emptyDraft(), net: offered(homeRow?.eegNet) });
+      onDraftSlotChange?.(0);
+    }
     onFocusForm?.();
   }
 
+  /** The placement form opens over a montage draft, which waits behind it. A placement with
+   *  nothing placed yet starts on the selected job's subject; placed positions keep theirs. */
   function startNewFreehand() {
-    setEditing(null);
+    if (homeRow && usable.includes(homeRow.subjectId) && !freehandPositions.some(isPlaced)) setFreehandSubject(homeRow.subjectId);
     setFreehandOpen(true);
     onFocusForm?.();
   }
 
+  /** Edit never replaces an open draft: it shows that draft, saying why. */
+  const [refusedEdit, setRefusedEdit] = useState<{ draft: MontageDraft; name: string } | null>(null);
+  function editMontage(montage: CatalogMontage, rowId: string) {
+    setFreehandOpen(false);
+    if (editing) {
+      setRefusedEdit({ draft: editing, name: montage.name });
+      onFocusForm?.();
+      return;
+    }
+    setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind, net: montage.net });
+    onDraftSlotChange?.(0);
+    onFocusForm?.(rowId);
+  }
+
   const draftKind = editing ? inferMontageKind(editing.pairs.length) : "uni_polar";
+
+  /** The open form has the scene: its card is tinted like a focused row, and scrolled into view —
+   *  a draft started by a click on the head may open below the fold. */
+  const formFocused = !!focus && focus.on !== "row";
+  const formBox = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (formFocused) formBox.current?.querySelector(".card")?.scrollIntoView?.({ block: "nearest" });
+  }, [formFocused]);
 
   /* ------------------------------------------------------------------ Geometry */
 
@@ -835,7 +882,7 @@ export function JobsTable({
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     if (rows.length === 0) return;
     e.preventDefault();
-    const at = rows.findIndex((r) => r.id === activeId);
+    const at = rows.findIndex((r) => r.id === focus?.rowId);
     const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
     onFocusRow?.(rows[next]?.id ?? null);
     const row = e.currentTarget.querySelectorAll<HTMLElement>("tbody tr[data-job-row]")[next];
@@ -1058,8 +1105,11 @@ export function JobsTable({
                 const montage = catalogMontageOf(row);
                 const active = activeId === row.id;
                 // Touching the row or any control in it (its pickers' dialogs included: React
-                // events bubble out of portals) makes it the scene's focus.
-                const claim = () => onFocusRow?.(row.id);
+                // events bubble out of portals) makes it the scene's focus — except the actions,
+                // which act on a row without looking at it (Duplicate focuses its copy).
+                const claim = (e: React.SyntheticEvent) => {
+                  if (!(e.target as HTMLElement).closest("[data-cell='actions']")) onFocusRow?.(row.id);
+                };
                 return (
                   <Fragment key={row.id}>
                     <tr
@@ -1119,12 +1169,7 @@ export function JobsTable({
                           <IconButton
                             aria-label={`Edit ${montage.name}`}
                             icon={<Pencil size={14} />}
-                            onClick={() => {
-                              setFreehandOpen(false);
-                              setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind, net: montage.net });
-                              onDraftSlotChange?.(0);
-                              onFocusForm?.();
-                            }}
+                            onClick={() => editMontage(montage, row.id)}
                           />
                         )}
                         <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
@@ -1180,7 +1225,7 @@ export function JobsTable({
         <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={addRow}>
           Add job
         </Button>
-        <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={startNewMontage}>
+        <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0 || usable.length === 0} onClick={startNewMontage}>
           New montage
         </Button>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={usable.length === 0} onClick={startNewFreehand}>
@@ -1190,14 +1235,24 @@ export function JobsTable({
       </div>
 
       {/* The open form. Touching it gives it the scene back after a row was clicked. */}
-      <div className="sim-scene-form" data-scene-focus={focus && focus.on !== "row" ? "true" : undefined} onPointerDown={onFocusForm} onFocus={onFocusForm}>
-      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => setFreehandOpen(false)} />}
+      <div
+        className="sim-scene-form"
+        ref={formBox}
+        data-scene-focus={formFocused ? "true" : undefined}
+        onPointerDown={() => onFocusForm?.()}
+        onFocus={() => onFocusForm?.()}
+      >
+      {/* Cancel or Save returns the scene to the row — a montage draft behind it stays open. */}
+      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => { setFreehandOpen(false); onFocusRow?.(focus?.rowId ?? null); }} />}
 
-      {editing && (
+      {editing && !freehandOpen && (
         <Card>
           <CardHeader title={editing.name ? `Edit montage "${editing.name}"` : "New montage"} />
           <CardBody>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {refusedEdit?.draft === editing && (
+                <Callout kind="info">Save or cancel this montage before editing &ldquo;{refusedEdit.name}&rdquo;.</Callout>
+              )}
               <Field label="EEG net">
                 <Select
                   value={editing.net}
@@ -1238,7 +1293,7 @@ export function JobsTable({
                       // Channels added or removed: the cursor goes to the first empty slot.
                       if (pairs.length !== editing.pairs.length) onDraftSlotChange?.(firstEmptySlot(pairs));
                     }}
-                    activeSlot={draftSlot}
+                    activeSlot={formFocused ? draftSlot : undefined}
                     onActiveSlotChange={onDraftSlotChange}
                     pairStep={2}
                     freehandPairs={[]}

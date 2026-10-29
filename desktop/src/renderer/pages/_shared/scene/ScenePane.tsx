@@ -756,12 +756,25 @@ export function ScenePane({
   }, [gesture, effectiveAtlas, legend, selectedRegionRows]);
 
   /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
-  const hint = ((): string => {
-    if (note) return note;
+  /**
+   * The reference head standing in for the subject the page asked for, in one sentence. Three
+   * states, never an error box: the server's own 404 detail names the missing file, and a build in
+   * progress says so rather than looking broken.
+   */
+  const standIn =
+    wantedSubject && !drawnSubject && subjectHasAtlas
+      ? subjectManifest.error
+        ? subjectManifest.error instanceof SceneError
+          ? `${subjectManifest.error.message} Showing the reference head instead.`
+          : `${wantedSubject} has no head model to draw yet — showing the reference head instead.`
+        : `Building ${wantedSubject}'s head model for the preview — showing the reference head meanwhile.`
+      : null;
+  const hintText = ((): string => {
     if (netMissing)
       return mode === "montage"
-        ? `The guide has no ${net} electrode positions — the montage still works from the form.`
+        ? `${drawnSubject ?? "The reference head"} has no ${net} electrode positions.`
         : `This head model has no ${electrodeNet} electrode positions — the buckets still work from the form.`;
+    if (note) return note;
     if (sideError) return sideError instanceof SceneError ? sideError.message : "Some of this scene could not be loaded.";
     if (gesture === "electrode" && mode !== "montage") return "Click an electrode to add or remove it from the active bucket.";
     if (gesture === "electrode") {
@@ -779,19 +792,13 @@ export function ScenePane({
     if (subjectReady && !subjectHasAtlas)
       return `${wantedSubject} has no ${atlas} of its own — showing the reference head, where that atlas is packaged.`;
     if (guide === "mni") return "MNI152 template — the ROI is chosen here and transformed into each subject before the job runs.";
-    if (wantedSubject && !drawnSubject) {
-      // Three states, each a sentence, never an error box: the server's own 404 detail names the
-      // missing file, and a build in progress says so rather than looking broken.
-      if (subjectManifest.error) {
-        return subjectManifest.error instanceof SceneError
-          ? `${subjectManifest.error.message} Showing the reference head instead.`
-          : `${wantedSubject} has no head model to draw yet — showing the reference head instead.`;
-      }
-      return `Building ${wantedSubject}'s head model for the preview — showing the reference head meanwhile.`;
-    }
+    if (standIn) return standIn;
     if (drawnSubject) return `${drawnSubject}'s own head model.`;
     return "Reference anatomy — a guide for choosing names, not this subject's head.";
   })();
+  // The Simulator draws the job's own head: a stand-in is named whatever else the hint says, so it
+  // is never mistaken for the subject's.
+  const hint = mode === "montage" && standIn && hintText !== standIn ? `${standIn} ${hintText}` : hintText;
 
   // ---- the debug handle ----------------------------------------------------------------------
   useEffect(() => {

@@ -3599,7 +3599,9 @@ needs the role in a place too narrow for "Ek+ name · Ek- name".
 ## 2026-10-28 — The Simulator's scene draws the net the user is looking at, on a head that has it
 
 **Superseded 2026-10-28:** "The Simulator's scene is a pure function of one focus" below replaces
-the which-net rule (`MontagePreview`, the editor's last net); the off-guide head rule stands.
+the which-net rule (`MontagePreview`, the editor's last net), and "The Simulator draws the head of
+the job the user is working on" replaces the head rule (the guide for named montages,
+`subjectForOffGuideNet`).
 
 **Decision.** With the New montage form open the scene draws the form's net; otherwise the selected
 job row's net, whether or not the row has a montage (`MontagePreview` with `net` and `name: ""`). A
@@ -3611,8 +3613,9 @@ subject and the usable subjects whose `eeg_nets` lists it (`subjectForOffGuideNe
 both drew Okamoto, because a row without a montage sent no preview and the pane fell back to the
 last net touched; and New montage on BioSemi-64-10-10 drew no electrodes, because the guide
 packages 8 caps (`tit/scene/guide/manifest.json`) and a cap warped from `resources/ElectrodeCaps_MNI/`
-exists only in the subject's `eeg_positions`. Pinned by `desktop/tests/e2e/simulator-scene-net-sync.spec.ts`
-and `desktop/tests/unit/simulator-scene-net.test.ts`.
+exists only in the subject's `eeg_positions`. Pinned then by `simulator-scene-net-sync.spec.ts` and
+`simulator-scene-net.test.ts`, both since replaced by `desktop/tests/e2e/simulator-scene-focus.spec.ts`
+and `desktop/tests/unit/simulator-scene-focus.test.ts`.
 
 **Alternatives rejected.** Syncing the editor's net to the active row on every selection: a row's
 net select changes the editor's net without selecting the row, so the two drift again. Packaging
@@ -3627,16 +3630,24 @@ are `sceneFor(resolveFocus(…), pageData)` (`desktop/src/renderer/pages/simulat
 Interaction handlers are the only writers: a row's pointer-down or focus (any control in it),
 **Add job** (the new row), **Duplicate**, removing the focused row (its neighbour), keyboard ↑/↓,
 the candidate handoff; opening **New montage** / **Edit** / **New placement**, and pointer-down or
-focus inside the open form. The montage draft carries its own `net`; a new draft takes the focused
-row's net or none. A row with no net draws no electrodes. Clicking a row while a form is open
+focus inside the open form — but not a row's action buttons (remove and settings leave the focus
+where it is; Duplicate focuses the copy). The montage draft carries its own `net`; a new draft takes
+the focused row's net (if the project offers it) or none, and a net switch that answers late, or
+whose electrodes cannot load, never moves the cursor of a newer draft (it is refused, with a
+message). A row draws only the net its cells show, and the pane's hint says what a click does there
+or what to choose. **Add job** starts like the focused row (its subject and its net). No button
+discards a draft: **New montage** with a draft open shows it again; **New placement** opens over a
+montage draft, which waits behind it; **Edit** with a draft open shows that draft with a note. Clicking a row while a form is open
 focuses the row and leaves the form and its draft open (the form loses its accent bar, the row gains
 it); touching the form, or picking an electrode on the head, focuses the form again — a pick never
 replaces an open draft. Removed: `montageNet` and `MontagePreview` page state, the table's
 `netChoice`/`editorNet`, the preview and active-source effects, `previewRowId`/`seenPreviewRow`,
 `draftWasOpen`, `seenDraftShape` and the `switchedNet` ref (the net switch prunes the draft in its
 own handler). ARCHITECTURE §7.2. Tests: `desktop/tests/unit/simulator-scene-focus.test.ts` (focus ×
-data table), `desktop/tests/e2e/simulator-scene-focus.spec.ts` (ten user paths, a–j), which replaces
-`simulator-scene-net-sync.spec.ts`.
+data table), `desktop/tests/e2e/simulator-scene-focus.spec.ts` (fifteen user paths, a–o, k–o from an
+independent exploratory review), which replaces `simulator-scene-net-sync.spec.ts`. `ui/Select`
+is always controlled (`value ?? ""`): an `undefined` value made Radix keep the last label, so a
+cleared net or montage cell still showed the old one.
 
 **Why.** Maintainer (2026-10-28): a fresh Simulator drew a net no job had chosen; New montage did not
 draw the job's net until the form's net was switched; after Cancel, selecting another job did not
@@ -3650,9 +3661,38 @@ while drafting was not drawn) [measured, offscreen Electron, mock server, 2026-1
 **Alternatives rejected.** Closing the form when a row is clicked: loses a half-written montage for
 a glance at another job. Keeping the form focused until Cancel: the click the user just made would
 not change the scene, which was the complaint. Guards on the existing effects: each guard added a
-state that could disagree with the others. A new job starting with no net: the subject is already
-seeded from the previous row, and its net (shown in its own cell) is the same "add the next like
-it"; it is data on the row, not hidden page state.
+state that could disagree with the others. A new job starting with no net: a batch is assembled by
+adding the next job like the selected one, and its net is shown in its own cell, not hidden page
+state. Resetting a draft on New montage, or closing it on New placement: work lost to a button
+that does not say so.
 
 **Revisit if.** Two forms need to be open at once, or a page outside the Simulator needs the same
 focus rule (lift `resolveFocus` to `_shared`).
+
+## 2026-10-28 — The Simulator draws the head of the job the user is working on
+
+**Decision.** The Simulator's scene always draws the focused row's own subject's head — for a named
+montage too — the montage form's row's subject, and the placement's subject; a New placement with
+nothing placed starts on the focused row's subject. While that head is unavailable (no head model,
+or being built) the pane draws the packaged guide and its hint says so first ("Building 101's head
+model for the preview — showing the reference head meanwhile."). A net the subject does not carry is
+said to be missing ("101 has no BioSemi-64-10-10.csv electrode positions."), never drawn on another
+subject's head. `subjectForOffGuideNet` is deleted. Supersedes the head rule of "The Simulator's
+scene draws the net the user is looking at" above. ARCHITECTURE §3, §7.2. Pinned by
+`desktop/tests/e2e/simulator-scene-focus.spec.ts` (n), `scene-pane.spec.ts`, `simulator-placement.spec.ts`.
+
+**Why.** The maintainer asked that the scene reflect what the user is working on (2026-10-28), and a
+job runs on its subject's head: a row on 101 showed F3_F4 on ernie's packaged head, and a cap only
+ernie carries was drawn on ernie's head for a 101 job. The Simulator already drew the subject's own
+head for free-hand and snapped placements, and the Optimizer has drawn the row's head since
+2026-09-17. Cost: a subject's first scene reads its head mesh (184 MB, 1.7 s in the container) and
+simplifies it — of the order of the guide's own 8.4 s build — then it is cached; a warm first paint
+is 91–219 ms [BENCHMARKS, scene and catalog performance, 2026-09-04–07]. The guide covers the wait,
+labelled.
+
+**Alternatives rejected.** Named montages on the guide, off-guide nets on whichever subject has them
+(the rule replaced): the head shown was not the job's, and could be another subject's. Hiding the
+pane until the subject's head is ready: an empty pane on every first visit.
+
+**Revisit if.** First builds of subject scenes become slow enough on real projects that browsing
+named montages waits on them (measure with the real e2e procedure in TESTING.md).

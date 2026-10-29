@@ -79,16 +79,17 @@ async function clickCanvas(dx = 0, dy = 0): Promise<void> {
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 
-test("the Simulator starts on the bundled guide", async () => {
+test("the Simulator starts on the first job's own head", async () => {
   await expect(host()).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  // The seeded row is on the shell's subject, ernie, and the scene draws the head the job runs on.
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.space ?? null), { timeout: 20_000 }).toBe("subject-ras");
   const debug = await page.evaluate(() => {
     const handle = window.__scenePane;
     if (!handle) throw new Error("window.__scenePane is absent — build out/ with VITE_SCENE_HOOKS=1");
-    return { subject: handle.subject, guide: handle.guide, space: handle.space };
+    return { subject: handle.subject, guide: handle.guide };
   });
-  expect(debug.subject).toBeNull();
-  expect(debug.guide).toBe("ernie");
-  expect(debug.space).toBe("guide-ras");
+  expect(debug.subject).toBe("ernie");
+  expect(debug.guide).toBeNull();
 });
 
 test("a click with nothing selected places nothing, and says why", async () => {

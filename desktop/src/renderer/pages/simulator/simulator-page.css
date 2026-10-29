@@ -253,13 +253,14 @@
 .montage-table tbody tr[data-active="true"] > td:first-child {
   box-shadow: inset 2px 0 0 var(--accent);
 }
-/* The open montage/placement form, when it is what the scene draws: the same accent bar the
-   focused row carries, so exactly one thing on the page says "this is in the scene". The wrapper
-   adds no box of its own (no stray gap when no form is open). */
+/* The open montage/placement form, when it is what the scene draws: the same tint and accent bar
+   the focused row carries, so exactly one thing on the page says "this is in the scene". The
+   wrapper adds no box of its own (no stray gap when no form is open). */
 .sim-scene-form {
   display: contents;
 }
 .sim-scene-form[data-scene-focus="true"] > .card {
+  background-color: var(--accent-soft);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
