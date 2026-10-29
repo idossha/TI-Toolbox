@@ -264,17 +264,20 @@ class ExSearchEngine:
         the volume-weighted GM mean, on the same elements and volumes. ``TI_Selectivity`` is
         ``Focality / HF_Focality``: above 1 the envelope is more focal than the carriers that
         make it. Reported only; the ranking (``Composite_Index``) does not use them. An empty
-        ROI or GM scores 0, as ``Focality`` does (:meth:`_roi_metrics`).
+        ROI or GM, or a GM mean <= 0, has no carrier focality: both are ``None`` (an empty
+        CSV cell), not a 0 that would read as a measurement; a zero ROI carrier (HF_Focality 0)
+        has no selectivity.
         """
-        hf_focality = 0.0
+        hf_focality = None
         if len(peak_roi) and len(peak_gm):
-            roi_mean = float(np.average(peak_roi, weights=self.roi_volumes))
             gm_mean = float(np.average(peak_gm, weights=self.gm_volumes))
-            hf_focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
+            if gm_mean > 0:
+                roi_mean = float(np.average(peak_roi, weights=self.roi_volumes))
+                hf_focality = roi_mean / gm_mean
         return {
             f"{self.roi_name}_HF_Focality": hf_focality,
             f"{self.roi_name}_TI_Selectivity": (
-                focality / hf_focality if hf_focality > 0 else 0.0
+                focality / hf_focality if hf_focality else None
             ),
         }
 

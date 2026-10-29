@@ -7,7 +7,8 @@ What this pins
     and ``TI_Selectivity`` = ``Focality / HF_Focality``. ``final_output.csv`` gains the two
     columns after ``Composite_Index`` (empty for a result without them), the candidate review
     exposes them as ``hf_focality`` / ``ti_selectivity`` metrics, the ex-search report lists
-    them in its top table when the CSV has them, and ``Composite_Index`` is unchanged.
+    them in its top table when the CSV has them, and ``Composite_Index`` is unchanged. An empty
+    ROI or GM, or a GM carrier mean of 0, gives ``None`` (an empty cell), never 0.
 
 Where the expectations come from
     hf_peak by brute force: every one of the ``2**F`` sign vectors ``s`` (itertools.product,
@@ -251,3 +252,19 @@ def test_rendered_report_has_the_columns_only_for_a_csv_with_them(tmp_path):
     assert "TI selectivity" in results and ">1.60<" in results and ">1.25<" in results
     old = _report_html(tmp_path / "b", HEADER + "\n" + row + "\n")
     assert "TI selectivity" not in old
+
+
+@pytest.mark.parametrize("case", ["empty ROI", "empty GM", "zero GM carrier"])
+def test_degenerate_candidates_have_no_carrier_metrics_not_zero(fake_ti, case):
+    engine = _engine(ExSearchEngine)
+    if case == "empty ROI":
+        engine.roi_indices, engine.roi_volumes = np.array([], dtype=int), np.array([])
+    elif case == "empty GM":
+        engine.gm_indices, engine.gm_volumes = np.array([], dtype=int), np.array([])
+    else:  # these electrodes put no field on the GM elements
+        engine.leadfield[:, GM_IDX] = 0.0
+    (data,) = engine.compute_ti_fields("A", "B", "C", "D", [(1.0, 1.0)])
+    assert data[f"{ROI}_HF_Focality"] is None
+    assert data[f"{ROI}_TI_Selectivity"] is None
+    rows, *_ = build_csv_rows({"TI_field_A_B_and_C_D.msh": data}, ROI)
+    assert rows[1][-2:] == ["", ""]
