@@ -49,16 +49,16 @@ config = SimulationConfig(
     gel_thickness=1.0,
 )
 
-# Run (auto-detects TI vs mTI based on number of electrode pairs)
+# Run (auto-detects TI vs mTI from the number of channels)
 results = run_simulation(config)
 ```
 
 ### Simulation Types
 
-- **TI (2-pair)**: Standard temporal interference with 2 electrode pairs
-- **mTI (4+ even pairs)**: Multi-channel TI with N electrode pairs (binary-tree combination)
+- **TI (2 channels)**: Standard temporal interference; a channel is one electrode pair (Ek+, Ek-)
+- **mTI (4 or more channels, even)**: Multi-channel TI; each two consecutive channels share a carrier, and `mTI_max` is the joint envelope of all of them
 
-Mode is auto-detected from the montage: 2 pairs -> TI, 4+ even pairs -> mTI.
+Mode is auto-detected from the montage: 2 channels -> TI, 4 or more (even) -> mTI.
 
 ## Analyzing Results
 
@@ -272,10 +272,10 @@ visualize_montage(
 All paths are managed by `PathManager`, which enforces a BIDS-compliant directory structure. You never construct paths manually.
 
 ### Field Types
-- **TI_max**: Maximum TI envelope over all directions (2-pair simulations; `tit.calc.envelope_max`)
+- **TI_max**: Maximum TI envelope over all directions (two-channel simulations; `tit.calc.envelope_max`)
 - **TI_normal**: TI envelope along the cortical surface normal (`tit.calc.envelope`)
-- **mTI_max**: Maximum of the joint envelope of all channels (4+ even-pair mTI simulations; `tit.calc.envelope_max`)
-- **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, carrier power sum, absorbed carrier power in W/m³)
+- **mTI_max**: Maximum of the joint envelope of all channels (mTI simulations, 4 or more channels; `tit.calc.envelope_max`)
+- **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, `hf_sar` = Σ|E_c|² = 2 × `tit.calc.hf_power`, absorbed carrier power in W/m³)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

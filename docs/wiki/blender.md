@@ -189,7 +189,7 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 - **`scalp.stl`** and **`gm.stl`**: the extracted scalp and grey-matter surfaces, for reference.
 
 **Electrode configuration:**
-- The EEG net and the montage's electrode pairs come from the selected simulation.
+- The EEG net and the montage's channels come from the selected simulation.
 - **Show only montage electrodes** places only the montage's electrodes; otherwise the whole net is placed.
 - **Electrode diameter** and **Electrode height** size the electrode cylinders (defaults 10 mm and 6 mm).
 

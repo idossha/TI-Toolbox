@@ -182,7 +182,7 @@ Shared names and values live in `tit.constants`. Key categories:
 | **Environment** | `ENV_PROJECT_DIR`, `ENV_PROJECT_DIR_NAME`, `DOCKER_MOUNT_PREFIX` |
 | **Field names** | `FIELD_TI_MAX` (`TI_max`), `FIELD_MTI_MAX` (`mTI_max`), `FIELD_TI_NORMAL` (`TI_normal`), `FIELD_TI_AVG` (`TI_avg`), `FIELD_HF_PEAK` (`hf_peak`), `FIELD_HF_SAR` (`hf_sar`), `FIELD_HF_POWER_DENSITY` (`hf_power_density`) |
 | **Field registry** | `FIELD_REGISTRY`, `get_field_names()`, `get_field_spec()`, `SELECTABLE_OUTPUT_FIELDS` |
-| **Electrode pairs** | `TI_ELECTRODE_PAIRS` (2), `is_valid_pair_count()`, `PAIR_COUNT_RULE` |
+| **Channel counts** | `TI_ELECTRODE_PAIRS` (2), `is_valid_pair_count()`, `PAIR_COUNT_RULE` |
 | **Mesh tissue tags** | `BRAIN_TISSUE_TAG_RANGES` (`((1, 100), (1001, 1100))`) |
 | **fsaverage** | `FSAVG_NODES`, `FSAVG_FIELD_NAMES` |
 | **QSI integration** | `QSI_QSIPREP_IMAGE`, `QSI_RECON_SPECS`, `QSI_ATLASES`, `QSI_DEFAULT_OMP_THREADS` |
@@ -193,7 +193,7 @@ from tit import constants as const
 
 const.FIELD_TI_MAX             # "TI_max"
 const.TI_ELECTRODE_PAIRS       # 2
-const.is_valid_pair_count(4)   # True: 4 pairs is an mTI montage
+const.is_valid_pair_count(4)   # True: 4 channels is an mTI montage
 const.get_field_names()[:2]    # ("TI_max", "mTI_max")
 ```
 

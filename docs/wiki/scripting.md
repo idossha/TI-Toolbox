@@ -203,7 +203,7 @@ run_ex_search(cfg)
 | `roi_coordinate_space` | **Target** (coordinate space, `subject`/`mni`) | `"subject"` |
 | `n_jobs` | — (the app always sends `-1`): parallel workers, `-1` = the global CPU limit, 70 % of the cores by default; larger values are capped at it | `-1` |
 
-`MExConfig` + `run_m_ex_search` take the same fields for the multipolar (4-pair) search, with
+`MExConfig` + `run_m_ex_search` take the same fields for the multipolar (four-channel) search, with
 `current_mA` in place of `total_current`/`current_step`, no `channel_limit`, and eight lists in
 `BucketElectrodes`.
 
@@ -240,12 +240,12 @@ run_simulation(cfg)
 | `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `1.0` |
 | `rubber_thickness` | — | `2.0` |
 | `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`, `hf_power_density`) | `["TI_max"]` |
-| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; 2-pair TI with `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
+| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; two-channel TI with `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
 | `map_to_surf` / `map_to_vol` | — | `True` / `False` |
 | `map_to_mni` | **Generate MNI NIfTI outputs** | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |
 
-Two electrode pairs run a TI simulation, four or more run mTI — the API picks for you.
+Two channels (electrode pairs) run a TI simulation, four or more run mTI — the API picks for you.
 
 ## Analyzer
 
@@ -285,9 +285,9 @@ simulation name shared by every subject, and `analysis_type` is `"spherical"`, `
 ## Field metrics (`tit.calc`)
 
 The simulator's field outputs come from five functions in `tit.calc`, which you can call on
-any carrier fields. The envelope functions take a list of `(N, 3)` arrays in V/m, two per
-carrier, in montage order (`[E1, E2]` for TI, `[E1, E2, E3, E4, ...]` for mTI); the carrier
-functions take one array per electrode pair. The definitions, and how exact each one is, are
+any channel fields. The envelope functions take a list of `(N, 3)` arrays in V/m, one per channel
+in montage order, two channels per carrier (`[E1, E2]` for TI, `[E1, E2, E3, E4, ...]` for mTI);
+the carrier functions take the fields of any number of channels. The definitions, and how exact each one is, are
 under [Field quantities on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#method-and-accuracy).
 
 ```python
@@ -310,8 +310,8 @@ power = hf_power([E1, E2])                            # E_rms^2, (V/m)^2; hf_sar
 `envelope(fields, normals)` with one unit normal per row is `TI_normal`, and
 `envelope_max(fields, perpendicular_to=normals)` is the strongest envelope within the surface
 plane (flex-search's `dir_TI_tangential`). `hf_peak(fields, coherent=True)` and
-`hf_power(fields, coherent=True)` are the carrier-only (ΔF = 0) forms. A carrier with no beating
-partner goes into the envelope functions as a pair with a zero field,
+`hf_power(fields, coherent=True)` are the carrier-only (ΔF = 0) forms. A channel with no beating
+partner goes into the envelope functions with a zero field as its partner,
 `[E1, E2, Eu, np.zeros_like(Eu)]`, and into `hf_peak`/`hf_power` as one more field. The simulator's
 `hf_power_density` is `hf_power` weighted by the conductivity the run solved with; for
 isotropic conductivity that is `power` times each element's conductivity in S/m (the simulator

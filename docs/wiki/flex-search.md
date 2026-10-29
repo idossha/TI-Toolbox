@@ -14,7 +14,7 @@ permalink: /wiki/flex-search/
 
 ## What flex-search does
 
-Flex-search places two electrode pairs freely on the subject's valid scalp and uses differential evolution, solving the FEM for every candidate, to find the placement that best meets a goal in a target region. Unlike [ex-search]({{ site.baseurl }}/wiki/ex-search/) it is not restricted to an EEG net, and unlike ex-search it is stochastic: a finished run is the best placement it evaluated, not a proven global optimum.
+Flex-search places two channels (four electrodes) freely on the subject's valid scalp and uses differential evolution, solving the FEM for every candidate, to find the placement that best meets a goal in a target region. Unlike [ex-search]({{ site.baseurl }}/wiki/ex-search/) it is not restricted to an EEG net, and unlike ex-search it is stochastic: a finished run is the best placement it evaluated, not a proven global optimum.
 
 - **Goals**: Mean TImax, Max TImax (99.9th percentile), threshold-free focality, threshold-based focality.
 - **Field post-processing**: `max_TI` (the maximum TI envelope over all directions), `dir_TI_normal` (the envelope along the cortical surface normal) or `dir_TI_tangential` (the maximum envelope over the directions within the cortical surface plane). The math is under [Direction on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#direction-ti_max-ti_normal-ti_avg-tangential).
@@ -103,9 +103,9 @@ Neither goal guarantees a dose. **Always read a focality score next to the ROI m
 
 ## Electrodes
 
-Flex-search optimizes exactly **two electrode pairs**, one per TI channel.
+Flex-search optimizes exactly **two channels** (E1+/E1- and E2+/E2-), a standard TI montage.
 
-- **Current**: per channel, mA (app default 1 mA). Each pair injects +/− this current.
+- **Current**: per channel, mA (app default 1 mA). Each channel injects +/− this current.
 - **Shape**: **Ellipse** or **Rectangle**. SimNIBS supports circular electrodes here, so an ellipse must have equal dimensions; for unequal sides use a rectangle.
 - **Dimensions (x, y)** and **Gel thickness**: default 8 × 8 mm, gel 1 mm (on 2 mm of rubber). The **?** beside **Electrodes** explains each parameter, with links to the SimNIBS electrode reference.
 - **Min distance**: minimum distance between electrodes, default 5 mm.

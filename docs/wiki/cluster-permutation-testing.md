@@ -17,7 +17,7 @@ The Cluster-Based Permutation Testing extension performs non-parametric statisti
   That option is **off by default**. When a file is missing the job is refused before it starts,
   naming the simulation to re-run with the option ticked.
 - **mTI simulations work too.** They are read from the simulation's `mTI/niftis/` folder
-  (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI file pattern** typed in the 2-pair spelling
+  (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI file pattern** typed in the TI spelling
   (`_TI_`) is read as `_mTI_`.
 - The **fsaverage surface** space needs each simulation's fsaverage projection instead; see
   [Analysis Space](#analysis-space).

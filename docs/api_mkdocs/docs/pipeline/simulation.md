@@ -1,6 +1,6 @@
 # Simulation
 
-The simulation engine runs finite element method (FEM) calculations using SimNIBS to compute temporal interference electric fields in the brain. TI-Toolbox supports two simulation modes: **TI** (2-pair) and **mTI** (4+ pairs, even).
+The simulation engine runs finite element method (FEM) calculations using SimNIBS to compute temporal interference electric fields in the brain. TI-Toolbox supports two simulation modes: **TI** (2 channels) and **mTI** (4 or more channels, even). A channel is one electrode pair, electrodes Ek+ and Ek-.
 
 ```mermaid
 graph LR
@@ -44,7 +44,7 @@ config = SimulationConfig(
     gel_thickness=1.0,
 )
 
-# Run (auto-detects TI vs mTI based on number of electrode pairs)
+# Run (auto-detects TI vs mTI from the number of channels)
 results = run_simulation(config)
 ```
 
@@ -52,17 +52,17 @@ results = run_simulation(config)
 
 The simulation mode is auto-detected from the montage configuration:
 
-| Mode | Electrode Pairs | Description |
-|------|----------------|-------------|
-| **TI** | 2 pairs | Standard temporal interference — two pairs of electrodes at slightly different frequencies |
-| **mTI** | 4+ pairs (even) | Multi-channel TI — N electrode pairs combined via binary-tree algorithm |
+| Mode | Channels | Description |
+|------|----------|-------------|
+| **TI** | 2 | Standard temporal interference — two channels at slightly different frequencies share one carrier |
+| **mTI** | 4 or more (even) | Multi-channel TI — each two consecutive channels share a carrier; `mTI_max` is the joint envelope of all channels (`tit.calc.envelope_max`), not a recursive TI of TIs |
 
 !!! info "Auto-Detection"
-    You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 pairs triggers TI mode, 4 or more pairs (even) triggers mTI mode.
+    You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 channels triggers TI mode, 4 or more (even) triggers mTI mode.
 
 ## Montage Configuration
 
-Montages define which electrodes form each pair. They are stored in `montage_list.json` within your project:
+Montages define which electrodes form each channel (`electrode_pairs`, one pair per channel). They are stored in `montage_list.json` within your project:
 
 ```json
 {
@@ -121,8 +121,8 @@ After simulation, TI-Toolbox produces several derived field types:
 | **TI_max** | Maximum TI envelope over all directions — scalar field on volume elements (TI mode) |
 | **TI_normal** | TI envelope along the cortical surface normal — node field on surface overlay |
 | **mTI_max** | Maximum joint envelope of all channels — scalar field on volume elements (mTI mode) |
-| **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density** | Optional volume fields (`output_fields`): direction-averaged envelope, peak carrier field (V/m), carrier power sum ((V/m)²), absorbed carrier power with the run's conductivity (W/m³) |
-| **TI_vectors** | Intermediate pairwise TI vector fields for each adjacent pair (mTI mode) |
+| **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density** | Optional volume fields (`output_fields`): direction-averaged envelope, peak carrier field (V/m), `hf_sar` = Σ|E_c|² = 2 × `tit.calc.hf_power` ((V/m)²), absorbed carrier power with the run's conductivity (W/m³) |
+| **TI_vectors** | Intermediate TI vector field of each carrier's two channels, for inspection only (mTI mode, `TI_AB`, `TI_CD`, …) |
 
 Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).
 
@@ -132,8 +132,8 @@ Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (f
 derivatives/SimNIBS/sub-001/Simulations/
 └── motor_cortex/
     ├── high_Frequency/
-    │   ├── mesh/             # Per-pair HF mesh files
-    │   ├── niftis/           # Per-pair HF NIfTI volumes
+    │   ├── mesh/             # Per-channel HF mesh files
+    │   ├── niftis/           # Per-channel HF NIfTI volumes
     │   └── analysis/         # fields_summary.txt
     ├── TI/
     │   ├── mesh/             # TI_max and GM/WM mesh files
