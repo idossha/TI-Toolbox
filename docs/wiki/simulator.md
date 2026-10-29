@@ -8,7 +8,7 @@ The Simulator computes the full FEM temporal interference field. It sits between
 
 ## In the application
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one row per simulation job, with the selected montage drawn on the packaged guide head in the Scene pane" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: one row per simulation job, with the selected job's montage drawn in the Scene pane" style="width: 100%; max-width: 1000px;">
 <em>The Simulator (⌘3). One row is one job. The pane draws the active row's montage, or its free-hand or optimised (XYZ) placement, on that job's subject's own head.</em>
 
 - **Jobs**: one row per simulation, each with its own **Subject** and **Source**: `Montage`, `Flex result` or `Free-hand` (see [Montage Sources](#montage-sources)). Line 2 of a row lists its channels, each named by its two electrodes (`E1+ F3 · E1- F4`: channel k runs from electrode Ek+ to Ek-) with its own current field in mA. **Add job** adds a row; the copy button duplicates one.
