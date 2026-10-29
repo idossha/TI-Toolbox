@@ -16,7 +16,8 @@
  */
 import { describe, expect, it } from "vitest";
 import { resolveFocus, sceneFor, type SceneData, type SceneFocus } from "../../src/renderer/pages/simulator/sceneFocus";
-import type { SelectedRow } from "../../src/renderer/pages/simulator/types";
+import { defaultJobSettings, type SelectedRow } from "../../src/renderer/pages/simulator/types";
+import { buildSimulationConfig, type GlobalParams } from "../../src/renderer/pages/simulator/buildConfig";
 
 const row = (id: string, extra: Partial<SelectedRow> = {}): SelectedRow => ({ id, subjectId: "ernie", source: "montage", name: "", currents: "1.0,1.0", ...extra });
 const F3F4: [string, string][] = [["E36", "E24"], ["E45", "E58"]];
@@ -65,8 +66,10 @@ describe("sceneFor", () => {
       net: "EGI_template", pairs: F3F4, subject: "ernie", edits: null, showing: { montage: "F3_F4", net: "EGI_template" }, note: START,
     });
     expect(sceneFor(onRow("small"), data())).toMatchObject({ net: "GSN-HydroCel-185", pairs: undefined, showing: null });
-    // A net only one other subject carries is still drawn on this row's subject, never on theirs.
+    // The head named is the row's subject whatever the net (the pane, not this function, then says
+    // whether that head carries the net).
     expect(sceneFor(onRow("warped"), data())).toMatchObject({ net: "BioSemi-64-10-10.csv", subject: "101" });
+    expect(sceneFor(onRow("warped"), data({ rows: [{ ...warped, subjectId: "ernie" }] }))).toMatchObject({ subject: "ernie" });
   });
 
   it("a row clicked while a form is open says a click goes back to that form", () => {
@@ -104,6 +107,14 @@ describe("sceneFor", () => {
 
   it("no rows draw nothing", () => {
     expect(sceneFor({ on: "row", rowId: null }, data({ rows: [] }))).toEqual({ subject: null, net: null, showing: null, edits: null });
+  });
+});
+
+describe("a free-hand row keeps the net it had as a montage row, but never runs on it", () => {
+  // tit.sim's FREEHAND mode places electrodes by coordinates; `Montage.eeg_net` must be null there.
+  it("sends eeg_net: null", () => {
+    const config = buildSimulationConfig({ ...placed, eegNet: "EGI_template" }, defaultJobSettings() as GlobalParams);
+    expect((config.montages as { mode: string; eeg_net: unknown }[])[0]).toMatchObject({ mode: "freehand", eeg_net: null });
   });
 });
 

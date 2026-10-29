@@ -341,6 +341,18 @@ export interface MontageDraft {
   savedAs?: MontageKind;
   /** The form's EEG net — the net the montage is saved under and the scene draws. */
   net?: string;
+  /**
+   * The slot the next electrode pick sets (E1+, E1-, E2+, … flattened; absent = E1+) — one cursor
+   * for the form and the pane: opening a slot's picker aims the next scene click at it, a pick in
+   * either moves it on to the next empty slot, and a change of channels or net that empties slots
+   * moves it to the first empty one, in the same update as the pairs.
+   */
+  slot?: number;
+}
+
+/** Is this open draft the saved montage `m` (an Edit of it)? Deleting `m` closes only that draft. */
+function isDraftOf(draft: MontageDraft | null, m: { net: string; kind: MontageKind; name: string }): boolean {
+  return !!draft?.savedAs && draft.savedAs === m.kind && draft.net === m.net && draft.name.trim() === m.name;
 }
 
 /** A fresh draft: two empty pairs, the smallest real montage (TI). Its polarity is not a choice —
@@ -384,10 +396,6 @@ export interface JobsTableProps {
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
   onDraftChange: Dispatch<SetStateAction<MontageDraft | null>>;
-  /** The draft's slot (E1+, E1-, E2+, … flattened) the scene's next electrode click sets — the
-   *  page's, shared with the scene pane, so focusing a slot here aims the next click at it. */
-  draftSlot?: number;
-  onDraftSlotChange?: (slot: number) => void;
   /**
    * What the scene draws (`sceneFocus.ts`): the highlighted row, or the open form plus the row it
    * returns to. The page owns it; this table only reports what the user touched.
@@ -411,8 +419,6 @@ export function JobsTable({
   onRowsChange,
   draft,
   onDraftChange,
-  draftSlot,
-  onDraftSlotChange,
   focus,
   onFocusRow,
   onFocusForm,
@@ -491,13 +497,6 @@ export function JobsTable({
   });
   const netElectrodes = useQuery({ ...electrodesOf(editing?.net), enabled: !!editing?.net && usable.length > 0 });
 
-  // The draft as last rendered, for a net switch's late continuation: it must act on the draft as
-  // it is when the answer arrives, not as it was when the net was chosen.
-  const draftRef = useRef(editing);
-  useEffect(() => {
-    draftRef.current = editing;
-  }, [editing]);
-
   /** Switching the form's net redraws the scene at once, then blanks the draft's electrodes the new
    *  net lacks and aims the cursor at the first empty slot — unless another net was chosen or the
    *  form closed meanwhile. A net whose electrodes cannot be loaded is refused, not half-applied. */
@@ -506,12 +505,13 @@ export function JobsTable({
     setEditing((d) => d && { ...d, net });
     try {
       const electrodes = await queryClient.fetchQuery(electrodesOf(net));
-      const d = draftRef.current;
-      if (!d || d.net !== net) return;
-      const pairs = pairsOnNet(d.pairs, electrodes);
-      if (pairs === d.pairs) return;
-      setEditing({ ...d, pairs });
-      onDraftSlotChange?.(firstEmptySlot(pairs));
+      // Applied to the draft as it is when the answer arrives, cached or late, and only if it is
+      // still on this net: pairs and cursor in one update.
+      setEditing((d) => {
+        if (!d || d.net !== net) return d;
+        const pairs = pairsOnNet(d.pairs, electrodes);
+        return pairs === d.pairs ? d : { ...d, pairs, slot: firstEmptySlot(pairs) };
+      });
     } catch (err) {
       setEditing((d) => (d && d.net === net ? { ...d, net: previous } : d));
       notify.error(`Could not load the electrodes of ${net}; the montage stays on ${previous ?? "no net"}.`, err instanceof Error ? err.message : undefined);
@@ -816,7 +816,6 @@ export function JobsTable({
     setFreehandOpen(false);
     if (!editing) {
       setEditing({ ...emptyDraft(), net: offered(homeRow?.eegNet) });
-      onDraftSlotChange?.(0);
     }
     onFocusForm?.();
   }
@@ -839,7 +838,6 @@ export function JobsTable({
       return;
     }
     setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind, net: montage.net });
-    onDraftSlotChange?.(0);
     onFocusForm?.(rowId);
   }
 
@@ -1288,13 +1286,12 @@ export function JobsTable({
                     mode="net"
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
-                    onPairsChange={(pairs) => {
-                      setEditing({ ...editing, pairs });
+                    onPairsChange={(pairs) =>
                       // Channels added or removed: the cursor goes to the first empty slot.
-                      if (pairs.length !== editing.pairs.length) onDraftSlotChange?.(firstEmptySlot(pairs));
-                    }}
-                    activeSlot={formFocused ? draftSlot : undefined}
-                    onActiveSlotChange={onDraftSlotChange}
+                      setEditing((d) => d && { ...d, pairs, slot: pairs.length !== d.pairs.length ? firstEmptySlot(pairs) : d.slot })
+                    }
+                    activeSlot={formFocused ? (editing.slot ?? 0) : undefined}
+                    onActiveSlotChange={(slot) => setEditing((d) => d && { ...d, slot })}
                     pairStep={2}
                     freehandPairs={[]}
                     onFreehandPairsChange={() => {}}
@@ -1379,7 +1376,7 @@ export function JobsTable({
       <AlertDialog open={bulkTargets !== null} onOpenChange={(open) => !open && setBulkTargets(null)}
         title={`Delete ${bulkTargets?.length ?? 0} selected definitions?`}
         description="This removes the selected saved montages and placements. Existing simulation results are kept."
-        confirmLabel="Delete selected" onConfirm={() => { if (bulkTargets) { setEditing(null); removeSelected.mutate(bulkTargets); } }} />
+        confirmLabel="Delete selected" onConfirm={() => { if (bulkTargets) { setEditing((d) => (bulkTargets.some((item) => item.type === "montage" && isDraftOf(d, item)) ? null : d)); removeSelected.mutate(bulkTargets); } }} />
       <AlertDialog open={deletePlacement !== null} onOpenChange={(open) => !open && setDeletePlacement(null)}
         title={`Delete placement "${deletePlacement?.name ?? ""}"?`}
         description="This removes the saved freehand definition for this subject. Existing simulation results are kept."
@@ -1393,7 +1390,7 @@ export function JobsTable({
         confirmLabel="Delete montage"
         onConfirm={() => {
           if (!deleteTarget) return;
-          setEditing(null);
+          setEditing((d) => (isDraftOf(d, deleteTarget) ? null : d));
           removeMontage.mutate(deleteTarget);
         }}
       />

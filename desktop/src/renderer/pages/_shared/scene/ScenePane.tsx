@@ -755,20 +755,26 @@ export function ScenePane({
     return rows;
   }, [gesture, effectiveAtlas, legend, selectedRegionRows]);
 
-  /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
   /**
-   * The reference head standing in for the subject the page asked for, in one sentence. Three
-   * states, never an error box: the server's own 404 detail names the missing file, and a build in
-   * progress says so rather than looking broken.
+   * The reference head standing in for the subject the page asked for, in one sentence, once the
+   * manifest has said why (not while it is merely loading, which would flash). Never an error box:
+   * the server's own 404 detail names the missing file, and a build in progress says so rather
+   * than looking broken. The Simulator always names a job's subject, so a montage pane with none
+   * says that is why it shows the reference head.
    */
   const standIn =
-    wantedSubject && !drawnSubject && subjectHasAtlas
-      ? subjectManifest.error
-        ? subjectManifest.error instanceof SceneError
-          ? `${subjectManifest.error.message} Showing the reference head instead.`
-          : `${wantedSubject} has no head model to draw yet — showing the reference head instead.`
-        : `Building ${wantedSubject}'s head model for the preview — showing the reference head meanwhile.`
-      : null;
+    mode === "montage" && !wantedSubject
+      ? "Reference head — this job has no subject yet."
+      : wantedSubject && !drawnSubject && subjectHasAtlas
+        ? subjectManifest.error
+          ? subjectManifest.error instanceof SceneError
+            ? `${subjectManifest.error.message} Showing the reference head instead.`
+            : `${wantedSubject} has no head model to draw yet — showing the reference head instead.`
+          : subjectManifest.data?.building
+            ? `Building ${wantedSubject}'s head model for the preview — showing the reference head meanwhile.`
+            : null
+        : null;
+  /** One phrase saying what a click does — the pane's own instruction, never a tooltip. */
   const hintText = ((): string => {
     if (netMissing)
       return mode === "montage"

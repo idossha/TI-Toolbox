@@ -497,4 +497,9 @@ test("o. a late net switch never undoes a newer one, and a net that cannot load 
   await expect(formNet()).toHaveText(BIG.net);
   await expectChips(["E1+ E200 · E1- E5", "E2+ — · E2- —"]);
   await page.unroute("**/api/catalog/eeg-nets?**");
+  // SMALL's electrodes are cached now: the answer is instant, and still blanks E200 (not on SMALL)
+  // and moves the cursor to that emptied slot.
+  await chooseFormNet(SMALL.net);
+  await expectChips(["E1+ — · E1- E5", "E2+ — · E2- —"]);
+  await expect(hint).toHaveText("Click an electrode to set E1+ (Channel 1).");
 });

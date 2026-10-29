@@ -108,13 +108,8 @@ function SimulatorPage() {
   // editors of ONE draft, which is what makes "click an electrode" and "pick it in the form" the
   // same act rather than two states that can disagree (plan decision S6).
   const [montageDraft, setMontageDraft] = usePageSession<MontageDraft | null>("montageDraft", null);
-  /**
-   * The draft's slot the next electrode click sets (E1+, E1-, E2+, … flattened). One cursor for the
-   * form and the pane: opening a slot's picker aims the next scene click at it, and a pick in
-   * either moves it on to the next empty slot. A draft opens on its first slot, and one whose
-   * channel count changed moves to its first empty slot (the form does both).
-   */
-  const [draftSlot, setDraftSlot] = useState(() => (montageDraft ? firstEmptySlot(montageDraft.pairs) : 0));
+  /** The draft's slot cursor lives in the draft, so a pick and the cursor it moves change together. */
+  const setDraftSlot = (slot: number) => setMontageDraft((draft) => draft && { ...draft, slot });
   /** What the scene draws: the row or the form the user last touched (`sceneFocus.ts`). */
   const [focusState, setFocusState] = usePageSession<FocusState>("sceneFocus", { rowId: null, form: false });
   const focusRow = (rowId: string | null) => setFocusState({ rowId, form: false });
@@ -234,8 +229,7 @@ function SimulatorPage() {
   function startDraftFromScene(electrode: string): void {
     if (montageDraft || freehand.open) return focusForm();
     const pairs = withSlot(emptyDraft().pairs, 0, electrode);
-    setMontageDraft({ ...emptyDraft(), net: view.net ?? undefined, pairs });
-    setDraftSlot(firstEmptySlot(pairs));
+    setMontageDraft({ ...emptyDraft(), net: view.net ?? undefined, pairs, slot: firstEmptySlot(pairs) });
     focusForm();
   }
 
@@ -329,7 +323,7 @@ function SimulatorPage() {
                 electrodePad={scenePad}
                 showing={view.showing}
                 onPairsChange={drafting ? setDraftPairs : undefined}
-                slot={drafting ? draftSlot : undefined}
+                slot={drafting ? (montageDraft?.slot ?? 0) : undefined}
                 onSlotChange={drafting ? setDraftSlot : undefined}
                 onRequestPairs={startDraftFromScene}
                 note={view.note}
@@ -397,8 +391,6 @@ function SimulatorPage() {
                     onRowsChange={setRows}
                     draft={montageDraft}
                     onDraftChange={setMontageDraft}
-                    draftSlot={draftSlot}
-                    onDraftSlotChange={setDraftSlot}
                     focus={focus}
                     onFocusRow={focusRow}
                     onFocusForm={focusForm}
