@@ -41,7 +41,7 @@ config = SimulationConfig(
     intensities=[1.0, 1.0],
     electrode_shape="ellipse",
     electrode_dimensions=[8.0, 8.0],
-    gel_thickness=4.0,
+    gel_thickness=1.0,
 )
 
 # Run (auto-detects TI vs mTI based on number of electrode pairs)
@@ -107,7 +107,7 @@ config = SimulationConfig(
     ...,
     electrode_shape="ellipse",         # "ellipse" or "rect"
     electrode_dimensions=[8.0, 8.0],   # [width, height] in mm
-    gel_thickness=4.0,                  # gel layer thickness in mm
+    gel_thickness=1.0,                  # gel layer thickness in mm
     rubber_thickness=2.0,              # rubber layer thickness in mm
 )
 ```

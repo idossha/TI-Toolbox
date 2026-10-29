@@ -178,7 +178,7 @@
 }
 
 .job-channel .number-input {
-  width: 46px;
+  width: 42px;
   min-width: 0;
   max-width: none;
 }
@@ -208,6 +208,7 @@
 }
 
 .job-polarity {
+  flex: none;
   color: var(--text-secondary);
   font-size: 11px;
   text-transform: none;
@@ -250,6 +251,16 @@
   background-color: var(--accent-soft);
 }
 .montage-table tbody tr[data-active="true"] > td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+/* The open montage/placement form, when it is what the scene draws: the same tint and accent bar
+   the focused row carries, so exactly one thing on the page says "this is in the scene". The
+   wrapper adds no box of its own (no stray gap when no form is open). */
+.sim-scene-form {
+  display: contents;
+}
+.sim-scene-form[data-scene-focus="true"] > .card {
+  background-color: var(--accent-soft);
   box-shadow: inset 2px 0 0 var(--accent);
 }
 
@@ -308,12 +319,6 @@
 .montage-table tbody tr[data-montage-row]:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
-}
-
-/* Gel thickness carries a "mm" suffix inside the control, so it needs a little more room than the
-   72px the bare w/h boxes take (`--control-w`, ui/components.css `.field-row-inline`). */
-.sim-gel-field {
-  --control-w: 88px;
 }
 
 /* The unit in a header that is otherwise uppercased: "CURRENTS (MA)" is not a unit, "mA" is. */

@@ -205,7 +205,7 @@ export interface FormSectionProps {
   /** Rendered behind a nested "Advanced" disclosure inside this section. */
   advanced?: ReactNode;
   /**
-   * The section's current values, right-aligned in the header: "ellipse · 8×8 mm · gel 4 mm".
+   * The section's current values, right-aligned in the header: "ellipse · 8×8 mm · gel 1 mm".
    * This is what makes collapsing safe rather than lossy — a collapsed section still states what
    * it holds. Supply it whenever `collapsible` is set.
    */

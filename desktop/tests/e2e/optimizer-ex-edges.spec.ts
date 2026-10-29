@@ -172,14 +172,14 @@ test("mEx with the same four electrodes in all eight buckets: 0 combinations and
   expect(c.expected_combinations).toBe(0);
   const row = await freshExRow();
   let dialog = await openOptEditor(page, row);
-  await field("Count", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "4 channels (mTI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "mex");
   dialog = await openOptEditor(page, row);
   await pickSavedTarget(dialog, "Thalamus_target");
   await fillCase(dialog, c);
   const distinct = new Set(Object.values(c.buckets).flat()).size;
-  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(new RegExp(`^${distinct} electrodes · 4 pairs · ${n(c.expected_combinations)} combinations`));
+  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(new RegExp(`^${distinct} electrodes · 4 channels · ${n(c.expected_combinations)} combinations`));
   await closeOptEditor(page);
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /Job 1: No montage has eight different electrodes/);
@@ -199,7 +199,7 @@ test("switching the net drops or names an electrode the new net does not have", 
   await fillBucket(dialog, "E2+", ["E3"]);
   await fillBucket(dialog, "E2-", ["E4"]);
   await closeOptEditor(page);
-  await setOptCell(page, row, "net", "GSN-HydroCel-185 · 2.0 GB");
+  await setOptCell(page, row, "net", "GSN-HydroCel-185 · 2.0 GB · ellipse 8×8 mm, gel 1 mm");
   await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
 
   const again = await openOptEditor(page, row);

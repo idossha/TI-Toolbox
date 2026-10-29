@@ -44,7 +44,7 @@ describe("simulation config.json — sub-ernie/Simulations/Thalamus", () => {
     expect(summary.mode).toBe("TI");
     expect(summary.eegNet).toBe("EEG10-10_Cutini_2011");
     // Two stimulation channels, four electrodes: F7/P7 and F8/P8.
-    expect(summary.pairs).toEqual(["F7 → P7", "F8 → P8"]);
+    expect(summary.pairs).toEqual(["E1+ F7 · E1- P7", "E2+ F8 · E2- P8"]);
   });
 
   it("states the physics in the units the file uses", () => {
@@ -77,7 +77,7 @@ describe("simulation config.json — sub-ernie/Simulations/Thalamus", () => {
   it("small helpers", () => {
     expect(trimNumber(8.0)).toBe("8");
     expect(trimNumber(1.5)).toBe("1.5");
-    expect(electrodePairs([["F7", "P7"], ["bad"], "no"])).toEqual(["F7 → P7"]);
+    expect(electrodePairs([["F7", "P7"], ["bad"], "no"])).toEqual(["E1+ F7 · E1- P7"]);
     expect(electrodeGeometry({})).toBeUndefined();
     expect(mappingOptions({ map_to_surf: false, map_to_vol: false })).toBe("none");
     expect(mappingOptions({})).toBeUndefined();

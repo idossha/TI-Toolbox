@@ -24,6 +24,7 @@ import {
   thresholdsReason,
 } from "./flexConfig";
 import { flexCost } from "./cost";
+import { ElectrodeHelp } from "../_shared/electrodes/ElectrodeSettings";
 
 /** The option text is the goal's name; what each one optimizes is the field's `help`. A select
  *  whose longest option is a sentence sets its own min-content width and pushes past its grid
@@ -168,6 +169,7 @@ export function ElectrodesSection({ form, onChange }: { form: FlexFormState; onC
   return (
     <FormSection
       title="Electrodes"
+      helpSlot={<ElectrodeHelp />}
       collapsible
       summary={`${form.electrodeShape} · ${form.dimensionWidth}×${form.dimensionHeight} mm · gel ${form.gelThickness} mm · min dist ${form.minElectrodeDistance} mm`}
     >
@@ -204,7 +206,7 @@ export function ElectrodesSection({ form, onChange }: { form: FlexFormState; onC
           </Field>
         )}
         <Field label="Gel thickness" required error={flexFieldError(form, "gelThickness")}>
-          <NumberInput value={form.gelThickness} onValueChange={(v) => onChange({ gelThickness: v ?? 4 })} unit="mm" {...bounded(form, "gelThickness")} step={0.5} />
+          <NumberInput value={form.gelThickness} onValueChange={(v) => onChange({ gelThickness: v ?? 1 })} unit="mm" {...bounded(form, "gelThickness")} step={0.5} />
         </Field>
         <Field
           label="Min distance"

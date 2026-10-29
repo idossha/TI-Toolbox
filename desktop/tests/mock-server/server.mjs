@@ -547,7 +547,10 @@ function subjectDetail(id) {
   const base = subjects.subjects.find((s) => s.id === id);
   const extra = subjectDetails[id];
   if (!base || !extra) return null;
-  return { ...base, ...extra };
+  // A warped cap is a file in the subject's eeg_positions, so it is one of its nets, as on the real
+  // server (`tit/catalog.py::subject_detail` lists `pm.list_eeg_caps`). The launch reset clears it.
+  const warped = [...(capsWarped.get(id) ?? [])].filter((name) => !extra.eeg_nets.map(capFileName).includes(name));
+  return { ...base, ...extra, eeg_nets: [...extra.eeg_nets, ...warped] };
 }
 function montagesResponse() {
   const nets = {};
@@ -2732,7 +2735,8 @@ route("POST", "/api/scene/target-preview", async (ctx) => {
 
 // ----------------------------------------------------------------------------------- caps (v1)
 // `tit/server/routes/caps.py`. The subject's nets are its fixture `eeg_nets` plus whatever a warp
-// added here (kept apart so other specs never see a changed net list); `/api/__mock/reset` clears both.
+// added here (`subjectDetail` lists them too, as the real catalog does); every launch's
+// `/api/__mock/reset` clears them, so no other spec sees a changed net list.
 // Every cap is named by its FILE name, as the real routes name it (`PathManager.list_eeg_caps`,
 // `tit.caps.source_caps`): the real `/api/caps/warp` answers 404 for "GSN-HydroCel-185". The
 // subject fixtures still list net stems (other pages key on them), so they gain ".csv" here.

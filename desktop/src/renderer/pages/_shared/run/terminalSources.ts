@@ -135,7 +135,7 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
   sim: [
     { id: "mesh", label: "Load the head model", detail: "Reads m2m_<subject>/<subject>.msh and applies the conductivity model.", minutes: 1 },
     { id: "electrodes", label: "Mesh the electrodes", detail: "Cuts the pads and gel into the scalp surface at the montage positions.", minutes: 1 },
-    { id: "fem", label: "Solve the FEM, one pair at a time", detail: "Two electrode pairs per TI montage; the dominant cost of the run.", minutes: 8 },
+    { id: "fem", label: "Solve the FEM, one channel at a time", detail: "Two channels per TI montage; the dominant cost of the run.", minutes: 8 },
     { id: "ti", label: "Compute the TI envelope", detail: "Builds the requested output fields over every element of the mesh.", minutes: 1 },
     { id: "nifti", label: "Write meshes and NIfTI", detail: "Subject-space overlays plus the MNI transform for group work.", minutes: 2 },
   ],
@@ -148,14 +148,14 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
   ex: [
     { id: "leadfield", label: "Load the leadfield", detail: "Reads the precomputed per-electrode fields for the selected EEG net.", minutes: 2 },
     { id: "roi", label: "Resolve the ROI", detail: "Turns the atlas regions or spheres into the node set the goal is scored on.", minutes: 1 },
-    { id: "search", label: "Evaluate every electrode pair", detail: "Exhaustive sweep of the bucket combinations; scales with the bucket sizes.", minutes: 22 },
+    { id: "search", label: "Evaluate every two-channel montage", detail: "Exhaustive sweep of the bucket combinations; scales with the bucket sizes.", minutes: 22 },
     { id: "write", label: "Write the ranked results", detail: "Ranked CSV plus a mesh for each of the top montages.", minutes: 3 },
   ],
   mex: [
     { id: "leadfield", label: "Load the leadfield", detail: "Reads the precomputed per-electrode fields for the selected EEG net.", minutes: 2 },
     { id: "roi", label: "Resolve the ROI", detail: "Turns the atlas regions or spheres into the node set the goal is scored on.", minutes: 1 },
-    { id: "search", label: "Evaluate every electrode triple", detail: "Exhaustive multi-pair sweep; combinatorially larger than an ex-search.", minutes: 30 },
-    { id: "write", label: "Write the ranked results", detail: "Ranked CSV plus a mesh for each of the top multi-pair montages.", minutes: 3 },
+    { id: "search", label: "Evaluate every four-channel montage", detail: "Exhaustive four-channel sweep; combinatorially larger than an ex-search.", minutes: 30 },
+    { id: "write", label: "Write the ranked results", detail: "Ranked CSV plus a mesh for each of the top four-channel montages.", minutes: 3 },
   ],
   analyzer: [
     { id: "load", label: "Load the simulation field", detail: "Reads the selected run's mesh or NIfTI and the chosen output field.", minutes: 1 },

@@ -6,13 +6,11 @@ following the same shape as the other ``tit.<module>.__main__`` entry points
 initialise :class:`~tit.paths.PathManager`, build the typed config via
 :func:`tit.config_io.deserialize_config`, run, exit ``0``/non-zero.
 
-This module does not change :class:`~tit.opt.leadfield.LeadfieldGenerator`
-(not owned by this track) -- see :class:`tit.opt.leadfield_config.LeadfieldConfig`'s
-Notes for the two gaps that follow from that: ``tissues`` is accepted here
-and passed through to ``generate()``, but ``generate()`` itself currently
-discards its ``tissues`` argument and always uses ``[1, 2]``; there is no way
-to set ``interpolation`` at all. Both are pre-existing bugs in
-``tit/opt/leadfield.py``, not something this runner works around.
+The electrode fields are passed through to ``generate()``, which places that
+electrode at every cap position and records it in the leadfield's sidecar.
+See :class:`tit.opt.leadfield_config.LeadfieldConfig`'s Notes for the two
+gaps: ``generate()`` currently discards its ``tissues`` argument and always
+uses ``[1, 2]``, and there is no way to set ``interpolation`` at all.
 
 ``overwrite`` is enforced here (the generator itself has no such parameter):
 when ``False`` and a leadfield for ``(subject_id, eeg_net)`` already exists
@@ -100,7 +98,9 @@ def _run(config: LeadfieldConfig) -> None:
             )
             return
 
-    hdf5_path = generator.generate(tissues=config.tissues)
+    hdf5_path = generator.generate(
+        tissues=config.tissues, electrode=config.electrode_record()
+    )
     events.emit_artifact(str(hdf5_path), kind="hdf5", label="leadfield")
     events.emit_result({"leadfield_hdf": str(hdf5_path)})
     print(f"Leadfield ready: {hdf5_path}")

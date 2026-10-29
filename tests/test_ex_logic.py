@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 # Ensure repo root is on sys.path.
@@ -98,7 +99,9 @@ class TestGenerateCurrentRatios:
 
     def test_limit_of_half_the_total_matches_no_limit(self):
         """The app's default limit (total / 2) gives the same single split."""
-        assert generate_current_ratios(2.0, 0.2, 1.0) == pytest.approx([(1.0, 1.0)])
+        assert np.asarray(generate_current_ratios(2.0, 0.2, 1.0)) == pytest.approx(
+            np.array([(1.0, 1.0)])
+        )
 
     def test_ratios_descending_ch1(self):
         """ch1 values are generated in descending order."""

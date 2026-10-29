@@ -122,7 +122,7 @@ describe("mexCost", () => {
     const cost = mexCost({ ...defaultMExFormState(), buckets });
     expect(cost.montages).toBe(2);
     expect(cost.combinations).toBe(2);
-    expect(cost.line).toBe("9 electrodes · 4 pairs · 2 combinations");
+    expect(cost.line).toBe("9 electrodes · 4 channels · 2 combinations");
     expect(mexCost({ ...defaultMExFormState(), buckets, symmetricBucket: true }).line).toContain("before symmetry");
   });
 });

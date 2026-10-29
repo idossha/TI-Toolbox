@@ -314,7 +314,7 @@ test("Flex: the row's editor holds the target and the form, and one flex job rea
   // Line 2 is an efficient summary: the target first, then only the essentials — no repetition of
   // the method (line 1 says it), no bucket bookkeeping, no solve estimate.
   await expect(optRowSummary(row)).toHaveText("lh.bankssts · DK40");
-  await expect(optRowDetail(row)).toHaveText("goal mean · 2 pairs · 1 mA · ratio 1:1");
+  await expect(optRowDetail(row)).toHaveText("goal mean · 2 channels · 1 mA · ratio 1:1");
 
   await expect(page.locator(".action-bar-digest")).toHaveText(/^1 job$/, { timeout: 15_000 });
   await expect(page.getByTestId("run-button")).toHaveText("Run search");
@@ -433,9 +433,9 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   // nets without a matrix for explicit generation.
   const cell = row.locator('td[data-cell="net"]').getByRole("combobox");
   await cell.click();
-  await expect(page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB · ellipse 8×8 mm, gel 1 mm$/ })).toBeVisible();
   await expect(page.getByRole("option", { name: "EGI_template — no leadfield" })).toBeEnabled();
-  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB · ellipse 8×8 mm, gel 1 mm$/ }).click();
   await expect(row).toHaveAttribute("data-net", "GSN-HydroCel-185");
 
   // Subjects without leadfields stay selectable, with preparation guidance. The
@@ -452,15 +452,43 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await expect(row.locator('td[data-cell="goal"]').getByRole("button", { name: "Generate leadfield" })).toBeEnabled();
   expect((await row.boundingBox())!.height).toBeLessThanOrEqual(65);
   await expect(row.locator('td[data-cell="net"]').getByRole("button", { name: "Generate leadfield" })).toHaveCount(0);
-  const generation = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/jobs"));
+  // Generating is two steps: the button opens the electrode step (toolbox defaults, 1 mm gel), and
+  // the job is only queued once the user confirms the electrode it will be computed with.
+  let queued = 0;
+  const countJobs = (r: { method(): string; url(): string }) => {
+    if (r.method() === "POST" && r.url().endsWith("/api/jobs")) queued += 1;
+  };
+  page.on("request", countJobs);
   await row.getByRole("button", { name: "Generate leadfield" }).focus();
   await page.keyboard.press("Enter");
+  const step = page.getByRole("dialog", { name: "Generate leadfield" });
+  await expect(step).toContainText("101 · GSN-HydroCel-185");
+  await expect(step.getByRole("radio", { name: "Ellipse" })).toBeChecked();
+  await expect(step.getByRole("spinbutton", { name: "Electrode width" })).toHaveValue("8");
+  await expect(step.getByRole("spinbutton", { name: "Gel thickness" })).toHaveValue("1");
+  expect(queued, "nothing is queued before the electrode is confirmed").toBe(0);
+  await step.getByRole("radio", { name: "Rectangle" }).click();
+  await step.getByRole("spinbutton", { name: "Electrode width" }).fill("12");
+  await step.getByRole("spinbutton", { name: "Electrode height" }).fill("6");
+  await step.getByRole("spinbutton", { name: "Gel thickness" }).fill("2.5");
+  const generation = page.waitForRequest((r) => r.method() === "POST" && r.url().endsWith("/api/jobs"));
+  await step.getByRole("button", { name: "Generate", exact: true }).click();
   const payload = (await generation).postDataJSON();
+  page.off("request", countJobs);
+  await expect(step).toHaveCount(0);
   expect(payload.kind).toBe("leadfield");
   expect(payload.subject_ids).toEqual(["101"]);
+  expect(payload.config).toMatchObject({
+    subject_id: "101",
+    eeg_net: "GSN-HydroCel-185",
+    electrode_shape: "rect",
+    electrode_dimensions: [12, 6],
+    gel_thickness: 2.5,
+    rubber_thickness: 2,
+  });
   await setOptSubject(page, row, "ernie");
   await cell.click();
-  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB · ellipse 8×8 mm, gel 1 mm$/ }).click();
 
   // Two uncombined saved ROIs are two runs — 2.5.0's own expansion, kept.
   const dialog = await openOptEditor(page, row);
@@ -484,7 +512,7 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText("4 electrodes · 1 montage · 1 current split · 1 iteration");
   await closeOptEditor(page);
   await expect(optRowSummary(row)).toHaveText("Thalamus_target + L_Insula_target");
-  await expect(optRowDetail(row)).toHaveText("4 electrodes (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
+  await expect(optRowDetail(row)).toHaveText("2 channels (TI) · 2 mA · 1 montage · 1 current split · 1 iteration");
 
   // Moved to 101, the row cannot run: 101 has no leadfield, and the saved ROIs are ernie's CSVs,
   // so the move clears them (p19, `roiForSubject`) rather than optimising ernie's targets in 101.
@@ -495,7 +523,7 @@ test("Ex: subjects remain selectable and missing leadfields can be generated bef
   await expect(page.getByTestId("run-button")).toBeDisabled();
   await setOptSubject(page, row, "ernie");
   await cell.click();
-  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB$/ }).click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185 · 2\.0 GB · ellipse 8×8 mm, gel 1 mm$/ }).click();
   // Back on ernie, ernie's ROIs are picked again.
   const again = await openOptEditor(page, row);
   await pickSavedTarget(again, "Thalamus_target");
@@ -533,10 +561,10 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
   await expect(row.locator('td[data-cell="goal"]')).toHaveText("—");
 
   let dialog = await openOptEditor(page, row);
-  await field("Count", dialog).getByRole("radio", { name: "8 electrodes (mTI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "4 channels (mTI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "mex");
-  await expect(optRowDetail(row)).toHaveText(/^8 electrodes \(mTI\) · 2 mA · /);
+  await expect(optRowDetail(row)).toHaveText(/^4 channels \(mTI\) · 2 mA · /);
 
   dialog = await openOptEditor(page, row);
   // The mTI run path has no combined mode, so the control does not exist rather than existing dead.
@@ -545,7 +573,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
     await expect(field(bucket, dialog)).toBeVisible();
   }
   await expectAlignedElectrodePairs(dialog, 4);
-  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(/0 electrodes · 4 pairs · 0 combinations/);
+  await expect(dialog.getByTestId("optimizer-cost-mex")).toHaveText(/0 electrodes · 4 channels · 0 combinations/);
   await expect(dialog.locator(".form-section-title", { hasText: "Carriers" })).toBeVisible();
   await closeOptEditor(page);
 
@@ -556,7 +584,7 @@ test("mEx is Ex with eight electrodes: the count decides the kind", async () => 
 
   // Back to four electrodes, and the row is an `ex` search again — with the buckets it already had.
   dialog = await openOptEditor(page, row);
-  await field("Count", dialog).getByRole("radio", { name: "4 electrodes (TI)", exact: true }).click();
+  await field("Count", dialog).getByRole("radio", { name: "2 channels (TI)", exact: true }).click();
   await closeOptEditor(page);
   await expect(row).toHaveAttribute("data-kind", "ex");
 });
@@ -610,7 +638,8 @@ test("the row editor's header carries the run name, and Current is one line", as
   console.log(`OJ-CURRENT-INPUTS ${JSON.stringify(inputs)}`);
   for (const w of inputs) expect(w, "a current control is content-sized").toBeLessThanOrEqual(120);
   await expect(current.getByRole("spinbutton").nth(1)).toHaveValue("0.2");
-  await expect(current.getByRole("spinbutton").nth(2)).toHaveValue("1.6");
+  // The channel limit's default is 1.0 mA, half the 2 mA total (the balanced split).
+  await expect(current.getByRole("spinbutton").nth(2)).toHaveValue("1");
   await closeOptEditor(page);
 });
 
@@ -749,7 +778,7 @@ test("artifacts: the jobs table and its two row editors", async () => {
   const exRow = await addOptRow(page);
   await setOptSubject(page, exRow, "ernie");
   await setOptCell(page, exRow, "method", "Ex");
-  await setOptCell(page, exRow, "net", "GSN-HydroCel-185 · 2.0 GB");
+  await setOptCell(page, exRow, "net", "GSN-HydroCel-185 · 2.0 GB · ellipse 8×8 mm, gel 1 mm");
   dialog = await openOptEditor(page, exRow);
   await pickSavedTarget(dialog, "Thalamus_target");
   await fillExBuckets(dialog);
@@ -825,6 +854,7 @@ test("leadfield completion refreshes the goal cell without changing row height",
   try {
     const response = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/api/jobs"));
     await goal.getByRole("button", { name: "Generate leadfield" }).click();
+    await page.getByRole("dialog", { name: "Generate leadfield" }).getByRole("button", { name: "Generate", exact: true }).click();
     generatedId = (await (await response).json()).id;
     await expect(goal.getByRole("button", { name: /Queued…|Generating…/ })).toBeDisabled();
     await expect(goal).toHaveText("—", { timeout: 15000 });

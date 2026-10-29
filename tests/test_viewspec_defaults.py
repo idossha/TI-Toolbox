@@ -597,7 +597,7 @@ def test_an_anatomy_volume_is_not_mistaken_for_a_field() -> None:
 
 
 def test_two_electrode_pairs_do_not_get_one_name() -> None:
-    """A high-frequency simulation writes one output *per pair*, and the pair number is the only
+    """A high-frequency simulation writes one output *per channel*, and the channel number is the only
     thing that tells them apart — without it a person sees "magnE (volume)" twice, and two
     412 MB "mesh · magnE" rows, with nothing to choose between them."""
     display = lambda n: viewspec._scene_display_name(  # noqa: E731
@@ -606,7 +606,7 @@ def test_two_electrode_pairs_do_not_get_one_name() -> None:
     one = display("101_TDCS_1_scalar_subject_magnE.nii.gz")
     two = display("101_TDCS_2_scalar_subject_magnE.nii.gz")
     assert one != two
-    assert "pair 1" in one and "pair 2" in two
+    assert "channel 1" in one and "channel 2" in two
 
 
 def test_a_whole_head_mesh_does_not_stutter() -> None:

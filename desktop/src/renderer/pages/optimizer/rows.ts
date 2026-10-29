@@ -47,7 +47,7 @@ export type OptJobKind = "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex"
 
 export const OPT_METHODS: { value: OptMethod; label: string; title: string }[] = [
   { value: "flex", label: "Flex", title: "Differential-evolution search over free electrode positions" },
-  { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two pairs (TI) or four (mTI)" },
+  { value: "ex", label: "Ex", title: "Exhaustive search over a precomputed leadfield — two channels (TI) or four (mTI)" },
 ];
 
 export const OPT_METHOD_LABEL: Record<OptMethod, string> = { flex: "Flex", ex: "Ex" };
@@ -172,7 +172,7 @@ export function rowVariantLabel(row: OptimizerRow): string {
     const kind = rowJobKind(row);
     return kind === "flex_adaptive" ? "adaptive" : kind === "flex_pareto" ? "multi-threshold" : "";
   }
-  return `${row.exPairs * 2} electrodes (${row.exPairs === 4 ? "mTI" : "TI"})`;
+  return `${row.exPairs} channels (${row.exPairs === 4 ? "mTI" : "TI"})`;
 }
 
 /**
@@ -251,7 +251,7 @@ export function optimizerMethodSummary(row: OptimizerRow): string {
     const variant = rowVariantLabel(row);
     return [
       `goal ${form.goal}${variant ? ` (${variant})` : ""}`,
-      "2 pairs",
+      "2 channels",
       `${form.currentMA} mA`,
       `ratio ${form.optimizeCurrentRatio ? `sweep ${form.ratioLevels}` : "1:1"}`,
     ].join(" · ");

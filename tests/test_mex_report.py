@@ -88,10 +88,10 @@ def test_the_page_lists_four_channels_at_the_runs_current(tmp_path):
     channels = re.findall(r"<dt>Channel (\d)</dt><dd>([^<]*)</dd>", winner)
     assert [int(k) for k, _ in channels] == [1, 2, 3, 4]  # == len(pairs)
     assert [v for _, v in channels] == [
-        "A → B, 1 mA",
-        "C → D, 1 mA",
-        "E → F, 1 mA",
-        "G → H, 1 mA",
+        "E1+ A · E1- B, 1 mA",
+        "E2+ C · E2- D, 1 mA",
+        "E3+ E · E3- F, 1 mA",
+        "E4+ G · E4- H, 1 mA",
     ]
     assert "1 mA per channel, 4 mA total" in _text(winner)
     assert "two-channel" not in html

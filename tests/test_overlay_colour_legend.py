@@ -6,7 +6,7 @@ What this pins (2026-10-22, package p13, task overlay-colour-legend-contract):
 * one channel order everywhere: the montage PNG's rings, arcs and legend
   (``tit.tools.montage_visualizer``), the overlay LUT (``tit.tools.electrode_overlay``) and the
   report's channel list (``tit.reporting.generators.common``) all give channel *i* the same
-  colour and the same name (Ch 1A, 1B, 2A, ...);
+  colour and the same name (Channel 1, Channel 2, ...; channel k is electrodes Ek+ and Ek-);
 * the overlay LUT's RGB values are the CSS Color 4 named colours the PNG draws with (typed
   here from the CSS Color Module Level 4 named-colour table, not from the code);
 * ``resources/amv``: GSN-256.png is 1816 x 1536 (read from its IHDR chunk; the legend is
@@ -55,8 +55,8 @@ CSS_NAMED = {
     "chocolate": (210, 105, 30),
     "violet": (238, 130, 238),
 }
-# TI pairs: channels 2k and 2k+1 form unit k+1 ("A" and "B").
-NAMES = ["1A", "1B", "2A", "2B", "3A", "3B", "4A", "4B"]
+# Channel k is the k-th electrode pair, made of Ek+ and Ek- (maintainer, 2026-10-28) -- never "A"/"B".
+NAMES = [f"Channel {k}" for k in range(1, 9)]
 
 
 def test_one_channel_colour_order_everywhere():
@@ -129,9 +129,11 @@ def test_image_rings_legend_and_report_name_each_channel_alike(tmp_path):
         assert rings[2 * i] == rings[2 * i + 1] == (colour, f"pair{i + 1}ring.png")
         assert arcs[i] == colour
         assert colours[i] == colour
-        assert texts[i] == f"Ch {NAMES[i]}"
-        assert report[i][0] == f"Ch {NAMES[i]} ({colour})"
-        assert report[i][1].startswith(f"{pairs[i][0]} → {pairs[i][1]}")
+        assert texts[i] == NAMES[i]
+        assert report[i][0] == f"{NAMES[i]} ({colour})"
+        assert report[i][1].startswith(
+            f"E{i + 1}+ {pairs[i][0]} · E{i + 1}- {pairs[i][1]}"
+        )
 
 
 def _png_size(path: Path) -> tuple[int, int]:
@@ -146,7 +148,7 @@ def test_template_image_size_and_legend_anchor(tmp_path):
     assert (width, height) == (1816, 1536)
     calls = _convert_calls([["E001", "E002"], ["E003", "E004"]], tmp_path)
     _, texts, (x0, y0, x1, y1) = _legend(calls)
-    assert texts == ["Ch 1A", "Ch 1B"]
+    assert texts == ["Channel 1", "Channel 2"]
     assert y1 == height - 30 and 0 <= x0 < x1 < width and 0 <= y0 < y1
 
 

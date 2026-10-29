@@ -31,6 +31,7 @@ import json
 import sys
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 for _mod in (
@@ -203,7 +204,7 @@ def test_derived_threshold_modes_run_with_the_current_ratio_search(
     want = _ratio_grid(1.5)
     for install in installs:
         assert install["base_mA"] == 1.5
-        assert install["ratios"] == pytest.approx(want)
+        assert np.asarray(install["ratios"]) == pytest.approx(np.array(want))
 
 
 @pytest.mark.unit

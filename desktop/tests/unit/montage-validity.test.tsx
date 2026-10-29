@@ -114,8 +114,8 @@ describe("the montage editor refuses what the server or physics refuses", () => 
     expect(montageDraftProblem({ ...ok, name: "run 2" })).toMatch(/^A montage name may use/);
     expect(montageDraftProblem({ ...ok, name: "L.Insula" })).toMatch(/^A montage name may use/);
     expect(montageDraftProblem({ ...ok, name: "  " })).toBe("Name the montage.");
-    expect(montageDraftProblem({ ...ok, pairs: [["E1", "E2"], ["E3", ""]] })).toBe("Pick both electrodes of every pair.");
-    expect(montageDraftProblem({ ...ok, pairs: [["E1", "E2"], ["E3", "E4"], ["E5", "E6"]] })).toMatch(/^Use exactly 2 pairs/);
+    expect(montageDraftProblem({ ...ok, pairs: [["E1", "E2"], ["E3", ""]] })).toBe("Pick both electrodes (Ek+ and Ek-) of every channel.");
+    expect(montageDraftProblem({ ...ok, pairs: [["E1", "E2"], ["E3", "E4"], ["E5", "E6"]] })).toMatch(/^Use exactly 2 channels/);
   });
 });
 
@@ -148,7 +148,7 @@ describe("rendered editors", () => {
         <QueryClientProvider client={queryClient}>
           <PageIdContext.Provider value="simulator">
             <FreehandDraftProvider>
-              <JobsTable subjects={[{ id: "ernie" }]} subjectNets={{ ernie: [NET] }} rows={rows} onRowsChange={onRowsChange} draft={draft} onDraftChange={() => {}} />
+              <JobsTable subjects={[{ id: "ernie" }]} subjectNets={{ ernie: [NET] }} rows={rows} onRowsChange={onRowsChange} draft={draft && { net: NET, ...draft }} onDraftChange={() => {}} />
             </FreehandDraftProvider>
           </PageIdContext.Provider>
         </QueryClientProvider>,
@@ -189,7 +189,7 @@ describe("rendered editors", () => {
     renderTable([row({ kind: "multi_polar", pairs: [["E1", "E2"], ["E3", "E4"], ["E5", "E6"]], currents: "1,1,1" })], null);
     await flush();
     expect(container.querySelector("[data-job-row='r1']")?.getAttribute("data-runnable")).toBe("false");
-    expect(container.querySelector("[data-testid='job-row-problem']")?.textContent).toBe("3 electrode pairs: a montage needs 2 pairs (TI) or an even number from 4 (mTI).");
+    expect(container.querySelector("[data-testid='job-row-problem']")?.textContent).toBe("3 channels: a montage needs 2 channels (TI) or an even number from 4 (mTI).");
   });
 
   it("the channel inputs show the currents the job sends: blank is 1.0 mA, one input per channel", async () => {

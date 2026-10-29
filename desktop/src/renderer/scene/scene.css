@@ -180,7 +180,8 @@
   color: var(--ink-2);
 }
 
-/* The legend card and the "Electrode names" switch, stacked in the bottom-left corner. */
+/* The legend card and, under it, the "Electrode names" / "Actual size" switches, in the
+   bottom-left corner. */
 .scene-chrome-stack {
   display: flex;
   flex-direction: column;
@@ -189,17 +190,29 @@
   min-width: 0;
 }
 
-.scene-names-toggle {
+/* The switches share one box, side by side; a pane too narrow for both wraps the second under
+   the first rather than overflowing. */
+.scene-toggles {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  max-width: 100%;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-control);
   background: rgba(11, 13, 16, 0.72);
   border: 1px solid rgba(230, 235, 241, 0.14);
+}
+
+.scene-names-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
   color: rgba(230, 235, 241, 0.9);
   font-size: 11px;
   line-height: 16px;
+  white-space: nowrap;
   cursor: pointer;
 }
 

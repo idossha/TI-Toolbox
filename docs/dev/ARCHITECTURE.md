@@ -141,7 +141,7 @@ coordinate space `guide-ras`; a guide pick may select an electrode name, net cha
 but must never become a research subject's coordinate. Optimizer and Analyzer use this fixed guide.
 Changing a subject must not rebuild or refetch a guide scene.
 
-The Simulator also supports subject-specific anatomy for placement and recorded montage previews.
+The Simulator draws subject-specific anatomy: the head of the job (or form) the user is working on.
 Its subject-scoped scene is the coordinate authority for scalp placement; when subject geometry is
 unavailable, the guide remains a visual fallback and does not authorize coordinate picking.
 Typed subject coordinates remain valid inputs independently of the guide.
@@ -165,6 +165,15 @@ usable inside their pane and viewport. Every interactive node has an accessible 
 
 Computations return jobs rather than blocking the interface. Output paths and eligibility come from
 server planning and validation. A client preview is not authority to bypass server admission checks.
+
+A montage's electrodes have one name wherever a user reads them — the app, the reports, the cap
+image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "Channel k" names the
+pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
+`channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
+read as two channels of one carrier. The rule is display text only — `electrode_pairs`, API fields
+and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
+`desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
+`tests/test_overlay_colour_legend.py`.
 
 ## 5. Verification and frozen interfaces
 
@@ -522,8 +531,51 @@ winding and prevents the provoking vertex from assigning a minority label. Tripl
 their original ordering.
 
 Electrode color expresses availability and channel membership, with no additional selection ring.
+EEG electrodes (occluded markers) are drawn as the Blender exporter's electrode model — its profile,
+revolved, 192 triangles, plus a 72-triangle gel slab, from `dev/export_electrode_model.py` into
+`scene/electrodeModel.ts` — in one instanced draw per pass. Each stands with its base on the skin
+and its axis along the outward scalp normal (`scene/electrodePose.ts`: skin vertex normals within
+5 mm, base on their plane) and is bent onto the scalp by a least-squares quadric of the skin around
+it; poses and quadrics are computed once per net and skin. By default every electrode is the 6 mm
+cap marker. The montage pane's **Actual size** switch draws the electrodes in a channel at
+the job's `electrode_shape`, `electrode_dimensions`, `rubber_thickness` and `gel_thickness`
+(`SceneMarker.pad`), the rest hidden (`SceneMarker.hidden`, kept in place so indices do not move) —
+except while a montage is being written (the page passes `onPairsChange`), when the rest stay cap
+markers, because the net is what the next click picks from;
+a size, gel or switch change only rewrites per-instance buffers. The two switches share one
+wrapping row under the legend. Depth-tested against the skin, so
+electrodes touch the scalp at every view angle and are hidden on the far side. Names sit on the
+model's top and show only while that top faces the viewer along the electrode's scalp normal (the
+direction the depth test hides it by; the direction from the head's centre left names on hidden
+electrodes near the silhouette); picking draws the same instances. Markers drawn over everything (placement dots, sphere
+centres) stay screen-facing dots. Excluded alternatives: turning the marker depth test off (the far
+side of the net shows through the head), lifting a screen-facing dot off the scalp (it floats at the
+silhouette), and drawing every net electrode at the configured size (a 185-electrode net at 25 mm
+is a solid carpet).
 The form, channel legend and preview share one palette and one selection model. Atlas clicks and ROI
-chips edit the same region list. Coordinate picking remains constrained by §3.
+chips edit the same region list. While the Simulator's **New montage** form is open the pane draws
+the net its EEG net select names, and the form and the pane share one slot cursor (E1+, E1-, E2+, …,
+owned by the page): opening a slot's picker aims the next click at it, a pick in either fills it and
+moves on to the next empty slot, a click on a set electrode clears it, and an electrode set in one
+slot is listed but not pickable in another. Coordinate picking remains constrained by §3.
+
+**The Simulator's scene draws one focus, and nothing else.** The focus is what the user last
+touched — a job row (the row or any control in it), the open New montage form, or the open New
+placement form — and the pane's props are a pure function of it and the page's data
+(`pages/simulator/sceneFocus.ts`: `resolveFocus`, `sceneFor`). The head is always the focused
+row's own subject (the montage form's row's; the placement's subject) — the guide stands in,
+labelled in the hint, only while that head is unavailable, and a net the subject lacks is said to be
+missing, never drawn on another subject. A row draws only the net its cells show (a montage row's
+net, a flex run's placement) and its channels, and the hint says what a click does or what to
+choose; the montage form draws the net its draft names (it opens on the focused row's net, else
+none) and takes the picks; the placement form takes the clicks. Opening a form focuses it; clicking
+a row while a form is open focuses the row and leaves the form and its draft open; touching the
+form, or a scene pick, focuses it again; a closed form or a removed row falls back to a row that
+exists. A row's action buttons (remove, settings) leave the focus where it is; Duplicate focuses
+the copy. No button discards a draft: New montage shows the open one, the placement form opens over
+it, and Edit with a draft open shows the draft and says why. Excluded: a "last net touched" or a
+preview pushed up from the table by an effect — two sources of truth that drifted (a fresh page
+drew a net no row had, a draft hid the row the user clicked).
 
 Optimizer and Analyzer select cortical and subcortical atlas regions on precomputed, packaged
 Ernie reference anatomy, including translucent skin. The scene atlas selector and target form share
@@ -532,9 +584,7 @@ atlas/mode/region state; switching atlas clears incompatible labels. Subcortical
 non-subcortical compartments. No subject atlas extraction runs when browsing these guides.
 Only the selected atlas surface and skin are fetched. Guide coordinates never become scientific
 coordinates. Masks, spheres and saved coordinate targets retain explicit native TetraVox inspection.
-Simulator also uses the guide for named montage browsing; actual freehand/XYZ placements and snap
-displacements retain subject geometry to preserve their coordinate meaning. Peeling and isolation
-controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
+Peeling and isolation controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
 
 Optimizer mask targets explicitly declare Subject or MNI space. Subject masks retain their
 coordinates; MNI masks use SimNIBS’ subject registration with nearest-neighbor resampling,
@@ -630,6 +680,21 @@ Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total
 2.0 mA total; only an explicit limit above half the total sweeps. `run_config.json` records the
 limit enumerated (`total/2` when unset); a null there is a run from before 2026-10-24, which swept
 to `total - step`.
+A leadfield is the field of one electrode placed at every position of its net, so that electrode
+is part of what the leadfield is. `LeadfieldConfig` carries `SimulationConfig`'s
+`electrode_shape`, `electrode_dimensions`, `gel_thickness` and `rubber_thickness` (defaults: ellipse
+8 × 8 mm, 1 mm gel, 2 mm rubber); `LeadfieldGenerator.generate` sets them on SimNIBS's
+`TDCSLEADFIELD.electrode` (thickness `[gel, rubber]`, as the Simulator does) and, once SimNIBS has
+written `<sid>_leadfield_<net>.hdf5`, records them in `<sid>_leadfield_<net>.json` beside it (a
+sidecar from an earlier run is removed before SimNIBS starts). `GET /api/catalog/leadfields`
+reports the sidecar as `electrode`, `null` when it is missing or malformed; the Optimizer shows the
+electrode beside each leadfield and a `null` as "electrode not recorded", never as today's
+defaults, because a leadfield without a sidecar may have been computed with any electrode. There
+is one leadfield per subject and net (SimNIBS names the file), so another electrode for the same
+net replaces it (`overwrite`). The Optimizer's **Generate leadfield** opens a step with the shared
+Electrodes section, at those defaults, and queues the job only when it is confirmed. Excluded: the
+electrode in the file name (SimNIBS names the file and every reader takes the net from it) and
+SimNIBS's own HDF5 attributes (names, centres, cap and tissues; no geometry).
 Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and
 Threshold-based focality. The latter retains fixed, adaptive and multi-threshold execution;
 “Multi-threshold” is a presentation label for the existing `pareto` strategy, not a new objective.

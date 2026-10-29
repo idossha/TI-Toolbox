@@ -118,7 +118,7 @@ cfg = SimulationConfig(
     conductivity="scalar",              # scalar | vn | dir | mc  (vn/dir/mc need DTI)
     intensities=[1.0, 1.0],             # mA per pair
     electrode_shape="ellipse", electrode_dimensions=[8.0, 8.0],
-    gel_thickness=4.0, rubber_thickness=2.0,
+    gel_thickness=1.0, rubber_thickness=2.0,
     map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
     output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar", "hf_power_density"
@@ -145,7 +145,7 @@ cfg = FlexConfig(
     goal="mean",                       # mean | max | focality | focality_tf
     postproc="max_TI",                 # max_TI | dir_TI_normal | dir_TI_tangential
     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8, 8],
-                                         gel_thickness=4),
+                                         gel_thickness=1),
     roi=FlexConfig.SphericalROI(x=-35, y=5, z=5, radius=10, use_mni=True),
     n_multistart=3, min_electrode_distance=5.0)
 res = run_flex_search(cfg)

@@ -79,16 +79,17 @@ async function clickCanvas(dx = 0, dy = 0): Promise<void> {
   await page.mouse.click(box.x + box.width / 2 + dx, box.y + box.height / 2 + dy);
 }
 
-test("the Simulator starts on the bundled guide", async () => {
+test("the Simulator starts on the first job's own head", async () => {
   await expect(host()).toHaveAttribute("data-state", "ready", { timeout: 20_000 });
+  // The seeded row is on the shell's subject, ernie, and the scene draws the head the job runs on.
+  await expect.poll(() => page.evaluate(() => window.__scenePane?.space ?? null), { timeout: 20_000 }).toBe("subject-ras");
   const debug = await page.evaluate(() => {
     const handle = window.__scenePane;
     if (!handle) throw new Error("window.__scenePane is absent — build out/ with VITE_SCENE_HOOKS=1");
-    return { subject: handle.subject, guide: handle.guide, space: handle.space };
+    return { subject: handle.subject, guide: handle.guide };
   });
-  expect(debug.subject).toBeNull();
-  expect(debug.guide).toBe("ernie");
-  expect(debug.space).toBe("guide-ras");
+  expect(debug.subject).toBe("ernie");
+  expect(debug.guide).toBeNull();
 });
 
 test("a click with nothing selected places nothing, and says why", async () => {
@@ -433,10 +434,10 @@ test("clicking an existing dot selects its row instead of adding another", async
   await expect(page.getByTestId("freehand-row-0")).toHaveAttribute("data-active", "true");
 });
 
-test("Add electrode pair adds two rows and selects the first; the trash icon removes one and its dot", async () => {
+test("Add channel adds two rows and selects the first; the trash icon removes one and its dot", async () => {
   const rows = () => page.locator('[data-testid^="freehand-row-"]');
   const before = await rows().count();
-  await page.getByRole("button", { name: /^Add electrode/ }).click();
+  await page.getByRole("button", { name: "Add channel", exact: true }).click();
   // A pair at a time: an odd position count is never a valid montage.
   await expect(rows()).toHaveCount(before + 2);
   await expect(page.locator(`[data-testid="freehand-row-${before}"]`)).toHaveAttribute("data-active", "true");

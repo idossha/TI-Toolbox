@@ -3524,3 +3524,276 @@ first mTI call. Recomputing non-converged rows another way: there is no input fo
 needed and correct.
 
 **Revisit if.** The image stops shipping numba, or a target platform lacks numba wheels.
+
+## 2026-10-28 — EEG electrodes are an instanced 3-D electrode model standing on the scalp, at actual size on request
+
+**Decision.** Occluded scene markers are drawn as the exporter's electrode model
+(`tit/blender/Electrode.blend`'s profile — the convex hull of its vertices about its axis, simplified
+to 2 % and revolved in 24 steps, 192 triangles — plus a 72-triangle gel slab, written by
+`dev/export_electrode_model.py`, Blender 5.1.0, into `desktop/src/renderer/scene/electrodeModel.ts`)
+with one `drawElementsInstanced` per pass. Each instance's base is on the skin, its axis along the
+outward scalp normal, and every vertex rides a least-squares quadric of the skin around it
+(`desktop/src/renderer/scene/electrodePose.ts`; an 8 mm fit for the cap marker, a 32 mm fit for a
+pad), all computed once per net and skin. Cap marker radius `ELECTRODE_RADIUS_MM` = 3 mm. The montage
+pane's **Actual size** switch (off by default, not persisted, like **Electrode names**) shows only the
+electrodes in a pair, at the job's shape, dimensions, rubber and gel thickness; a rect pad's width
+runs along the horizontal tangent. A size, gel or switch change rewrites per-instance buffers only.
+The marker-occlusion pre-pass starts from a cleared depth buffer (an opaque skin occludes exactly
+like a translucent one) and is pushed `MARKER_OCCLUSION_BIAS_MM` = 0.5 mm, only to keep the contact
+ring from z-fighting (ARCHITECTURE §7.2). Tests: `desktop/tests/unit/scene-electrode-pose.test.ts`,
+`desktop/tests/e2e/scene-electrodes-opaque.spec.ts`.
+
+**Why.** With the skin at full opacity every electrode was a crescent (maintainer, 2026-10-28): the
+opaque pass's unpushed depth beat the pushed pre-pass, and a screen-facing disc centred on the
+scalp has its inner half behind it. A disc lifted off the scalp cleared it but floated visibly at
+the silhouette; only geometry standing on the skin touches it from every angle. The offscreen spec
+found no empty pixel between scalp and electrode along the axis of 11 silhouette electrodes and
+every one of 62 face-on electrodes drawn [measured, mock guide, 2026-10-28]; the lifted-dot build
+fails the same check. A configured pad is up to ~50 mm across, whose flat rim would float ~4.7 mm
+off a 90 mm head [derived: sagitta]; the quadric keeps a 50 x 30 mm footprint within 0.1 mm of a
+sphere and 0.3 mm of an ellipsoid [measured, unit test]. On the real Ernie guide (183 electrodes,
+222 k skin and GM triangles), a full frame with synchronous readback took 3.1-3.3 ms on main and
+2.8-3.3 ms on this branch with Actual size off, on, or at 50 x 30 mm, draw calls unchanged at 5, and
+an electrode edit reached the screen in 13-15 ms (one frame at the offscreen 100 fps cap; 28-35 ms
+for the first edit after the dialog opens) [measured, offscreen Electron, 2026-10-28].
+
+**Alternatives rejected.** Disabling the marker depth test: the far side of the net shows through
+the head again. Lifting the screen-facing dot one radius: floats at the silhouette. A larger fixed
+bias: cannot fix the silhouette and lets far-side electrodes through on small heads. The direction
+from the head centre as the axis: tilts electrodes on the face and neck; the patch normal is the
+scalp's own. Blender's collapse decimation of the full model: folded 9 of 238 triangles, which a
+25x stretch turns into black creases. A fit sized to each pad: every size edit would re-search the
+skin; one 32 mm fit serves every pad up to ~50 x 30 mm. Every net electrode at the configured size:
+a 185-electrode net at 25 mm is a solid carpet, and the electrodes not in the montage carry no size.
+
+**Revisit if.** A net lies far (> 5 mm) from the served skin, where the patch is empty and the pose
+falls back to the nearest vertex; or a pad larger than ~60 mm is common, where the quadric
+extrapolates past its fit; or rect pads need the montage's own orientation.
+
+Names on electrodes the head hides (same day): a name label shows only while its electrode's top
+faces the viewer along the electrode's own scalp normal (`glScene.electrodeAnchors`), not along the
+direction from the head's bounding-box centre, which near the silhouette of a long head called
+hidden electrodes facing — 5 of 94 shown names sat on electrodes the frame did not draw on the mock
+guide, 0 after [measured, offscreen Electron, 2026-10-28; pinned by
+`desktop/tests/e2e/scene-electrodes-opaque.spec.ts`, Actual size off and on]. The **Electrode
+names** and **Actual size** switches share one wrapping row. Rejected: reading the depth buffer
+under every name each frame (a synchronous readback per label, every frame of an orbit).
+
+**Narrowed 2026-10-28** by "Channel k is electrodes Ek+ and Ek-; the New montage form picks them
+on the head" below: while a montage is being written, Actual size keeps the unassigned electrodes as
+cap markers instead of hiding them.
+
+## 2026-10-28 — The toolbox's default gel (saline) layer is 1 mm
+
+**Decision.** `SimulationConfig.gel_thickness`, `FlexConfig.ElectrodeConfig.gel_thickness`, the new
+`LeadfieldConfig.gel_thickness` and `APP_DEFAULTS` `flex*` `electrode.gel_thickness` default to
+1 mm (was 4 mm; a leadfield had no gel setting). Rubber stays 2 mm, shape ellipse, 8 × 8 mm.
+Desktop fallbacks (`DEFAULT_ELECTRODE_PAD`, a cleared Gel thickness field) follow. Values recorded
+in an existing run (`config.json`, a flex manifest) are read as written; the readers' fallbacks for
+a record that lacks the field stay 4 mm, which is what such a record was made with. Tests:
+`tests/test_sim_config.py::TestSimulationConfig::test_every_published_gel_default_is_one_millimetre`
+(the generated schema), `desktop/tests/unit/scene-electrode-pose.test.ts` (the scene's default pad
+equals the schema).
+
+**Why.** The maintainer asked for it (2026-10-28: "make the default saline thickness 1mm"). The
+4 mm default had no recorded rationale: it entered with the `SimulationConfig` field
+(46eb319f, 2026-03-08, "correct naming of electrode thickness"), was copied into `FlexConfig` and
+into the run pages' defaults table (03171c7f), and this log has no entry for it. 1 mm gel on 2 mm
+rubber is SimNIBS 4.6's own default for a flex-search electrode (`thickness = [1, 2]`,
+`simnibs/optimization/tes_flex_optimization/electrode_layout.py`) [read, SimNIBS 4.6.0]. The field
+under and around an electrode depends on its gel (Saturnino, Antunes & Thielscher 2015, NeuroImage
+120:25-35), so a simulation that relied on the default moves; one that set `gel_thickness` does not.
+
+**Alternatives rejected.** Changing only the desktop's starting value: a script and an agent config
+would still run 4 mm while the app showed 1 mm. Rewriting stored records' fallbacks to 1 mm: a
+record without the field was made at 4 mm.
+
+**Revisit if.** A study shows a different gel default matches the electrodes TI users actually
+mount.
+
+## 2026-10-28 — A leadfield records the electrode it was computed with
+
+**Decision.** `LeadfieldConfig` gains `SimulationConfig`'s `electrode_shape`, `electrode_dimensions`,
+`gel_thickness` and `rubber_thickness`, with its defaults. `LeadfieldGenerator.generate` sets them on
+SimNIBS's `TDCSLEADFIELD.electrode` (thickness `[gel, rubber]`) and writes them, after SimNIBS has
+written the HDF5, to a `<sid>_leadfield_<net>.json` sidecar (removed before the run).
+`GET /api/catalog/leadfields` adds `electrode` (additive and nullable: `null` or absent is "not
+recorded"). The Optimizer's **Generate leadfield** opens a step with the shared Electrodes section
+and its "?" before it queues the job, and shows each leadfield's electrode in the Net / leadfield
+cell and the leadfield strip. ARCHITECTURE §8. Tests: `tests/test_opt_leadfield.py` (the electrode
+reaches `TDCSLEADFIELD.electrode`; the sidecar round-trips; a stale one is gone before SimNIBS runs;
+a malformed one is unknown), `tests/test_plan_leadfield_runner.py` (the spec's electrode reaches
+`generate`), `tests/test_catalog_v1.py`, `desktop/tests/unit/optimizer-ex.test.ts`,
+`desktop/tests/e2e/optimizer.spec.ts` (the step's choice is the queued job's config).
+
+**Why.** The maintainer asked for an electrode step before generation (2026-10-28), and a leadfield
+computed with one electrode is a different leadfield from another's. Until now the generator never
+set an electrode, so every toolbox leadfield used SimNIBS's `TDCSLEADFIELD` default — a 10 mm
+ellipse of one 4 mm layer (`sim_struct.py`, `TDCSLEADFIELD.__init__`) [read, SimNIBS 4.6.0] — not
+the Simulator's electrode, and nothing recorded it: SimNIBS writes electrode names, centres, the cap
+and the tissues into the HDF5, no geometry. A leadfield without a sidecar is therefore shown as
+"electrode not recorded" rather than as either default: it may also come from another SimNIBS
+version or a script. A leadfield config without the new fields now computes the toolbox's
+electrode, not SimNIBS's: the one place where absent does not reproduce the previous behaviour, by
+request.
+
+**Alternatives rejected.** The electrode in the file name: SimNIBS names the file, and the catalog,
+the plan route, preflight and the Ex report read the net from it. Writing HDF5 attributes: the
+catalog lists leadfields with no h5py, and a 2 GB file is not rewritten for metadata. Several
+leadfields per net with different electrodes: one file per (subject, net) is SimNIBS's naming and
+nothing asks for more yet. Copying the leadfield's electrode into an Ex candidate's simulation: not
+asked for; the Simulator's defaults still apply there (§13).
+
+**Revisit if.** Users need two electrode sizes of one net side by side, or Ex candidates should
+replay with their leadfield's electrode.
+
+## 2026-10-28 — Channel k is electrodes Ek+ and Ek-; the New montage form picks them on the head
+
+**Decision.** Every user-facing name of a montage's electrodes follows one convention: channel k
+(1-based, k = 1, 2, … for mTI too) is the k-th electrode pair, made of electrodes **Ek+** and
+**Ek-** (ASCII `-`, which the free-hand labels already used and a JSON key keeps). "Channel k" names
+a pair; "Pair k", "electrode A/B", "Ch 1A/1B" and "A → B" are gone from the app (montage form,
+scene chips and status line, job rows, Results chips, Optimizer Count/Carriers labels, proposal
+cards, run-step labels), the reports (simulation, flex, ex/mEx channel lists and tables), the
+montage cap image's legend, the Viewer's per-carrier layer names, the wiki and the agent plugin's
+domain skill. One helper per side writes it: `electrodeSlotName` / `channelName` /
+`channelElectrodes` (`desktop/src/renderer/pages/_shared/scene/model.ts`; the free-hand editor's
+`autoLabel` is the same function) and `channel_electrodes` (`tit/reporting/generators/common.py`).
+Display text only: `electrode_pairs`, `symmetry_pairing` values, API fields, saved montages and
+on-disk names (mTI's `TDCS_A…` and `TI_AB`) are unchanged (ARCHITECTURE §4).
+
+The Simulator's **New montage** form now picks on the head the way Ex-search's buckets do: the
+scene pane draws the net the form's EEG net names (already wired) and the form and the pane share
+one slot cursor owned by the page (`ScenePane` `slot`/`onSlotChange`; `ElectrodePairsEditor`
+`activeSlot`/`onActiveSlotChange`). A click fills the cursor's slot and moves to the next empty slot
+in E1+, E1-, E2+, E2- order; opening a slot's picker aims the next click there; clicking a set
+electrode clears it; an electrode set in one slot is listed as "Already Ek±" and not pickable in
+another; every slot shows its role beside its picker. **Actual size** in that mode draws the set
+electrodes at the job's size and keeps the rest of the net as cap markers
+(`markersFromElectrodes(…, keepUnassigned)`); a shown montage (a job row) still hides them
+(ARCHITECTURE §7.2). Tests: `desktop/tests/unit/scene-pane-model.test.ts`,
+`desktop/tests/unit/scene-pane-legend.test.tsx`, `desktop/tests/e2e/simulator-new-montage.spec.ts`
+(net drawn, four clicks fill E1+ … E2- in order, a second click clears, a focused slot is aimed,
+switching net redraws, Cancel restores), `tests/test_overlay_colour_legend.py`,
+`tests/test_report_simulation_modes.py`.
+
+**Why.** The maintainer (2026-10-28): "Channel 1 is comprised from E1+ and E1-, channel 2 from E2+
+and E2-. this is important. not, 'A' and 'B'". The app used three vocabularies at once —
+"Pair 1 · A", the montage image's "Ch 1A / Ch 1B" (A/B meaning the two channels of one carrier) and
+Ex-search's E1+/E1- buckets — so "1A" in a report and "Pair 1 · A" in the pane named different
+things. Ex-search's labels were already right and are the pattern. The New-montage pane drew no net
+when **Actual size** was on, because that view hid every electrode outside a channel and a fresh
+draft has none (the likeliest cause of the reported "head + GM, no net"; the guide draws every net
+it packages). The job row's channel line names both electrodes by role, so its detail cell now
+spans the Source to Montage columns to keep a TI job's two channels on one line at 1280 px.
+
+**Alternatives rejected.** A typographic minus (`−`): the same label is a free-hand position's
+JSON key that SimNIBS reads back, and two spellings of one name invite a mismatch. Renaming config
+keys or mTI's lettered files: frozen on-disk/API names, and nothing the user reads. Hiding the
+Actual size switch while writing a montage: the user then cannot see the pads they are placing.
+Keeping "E24–E124" in the job row: it names no channel; compact enough, but it was a fourth
+vocabulary.
+
+**Revisit if.** A montage needs more than 26 channels (mTI's lettered files cap there), or a reader
+needs the role in a place too narrow for "Ek+ name · Ek- name".
+
+## 2026-10-28 — The Simulator's scene draws the net the user is looking at, on a head that has it
+
+**Superseded 2026-10-28:** "The Simulator's scene is a pure function of one focus" below replaces
+the which-net rule (`MontagePreview`, the editor's last net), and "The Simulator draws the head of
+the job the user is working on" replaces the head rule (the guide for named montages,
+`subjectForOffGuideNet`).
+
+**Decision.** With the New montage form open the scene draws the form's net; otherwise the selected
+job row's net, whether or not the row has a montage (`MontagePreview` with `net` and `name: ""`). A
+new draft starts on the selected row's net. Named montages stay on the packaged guide, except a net
+the guide does not package, which is drawn on the first of the previewed row's subject, the shell
+subject and the usable subjects whose `eeg_nets` lists it (`subjectForOffGuideNet`).
+
+**Why.** Maintainer report (sub-101): two rows on EEG10-10_Cutini_2011 and EEG10-20_Okamoto_2004
+both drew Okamoto, because a row without a montage sent no preview and the pane fell back to the
+last net touched; and New montage on BioSemi-64-10-10 drew no electrodes, because the guide
+packages 8 caps (`tit/scene/guide/manifest.json`) and a cap warped from `resources/ElectrodeCaps_MNI/`
+exists only in the subject's `eeg_positions`. Pinned then by `simulator-scene-net-sync.spec.ts` and
+`simulator-scene-net.test.ts`, both since replaced by `desktop/tests/e2e/simulator-scene-focus.spec.ts`
+and `desktop/tests/unit/simulator-scene-focus.test.ts`.
+
+**Alternatives rejected.** Syncing the editor's net to the active row on every selection: a row's
+net select changes the editor's net without selecting the row, so the two drift again. Packaging
+every warped cap into the guide: a project's own uploaded caps would still be missing. Drawing
+every named montage on the subject: slower first paint for the common, guide-packaged case.
+
+## 2026-10-28 — The Simulator's scene is a pure function of one focus
+
+**Decision.** The Simulator page holds one focus — `{ rowId, form }` in page-session state: the row
+the user last touched, and whether an open form was touched after it — and the scene pane's props
+are `sceneFor(resolveFocus(…), pageData)` (`desktop/src/renderer/pages/simulator/sceneFocus.ts`).
+Interaction handlers are the only writers: a row's pointer-down or focus (any control in it),
+**Add job** (the new row), **Duplicate**, removing the focused row (its neighbour), keyboard ↑/↓,
+the candidate handoff; opening **New montage** / **Edit** / **New placement**, and pointer-down or
+focus inside the open form — but not a row's action buttons (remove and settings leave the focus
+where it is; Duplicate focuses the copy). The montage draft carries its own `net`; a new draft takes
+the focused row's net (if the project offers it) or none, and a net switch that answers late, or
+whose electrodes cannot load, never moves the cursor of a newer draft (it is refused, with a
+message). A row draws only the net its cells show, and the pane's hint says what a click does there
+or what to choose. **Add job** starts like the focused row (its subject and its net). No button
+discards a draft: **New montage** with a draft open shows it again; **New placement** opens over a
+montage draft, which waits behind it; **Edit** with a draft open shows that draft with a note. Clicking a row while a form is open
+focuses the row and leaves the form and its draft open (the form loses its accent bar, the row gains
+it); touching the form, or picking an electrode on the head, focuses the form again — a pick never
+replaces an open draft. Removed: `montageNet` and `MontagePreview` page state, the table's
+`netChoice`/`editorNet`, the preview and active-source effects, `previewRowId`/`seenPreviewRow`,
+`draftWasOpen`, `seenDraftShape` and the `switchedNet` ref (the net switch prunes the draft in its
+own handler). ARCHITECTURE §7.2. Tests: `desktop/tests/unit/simulator-scene-focus.test.ts` (focus ×
+data table), `desktop/tests/e2e/simulator-scene-focus.spec.ts` (fifteen user paths, a–o, k–o from an
+independent exploratory review), which replaces `simulator-scene-net-sync.spec.ts`. `ui/Select`
+is always controlled (`value ?? ""`): an `undefined` value made Radix keep the last label, so a
+cleared net or montage cell still showed the old one.
+
+**Why.** Maintainer (2026-10-28): a fresh Simulator drew a net no job had chosen; New montage did not
+draw the job's net until the form's net was switched; after Cancel, selecting another job did not
+update the scene. Three stores each held "the net": the table's last-touched `netChoice` (seeded
+with the first net in the catalog), a preview the table pushed up by effect (`null` for a row with
+no net, which fell back to the last net), and the open draft, which won over everything. On the
+base commit the new spec failed 4 of 10 paths (a fresh row drew `EEG10-10_UI_Jurak_2007.csv`; Add job
+did not select the new row; New montage from a row with no net opened on another net; a row clicked
+while drafting was not drawn) [measured, offscreen Electron, mock server, 2026-10-28].
+
+**Alternatives rejected.** Closing the form when a row is clicked: loses a half-written montage for
+a glance at another job. Keeping the form focused until Cancel: the click the user just made would
+not change the scene, which was the complaint. Guards on the existing effects: each guard added a
+state that could disagree with the others. A new job starting with no net: a batch is assembled by
+adding the next job like the selected one, and its net is shown in its own cell, not hidden page
+state. Resetting a draft on New montage, or closing it on New placement: work lost to a button
+that does not say so.
+
+**Revisit if.** Two forms need to be open at once, or a page outside the Simulator needs the same
+focus rule (lift `resolveFocus` to `_shared`).
+
+## 2026-10-28 — The Simulator draws the head of the job the user is working on
+
+**Decision.** The Simulator's scene always draws the focused row's own subject's head — for a named
+montage too — the montage form's row's subject, and the placement's subject; a New placement with
+nothing placed starts on the focused row's subject. While that head is unavailable (no head model,
+or being built) the pane draws the packaged guide and its hint says so first ("Building 101's head
+model for the preview — showing the reference head meanwhile."). A net the subject does not carry is
+said to be missing ("101 has no BioSemi-64-10-10.csv electrode positions."), never drawn on another
+subject's head. `subjectForOffGuideNet` is deleted. Supersedes the head rule of "The Simulator's
+scene draws the net the user is looking at" above. ARCHITECTURE §3, §7.2. Pinned by
+`desktop/tests/e2e/simulator-scene-focus.spec.ts` (n), `scene-pane.spec.ts`, `simulator-placement.spec.ts`.
+
+**Why.** The maintainer asked that the scene reflect what the user is working on (2026-10-28), and a
+job runs on its subject's head: a row on 101 showed F3_F4 on ernie's packaged head, and a cap only
+ernie carries was drawn on ernie's head for a 101 job. The Simulator already drew the subject's own
+head for free-hand and snapped placements, and the Optimizer has drawn the row's head since
+2026-09-17. Cost: a subject's first scene reads its head mesh (184 MB, 1.7 s in the container) and
+simplifies it — of the order of the guide's own 8.4 s build — then it is cached; a warm first paint
+is 91–219 ms [BENCHMARKS, scene and catalog performance, 2026-09-04–07]. The guide covers the wait,
+labelled.
+
+**Alternatives rejected.** Named montages on the guide, off-guide nets on whichever subject has them
+(the rule replaced): the head shown was not the job's, and could be another subject's. Hiding the
+pane until the subject's head is ready: an empty pane on every first visit.
+
+**Revisit if.** First builds of subject scenes become slow enough on real projects that browsing
+named montages waits on them (measure with the real e2e procedure in TESTING.md).

@@ -267,6 +267,7 @@ MINIMAL: dict[str, dict] = {
         "non_roi_method": "everything_else",
         "mode": "flex_pareto",
     },
+    "leadfield": {"subject_id": "001"},
     "ex": {
         "subject_id": "001",
         "leadfield_hdf": "001_leadfield_GSN-HydroCel-185.hdf5",

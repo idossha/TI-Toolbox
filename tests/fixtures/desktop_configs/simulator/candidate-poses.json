@@ -13,7 +13,7 @@
           6
         ],
         "electrode_shape": "rect",
-        "gel_thickness": 4,
+        "gel_thickness": 1,
         "intensities": [
           1.5,
           0.5

@@ -6215,6 +6215,17 @@ export interface components {
             path: string;
             exists: boolean;
             size_bytes: number;
+            /** @description The electrode placed at every cap position when this leadfield was computed, from its `<sid>_leadfield_<net>.json` sidecar (SimulationConfig's field names). `null` or absent when the leadfield has no readable sidecar: its electrode is not recorded. */
+            electrode?: {
+                /** @enum {string} */
+                electrode_shape: "ellipse" | "rect";
+                /** @description [width, height] in mm */
+                electrode_dimensions: number[];
+                /** @description mm */
+                gel_thickness: number;
+                /** @description mm */
+                rubber_thickness: number;
+            } | null;
         };
         FlexRun: {
             name: string;
@@ -6965,7 +6976,8 @@ export interface components {
          *         ``[width, height]`` of each electrode in mm.  Default
          *         ``[8.0, 8.0]``.
          *     gel_thickness : float
-         *         Conductive-gel layer thickness in mm.  Default ``4.0``.
+         *         Conductive-gel (saline) layer thickness in mm, between the skin and
+         *         the rubber.  Default ``1.0``.
          *     rubber_thickness : float
          *         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
          *     map_to_surf : bool
@@ -7103,7 +7115,7 @@ export interface components {
             electrode_dimensions?: number[];
             /**
              * Gel Thickness
-             * @default 4
+             * @default 1
              */
             gel_thickness: number;
             /**
@@ -8793,25 +8805,39 @@ export interface components {
          *     overwrite : bool
          *         Recompute even when a leadfield for this (*subject_id*, *eeg_net*)
          *         already exists.
+         *     electrode_shape : str
+         *         ``"ellipse"`` or ``"rect"``: the electrode SimNIBS places at every
+         *         position of the cap.  Default ``"ellipse"``.
+         *     electrode_dimensions : list of float
+         *         ``[width, height]`` of that electrode in mm.  Default ``[8.0, 8.0]``.
+         *     gel_thickness : float
+         *         Saline-gel layer between skin and rubber, in mm.  Default ``1.0``.
+         *     rubber_thickness : float
+         *         Silicone-rubber layer on the gel, in mm.  Default ``2.0``.
+         *
+         *     The four electrode fields are :class:`~tit.sim.config.SimulationConfig`'s
+         *     names and defaults: a leadfield is the field of one electrode model at
+         *     every cap position, so a different size is a different leadfield.
+         *     :meth:`~tit.opt.leadfield.LeadfieldGenerator.generate` records them in a
+         *     ``<sid>_leadfield_<net>.json`` sidecar beside the HDF5.
          *
          *     Raises
          *     ------
          *     ValueError
-         *         If *eeg_net* is empty, or *tissues* is empty or contains a value
-         *         other than 1 or 2.
+         *         If *eeg_net* is empty, *tissues* is empty or contains a value other
+         *         than 1 or 2, the shape is not ``"ellipse"``/``"rect"``, or a
+         *         dimension or thickness is not a positive number.
          *
          *     Notes
          *     -----
          *     Two fields this dataclass models that
          *     :meth:`~tit.opt.leadfield.LeadfieldGenerator.generate` does not
-         *     implement today, reported rather than silently patched into
-         *     ``tit/opt/leadfield.py`` (not owned by this track):
+         *     implement today:
          *
          *     - ``generate(tissues=...)`` immediately overwrites its own parameter
          *       with a hardcoded ``tissues = [1, 2]`` before building the SimNIBS
          *       ``TDCSLEADFIELD`` -- the argument (and, by extension, this dataclass's
-         *       *tissues* field) has no effect today. This looks like a genuine bug
-         *       in ``tit/opt/leadfield.py`` rather than intentional behavior.
+         *       *tissues* field) has no effect today.
          *     - ``interpolation`` is hardcoded to ``None`` in ``generate()``; there is
          *       no parameter to set it.
          *     - There is no ``overwrite`` parameter on ``LeadfieldGenerator`` at all;
@@ -8843,6 +8869,23 @@ export interface components {
              * @default false
              */
             overwrite: boolean;
+            /**
+             * Electrode Shape
+             * @default ellipse
+             */
+            electrode_shape: string;
+            /** Electrode Dimensions */
+            electrode_dimensions?: number[];
+            /**
+             * Gel Thickness
+             * @default 1
+             */
+            gel_thickness: number;
+            /**
+             * Rubber Thickness
+             * @default 2
+             */
+            rubber_thickness: number;
         };
         /**
          * MontageConfig
@@ -9579,7 +9622,7 @@ export interface components {
          *         Electrode dimensions in mm (``[width, height]``).  Default
          *         ``[8.0, 8.0]``.
          *     gel_thickness : float
-         *         Conductive gel thickness in mm.  Default ``4.0``.
+         *         Conductive gel (saline) thickness in mm.  Default ``1.0``.
          */
         ElectrodeConfig: {
             /**
@@ -9591,7 +9634,7 @@ export interface components {
             dimensions?: number[];
             /**
              * Gel Thickness
-             * @default 4
+             * @default 1
              */
             gel_thickness: number;
         };

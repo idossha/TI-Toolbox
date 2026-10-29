@@ -30,7 +30,7 @@ which electrode you are manipulating — the selected row's swatch is the checke
 lights its dot, and clicking a dot selects its row instead of dropping a second electrode on top of
 it.
 
-**Add electrode pair** appends two more rows; the trash icon removes a row and its dot together —
+**Add channel** appends two more rows (the next channel's Ek+ and Ek-); the trash icon removes a row and its dot together —
 the table and the scalp are one state, never two that can disagree.
 
 ## Coordinates are the subject's

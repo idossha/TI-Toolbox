@@ -5,10 +5,13 @@
  * Every number below is measured from pixels the GPU actually wrote:
  *
  *  1. an idle electrode is the palette's neutral grey, and toggling it into a pair repaints THAT
- *     marker in its channel's Okabe-Ito hue — colour is the whole state signal;
- *  2. selecting adds **no ring**: the changed pixels are one solid disc with the idle marker's own
- *     bounding box, self-calibrated by a radial profile rather than by assuming a device pixel
- *     ratio. A selection ring is by construction a non-zero band *after* a zero one;
+ *     electrode in its channel's Okabe-Ito hue — both up to the electrode model's own lighting
+ *     (a 3-D electrode is lit like the anatomy, so its colour is the palette colour times a
+ *     brightness, which is what `shadedLike` allows and nothing more);
+ *  2. selecting adds **no ring**: the changed pixels are one solid region, self-calibrated by a
+ *     radial profile rather than by assuming a device pixel ratio. A selection ring is by
+ *     construction a non-zero band *after* a zero one. The region is LARGER than the idle marker on
+ *     purpose — an electrode in a pair is drawn at the job's electrode size on its gel;
  *  3. a selected atlas region is painted in the ROI tint and an unselected one is not;
  *  4. a warm first paint is ≤ 300 ms and orbiting a 145 k-triangle head holds its frame budget at
  *     1280 px.
@@ -38,6 +41,17 @@ const FIRST_PAINT_BUDGET_MS = 300;
 const rgb255 = (c: readonly number[]): number[] => c.map((v) => Math.round(v * 255));
 const delta = (a: number[], b: number[]): number =>
   Math.max(...[0, 1, 2].map((i) => Math.abs((a[i] as number) - (b[i] as number))));
+/**
+ * How far `sample` is from the palette colour `ref` scaled by the brightness that fits it best — a
+ * lit surface is `ref * k`, k in [0.3, 1.05] (the electrode shader's ambient floor is 0.35). Infinite
+ * when no brightness in that range fits, so a different hue can never pass as a darker one.
+ */
+const shadedLike = (sample: number[], ref: number[]): number => {
+  const dot = (a: number[], b: number[]) => [0, 1, 2].reduce((sum, i) => sum + (a[i] as number) * (b[i] as number), 0);
+  const k = dot(sample, ref) / dot(ref, ref);
+  if (k < 0.3 || k > 1.05) return Infinity;
+  return delta(sample, ref.map((v) => v * k));
+};
 
 async function settled(page: Page): Promise<void> {
   await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 30_000 });
@@ -273,7 +287,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
     // The marker is really painted here: with the marker pass suppressed the same pixel is the
     // anatomy behind it, so this is a difference between two frames and not a colour model.
     expect(delta(idle, background), "no marker is painted at the projected point").toBeGreaterThan(20);
-    expect(delta(idle, rgb255(SCENE_PALETTE.idle)), `idle marker ${JSON.stringify(idle)}`).toBeLessThanOrEqual(
+    expect(shadedLike(idle, rgb255(SCENE_PALETTE.idle)), `idle marker ${JSON.stringify(idle)}`).toBeLessThanOrEqual(
       COLOUR_TOLERANCE,
     );
 
@@ -297,7 +311,7 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
 
     const selected = await pixelAt(page, marker.x, marker.y);
     const channel0 = rgb255(SCENE_PALETTE.channels[0] as number[]);
-    expect(delta(selected, channel0), `selected marker ${JSON.stringify(selected)} vs ${channel0}`).toBeLessThanOrEqual(
+    expect(shadedLike(selected, channel0), `selected marker ${JSON.stringify(selected)} vs ${channel0}`).toBeLessThanOrEqual(
       COLOUR_TOLERANCE,
     );
 
@@ -308,7 +322,8 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
       profile.profile.slice(firstZero).every((count) => count === 0),
       `a non-zero band after a zero one is a ring: ${JSON.stringify(profile.profile)}`,
     ).toBe(true);
-    // ...and the footprint did not grow: selection changed the hue and nothing else.
+    // ...and the changed region is the electrode, contiguous out to its edge: no pixel beyond the
+    // first empty radius.
     expect(Math.max(-profile.box[0], -profile.box[1], profile.box[2], profile.box[3])).toBeLessThan(firstZero + 1);
     console.log(
       `REAL-SCENE electrode ${marker.id}: idle=${JSON.stringify(idle)} selected=${JSON.stringify(selected)} ` +

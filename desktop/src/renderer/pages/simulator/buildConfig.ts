@@ -42,7 +42,8 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     name: row.name,
     mode: row.candidate ? originalMontage?.[0]?.mode ?? mode : mode,
     electrode_pairs: electrodePairs,
-    eeg_net: row.eegNet ?? null,
+    // A free-hand row keeps the net it had as a montage row (for switching back), but runs on none.
+    eeg_net: mode === "freehand" ? null : (row.eegNet ?? null),
   };
 
   const config: Record<string, unknown> = {

@@ -400,7 +400,8 @@ class SimulationConfig:
         ``[width, height]`` of each electrode in mm.  Default
         ``[8.0, 8.0]``.
     gel_thickness : float
-        Conductive-gel layer thickness in mm.  Default ``4.0``.
+        Conductive-gel (saline) layer thickness in mm, between the skin and
+        the rubber.  Default ``1.0``.
     rubber_thickness : float
         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
     map_to_surf : bool
@@ -524,7 +525,7 @@ class SimulationConfig:
     intensities: list[float] = field(default_factory=lambda: [1.0, 1.0])
     electrode_shape: str = "ellipse"
     electrode_dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
-    gel_thickness: float = 4.0
+    gel_thickness: float = 1.0
     rubber_thickness: float = 2.0
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
     map_to_surf: bool = True

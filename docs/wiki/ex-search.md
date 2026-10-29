@@ -8,7 +8,7 @@ Ex-Search is the toolbox's **exhaustive** montage optimizer: it evaluates every 
 
 ## Prerequisites: Leadfield and EEG Net
 
-Every ex-search runs against a leadfield matrix for one subject and one EEG net. An Ex job's settings dialog opens with a **Leadfield** strip: choose an **EEG net**, and the strip shows the leadfield's size if it exists, or "No leadfield for this net yet" and **Generate (≈ N min)**, which queues a leadfield job (the estimate is for that net on this machine, one FEM solve per electrode). A row with no net yet takes the subject's first computed leadfield, or the first net when none is computed. Leadfields are 2–20 GB depending on the number of electrodes. The nets are the ones pre-processing placed on the head model (see [Available EEG Nets]({{ site.baseurl }}/wiki/simulator/#available-eeg-nets)).
+Every ex-search runs against a leadfield matrix for one subject and one EEG net. An Ex job's settings dialog opens with a **Leadfield** strip: choose an **EEG net**, and the strip shows the leadfield's size and the electrode it was computed with if it exists, or "No leadfield for this net yet" and **Generate (≈ N min)** (the estimate is for that net on this machine, one FEM solve per electrode). **Generate**, here or as **Generate leadfield** in the job's row, first asks for the electrode — **Shape**, **Dimensions** (width × height, mm) and **Gel thickness**, starting at the Simulator's defaults (ellipse, 8 × 8 mm, 1 mm gel, 2 mm rubber); the **?** beside **Electrodes** explains each — and queues the leadfield job when you click **Generate**. A row with no net yet takes the subject's first computed leadfield, or the first net when none is computed. Leadfields are 2–20 GB depending on the number of electrodes. The nets are the ones pre-processing placed on the head model (see [Available EEG Nets]({{ site.baseurl }}/wiki/simulator/#available-eeg-nets)).
 
 <div class="image-row">
   <div class="image-container">
@@ -23,6 +23,8 @@ Every ex-search runs against a leadfield matrix for one subject and one EEG net.
 
 Leadfields are generated with `tissues=[1, 2]` (white + grey matter).
 
+A leadfield is the field of one electrode placed at every position of the net, so its electrode is part of what it is: the search scores montages with that electrode's size and gel. The electrode is recorded beside the leadfield in `<subject>_leadfield_<net>.json` and shown with it in the **Net / leadfield** cell (for example "GSN-HydroCel-185 · 2.0 GB · ellipse 8×8 mm, gel 1 mm"). A leadfield with no such record shows "electrode not recorded"; it loads and runs, but its electrode is unknown. There is one leadfield per subject and net, so a leadfield with another electrode for the same net replaces it: from Python, `LeadfieldConfig(subject_id, eeg_net, electrode_shape=…, electrode_dimensions=[w, h], gel_thickness=…, rubber_thickness=…, overwrite=True)`.
+
 ## In the application
 
 <div class="image-container">
@@ -34,7 +36,7 @@ Open an Ex job's settings from its row (the settings button, or double-click the
 
 - **Leadfield**: the EEG net and its leadfield (see [above](#prerequisites-leadfield-and-eeg-net)).
 - **Target**: **Subcortical**, **Saved** or **NIfTI mask** (see [Defining the Target](#defining-the-target-roi)).
-- **Electrodes**: **Count** (4 electrodes for TI, 8 for mTI), **Search space** (**Bucketed** or **All combinations**) and the electrode buckets or pool (see [Defining the Search Space](#defining-the-search-space)). The line under the section counts the electrodes, montages, current splits and iterations.
+- **Electrodes**: **Count** (**2 channels (TI)**, four electrodes, or **4 channels (mTI)**, eight), **Search space** (**Bucketed** or **All combinations**) and the electrode buckets or pool (see [Defining the Search Space](#defining-the-search-space)). The line under the section counts the electrodes, montages, current splits and iterations.
 - **Current**: **Total current**, **Step** and **Channel limit** (see [Current ratios](#current-ratios)). With 8 electrodes this section is **Carriers** instead (see [Multipolar (mTI) Mode](#multipolar-mti-mode)).
 
 ## Defining the Target (ROI)
@@ -45,7 +47,7 @@ The **Target** section offers three choices:
 - **Subcortical** selects regions from a volumetric atlas.
 - **NIfTI mask** imports a local `.nii` or `.nii.gz` file into the project. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
 
-**Electrodes** is a separate section: set **Count** to four electrodes (TI) or eight (mTI), then configure the search space.
+**Electrodes** is a separate section: set **Count** to **2 channels (TI)** or **4 channels (mTI)**, then configure the search space. Channel k is electrodes Ek+ and Ek-, so the buckets are E1+, E1-, E2+, E2- (and E3±, E4± for mTI).
 
 Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI/MGZ masks (voxel value > 0), and `(path, label)` atlas-region selections (voxel value == label) into a single region.
 
@@ -189,38 +191,38 @@ _(example output from v2.4.0)_ `within_pairs`, 7 bilateral candidates per channe
 
 ## Multipolar (mTI) Mode
 
-Set **Electrodes ▸ Count ▸ 8 electrodes (mTI)** to run a multipolar exhaustive search (mEx) instead of the standard two-channel one: four pairs (eight electrodes), scored with the same verified multi-carrier envelope the simulator uses — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are simulated). From Python it is `run_m_ex_search(MExConfig)`; see [Scripting]({{ site.baseurl }}/wiki/scripting/).
+Set **Electrodes ▸ Count ▸ 4 channels (mTI)** to run a multipolar exhaustive search (mEx) instead of the standard two-channel one: four channels (eight electrodes), scored with the same verified multi-carrier envelope the simulator uses — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are simulated). From Python it is `run_m_ex_search(MExConfig)`; see [Scripting]({{ site.baseurl }}/wiki/scripting/).
 
 ### mTI in the Optimizer
 
-Choose the **Ex** method for a job row, open its settings and select **8 electrodes (mTI)**
-under **Electrodes ▸ Count**. The default **4 electrodes (TI)** uses two channels. Selecting mTI:
+Choose the **Ex** method for a job row, open its settings and select **4 channels (mTI)**
+under **Electrodes ▸ Count**. The default **2 channels (TI)** uses four electrodes. Selecting mTI:
 
 - Uses eight electrode buckets, **E1+ … E4-**, from the leadfield's EEG net. mEx is bucket-only in the app; **All combinations** is offered for TI only.
-- Replaces **Current** with **Carriers**: **Pair current**, the current of each of the four pairs (0.1–10 mA, default 2.0 mA per pair, i.e. 8 mA in total), and **Symmetry ▸ Force left/right symmetry** (off by default), which enables **Symmetry pairing**: **Within each pair** or **Cross pairs (E1↔E3, E2↔E4)**.
+- Replaces **Current** with **Carriers**: **Channel current**, the current of each of the four channels (0.1–10 mA, default 2.0 mA per channel, i.e. 8 mA in total), and **Symmetry ▸ Force left/right symmetry** (off by default), which enables **Symmetry pairing**: **Within each channel** or **Across channels (E1↔E3, E2↔E4)**.
 - Hides **Combine selected ROIs into one target**: the multipolar run path has no combined mode, so several selected saved ROIs run one search each. Saved spheres, subcortical regions and NIfTI masks all remain available as targets.
 - Submits an `mex` job. Follow its Terminal log or stop it from Jobs.
 
 ### Candidate enumeration
 
 - **Bucket mode** (the app's mode): the Cartesian product of the eight buckets, keeping only montages whose eight electrodes are distinct.
-- **Pool mode** (Python or JSON only, `PoolElectrodes`): every 8-electrode subset, with one representative per group of montages the envelope scores identically (pairs swapped within a carrier, carriers swapped, and polarity flips that leave the envelope unchanged). A pool of exactly 8 electrodes yields 630 candidates, not $$8! = 40{,}320$$.
-- **Symmetric bucket search** (**Force left/right symmetry**, `symmetric_bucket=True`, bucket mode only): only montages whose pairs mirror left/right, using a mirror map built from the net's EEG-position CSV (reflecting the x-coordinate across the midline). Two pairing schemes:
-  - **Within each pair** (`within_pairs`, default): each pair's `-` electrode must mirror its `+` electrode.
-  - **Cross pairs** (`cross_pairs`): pair 3 must mirror pair 1 and pair 4 must mirror pair 2. This replaces the within-pair rule; it does not add to it.
+- **Pool mode** (Python or JSON only, `PoolElectrodes`): every 8-electrode subset, with one representative per group of montages the envelope scores identically (channels swapped within a carrier, carriers swapped, and polarity flips that leave the envelope unchanged). A pool of exactly 8 electrodes yields 630 candidates, not $$8! = 40{,}320$$.
+- **Symmetric bucket search** (**Force left/right symmetry**, `symmetric_bucket=True`, bucket mode only): only montages whose channels mirror left/right, using a mirror map built from the net's EEG-position CSV (reflecting the x-coordinate across the midline). Two pairing schemes:
+  - **Within each channel** (`within_pairs`, default): each channel's Ek- electrode must mirror its Ek+ electrode.
+  - **Across channels** (`cross_pairs`): channel 3 must mirror channel 1 and channel 4 must mirror channel 2 (E3+ mirrors E1+, E3- mirrors E1-, and so on). This replaces the within-channel rule; it does not add to it.
 
   Either way one electrode of each mirrored couple fixes the other, so for $$N$$ candidates per bucket the search shrinks from about $$N^8$$ to about $$N^4$$ montages.
 
 ### Scoring
 
-Each candidate's four channel fields come from the leadfield at the pair current, and the score is their joint multi-carrier modulation depth. The metrics are those of two-channel ex-search ([Metrics](#metrics) above), with all four pairs at the same current. Targets are resolved as in two-channel ex-search.
+Each candidate's four channel fields come from the leadfield at the channel current, and the score is their joint multi-carrier modulation depth. The metrics are those of two-channel ex-search ([Metrics](#metrics) above), with all four channels at the same current. Targets are resolved as in two-channel ex-search.
 
 ### Outputs
 
 mEx writes the same file set as ex-search to `derivatives/SimNIBS/sub-{id}/m-ex-search/{run_name}/`:
 
 - `run_config.json` — provenance snapshot of the search configuration.
-- `final_output.csv` — one row per evaluated candidate, in **enumeration order** (not sorted), with the same columns as two-channel ex-search; the `Montage` cell lists the four pairs (`F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`). All four pairs carry the same current, so the two current columns stand for all four.
+- `final_output.csv` — one row per evaluated candidate, in **enumeration order** (not sorted), with the same columns as two-channel ex-search; the `Montage` cell lists the four channels, Ek+ then Ek- (`F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`). All four channels carry the same current, so the two current columns stand for all four.
 - The same five figures as two-channel ex-search, with four arcs per candidate on the montage maps; regenerate them for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir>`.
 
 <div class="image-row">
@@ -261,9 +263,9 @@ _`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–f
 
 ![symmetric mex-search intensity vs focality]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png)
 
-_Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors pair 1 onto pair 3 and pair 2 onto pair 4._
+_Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors channel 1 onto channel 3 and channel 2 onto channel 4._
 
-**Cost.** Scoring one four-channel candidate with the multi-carrier envelope maximum is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every pair carries the same **Pair current**.
+**Cost.** Scoring one four-channel candidate with the multi-carrier envelope maximum is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every channel carries the same **Channel current**.
 
 ### Running it
 

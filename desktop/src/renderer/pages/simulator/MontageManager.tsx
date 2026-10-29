@@ -26,7 +26,7 @@ import { candidateOriginalPairs, patchCandidateRow, restoreCandidateRow, snapCan
  * This file also keeps the montage **editor** (the "New montage" draft card, whose state is lifted
  * to the page so the 3-D pane and the pairs form edit one draft) and the delete confirmation.
  */
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { Plus, Pencil, Trash2, X, Copy, SlidersHorizontal } from "lucide-react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Checkbox } from "../../ui/Toggle";
@@ -40,12 +40,13 @@ import { Card, CardHeader, CardBody } from "../../ui/Layout";
 import { ElectrodePairsEditor, type ElectrodePair } from "../../ui/ElectrodePairsEditor";
 import { notify } from "../../ui/Toast";
 import { NumberInput } from "../../ui/NumberInput";
-import { channelCss } from "../_shared/scene/model";
+import { channelCss, channelElectrodes, firstEmptySlot, pairsOnNet } from "../_shared/scene/model";
 import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { deleteFreehand, deleteMontage, getEegNets, getCandidateMapping, getFlexMapping, getFlexRuns, getFreehand, getMontages, putMontage, type FlexRun, type FreehandConfig } from "./api";
 import { flexCurrents, FlexSnapWarning, OPTIMIZED, placementsFor, type FlexPlacement } from "./FlexTab";
 import { FreehandEditor } from "./FreehandEditor";
 import { useFreehandDraft } from "./freehandDraft";
+import { isPlaced } from "./freehandPlacement";
 import "./simulator-page.css";
 import {
   SOURCE_OPTIONS,
@@ -65,10 +66,10 @@ import {
   rowProblem,
   type JobSettings,
   type MontageKind,
-  type MontagePreview,
   type MontageSource,
   type SelectedRow,
 } from "./types";
+import type { SceneFocus } from "./sceneFocus";
 
 /** A montage as the table addresses it: which net's bucket it lives in, and its pairs. */
 export interface CatalogMontage {
@@ -93,11 +94,6 @@ export function montageOptionValue(kind: MontageKind, name: string): string {
 export function parseMontageOptionValue(value: string): { kind: MontageKind; name: string } {
   const cut = value.indexOf(":");
   return { kind: value.slice(0, cut) as MontageKind, name: value.slice(cut + 1) };
-}
-
-/** `E1–E2 · E3–E4` — the read-only pairs cell for a label-based montage. */
-export function formatPairs(pairs: [string, string][]): string {
-  return pairs.map(([a, b]) => `${a}–${b}`).join(" · ");
 }
 
 /* The currents a row shows are the currents its job sends: both are `rowCurrents` (types.ts), which
@@ -302,7 +298,7 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
       {values.map((v, i) => (
         <span className="job-channel" key={i} data-channel={i}>
           <span className="job-channel-dot" style={{ background: row.xyzPairs ? positionSwatch(i * 2) : channelCss(i) }} aria-hidden />
-          <span className="job-channel-pair mono text-dense" data-cell="pair">
+          <span className="job-channel-pair text-dense" data-cell="pair" title={`Channel ${i + 1}: ${labels[i]}`}>
             {labels[i]}
           </span>
           <NumberInput
@@ -321,11 +317,11 @@ function ChannelList({ row, onChange }: { row: SelectedRow; onChange: (currents:
   );
 }
 
-/** What each channel of a row is, in words: its electrode pair, or its coordinate count. */
+/** What each channel of a row is, in words: its two electrodes by role, or `XYZ`. */
 export function channelLabels(row: SelectedRow, count: number): string[] {
   return Array.from({ length: count }, (_, i) => {
     const pair = row.pairs?.[i];
-    if (pair) return `${pair[0]}–${pair[1]}`;
+    if (pair) return channelElectrodes(pair, i);
     if (row.xyzPairs?.[i]) return "XYZ";
     return "—";
   });
@@ -343,6 +339,20 @@ export interface MontageDraft {
   pairs: ElectrodePair[];
   /** The bucket an *existing* montage was opened from — a new draft has none and infers it. */
   savedAs?: MontageKind;
+  /** The form's EEG net — the net the montage is saved under and the scene draws. */
+  net?: string;
+  /**
+   * The slot the next electrode pick sets (E1+, E1-, E2+, … flattened; absent = E1+) — one cursor
+   * for the form and the pane: opening a slot's picker aims the next scene click at it, a pick in
+   * either moves it on to the next empty slot, and a change of channels or net that empties slots
+   * moves it to the first empty one, in the same update as the pairs.
+   */
+  slot?: number;
+}
+
+/** Is this open draft the saved montage `m` (an Edit of it)? Deleting `m` closes only that draft. */
+function isDraftOf(draft: MontageDraft | null, m: { net: string; kind: MontageKind; name: string }): boolean {
+  return !!draft?.savedAs && draft.savedAs === m.kind && draft.net === m.net && draft.name.trim() === m.name;
 }
 
 /** A fresh draft: two empty pairs, the smallest real montage (TI). Its polarity is not a choice —
@@ -362,8 +372,8 @@ export function montageDraftProblem(draft: MontageDraft): string | null {
   if (!name) return "Name the montage.";
   const badName = safeNameProblem(name, "montage");
   if (badName) return badName;
-  if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes of every pair.";
-  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 pairs (standard TI) or an even number of pairs from 4.";
+  if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes (Ek+ and Ek-) of every channel.";
+  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 channels (standard TI) or an even number of channels from 4.";
   const repeated = repeatedElectrodes(draft.pairs);
   if (repeated.length > 0) return repeatedElectrodesSentence(repeated);
   return null;
@@ -382,22 +392,20 @@ export interface JobsTableProps {
   /** subjectId -> eeg net names it has (from SubjectDetail.eeg_nets). */
   subjectNets: Record<string, string[]>;
   rows: SelectedRow[];
-  previewRowId?: string | null;
   onRowsChange: (next: SelectedRow[]) => void;
   /** The montage being written, owned by the page and shared with the scene pane. */
   draft: MontageDraft | null;
-  onDraftChange: (draft: MontageDraft | null) => void;
-  /** The resolved net, reported upward so the scene pane draws the same one's electrodes. */
-  onNetChange?: (net: string | undefined) => void;
+  onDraftChange: Dispatch<SetStateAction<MontageDraft | null>>;
   /**
-   * The row the user clicked, reported upward so the 3-D pane draws THAT job (its net's electrodes
-   * as idle dots, its own pairs coloured by channel) — visual confirmation of a job that is
-   * already configured, not an editor. `null` when no row is active or the row has no net.
+   * What the scene draws (`sceneFocus.ts`): the highlighted row, or the open form plus the row it
+   * returns to. The page owns it; this table only reports what the user touched.
    */
-  onPreviewChange?: (preview: MontagePreview | null) => void;
-  /** The source of the active row, so the page can note that flex/free-hand carry their own
-   *  coordinates rather than the previewed net's. */
-  onActiveSourceChange?: (source: MontageSource | null) => void;
+  focus?: SceneFocus;
+  /** The user touched a row (or a control in it); `null` when the table has none left. */
+  onFocusRow?: (rowId: string | null) => void;
+  /** The user opened or touched the montage or placement form; `rowId` is the row it came from
+   *  when that is not the row last touched (Edit on another row). */
+  onFocusForm?: (rowId?: string) => void;
   /** What a NEW row starts from: the settings of the row the user configured last, if any. */
   seedSettings?: JobSettings;
   /** Open this row's own settings editor (electrodes · conductivity · output fields). */
@@ -408,13 +416,12 @@ export function JobsTable({
   subjects,
   subjectNets,
   rows,
-  previewRowId,
   onRowsChange,
   draft,
   onDraftChange,
-  onNetChange,
-  onPreviewChange,
-  onActiveSourceChange,
+  focus,
+  onFocusRow,
+  onFocusForm,
   seedSettings,
   onEditSettings,
 }: JobsTableProps) {
@@ -450,14 +457,6 @@ export function JobsTable({
     return [...nets].sort();
   }, [subjectNets, montages.data]);
 
-  /*
-   * The net is a cell of the row, not a control above the table. `editorNet` is only the net a
-   * *new* row and the montage editor start on — the last net the user touched, falling back to the
-   * first available.
-   */
-  const [netChoice, setNetChoice] = useState<string | undefined>(undefined);
-  const editorNet = netChoice && availableNets.includes(netChoice) ? netChoice : availableNets[0];
-
   const editing = draft;
   const setEditing = onDraftChange;
   const [manageOpen, setManageOpen] = useState(false);
@@ -468,7 +467,7 @@ export function JobsTable({
   }
   const [managedNet, setManagedNet] = useState<string | undefined>();
   const [managedSubject, setManagedSubject] = useState<string | undefined>();
-  const managementNet = managedNet ?? editorNet;
+  const managementNet = managedNet ?? availableNets[0];
   const managementSubject = managedSubject ?? usable[0];
   const [deletePlacement, setDeletePlacement] = useState<{ subject: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CatalogMontage | null>(null);
@@ -479,31 +478,45 @@ export function JobsTable({
    */
   // The draft itself (open, subject, name, rows) is the page's, not this table's: the 3-D pane
   // writes into the same rows. See `freehandDraft.tsx`.
-  const { open: freehandOpen, setOpen: setFreehandOpen } = useFreehandDraft();
-  /** The row the 3-D pane is drawing. Click a row (not a control in it) to change it. */
-  const [activeId, setActiveId] = useState<string | null>(previewRowId ?? null);
-  const [seenPreviewRow, setSeenPreviewRow] = useState(previewRowId);
-  if (previewRowId !== seenPreviewRow) {
-    setSeenPreviewRow(previewRowId);
-    if (previewRowId) setActiveId(previewRowId);
-  }
+  const { open: freehandOpen, setOpen: setFreehandOpen, positions: freehandPositions, setSubject: setFreehandSubject } = useFreehandDraft();
+  /** The row the scene draws — highlighted only while no form has the scene. */
+  const activeId = focus?.on === "row" ? focus.rowId : null;
+  /** The row the user last touched, which a new montage starts from and a closed form returns to. */
+  const homeRow = rows.find((r) => r.id === focus?.rowId);
+  /** A net this project offers, else none: a row's (a candidate's, a flex mapping's) may not be. */
+  const offered = (net: string | undefined) => (net && availableNets.includes(net) ? net : undefined);
 
-  // The scene pane draws the net the editor is on. Reported in an effect, not during render: it
-  // is the parent's state.
-  useEffect(() => {
-    onNetChange?.(editorNet);
-  }, [editorNet, onNetChange]);
-
-  const netElectrodes = useQuery({
-    queryKey: ["eeg-net-electrodes", editorNet, usable[0]],
+  const electrodesOf = (net: string | undefined) => ({
+    queryKey: ["eeg-net-electrodes", net, usable[0]],
     queryFn: async () => {
-      const subject = usable.find((s) => subjectNets[s]?.includes(editorNet!)) ?? usable[0];
-      if (!subject || !editorNet) return [] as string[];
+      const subject = usable.find((s) => subjectNets[s]?.includes(net!)) ?? usable[0];
+      if (!subject || !net) return [] as string[];
       const nets = await getEegNets(subject);
-      return nets.find((n) => n.name === editorNet)?.electrodes ?? [];
+      return nets.find((n) => n.name === net)?.electrodes ?? [];
     },
-    enabled: !!editorNet && usable.length > 0,
   });
+  const netElectrodes = useQuery({ ...electrodesOf(editing?.net), enabled: !!editing?.net && usable.length > 0 });
+
+  /** Switching the form's net redraws the scene at once, then blanks the draft's electrodes the new
+   *  net lacks and aims the cursor at the first empty slot — unless another net was chosen or the
+   *  form closed meanwhile. A net whose electrodes cannot be loaded is refused, not half-applied. */
+  async function chooseNet(net: string) {
+    const previous = editing?.net;
+    setEditing((d) => d && { ...d, net });
+    try {
+      const electrodes = await queryClient.fetchQuery(electrodesOf(net));
+      // Applied to the draft as it is when the answer arrives, cached or late, and only if it is
+      // still on this net: pairs and cursor in one update.
+      setEditing((d) => {
+        if (!d || d.net !== net) return d;
+        const pairs = pairsOnNet(d.pairs, electrodes);
+        return pairs === d.pairs ? d : { ...d, pairs, slot: firstEmptySlot(pairs) };
+      });
+    } catch (err) {
+      setEditing((d) => (d && d.net === net ? { ...d, net: previous } : d));
+      notify.error(`Could not load the electrodes of ${net}; the montage stays on ${previous ?? "no net"}.`, err instanceof Error ? err.message : undefined);
+    }
+  }
 
   /** Every montage of one net, both buckets, in one list — the Montage cell's options. */
   const montagesOf = useMemo(() => {
@@ -607,20 +620,21 @@ export function JobsTable({
   }
 
   function setRowSource(row: SelectedRow, source: MontageSource) {
-    setActiveId(row.id);
     patch(row.id, {
       source,
       name: "",
       kind: undefined,
       pairs: undefined,
       xyzPairs: undefined,
-      eegNet: source === "montage" ? (row.eegNet ?? editorNet) : undefined,
+      // The net stays, so Montage → Free-hand → Montage gives the row its net back (a free-hand job
+      // never sends it, and a flex run sets its own placement) — as long as it is one of the nets
+      // the Montage cell offers (a flex mapping may name it otherwise).
+      eegNet: source === "montage" && !netsForSubject(row.subjectId).includes(row.eegNet ?? "") ? undefined : row.eegNet,
       currents: "1.0,1.0",
     });
   }
 
   function setRowNet(row: SelectedRow, net: string) {
-    setNetChoice(net);
     // The montage belonged to the old net.
     patch(row.id, { eegNet: net, name: "", kind: undefined, pairs: undefined });
   }
@@ -629,7 +643,6 @@ export function JobsTable({
     const { kind, name } = parseMontageOptionValue(value);
     const montage = montagesOf(row.eegNet).find((m) => m.kind === kind && m.name === name);
     if (!montage) return;
-    setNetChoice(montage.net);
     patch(row.id, {
       kind: montage.kind,
       name: montage.name,
@@ -767,73 +780,76 @@ export function JobsTable({
       const b = config.electrode_positions[i + 1]!;
       pairs.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
     }
-    patch(row.id, { name, kind: undefined, eegNet: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
+    patch(row.id, { name, kind: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
   }
 
   function addRow() {
-    const last = rows[rows.length - 1];
-    const seedSubject = last?.subjectId || usable[0] || "";
-    // A new row starts from the settings the user configured last — assembling a batch is
-    // configuring one job and adding the next one like it — and from the built-ins before that.
-    onRowsChange([...rows, { ...emptyRow(seedSubject, "montage", editorNet), settings: seedSettings }]);
+    // A new row is like the job the user has selected — its subject and its net, visible in its own
+    // cells — and starts from the settings the user configured last, else the built-ins.
+    const seed = homeRow ?? rows[rows.length - 1];
+    const row = { ...emptyRow(seed?.subjectId || usable[0] || "", "montage", offered(homeRow?.eegNet)), settings: seedSettings };
+    onRowsChange([...rows, row]);
+    onFocusRow?.(row.id);
   }
 
   function duplicateRow(row: SelectedRow) {
     const at = rows.findIndex((r) => r.id === row.id);
     const copy = { ...row, mappingPending: undefined, id: newRowId() };
     onRowsChange([...rows.slice(0, at + 1), copy, ...rows.slice(at + 1)]);
-    setActiveId(copy.id);
+    onFocusRow?.(copy.id);
   }
 
+  /** Removing the focused row focuses its neighbour. */
   function removeRow(id: string) {
-    if (activeId === id) setActiveId(null);
+    const at = rows.findIndex((r) => r.id === id);
+    if (focus?.rowId === id) onFocusRow?.((rows[at + 1] ?? rows[at - 1])?.id ?? null);
     onRowsChange(rows.filter((r) => r.id !== id));
   }
 
-  /** A brand-new montage always starts as a 2-pair draft; adding pairs makes it multi-polar. */
+  /**
+   * A brand-new montage starts as a 2-pair draft (adding pairs makes it multi-polar) on the net of
+   * the row the user last touched, or on none until the form names one. A draft already open is
+   * shown again as it is: no button discards a draft — only its own Cancel does. The placement
+   * form steps aside, its draft kept.
+   */
   function startNewMontage() {
     setFreehandOpen(false);
-    setEditing(emptyDraft());
+    if (!editing) {
+      setEditing({ ...emptyDraft(), net: offered(homeRow?.eegNet) });
+    }
+    onFocusForm?.();
   }
 
+  /** The placement form opens over a montage draft, which waits behind it. A placement with
+   *  nothing placed yet starts on the selected job's subject; placed positions keep theirs. */
   function startNewFreehand() {
-    setEditing(null);
+    if (homeRow && usable.includes(homeRow.subjectId) && !freehandPositions.some(isPlaced)) setFreehandSubject(homeRow.subjectId);
     setFreehandOpen(true);
+    onFocusForm?.();
+  }
+
+  /** Edit never replaces an open draft: it shows that draft, saying why. */
+  const [refusedEdit, setRefusedEdit] = useState<{ draft: MontageDraft; name: string } | null>(null);
+  function editMontage(montage: CatalogMontage, rowId: string) {
+    setFreehandOpen(false);
+    if (editing) {
+      setRefusedEdit({ draft: editing, name: montage.name });
+      onFocusForm?.();
+      return;
+    }
+    setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind, net: montage.net });
+    onFocusForm?.(rowId);
   }
 
   const draftKind = editing ? inferMontageKind(editing.pairs.length) : "uni_polar";
 
-  /* ------------------------------------------------------------------ Preview */
-
-  const activeRow = rows.find((r) => r.id === activeId) ?? null;
-  const activeNet = activeRow?.eegNet;
-  const activeName = activeRow?.name;
-  const activePairs = activeRow?.pairs;
-  const activeSource = activeRow?.source ?? null;
-  const activeSubject = activeRow?.subjectId;
-  // A free-hand row's positions are already resolved on the row (`xyzPairs`), so a saved set can be
-  // drawn on the subject's scalp without a second request — "what will this job actually stimulate"
-  // answered by the same click that selects it. Serialised as the dependency because `xyzPairs` is
-  // a fresh nested array on every patch.
-  const activeXyz = activeRow?.xyzPairs?.length ? JSON.stringify(activeRow?.xyzPairs ?? []) : "";
-  const originalXyz = activeRow?.source === "flex" && activeNet
-    ? JSON.stringify(candidateOriginalPairs(activeRow) ?? placementsForRow(activeRow).find((placement) => placement.value === OPTIMIZED)?.xyzPairs ?? []) : "[]";
+  /** The open form has the scene: its card is tinted like a focused row, and scrolled into view —
+   *  a draft started by a click on the head may open below the fold. */
+  const formFocused = !!focus && focus.on !== "row";
+  const formBox = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
-    if (activeXyz && activeName && activeSubject) {
-      const pairs = JSON.parse(activeXyz) as [[number, number, number], [number, number, number]][];
-      return onPreviewChange?.({
-        name: activeName,
-        subject: activeSubject,
-        positions: pairs.flat().map(([x, y, z]) => ({ x, y, z })),
-      });
-    }
-    onPreviewChange?.(
-      activeNet && activeName && activePairs?.length ? { net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
-    );
-  }, [activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
-  useEffect(() => {
-    onActiveSourceChange?.(activeSource);
-  }, [activeSource, onActiveSourceChange]);
+    if (formFocused) formBox.current?.querySelector(".card")?.scrollIntoView?.({ block: "nearest" });
+  }, [formFocused]);
 
   /* ------------------------------------------------------------------ Geometry */
 
@@ -864,9 +880,9 @@ export function JobsTable({
     if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
     if (rows.length === 0) return;
     e.preventDefault();
-    const at = rows.findIndex((r) => r.id === activeId);
+    const at = rows.findIndex((r) => r.id === focus?.rowId);
     const next = e.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1) : Math.max(0, (at === -1 ? 0 : at) - 1);
-    setActiveId(rows[next]?.id ?? null);
+    onFocusRow?.(rows[next]?.id ?? null);
     const row = e.currentTarget.querySelectorAll<HTMLElement>("tbody tr[data-job-row]")[next];
     row?.focus();
   }
@@ -1086,10 +1102,11 @@ export function JobsTable({
               {rows.map((row) => {
                 const montage = catalogMontageOf(row);
                 const active = activeId === row.id;
-                // A click on a control is that control's, not the row's.
-                const claim = (e: React.MouseEvent) => {
-                  if ((e.target as HTMLElement).closest("button, input, [role='combobox'], [role='dialog']")) return;
-                  setActiveId(row.id);
+                // Touching the row or any control in it (its pickers' dialogs included: React
+                // events bubble out of portals) makes it the scene's focus — except the actions,
+                // which act on a row without looking at it (Duplicate focuses its copy).
+                const claim = (e: React.SyntheticEvent) => {
+                  if (!(e.target as HTMLElement).closest("[data-cell='actions']")) onFocusRow?.(row.id);
                 };
                 return (
                   <Fragment key={row.id}>
@@ -1103,9 +1120,9 @@ export function JobsTable({
                       data-active={active ? "true" : undefined}
                       aria-selected={active}
                       tabIndex={0}
-                      onClick={claim}
+                      onPointerDown={claim}
                       onDoubleClick={() => onEditSettings?.(row)}
-                      onFocus={() => setActiveId(row.id)}
+                      onFocus={claim}
                     >
                       <td data-cell="subject">
                         <SelectionPicker
@@ -1150,11 +1167,7 @@ export function JobsTable({
                           <IconButton
                             aria-label={`Edit ${montage.name}`}
                             icon={<Pencil size={14} />}
-                            onClick={() => {
-                              setNetChoice(montage.net);
-                              setFreehandOpen(false);
-                              setEditing({ name: montage.name, pairs: montage.pairs.map((p) => [p[0], p[1]] as ElectrodePair), savedAs: montage.kind });
-                            }}
+                            onClick={() => editMontage(montage, row.id)}
                           />
                         )}
                         <IconButton aria-label={`Remove job ${rows.indexOf(row) + 1}`} icon={<X size={14} />} onClick={() => removeRow(row.id)} />
@@ -1168,17 +1181,18 @@ export function JobsTable({
                       unconfigured job says so in one muted line, at the same height, so picking a
                       montage never makes the table jump (maintainer, 2026-09-06).
                     */}
-                    <tr data-job-detail={row.id} data-active={active ? "true" : undefined} onClick={claim}>
+                    <tr data-job-detail={row.id} data-active={active ? "true" : undefined} onPointerDown={claim} onFocus={claim}>
                       {row.name ? (
                         <>
                           <td data-cell="detail-pad" />
-                          <td data-cell="polarity">
-                            {/* Polarity is implied by the channel count; kept as a quiet label, not
-                                a chip competing with the per-channel colours. */}
-                            <span className="job-polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
-                          </td>
-                          <td colSpan={2} data-cell="detail">
+                          {/* From the Source column to the Montage column's right edge: a channel
+                              names both its electrodes by role ("E1+ E24 · E1- E124"), and a TI
+                              job's two channels have to stay on one line. */}
+                          <td colSpan={3} data-cell="detail">
                             <div className="job-line2" data-cell="pairs" data-channels={rowPairCount(row)}>
+                              {/* Polarity is implied by the channel count; kept as a quiet label, not
+                                  a chip competing with the per-channel colours. */}
+                              <span className="job-polarity" data-cell="polarity">{polarityLabel(row.kind ?? inferMontageKind(rowPairCount(row)))}</span>
                               <ChannelList row={row} onChange={(currents) => patch(row.id, { currents })} />
                             </div>
                             {rowProblem(row) && (
@@ -1192,7 +1206,7 @@ export function JobsTable({
                       ) : (
                         <td colSpan={4} data-cell="detail">
                           <div className="job-line2">
-                            <span className="job-line2-empty">Pairs and currents appear once a montage is chosen</span>
+                            <span className="job-line2-empty">Channels and currents appear once a montage is chosen</span>
                           </div>
                         </td>
                       )}
@@ -1209,7 +1223,7 @@ export function JobsTable({
         <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0} onClick={addRow}>
           Add job
         </Button>
-        <Button variant="secondary" icon={<Plus size={14} />} disabled={!editorNet} onClick={startNewMontage}>
+        <Button variant="secondary" icon={<Plus size={14} />} disabled={availableNets.length === 0 || usable.length === 0} onClick={startNewMontage}>
           New montage
         </Button>
         <Button variant="secondary" icon={<Plus size={14} />} disabled={usable.length === 0} onClick={startNewFreehand}>
@@ -1218,17 +1232,29 @@ export function JobsTable({
         <Button variant="secondary" onClick={() => { setSelectedDefinitions([]); setManageOpen(true); }}>Manage montages</Button>
       </div>
 
-      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => setFreehandOpen(false)} />}
+      {/* The open form. Touching it gives it the scene back after a row was clicked. */}
+      <div
+        className="sim-scene-form"
+        ref={formBox}
+        data-scene-focus={formFocused ? "true" : undefined}
+        onPointerDown={() => onFocusForm?.()}
+        onFocus={() => onFocusForm?.()}
+      >
+      {/* Cancel or Save returns the scene to the row — a montage draft behind it stays open. */}
+      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => { setFreehandOpen(false); onFocusRow?.(focus?.rowId ?? null); }} />}
 
-      {editing && (
+      {editing && !freehandOpen && (
         <Card>
           <CardHeader title={editing.name ? `Edit montage "${editing.name}"` : "New montage"} />
           <CardBody>
             <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+              {refusedEdit?.draft === editing && (
+                <Callout kind="info">Save or cancel this montage before editing &ldquo;{refusedEdit.name}&rdquo;.</Callout>
+              )}
               <Field label="EEG net">
                 <Select
-                  value={editorNet}
-                  onValueChange={setNetChoice}
+                  value={editing.net}
+                  onValueChange={(net) => void chooseNet(net)}
                   options={availableNets.map((n) => ({ value: n, label: n }))}
                   placeholder="Choose a net"
                 />
@@ -1246,25 +1272,33 @@ export function JobsTable({
                     <span className="chip chip-neutral">{polarityLabel(draftKind)}</span>
                   </span>
                   <span className="field-help">
-                    {editing.pairs.length} pairs · {draftKind === "uni_polar" ? "uni-polar" : "multi-polar"}
+                    {editing.pairs.length} channels · {draftKind === "uni_polar" ? "uni-polar" : "multi-polar"}
                   </span>
                 </div>
               </Field>
-              <Field label="Electrode pairs" help="Selected from the net's electrode labels.">
+              <Field
+                label="Channels"
+                help="Channel k runs from electrode Ek+ to Ek-. Pick each from the net's labels, or click electrodes on the head in the Scene pane: a click sets the highlighted slot, and clicking a set electrode again clears it."
+              >
                 {netElectrodes.isFetching && <Skeleton height={32} />}
                 {!netElectrodes.isFetching && (
                   <ElectrodePairsEditor
                     mode="net"
                     electrodes={netElectrodes.data ?? []}
                     pairs={editing.pairs}
-                    onPairsChange={(pairs) => setEditing({ ...editing, pairs })}
+                    onPairsChange={(pairs) =>
+                      // Channels added or removed: the cursor goes to the first empty slot.
+                      setEditing((d) => d && { ...d, pairs, slot: pairs.length !== d.pairs.length ? firstEmptySlot(pairs) : d.slot })
+                    }
+                    activeSlot={formFocused ? (editing.slot ?? 0) : undefined}
+                    onActiveSlotChange={(slot) => setEditing((d) => d && { ...d, slot })}
                     pairStep={2}
                     freehandPairs={[]}
                     onFreehandPairsChange={() => {}}
                   />
                 )}
                 {!isValidPairCount(editing.pairs.length) && (
-                  <span className="field-error">Use exactly 2 pairs (standard TI) or an even number of pairs from 4: 4, 6, 8 … (multi-channel mTI).</span>
+                  <span className="field-error">Use exactly 2 channels (standard TI) or an even number of channels from 4: 4, 6, 8 … (multi-channel mTI).</span>
                 )}
                 {repeatedElectrodes(editing.pairs).length > 0 && (
                   <span className="field-error" role="alert" data-testid="montage-repeated-electrodes">
@@ -1275,12 +1309,12 @@ export function JobsTable({
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "var(--space-2)" }}>
                 {/* Deleting a catalog entry is an act on the CATALOG, so it lives with the editor
                     rather than in a job row's actions. Only offered for a montage that exists. */}
-                {editing.savedAs && editorNet && (
+                {editing.savedAs && editing.net && (
                   <Button
                     variant="secondary"
                     icon={<Trash2 size={14} />}
                     style={{ marginRight: "auto" }}
-                    onClick={() => setDeleteTarget({ net: editorNet, kind: editing.savedAs as MontageKind, name: editing.name.trim(), pairs: [] })}
+                    onClick={() => setDeleteTarget({ net: editing.net!, kind: editing.savedAs as MontageKind, name: editing.name.trim(), pairs: [] })}
                   >
                     Delete montage
                   </Button>
@@ -1291,16 +1325,17 @@ export function JobsTable({
                 <Button
                   variant="primary"
                   loading={saveMontage.isPending}
-                  disabled={!editorNet || montageDraftProblem(editing) !== null}
-                  title={montageDraftProblem(editing) ?? undefined}
+                  disabled={!editing.net || montageDraftProblem(editing) !== null}
+                  title={editing.net ? (montageDraftProblem(editing) ?? undefined) : "Choose an EEG net."}
                   onClick={() => {
-                    if (!editorNet) return;
+                    const net = editing.net;
+                    if (!net) return;
                     // An edit that changed a montage's polarity moves buckets: delete the old
                     // entry so the same name cannot exist in both.
                     if (editing.savedAs && editing.savedAs !== draftKind) {
-                      void deleteMontage(editorNet, editing.savedAs, editing.name.trim()).catch(() => undefined);
+                      void deleteMontage(net, editing.savedAs, editing.name.trim()).catch(() => undefined);
                     }
-                    saveMontage.mutate({ net: editorNet, kind: draftKind, name: editing.name.trim(), pairs: editing.pairs });
+                    saveMontage.mutate({ net, kind: draftKind, name: editing.name.trim(), pairs: editing.pairs });
                   }}
                 >
                   Save montage
@@ -1310,6 +1345,7 @@ export function JobsTable({
           </CardBody>
         </Card>
       )}
+      </div>
 
       <Dialog open={manageOpen} onOpenChange={setManageOpen} title="Manage montages"
         description="Delete saved definitions. Existing simulation results are kept."
@@ -1340,7 +1376,7 @@ export function JobsTable({
       <AlertDialog open={bulkTargets !== null} onOpenChange={(open) => !open && setBulkTargets(null)}
         title={`Delete ${bulkTargets?.length ?? 0} selected definitions?`}
         description="This removes the selected saved montages and placements. Existing simulation results are kept."
-        confirmLabel="Delete selected" onConfirm={() => { if (bulkTargets) { setEditing(null); removeSelected.mutate(bulkTargets); } }} />
+        confirmLabel="Delete selected" onConfirm={() => { if (bulkTargets) { setEditing((d) => (bulkTargets.some((item) => item.type === "montage" && isDraftOf(d, item)) ? null : d)); removeSelected.mutate(bulkTargets); } }} />
       <AlertDialog open={deletePlacement !== null} onOpenChange={(open) => !open && setDeletePlacement(null)}
         title={`Delete placement "${deletePlacement?.name ?? ""}"?`}
         description="This removes the saved freehand definition for this subject. Existing simulation results are kept."
@@ -1354,7 +1390,7 @@ export function JobsTable({
         confirmLabel="Delete montage"
         onConfirm={() => {
           if (!deleteTarget) return;
-          setEditing(null);
+          setEditing((d) => (isDraftOf(d, deleteTarget) ? null : d));
           removeMontage.mutate(deleteTarget);
         }}
       />

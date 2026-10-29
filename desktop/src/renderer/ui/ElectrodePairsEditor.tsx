@@ -3,7 +3,7 @@ import { IconButton, Button } from "./Button";
 import { SelectionPicker, type SelectionItem } from "./SelectionList";
 import { SegmentedControl } from "./SegmentedControl";
 import { CoordinateInput, type Coordinate } from "./CoordinateInput";
-import { channelCss } from "../pages/_shared/scene/model";
+import { advanceSlot, channelCss, channelName, electrodeSlotName, withSlot } from "../pages/_shared/scene/model";
 
 export type ElectrodePair = [string, string];
 
@@ -57,22 +57,70 @@ export function ElectrodePairsEditor({
   onActiveSlotChange?: (slot: number) => void;
   disabled?: boolean;
   /**
-   * How many pairs one "add" adds and one "remove" removes. A TI/mTI montage is built out of
-   * *channels* — two pairs (four electrodes) at a time — so the Simulator passes 2 and an odd
-   * number of pairs can never be produced by the buttons (`Montage.simulation_mode` accepts 2 or
+   * How many channels (electrode pairs) one "add" adds and one "remove" removes. A TI montage is
+   * two channels and an mTI montage an even number from four, so the Simulator passes 2 and an odd
+   * channel count can never be produced by the buttons (`Montage.simulation_mode` accepts 2 or
    * 4+, never 3). Defaults to 1 for every other caller.
    */
   pairStep?: number;
 }) {
-  /* One grammar (plan C2): each slot of a pair opens the SAME list every other picker on the page
+  /* One grammar (plan C2): each electrode slot opens the SAME list every other picker on the page
      opens, in single-select mode — filter, keyboard, `N of M`. It was a `Select` combo, which is a
      different control with a different keyboard and a different way of searching 185 names, so a
      user who had learned to pick electrodes for an ex bucket had to learn it again here.
-     The pairs model itself is unchanged: `[a, b]` strings, which is what lane EL's scene pane and
-     `buildConfig` both read. */
-  const options: SelectionItem[] = electrodes.map((e) => ({ id: e, label: e }));
+     The pairs model itself is unchanged: `[Ek+, Ek-]` strings, which is what the scene pane and
+     `buildConfig` both read. Naming is the app's one convention (`electrodeSlotName`): channel k
+     is electrodes Ek+ and Ek-, never "pair k" or "A"/"B". */
+  /** The options for one slot: an electrode already set in ANOTHER slot is listed, named by the
+   *  slot holding it, and cannot be picked — one electrode cannot be two poles. */
+  const optionsFor = (slot: number): SelectionItem[] => {
+    const used = new Map<string, number>();
+    pairs.forEach((pair, i) =>
+      pair.forEach((name, pole) => {
+        if (name) used.set(name, i * 2 + pole);
+      }),
+    );
+    return electrodes.map((e) => {
+      const at = used.get(e);
+      return at === undefined || at === slot ? { id: e, label: e } : { id: e, label: e, disabled: true, reason: `Already ${electrodeSlotName(at)}` };
+    });
+  };
+  /** Writes slot `slot` and moves the cursor the way a scene click does: on to the next empty slot
+   *  after a pick, onto the slot itself after a clear. */
+  const setSlot = (slot: number, name: string) => {
+    const next = withSlot(pairs, slot, name);
+    onPairsChange(next);
+    onActiveSlotChange?.(name ? advanceSlot(next, slot) : slot);
+  };
+  const slotPicker = (i: number, pole: 0 | 1) => {
+    const slot = i * 2 + pole;
+    const name = electrodeSlotName(slot);
+    return (
+      <span className="electrode-slot" data-slot={slot} data-active-slot={activeSlot === slot ? "true" : undefined}>
+        {/* The slot's role stays on screen once it is filled — "E193" alone does not say which
+            pole of which channel it is. */}
+        <span className="electrode-slot-role" style={{ color: channelCss(i) }}>
+          {name}
+        </span>
+        <SelectionPicker
+          items={optionsFor(slot)}
+          value={pairs[i]?.[pole] ? [pairs[i]![pole]] : []}
+          onChange={(v) => setSlot(slot, v[0] ?? "")}
+          mode="single"
+          label={`${channelName(i)} ${name} electrode`}
+          title={`${channelName(i)} — ${name}`}
+          headers={{ label: "Electrode", reason: "In use" }}
+          filterPlaceholder="Filter electrodes…"
+          idPrefix={`pair-${i}-${pole === 0 ? "a" : "b"}`}
+          onOpen={() => onActiveSlotChange?.(slot)}
+          placeholder="Choose…"
+          disabled={disabled}
+        />
+      </span>
+    );
+  };
   const removeLabel = (i: number) =>
-    pairStep > 1 ? `Remove pairs ${i + 1}\u2013${i + pairStep}` : `Remove pair ${i + 1}`;
+    pairStep > 1 ? `Remove channels ${i + 1}\u2013${i + pairStep}` : `Remove channel ${i + 1}`;
 
   return (
     <div className="electrode-pairs">
@@ -94,40 +142,14 @@ export function ElectrodePairsEditor({
       )}
       {mode === "net"
         ? pairs.map((pair, i) => (
-            <div key={i} className="electrode-pair-row" data-active-pair={activeSlot !== undefined && Math.floor(activeSlot / 2) === i ? "true" : undefined}>
-              {/* The pair's own channel colour, from the ONE palette (`channelCss`, Okabe-Ito) —
+            <div key={i} className="electrode-pair-row" data-channel={i} data-active-pair={activeSlot !== undefined && Math.floor(activeSlot / 2) === i ? "true" : undefined}>
+              {/* The channel's own colour, from the ONE palette (`channelCss`, Okabe-Ito) —
                   never a literal here, so the editor and the dots in the scene cannot drift. */}
               <span className="electrode-pair-index" style={{ color: channelCss(i) }}>
-                {i + 1}
+                {channelName(i)}
               </span>
-              <SelectionPicker
-                items={options}
-                value={pair[0] ? [pair[0]] : []}
-                onChange={(v) => onPairsChange(pairs.map((p, idx) => (idx === i ? [v[0] ?? "", p[1]] : p)))}
-                mode="single"
-                label={`Pair ${i + 1} electrode A`}
-                title={`Pair ${i + 1} — electrode A`}
-                headers={{ label: "Electrode" }}
-                filterPlaceholder="Filter electrodes…"
-                idPrefix={`pair-${i}-a`}
-                onOpen={() => onActiveSlotChange?.(i * 2)}
-                placeholder="Electrode A"
-                disabled={disabled}
-              />
-              <SelectionPicker
-                items={options}
-                value={pair[1] ? [pair[1]] : []}
-                onChange={(v) => onPairsChange(pairs.map((p, idx) => (idx === i ? [p[0], v[0] ?? ""] : p)))}
-                mode="single"
-                label={`Pair ${i + 1} electrode B`}
-                title={`Pair ${i + 1} — electrode B`}
-                headers={{ label: "Electrode" }}
-                filterPlaceholder="Filter electrodes…"
-                idPrefix={`pair-${i}-b`}
-                onOpen={() => onActiveSlotChange?.(i * 2 + 1)}
-                placeholder="Electrode B"
-                disabled={disabled}
-              />
+              {slotPicker(i, 0)}
+              {slotPicker(i, 1)}
               <IconButton
                 aria-label={removeLabel(i)}
                 icon={<Trash2 size={14} />}
@@ -138,15 +160,13 @@ export function ElectrodePairsEditor({
           ))
         : freehandPairs.map((pair, i) => (
             <div key={i} className="electrode-pair-row" data-active-pair={activeSlot !== undefined && Math.floor(activeSlot / 2) === i ? "true" : undefined}>
-              {/* The pair's own channel colour, from the ONE palette (`channelCss`, Okabe-Ito) —
-                  never a literal here, so the editor and the dots in the scene cannot drift. */}
               <span className="electrode-pair-index" style={{ color: channelCss(i) }}>
-                {i + 1}
+                {channelName(i)}
               </span>
               <CoordinateInput value={pair[0]} onValueChange={(c) => onFreehandPairsChange(freehandPairs.map((p, idx) => (idx === i ? [c, p[1]] : p)))} disabled={disabled} />
               <CoordinateInput value={pair[1]} onValueChange={(c) => onFreehandPairsChange(freehandPairs.map((p, idx) => (idx === i ? [p[0], c] : p)))} disabled={disabled} />
               <IconButton
-                aria-label={`Remove pair ${i + 1}`}
+                aria-label={`Remove channel ${i + 1}`}
                 icon={<Trash2 size={14} />}
                 disabled={disabled}
                 onClick={() => onFreehandPairsChange(freehandPairs.filter((_, idx) => idx !== i))}
@@ -170,7 +190,7 @@ export function ElectrodePairsEditor({
               ])
         }
       >
-        {pairStep > 1 ? `Add ${pairStep} pairs` : "Add pair"}
+        {pairStep > 1 ? `Add ${pairStep} channels` : "Add channel"}
       </Button>
     </div>
   );

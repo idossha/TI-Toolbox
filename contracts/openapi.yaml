@@ -4721,6 +4721,23 @@ components:
         path: { type: string }
         exists: { type: boolean }
         size_bytes: { type: integer }
+        electrode:
+          description: >-
+            The electrode placed at every cap position when this leadfield was computed, from its
+            `<sid>_leadfield_<net>.json` sidecar (SimulationConfig's field names). `null` or absent
+            when the leadfield has no readable sidecar: its electrode is not recorded.
+          type: [object, "null"]
+          required: [electrode_shape, electrode_dimensions, gel_thickness, rubber_thickness]
+          properties:
+            electrode_shape: { type: string, enum: [ellipse, rect] }
+            electrode_dimensions:
+              type: array
+              items: { type: number }
+              minItems: 2
+              maxItems: 2
+              description: "[width, height] in mm"
+            gel_thickness: { type: number, description: mm }
+            rubber_thickness: { type: number, description: mm }
     FlexRun:
       type: object
       required: [name, path, goal, roi, created, manifest, artifacts]

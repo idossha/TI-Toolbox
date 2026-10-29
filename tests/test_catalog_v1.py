@@ -21,6 +21,7 @@ pytest.importorskip("httpx")
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from tit.opt.leadfield import write_leadfield_sidecar  # noqa: E402
 from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
@@ -387,6 +388,29 @@ def test_leadfields(client: TestClient) -> None:
     assert body[0]["net"] == "GSN-HydroCel-185"
     assert body[0]["exists"] is True
     assert body[0]["size_bytes"] == 1024
+    # No sidecar: the electrode it was computed with is not known, and the catalog says so.
+    assert body[0]["electrode"] is None
+
+
+def test_leadfields_report_the_electrode_their_sidecar_records(
+    client: TestClient, project: Path
+) -> None:
+    pm = get_path_manager(str(project))
+    recorded = {
+        "electrode_shape": "rect",
+        "electrode_dimensions": [12.0, 6.0],
+        "gel_thickness": 2.5,
+        "rubber_thickness": 2.0,
+    }
+    write_leadfield_sidecar(
+        Path(pm.leadfields("ernie"), "ernie_leadfield_GSN-HydroCel-185.hdf5"), recorded
+    )
+    body = client.get(
+        "/api/catalog/leadfields", params={"subject": "ernie"}, headers=BEARER
+    ).json()
+    # The sidecar is the leadfield's metadata, not a second leadfield.
+    assert [lf["net"] for lf in body] == ["GSN-HydroCel-185"]
+    assert body[0]["electrode"] == recorded
 
 
 def test_flex_runs_ignores_incomplete(client: TestClient) -> None:

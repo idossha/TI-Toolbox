@@ -232,12 +232,12 @@ export function rowProblem(row: SelectedRow): string | null {
   const n = sentPairCount(row);
   if (n === 0) return null;
   if (!isValidPairCount(n)) {
-    return `${plural(n, "electrode pair")}: a montage needs 2 pairs (TI) or an even number from 4 (mTI).`;
+    return `${plural(n, "channel")}: a montage needs 2 channels (TI) or an even number from 4 (mTI).`;
   }
   const shown = rowCurrentsCount(row);
   const required = requiredCurrents(n);
   if (shown !== required) {
-    return `Saved as ${polarityLabel(row.kind ?? inferMontageKind(n))} with ${n} pairs, which run with ${required} currents, not ${shown}: open it in the montage editor and save it again.`;
+    return `Saved as ${polarityLabel(row.kind ?? inferMontageKind(n))} with ${n} channels, which run with ${required} currents, not ${shown}: open it in the montage editor and save it again.`;
   }
   if (xyz) {
     const points = (row.xyzPairs ?? []).flat();
@@ -309,10 +309,10 @@ export const CARRIER_FIELDS = ["hf_peak", "hf_sar", "hf_power_density"];
 export const DEFAULT_CARRIER_FIELDS = ["hf_peak", "hf_sar"];
 
 export const CARRIER_ONLY_HELP =
-  "A control with no temporal interference: both pairs run at the same carrier frequency (ΔF = 0) and in phase, " +
+  "A control with no temporal interference: both channels run at the same carrier frequency (ΔF = 0) and in phase, " +
   "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2|, hf_sar = |E1+E2|² and hf_power_density = ½(E1+E2)·σ·(E1+E2) " +
   "(coherent superposition, Cassarà et al. 2025) instead of the TI worst case max(|E1+E2|, |E1−E2|). " +
-  "Only hf_peak, hf_sar and hf_power_density are computed; TI_max, TI_avg and TI_normal are undefined. 2-pair TI montages only.";
+  "Only hf_peak, hf_sar and hf_power_density are computed; TI_max, TI_avg and TI_normal are undefined. 2-channel TI montages only.";
 
 /** Which montage bucket a montage lives in: `uni_polar_montages` / `multi_polar_montages`. */
 export type MontageKind = "uni_polar" | "multi_polar";
@@ -373,22 +373,3 @@ export const CONDUCTIVITY_OPTIONS = [
   { value: "mc", label: "Anisotropic (mean conductivity)" },
 ];
 
-
-/**
- * What the 3-D pane is showing for the job row the user clicked.
- *
- * Two shapes in one type because the pane takes both: a *named montage* is `net` + `pairs`
- * (electrode names on that net), a *free-hand set* is `positions` (millimetres in `subject`'s own
- * head mesh). `subject` is on both, because since 2026-09-06 the pane draws the row's own subject
- * rather than the packaged guide, and a coordinate is only meaningful against the head it came
- * from.
- */
-export interface MontagePreview {
-  /** Optimized origins, in the same pair order as the snapped cap names. */
-  originalPositions?: { x: number; y: number; z: number }[];
-  name: string;
-  subject?: string;
-  net?: string;
-  pairs?: [string, string][];
-  positions?: { label?: string; x: number; y: number; z: number }[];
-}

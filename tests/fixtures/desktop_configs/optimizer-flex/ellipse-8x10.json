@@ -18,7 +18,7 @@
             8,
             10
           ],
-          "gel_thickness": 4,
+          "gel_thickness": 1,
           "shape": "ellipse"
         },
         "enable_mapping": false,

@@ -58,7 +58,7 @@ layout: home
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: job rows beside a scene pane that draws the montage on the subject's head">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-run-page.png" alt="The Simulator page: a job row beside a scene pane that draws the montage on the subject's head">
         <p>Simulator: configure simulations and preview your electrode montage</p>
       </div>
       <div class="carousel-slide">
