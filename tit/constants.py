@@ -241,7 +241,7 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "Depth of the low-frequency envelope modulation (peak-to-trough), "
         "maximised over direction.",
         "Two channels: 2*min(|E1.n|, |E2.n|) at the optimal n, evaluated via a "
-        "closed form. K carriers (2K channels): | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
+        "closed form. K beating pairs (2K channels): | |S n| - |D n| | = 4|sum_k a_k*b_k| / "
         "(|S n| + |D n|), where a_k = E_ka.n, b_k = E_kb.n and S, D have rows "
         "E_ka + E_kb, E_ka - E_kb; maximised over n by an eigen-branch "
         "root-find.",
@@ -255,7 +255,7 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "maximised, i.e. what an arbitrarily oriented element sees on average.",
         "Mean over all directions of the expression above: exact closed form "
         "|E1| + |E2| - (|E1+E2| + |E1-E2|)/2 for two channels, a 4096-direction "
-        "sphere quadrature for K >= 2 carriers.",
+        "sphere quadrature for K >= 2 beating pairs.",
         "Direction-averaged form of Grossman et al. 2017.",
     ),
     (

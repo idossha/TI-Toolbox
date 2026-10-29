@@ -287,11 +287,11 @@ def _validate_geometry(record: dict) -> None:
 
     channels = record.get("electrodes")
     if not isinstance(channels, list) or len(channels) != 2:
-        raise ValueError("Candidate geometry requires exactly two carriers.")
+        raise ValueError("Candidate geometry requires exactly two channels.")
     poses = []
     for channel in channels:
         if not isinstance(channel, list) or len(channel) != 2:
-            raise ValueError("Candidate geometry requires two electrodes per carrier.")
+            raise ValueError("Candidate geometry requires two electrodes per channel.")
         for cell in channel:
             if not isinstance(cell, dict) or _number(cell.get("current_A")) is None:
                 raise ValueError("Candidate geometry has an invalid electrode current.")
@@ -446,7 +446,7 @@ def candidate_detail(pm, subject: str, kind: str, run: str, candidate_id: str) -
         for channel in geometry["electrodes"]:
             if len(channel) != 2:
                 raise ValueError(
-                    "Simulation replay currently requires two electrodes per carrier."
+                    "Simulation replay currently requires two electrodes per channel."
                 )
             ordered = sorted(channel, key=lambda e: -e["current_A"])
             positive, negative = (float(e["current_A"]) for e in ordered)
@@ -462,7 +462,7 @@ def candidate_detail(pm, subject: str, kind: str, run: str, candidate_id: str) -
             currents.append(positive * 1000)
             electrodes.extend(ordered)
         if len(currents) != 2:
-            raise ValueError("Flex replay requires exactly two carriers.")
+            raise ValueError("Flex replay requires exactly two channels.")
         spec = electrodes[0]
         if any(
             any(cell[key] != spec[key] for key in ("shape", "dimensions", "thickness"))

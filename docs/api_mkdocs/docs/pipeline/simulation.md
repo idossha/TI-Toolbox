@@ -54,8 +54,8 @@ The simulation mode is auto-detected from the montage configuration:
 
 | Mode | Channels | Description |
 |------|----------|-------------|
-| **TI** | 2 | Standard temporal interference — two channels at slightly different frequencies share one carrier |
-| **mTI** | 4 or more (even) | Multi-channel TI — each two consecutive channels share a carrier; `mTI_max` is the joint envelope of all channels (`tit.calc.envelope_max`), not a recursive TI of TIs |
+| **TI** | 2 | Standard temporal interference — two channels at slightly different carrier frequencies that beat at Δf |
+| **mTI** | 4 or more (even) | Multi-channel TI — 4 or more channels, beating in pairs at a common Δf; `mTI_max` is the joint envelope of all channels (`tit.calc.envelope_max`), not a recursive TI of TIs |
 
 !!! info "Auto-Detection"
     You do not need to specify the mode manually. TI-Toolbox inspects the montage: 2 channels triggers TI mode, 4 or more (even) triggers mTI mode.
@@ -122,7 +122,7 @@ After simulation, TI-Toolbox produces several derived field types:
 | **TI_normal** | TI envelope along the cortical surface normal — node field on surface overlay |
 | **mTI_max** | Maximum joint envelope of all channels — scalar field on volume elements (mTI mode) |
 | **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density** | Optional volume fields (`output_fields`): direction-averaged envelope, peak carrier field (V/m), `hf_sar` = Σ|E_c|² = 2 × `tit.calc.hf_power` ((V/m)²), absorbed carrier power with the run's conductivity (W/m³) |
-| **TI_vectors** | Intermediate TI vector field of each carrier's two channels, for inspection only (mTI mode, `TI_AB`, `TI_CD`, …) |
+| **TI_vectors** | Intermediate TI vector field of each beating pair's two channels, for inspection only (mTI mode, `TI_AB`, `TI_CD`, …) |
 
 Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).
 

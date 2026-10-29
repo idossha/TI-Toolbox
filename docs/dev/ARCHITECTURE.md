@@ -170,7 +170,7 @@ A montage's electrodes have one name wherever a user reads them — the app, the
 image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "Channel k" names the
 pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
 `channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
-read as two channels of one carrier. The rule is display text only — `electrode_pairs`, API fields
+read as the two channels of one beating pair. The rule is display text only — `electrode_pairs`, API fields
 and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
 `desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
 `tests/test_overlay_colour_legend.py`.

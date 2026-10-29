@@ -3,10 +3,11 @@
 Fields are zero-to-peak amplitudes, ``(N, 3)`` arrays in V/m for zero-to-peak
 channel currents, one array per channel (electrodes Ek+ and Ek-).  The
 envelope functions take ``fields = [E1, E2, ..., E2K]`` in channel order, paired
-positionally: channels ``2k-1`` and ``2k`` share carrier ``k`` and beat at the
-common difference frequency, all K beats phase-aligned (K = 1 is TI, K >= 2 is
-mTI).  In the formulas ``E_ka`` and ``E_kb`` are carrier ``k``'s two channel
-fields.  The carrier metrics take the fields of any number >= 1 of channels.
+positionally: channels ``2k-1`` and ``2k`` form beating pair ``k`` (carriers
+``f_k`` and ``f_k + df``, beating at the common difference frequency ``df``), all
+K beats phase-aligned (K = 1 is TI, K >= 2 is mTI).  In the formulas ``E_ka`` and
+``E_kb`` are pair ``k``'s two channel fields.  The carrier metrics take the
+fields of any number >= 1 of channels, one carrier each.
 
 A channel with no beating partner enters the envelope functions with a zero
 field as its partner, ``[E1, E2, Eu, np.zeros_like(Eu)]``: it adds to the
@@ -60,7 +61,7 @@ _SQRT2 = np.sqrt(2.0)
 
 # --- K>=2 sphere maximum (tit._calc_kernel) ---------------------------------
 # theta grid: 16 uniform intervals on (0, pi/2) plus 16 log-spaced in tan(theta)
-# (tan theta = sqrt(u/v) spans many decades when one carrier is weak).
+# (tan theta = sqrt(u/v) spans many decades when one beating pair is weak).
 _THETA_GRID = np.unique(
     np.concatenate(
         [
@@ -102,7 +103,7 @@ def _stack(fields: Sequence[ArrayLike], *, paired: bool) -> np.ndarray:
     if paired and not is_valid_pair_count(n):
         raise ValueError(
             f"fields must be an even number (>= 2) of arrays, one per channel "
-            f"and two channels per carrier: [E1, E2, E3, E4, ...]; got {n}"
+            f"and two channels per beating pair: [E1, E2, E3, E4, ...]; got {n}"
         )
     if not paired and n < 1:
         raise ValueError("fields must contain at least one channel field")
@@ -182,7 +183,7 @@ def envelope(fields: Sequence[ArrayLike], direction: ArrayLike) -> NDArray[np.fl
     p = np.einsum("fnx,nx->fn", E, n)
     a, b = p[0::2], p[1::2]
     # w = u - v = 2 sum a b straight from the projections: _uvw's (s + d)(s - d) would lose
-    # the weaker field of a carrier to cancellation when the other dominates.
+    # the weaker field of a pair to cancellation when the other dominates.
     u = 0.5 * np.sum((a + b) ** 2, axis=0)
     v = 0.5 * np.sum((a - b) ** 2, axis=0)
     return _env_uvw(u, v, 2.0 * np.sum(a * b, axis=0))
@@ -352,9 +353,9 @@ def _uvw(S, D, dirs):
 
 
 def _pair_optima(E):
-    """``(n, K, 3)``: each carrier's own K=1 optimum, a kernel safeguard candidate.
+    """``(n, K, 3)``: each beating pair's own K=1 optimum, a kernel safeguard candidate.
 
-    Exact when the other carriers vanish, where the root-find may have no sign change to bracket.
+    Exact when the other pairs vanish, where the root-find may have no sign change to bracket.
     """
     return np.stack([_max_k1(E[k], E[k + 1])[1] for k in range(0, len(E), 2)], axis=1)
 

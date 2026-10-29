@@ -65,7 +65,8 @@ from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 
 `tit.calc` has **five** public functions. The three envelope functions take a
 **list** of `2K` arrays of shape `(N, 3)`, **paired positionally**: each two
-consecutive fields are the two channels sharing one carrier. The two carrier
+consecutive fields are the two channels of one beating pair (carriers `f_k` and
+`f_k + Δf`, beating at the common Δf). The two carrier
 functions take any number (>= 1) of fields, one per channel.
 
 ```python
@@ -78,7 +79,7 @@ hf_peak(fields)                                # (N,) peak carrier field max_s |
 hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = E_rms^2, (V/m)^2
 
 envelope_max([E1, E2])                         # K = 1: exact closed form
-envelope_max([E1, E2, E3, E4])                 # K = 2 carriers, 4 channels (mTI)
+envelope_max([E1, E2, E3, E4])                 # K = 2 beating pairs, 4 channels (mTI)
 ```
 `coherent=True` on `hf_peak`/`hf_power` is the carrier-only (ΔF = 0) control. A channel with no
 beating partner gets a zero field as its partner in the envelope functions,
@@ -92,7 +93,7 @@ on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
 (the older vector/average/direction functions, their `psi` argument, and the
 separate carrier-fields module with its `hf_sar` *function*), `get_nTI_vectors`, `get_mTI_vectors`, `get_mTI_dir`,
 `get_magnitude_am`, and the `channels=` carrier-regrouping parameter. There is no
-`montage.channels`: **wiring is positional — one field per channel, two channels per carrier**.
+`montage.channels`: **wiring is positional — one field per channel, two channels per beating pair**.
 
 **Channel count**: an even number of channels (electrode pairs), at least two —
 2 = TI, 4 or more (even) = mTI (`tit.constants.is_valid_pair_count`).

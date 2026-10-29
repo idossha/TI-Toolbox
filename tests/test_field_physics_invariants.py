@@ -15,8 +15,8 @@ with N = 2, 4, 6 and 8 channels (one channel = one carrier; ``hf_peak`` is exact
   are homogeneous; the maximiser does not move).
 * **sign symmetry**: flipping one channel leaves TI_max (N = 2: the closed form depends on |E1.E2|),
   hf_power (a sum of squares) and hf_peak (a maximum over all sign patterns) unchanged; for mTI,
-  flipping both channels of one carrier leaves every product ``x_ka x_kb`` and so TI_max unchanged.
-* **a silent carrier**: with one mTI pair at zero, P and Q are those of the remaining pair, so the
+  flipping both channels of one beating pair leaves every product ``x_ka x_kb`` and so TI_max unchanged.
+* **a silent beating pair**: with one mTI pair at zero, P and Q are those of the remaining pair, so the
   envelope along any direction is the TI envelope of that pair (``envelope`` evaluates both
   exactly), and the mTI maximum is the TI maximum (Grossman closed form) to round-off.
 

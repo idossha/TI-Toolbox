@@ -86,7 +86,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 
 ### Multipolar Mode (mTI)
 
-Multipolar temporal interference (mTI) uses 8 or more electrodes: each two channels (electrode pairs) share a carrier, and the carriers' phase-aligned beats combine into one modulation envelope (Botzanowski et al. 2025). Channels and carriers are explained under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
+Multipolar temporal interference (mTI) uses 8 or more electrodes: 4 or more channels (electrode pairs), beating in pairs at a common difference frequency, and the pairs' phase-aligned beats combine into one modulation envelope (Botzanowski et al. 2025). Channels and beating pairs are explained under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI: montage, peak HF field, and AM field" style="width: 100%; max-width: 750px;">
@@ -106,18 +106,18 @@ TI vs. mTI is not a setting: it is read off how many channels (electrode pairs) 
 
 - **2 channels**: standard TI
 - **4, 6, 8 … channels**: mTI, up to 26 channels
-- **A single channel or an odd number of channels** is rejected: every carrier needs two channels. The error reads "Expected an even number of electrode pairs, at least 2 (2 = TI, 4 or more = mTI)".
+- **A single channel or an odd number of channels** is rejected: every channel needs a beating partner. The error reads "Expected an even number of electrode pairs, at least 2 (2 = TI, 4 or more = mTI)".
 
 Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/simulator/multipolar.png" alt="Multipolar Montage Example">
-  <em>A multipolar montage: 8 electrodes forming 4 channels on 2 carriers.</em>
+  <em>A multipolar montage: 8 electrodes forming 4 channels in 2 beating pairs.</em>
 </div>
 
-#### Channels and Carriers
+#### Channels and beating pairs
 
-The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels compose a carrier. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) share the first carrier and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …) and the first carrier's field is `TI_AB`.
+The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels form a beating pair. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) are the first beating pair and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …) and the first pair's field is `TI_AB`.
 
 The kHz-exposure safety metrics `hf_peak`/`hf_sar`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 

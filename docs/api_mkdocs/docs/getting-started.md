@@ -56,7 +56,7 @@ results = run_simulation(config)
 ### Simulation Types
 
 - **TI (2 channels)**: Standard temporal interference; a channel is one electrode pair (Ek+, Ek-)
-- **mTI (4 or more channels, even)**: Multi-channel TI; each two consecutive channels share a carrier, and `mTI_max` is the joint envelope of all of them
+- **mTI (4 or more channels, even)**: Multi-channel TI: 4 or more channels, beating in pairs at a common Δf, and `mTI_max` is the joint envelope of all of them
 
 Mode is auto-detected from the montage: 2 channels -> TI, 4 or more (even) -> mTI.
 

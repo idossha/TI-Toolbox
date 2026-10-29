@@ -32,7 +32,7 @@ def run_m_ex_search(config: MExConfig) -> MExResult:
 
     Enumerates every four-channel combination allowed by
     ``config.electrodes`` at one fixed ``current_mA`` per channel, scores each
-    candidate with the joint K-carrier envelope maximum
+    candidate with the joint K-pair envelope maximum
     (:func:`tit.calc.envelope_max`), and writes a ranked CSV plus a
     config JSON under the subject's ``m-ex-search/`` folder.
 

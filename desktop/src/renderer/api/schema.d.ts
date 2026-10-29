@@ -7851,7 +7851,7 @@ export interface components {
          *
          *     Evaluates every valid combination of four channels (eight electrodes)
          *     from a user-defined pool or bucket set, at one fixed current per channel,
-         *     and scores each candidate with the joint K-carrier envelope maximum
+         *     and scores each candidate with the joint K-pair envelope maximum
          *     (:func:`tit.calc.envelope_max`).
          *
          *     Attributes

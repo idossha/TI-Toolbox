@@ -286,7 +286,7 @@ simulation name shared by every subject, and `analysis_type` is `"spherical"`, `
 
 The simulator's field outputs come from five functions in `tit.calc`, which you can call on
 any channel fields. The envelope functions take a list of `(N, 3)` arrays in V/m, one per channel
-in montage order, two channels per carrier (`[E1, E2]` for TI, `[E1, E2, E3, E4, ...]` for mTI);
+in montage order, two channels per beating pair (`[E1, E2]` for TI, `[E1, E2, E3, E4, ...]` for mTI);
 the carrier functions take the fields of any number of channels. The definitions, and how exact each one is, are
 under [Field quantities on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#method-and-accuracy).
 

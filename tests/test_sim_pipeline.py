@@ -468,7 +468,7 @@ class TestMTISimulation:
             sim = _mti_mod.mTISimulation(config, montage, MagicMock())
             sim.run("/fake/simulation_dir")
 
-            # Once per carrier for the intermediate TI_AB/TI_CD meshes (two
+            # Once per beating pair for the intermediate TI_AB/TI_CD meshes (two
             # channel fields each) plus once for the final joint envelope.
             assert [len(c.args[0]) for c in mock_pair_ti.call_args_list] == [2, 2]
             assert [len(c.args[0]) for c in mock_get_ti.call_args_list] == [4]

@@ -1124,13 +1124,13 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "tangential maximum within the plane perpendicular_to the normals; "
             "envelope_mean(fields) -> TI_avg; hf_peak(fields, *, coherent=False); "
             "hf_power(fields, *, coherent=False) = (1/2) sum |E_c|^2. Envelope `fields` is "
-            "a LIST of 2K arrays, one per channel, paired positionally (channels 2k-1 and 2k "
-            "share carrier k). get_nTI_vectors, "
-            "get_mTI_vectors/get_mTI_dir, get_magnitude_am and the channels= parameter "
-            "do not exist.",
-            "carrier_model": "Positional wiring: one field per channel, each two "
-            "consecutive channels share a carrier; hf_peak(fields) / hf_power(fields) take "
-            "every channel field on its own. There is no montage.channels.",
+            "a LIST of 2K arrays, one per channel, paired positionally: channels 2k-1 and "
+            "2k form beating pair k (carriers f_k and f_k + df, beating at the common df). "
+            "No other tit.calc function or parameter exists.",
+            "carrier_model": "Positional wiring: one field per channel (each channel its "
+            "own carrier), two channels per beating pair; hf_peak(fields) / "
+            "hf_power(fields) take every channel field on its own. There is no "
+            "montage.channels.",
             "exposure_metrics": "Quasi-static: E is a phasor AMPLITUDE (V/m, peak, not RMS), "
             "no time axis; every exposure quantity is a worst case over unknown relative "
             "phases. Per Cassara et al. 2025 Part II p.8, fields at identical frequencies "

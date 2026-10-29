@@ -357,7 +357,7 @@ class BaseSimulation(ABC):
         """Write the selected volume fields of the channels' ``E`` to *path*.
 
         Every field runs over all channel fields jointly, paired positionally
-        (each two consecutive channels share one carrier and beat).  The
+        (channels 2k-1 and 2k form beating pair k).  The
         envelope maximum is written as *max_name* (``TI_max``; ``mTI_max``
         for mTI); carrier-only runs add the channel fields coherently.
         """

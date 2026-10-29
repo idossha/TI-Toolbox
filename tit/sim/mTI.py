@@ -6,16 +6,16 @@ for multi-channel TI stimulation with an arbitrary even number of channels
 (4, 6, 8, ...):
 
 * Each channel produces one HF E-field via SimNIBS TDCS.
-* Each carrier's two channels are combined into an intermediate TI vector
-  field, saved for inspection only.
-* The final mTI envelope is the multi-carrier envelope maximum
+* Each beating pair's two channels are combined into an intermediate TI
+  vector field, saved for inspection only.
+* The final mTI envelope is the joint envelope maximum
   (:func:`tit.calc.envelope_max`) over all N channel fields
   jointly -- *not* a recursive TI-of-TI combination of the intermediate
   fields above (that approximation is physically invalid).
-* Channels are paired positionally: each two consecutive channels share
-  a carrier and beat against each other (channels 1 and 2 on the first
-  carrier, 3 and 4 on the second, and so on; on disk the channels are
-  lettered ``A``, ``B``, ``C``, ``D`` ...).
+* Channels are paired positionally: each two consecutive channels form a
+  beating pair at a common difference frequency (channels 1 and 2 the first
+  pair, 3 and 4 the second, and so on; on disk the channels are lettered
+  ``A``, ``B``, ``C``, ``D`` ...).
 
 Example with 4 channels (on disk A/B/C/D)::
 
@@ -65,9 +65,9 @@ class mTISimulation(BaseSimulation):
     1. Set up BIDS output directory structure.
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION (N TDCS lists), run FEM.
-    4. Compute each carrier's intermediate TI vector field (adjacent
+    4. Compute each beating pair's intermediate TI vector field (adjacent
        channels, saved for inspection only).
-    5. Compute final ``mTI_max`` from the verified multi-carrier
+    5. Compute final ``mTI_max`` from the verified
        modulation-depth envelope over all N channel fields jointly, plus
        its orientation-averaged companion ``TI_avg`` and the ``hf_peak``/
        ``hf_sar``/``hf_power_density`` kHz-exposure safety maps (always over

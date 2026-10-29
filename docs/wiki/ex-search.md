@@ -191,7 +191,7 @@ _(example output from v2.4.0)_ `within_pairs`, 7 bilateral candidates per channe
 
 ## Multipolar (mTI) Mode
 
-Set **Electrodes ▸ Count ▸ 4 channels (mTI)** to run a multipolar exhaustive search (mEx) instead of the standard two-channel one: four channels (eight electrodes), scored with the same verified multi-carrier envelope the simulator uses — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-carrier modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are simulated). From Python it is `run_m_ex_search(MExConfig)`; see [Scripting]({{ site.baseurl }}/wiki/scripting/).
+Set **Electrodes ▸ Count ▸ 4 channels (mTI)** to run a multipolar exhaustive search (mEx) instead of the standard two-channel one: four channels (eight electrodes), scored with the same verified joint mTI envelope the simulator uses — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-pair modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are simulated). From Python it is `run_m_ex_search(MExConfig)`; see [Scripting]({{ site.baseurl }}/wiki/scripting/).
 
 ### mTI in the Optimizer
 
@@ -206,7 +206,7 @@ under **Electrodes ▸ Count**. The default **2 channels (TI)** uses four electr
 ### Candidate enumeration
 
 - **Bucket mode** (the app's mode): the Cartesian product of the eight buckets, keeping only montages whose eight electrodes are distinct.
-- **Pool mode** (Python or JSON only, `PoolElectrodes`): every 8-electrode subset, with one representative per group of montages the envelope scores identically (channels swapped within a carrier, carriers swapped, and polarity flips that leave the envelope unchanged). A pool of exactly 8 electrodes yields 630 candidates, not $$8! = 40{,}320$$.
+- **Pool mode** (Python or JSON only, `PoolElectrodes`): every 8-electrode subset, with one representative per group of montages the envelope scores identically (channels swapped within a beating pair, the two pairs swapped, and polarity flips that leave the envelope unchanged). A pool of exactly 8 electrodes yields 630 candidates, not $$8! = 40{,}320$$.
 - **Symmetric bucket search** (**Force left/right symmetry**, `symmetric_bucket=True`, bucket mode only): only montages whose channels mirror left/right, using a mirror map built from the net's EEG-position CSV (reflecting the x-coordinate across the midline). Two pairing schemes:
   - **Within each channel** (`within_pairs`, default): each channel's Ek- electrode must mirror its Ek+ electrode.
   - **Across channels** (`cross_pairs`): channel 3 must mirror channel 1 and channel 4 must mirror channel 2 (E3+ mirrors E1+, E3- mirrors E1-, and so on). This replaces the within-channel rule; it does not add to it.
@@ -215,7 +215,7 @@ under **Electrodes ▸ Count**. The default **2 channels (TI)** uses four electr
 
 ### Scoring
 
-Each candidate's four channel fields come from the leadfield at the channel current, and the score is their joint multi-carrier modulation depth. The metrics are those of two-channel ex-search ([Metrics](#metrics) above), with all four channels at the same current. Targets are resolved as in two-channel ex-search.
+Each candidate's four channel fields come from the leadfield at the channel current, and the score is their joint modulation depth (both beating pairs at once). The metrics are those of two-channel ex-search ([Metrics](#metrics) above), with all four channels at the same current. Targets are resolved as in two-channel ex-search.
 
 ### Outputs
 
@@ -265,7 +265,7 @@ _`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–f
 
 _Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors channel 1 onto channel 3 and channel 2 onto channel 4._
 
-**Cost.** Scoring one four-channel candidate with the multi-carrier envelope maximum is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every channel carries the same **Channel current**.
+**Cost.** Scoring one four-channel candidate with the joint envelope maximum of two beating pairs is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every channel carries the same **Channel current**.
 
 ### Running it
 

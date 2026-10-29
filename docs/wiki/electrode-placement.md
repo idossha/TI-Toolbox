@@ -54,7 +54,7 @@ position you already know — from a paper, from a previous study, or from a neu
 | 8, 12, 16 … (4, 6, 8 … channels) | [Multipolar TI (mTI)]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) |
 
 Any other count (6 or 10 positions, for example) cannot be saved: mTI needs an even number of
-channels, because each carrier takes two. Rows form channels in their saved order, whatever their
+channels, because channels beat in pairs. Rows form channels in their saved order, whatever their
 labels — rows 1 and 2 are channel 1 (`E1+` and `E1-` by default), rows 3 and 4 channel 2, … — and
 the mode is **derived from the number of channels**: there is no separate switch to forget.
 

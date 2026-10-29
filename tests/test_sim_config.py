@@ -8,7 +8,7 @@ Tests configuration dataclasses for TI simulations including:
 - Montage dataclass (is_xyz, simulation_mode, num_pairs)
 - SimulationConfig dataclass (flat fields, conductivity validation)
 - parse_intensities helper function
-- envelope_max for multi-carrier TI computation
+- envelope_max for multi-channel (mTI) computation
 """
 
 import sys

@@ -16,7 +16,7 @@ from .logic import count_multipolar_combinations, generate_multipolar_combinatio
 class MExSearchEngine(ExSearchEngine):
     """Exhaustive search engine for four-channel (eight-electrode) mTI montages.
 
-    Scores each candidate with the joint K-carrier envelope maximum
+    Scores each candidate with the joint K-pair envelope maximum
     (:func:`tit.calc.envelope_max`), not a recursive envelope-of-envelopes
     dispatch -- that is not the TI envelope for more than two fields.
     """
