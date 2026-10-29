@@ -30,8 +30,8 @@
  * Carrier metrics. An analysis of a modulation field also reports the stimulation (carrier)
  * intensity's focality over the same elements: `hf_focality` (hf_peak), `rms_focality` (E_rms),
  * `ti_selectivity` = `roi_focality / hf_focality` and the `hf_focality_*_area` hot spot. When the
- * simulation did not write `hf_peak`/`hf_sar` those rows are absent and `carrier_note` (shown with
- * the extras) says why.
+ * simulation did not write `hf_peak`/`hf_sar` those rows are absent and `carrier_note` says why and
+ * what to tick; the pane shows it as one muted line (`carrierNote`).
  */
 import { fieldSpecForName } from "../../analyzer/fields";
 import { formatCount, formatMetric, type KeyNumber } from "./metrics";
@@ -56,6 +56,8 @@ export interface AnalysisView {
   extras: SummaryRow[];
   /** "mesh" | "voxel" | undefined — decides the focality unit. */
   space?: string;
+  /** Why carrier metrics are missing (`carrier_note`), shown as one muted line; absent when none are. */
+  carrierNote?: string;
 }
 
 /** `Metric,Value` rows → a lookup. A table with other columns yields an empty map. */
@@ -145,6 +147,7 @@ const NAMED = new Set([
   "hf_focality_75_area",
   "hf_focality_90_area",
   "hf_focality_95_area",
+  "carrier_note",
 ]);
 
 function keep(metrics: (KeyNumber | undefined)[]): KeyNumber[] {
@@ -265,5 +268,6 @@ export function analysisView(
     });
   }
 
-  return { header, groups, extras, space };
+  const carrierNote = map.get("carrier_note")?.trim() || undefined;
+  return { header, groups, extras, space, carrierNote };
 }

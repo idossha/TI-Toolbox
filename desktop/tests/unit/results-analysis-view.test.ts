@@ -228,11 +228,21 @@ describe("analysisView (carrier metrics)", () => {
     expect(view.extras).toEqual([]);
   });
 
-  it("has no carrier groups for an analysis without carrier rows, and shows the note why", () => {
+  it("has no carrier note when every carrier metric is there", () => {
+    expect(view.carrierNote).toBeUndefined();
+  });
+
+  it("has no carrier groups for an analysis without carrier rows, and carries the note as its own line", () => {
     expect(analysisView(MESH).groups.map((g) => g.title)).not.toContain("Stimulation (carrier) focality");
-    const note = "hf_peak is not on the central surface (the simulation did not write it)";
-    const view = analysisView({ columns: ["Metric", "Value"], rows: [["space", "mesh"], ["carrier_note", note]] });
-    expect(view.extras).toEqual([{ label: "carrier note", value: note }]);
+    expect(analysisView(MESH).carrierNote).toBeUndefined();
+    // The analyzer's wording for a simulation that wrote neither carrier field.
+    const note =
+      "this simulation did not write hf_peak or hf_sar: tick hf_peak (for hf_focality, ti_selectivity and the carrier hot spot) " +
+      "and hf_sar (for the rms_* statistics) among its Output fields and re-run it.";
+    const noted = analysisView({ columns: ["Metric", "Value"], rows: [["space", "mesh"], ["roi_mean", "0.5"], ["carrier_note", note]] });
+    expect(noted.carrierNote).toBe(note);
+    expect(noted.extras).toEqual([]); // shown once, as the muted line, not again as an extra
+    expect(noted.groups.map((g) => g.title)).not.toContain("Stimulation (carrier) focality");
   });
 });
 
