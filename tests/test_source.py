@@ -527,7 +527,7 @@ class TestPrepareForwardWorker:
         monkeypatch.setattr(
             fwd,
             "_build_montage_info",
-            lambda *a: (_MagicMock(ch_names=["Cz"]), object()),
+            lambda *a, **k: (_MagicMock(ch_names=["Cz"]), object()),
         )
         monkeypatch.setattr(fwd, "_compute_leadfield", lambda *a: m2m / "lf.hdf5")
         monkeypatch.setattr(fwd, "_leadfield_channel_order", lambda p: ["Cz"])
@@ -600,7 +600,7 @@ class TestLeadfieldChannelOrder:
         monkeypatch.setattr(
             fwd,
             "_build_montage_info",
-            lambda electrodes, fids: (
+            lambda electrodes, fids, **k: (
                 seen.append(list(electrodes)) or (_MagicMock(ch_names=["x"]), object())
             ),
         )
@@ -656,6 +656,83 @@ class TestLeadfieldChannelOrder:
         monkeypatch.setattr(sys.modules["h5py"], "File", h5file)
 
         assert fwd._leadfield_channel_order(tmp_path / "lf.hdf5") == ["Cz", "Fp1"]
+
+
+class TestRecordingGeometry:
+    """A recording's fiducials or an explicit head->MRI trans set the head frame.
+
+    mne is mocked on the host, so these pin which geometry reaches
+    ``coregister_fiducials`` (or bypasses it), not the transform's numbers.
+    """
+
+    _ELECTRODES = {"Cz": [0.0, 0.0, 0.1]}
+    _FIDUCIALS = {"LPA": [-0.07, 0, 0], "Nz": [0, 0.09, 0], "RPA": [0.07, 0, 0]}
+
+    def _coreg(self, monkeypatch):
+        from tit.source import forward as fwd
+
+        coreg = _MagicMock(return_value={"from": 4, "to": 5})
+        monkeypatch.setattr(fwd.mne.coreg, "coregister_fiducials", coreg)
+        return fwd, coreg
+
+    def test_default_coregisters_the_nets_own_fiducials(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+
+        _, trans = fwd._build_montage_info(self._ELECTRODES, self._FIDUCIALS)
+
+        coreg.assert_called_once()
+        assert coreg.call_args.args[0] is fwd.mne.create_info.return_value
+        assert trans is coreg.return_value
+
+    def test_recording_info_is_coregistered(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+        recording = object()
+
+        fwd._build_montage_info(self._ELECTRODES, self._FIDUCIALS, info=recording)
+
+        assert coreg.call_args.args[0] is recording
+
+    def test_explicit_trans_is_used_as_is(self, monkeypatch):
+        fwd, coreg = self._coreg(monkeypatch)
+        given = {"from": 4, "to": 5}
+
+        _, trans = fwd._build_montage_info(
+            self._ELECTRODES, self._FIDUCIALS, info=object(), trans=given
+        )
+
+        coreg.assert_not_called()
+        assert trans is given
+
+    def test_trans_in_the_wrong_frames_raises(self, monkeypatch):
+        fwd, _ = self._coreg(monkeypatch)
+
+        with pytest.raises(ValueError, match="head"):
+            fwd._build_montage_info(
+                self._ELECTRODES, self._FIDUCIALS, trans={"from": 5, "to": 4}
+            )
+
+    def test_prepare_forward_threads_them_and_skips_the_cache(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, seen = TestLeadfieldChannelOrder()._stub(
+            monkeypatch, tmp_project, ["Cz"], ["Cz"]
+        )
+        monkeypatch.setattr(fwd, "_forward_outputs_valid", lambda *a: True)
+        recording, given = object(), {"from": 4, "to": 5}
+        built = []
+        monkeypatch.setattr(
+            fwd,
+            "_build_montage_info",
+            lambda e, f, **k: built.append(k) or (_MagicMock(ch_names=["x"]), given),
+        )
+
+        fwd.prepare_forward(
+            "001", ForwardConfig(eeg_net="net"), info=recording, trans=given
+        )
+
+        assert built == [{"info": recording, "trans": given}]
 
 
 class TestForwardDependencyPreflight:

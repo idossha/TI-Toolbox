@@ -95,6 +95,9 @@ def _read_simnibs_montage(
 def _build_montage_info(
     electrodes: dict[str, np.ndarray],
     fiducials: dict[str, np.ndarray],
+    *,
+    info: mne.Info | None = None,
+    trans: mne.transforms.Transform | None = None,
 ) -> tuple[mne.Info, mne.transforms.Transform]:
     """Build an MNE ``Info`` + head<->MRI ``trans`` from net positions.
 
@@ -102,7 +105,9 @@ def _build_montage_info(
     define the MNE *head* frame directly from the same fiducials.  The resulting
     head<->MRI transform is therefore (near-)identity: the forward is built with
     electrodes at their true subject-space locations, with no dependency on an
-    actual EEG recording.
+    actual EEG recording.  Supplying ``info`` instead coregisters from the
+    recording's digitized fiducials, preserving its head frame.  An explicit
+    head->MRI ``trans`` takes precedence and is never re-estimated.
     """
     # An Info whose montage carries the net's own fiducials, used only to derive
     # the head frame that coregister_fiducials aligns to the MRI fiducials.
@@ -121,7 +126,12 @@ def _build_montage_info(
         {"ident": 2, "kind": 1, "r": fiducials["Nz"], "coord_frame": 5},
         {"ident": 3, "kind": 1, "r": fiducials["RPA"], "coord_frame": 5},
     ]
-    trans = mne.coreg.coregister_fiducials(seed_info, fid_list, tol=1e-1)
+    if trans is None:
+        trans = mne.coreg.coregister_fiducials(
+            seed_info if info is None else info, fid_list, tol=1e-1
+        )
+    elif trans["from"] != 4 or trans["to"] != 5:
+        raise ValueError("trans must map MNE head (4) to MRI (5) coordinates")
     mri_to_head = mne.transforms.invert_transform(trans)
 
     ch_names = list(electrodes)
@@ -300,6 +310,8 @@ def prepare_forward(
     cfg: ForwardConfig,
     *,
     output_dir: str | Path | None = None,
+    info: mne.Info | None = None,
+    trans: mne.transforms.Transform | None = None,
 ) -> tuple[Path, Path, Path]:
     """Rebuild one subject's forward, source-space, and fsaverage morph files.
 
@@ -312,6 +324,13 @@ def prepare_forward(
     output_dir : str or pathlib.Path or None
         Destination directory.  Defaults to ``pm.forward(subject_id)``
         (``derivatives/SimNIBS/sub-<id>/forward/``).
+    info : mne.Info or None
+        A recording's Info with digitized fiducials.  When given, the head<->MRI
+        transform is coregistered from them, so the forward is in the
+        recording's head frame.  Default: the net's own template fiducials.
+    trans : mne.transforms.Transform or None
+        An explicit head->MRI transform (MNE head -> MRI frames); used as is,
+        never re-estimated, and takes precedence over ``info``.
 
     Returns
     -------
@@ -336,7 +355,10 @@ def prepare_forward(
         forward_dir / f"{stem}-src.fif",
         forward_dir / f"{stem}-morph.h5",
     )
-    if not cfg.overwrite and _forward_outputs_valid(*expected):
+    # Cached outputs may hold another recording's geometry, so a supplied
+    # ``info``/``trans`` always rebuilds (the FEM leadfield is still reused).
+    reuse = not cfg.overwrite and info is None and trans is None
+    if reuse and _forward_outputs_valid(*expected):
         logger.info("Forward outputs already present for %s; skipping.", subject_id)
         return expected
 
@@ -354,7 +376,9 @@ def prepare_forward(
     # SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by
     # element, and the leadfield does not use the net CSV's order (below).
     electrodes = _in_leadfield_order(electrodes, leadfield_hdf5)
-    montage_info, trans = _build_montage_info(electrodes, fiducials)
+    montage_info, trans = _build_montage_info(
+        electrodes, fiducials, info=info, trans=trans
+    )
 
     info_path = forward_dir / f"{stem}-info.fif"
     trans_path = forward_dir / f"{stem}-trans.fif"

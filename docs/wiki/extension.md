@@ -54,6 +54,24 @@ plus the point-electrode leadfield (`*_leadfield.hdf5`) and the head↔MRI trans
 they are built from. The FEM leadfield is computed once per subject and net; a re-run reuses it.
 Source needs MNE-Python, which the Docker image includes.
 
+By default the head frame comes from the EEG net's own template fiducials. To build the forward
+in a real recording's head frame, call it from Python with that recording's `Info` (with
+digitized fiducials) or an explicit head→MRI transform:
+
+```python
+import mne
+from tit.source.config import ForwardConfig
+from tit.source.forward import prepare_forward
+
+cfg = ForwardConfig(eeg_net="GSN-HydroCel-185")
+raw = mne.io.read_raw("sub-101_task-rest_eeg.fif")
+fwd, src, morph = prepare_forward("101", cfg, info=raw.info)
+# or: prepare_forward("101", cfg, trans=mne.read_trans("sub-101-trans.fif"))
+```
+
+`info` is coregistered to the head model's fiducials; `trans` (MNE head → MRI) is used as is and
+takes precedence. Either one always rebuilds the forward, reusing the cached FEM leadfield.
+
 ## fsaverage mapping (Simulator and API)
 
 Mapping simulation fields to fsaverage is not an extension: for new simulations, enable **Map
