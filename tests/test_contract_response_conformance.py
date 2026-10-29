@@ -205,13 +205,14 @@ EXEMPT: dict[str, str] = {
 #: error fails the test, so this list shrinks when the fix lands and cannot rot.
 KNOWN_VIOLATIONS: dict[str, tuple[str, str]] = {
     "/api/catalog/optimization-candidates": (
-        r"candidates/\d+/metrics/(roi_p99_9|background_p95): None is not of type 'number'",
+        r"candidates/\d+/metrics/(roi_p99_9|background_p95|hf_focality|ti_selectivity): None is not of type 'number'",
         "contract: OptimizationCandidate.metrics says `nullable: true`, an OpenAPI 3.0 keyword "
         "that this 3.1 document ignores; an ex run has no p99.9/p95 so the server's null is "
-        "the intent. Fix the contract to `type: [number, 'null']` (contracts owner).",
+        "the intent (and an mEx or older ex CSV has no HF_Focality/TI_Selectivity). Fix the contract to "
+        "`type: [number, 'null']` (contracts owner).",
     ),
     "/api/catalog/optimization-candidates/{candidate_id}": (
-        r"candidate/metrics/(roi_p99_9|background_p95): None is not of type 'number'",
+        r"candidate/metrics/(roi_p99_9|background_p95|hf_focality|ti_selectivity): None is not of type 'number'",
         "same `nullable: true` contract defect as the candidate page",
     ),
     "/api/jobs/{id}": (

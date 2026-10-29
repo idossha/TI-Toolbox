@@ -230,6 +230,9 @@ def _ex_run(pm, kind: str) -> None:
         "Composite_Index",
     ]
     if kind == "ex":
+        # ex carries the carrier columns a search writes now; the mEx run below is a CSV
+        # written before them, so its candidates report them as null.
+        header += ["HF_Focality", "TI_Selectivity"]
         config |= {"total_current": 2.0, "current_step": 0.5}
         rows = [
             [
@@ -241,6 +244,8 @@ def _ex_run(pm, kind: str) -> None:
                 0.12,
                 1.6,
                 0.40,
+                1.25,
+                1.28,
             ],
             [
                 "E020_E101 <> E074_E133_I1-1.0mA_I2-1.0mA",
@@ -251,6 +256,8 @@ def _ex_run(pm, kind: str) -> None:
                 0.10,
                 1.5,
                 0.30,
+                1.5,
+                1.0,
             ],
         ]
     else:

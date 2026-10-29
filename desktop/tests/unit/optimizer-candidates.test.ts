@@ -2,7 +2,7 @@
  * Run npx vitest run tests/unit/optimizer-candidates.test.ts. FEM and rendered anatomy are separate.
  */
 import { describe, expect, it } from "vitest";
-import { frontierIds, intensityColor, metricDefinition, tradeoffCandidates, type Candidate } from "../../src/renderer/pages/results/candidates/model";
+import { frontierIds, intensityColor, metricDefinition, shownMetrics, tradeoffCandidates, type Candidate } from "../../src/renderer/pages/results/candidates/model";
 import { candidateMetricsChanged, candidateRow, patchCandidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { buildSimulationConfig } from "../../src/renderer/pages/simulator/buildConfig";
 import { defaultJobSettings } from "../../src/renderer/pages/simulator/types";
@@ -16,6 +16,17 @@ const config = {
   conductivity: "vn", aniso_maxratio: 8, aniso_maxcond: 1.5, intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], gel_thickness: 3, rubber_thickness: 1, output_fields: ["TI_max"], map_to_fsavg: false, map_to_mni: false,
 };
 const handoff = { id: "trial-8", subject: "ernie", kind: "flex", run: "test-run", config };
+
+describe("carrier metric columns", () => {
+  const base = ["roi_mean", "roi_p99_9", "background_mean", "background_p95", "contrast"];
+  it("hides HF focality and TI selectivity for a run that has none (flex, or an older ex CSV)", () => {
+    expect(shownMetrics([candidate("a", 3, 2), candidate("b", 2, 3)])).toEqual(base);
+  });
+  it("shows them as soon as one ex/mEx candidate carries a value", () => {
+    const ex = { ...candidate("ex-0", 3, 2), metrics: { roi_mean: 3, contrast: 1.6, hf_focality: 1.2, ti_selectivity: null } };
+    expect(shownMetrics([candidate("a", 3, 2), ex])).toEqual([...base, "hf_focality"]);
+  });
+});
 
 describe("candidate comparison", () => {
   it("uses measured common metrics and excludes incompatible/missing observations", () => {

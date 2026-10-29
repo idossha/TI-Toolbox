@@ -9,11 +9,10 @@ import { Select } from "../../../ui/Select";
 import { ElectrodePositionTable } from "../preview/views";
 import { ScenePane, useSceneManifest } from "../../_shared/scene";
 import { getCandidate, getCandidateHistory, getCandidates } from "./api";
-import { finite, frontierIds, intensityColor, metricDefinition, METRIC_LABELS, tradeoffCandidates, type Candidate, type CandidateRun, type Metric } from "./model";
+import { finite, frontierIds, intensityColor, metricDefinition, METRIC_LABELS, shownMetrics, tradeoffCandidates, type Candidate, type CandidateRun, type Metric } from "./model";
 import "./candidates.css";
 
 const format = (value: unknown) => finite(value) ? value.toPrecision(4) : "Unavailable";
-const metricKeys = Object.keys(METRIC_LABELS) as Metric[];
 export function CandidateBrowser(props: CandidateRun) {
   return <CandidateBrowserContent key={`${props.subject}:${props.kind}:${props.run}`} {...props} />;
 }
@@ -35,6 +34,7 @@ function CandidateBrowserContent({ subject, kind, run }: CandidateRun) {
   const query = useQuery({ queryKey: ["optimization-candidates", subject, kind, run, offset, sort, descending], queryFn: () => getCandidates(source, offset, sort, descending), placeholderData: keepPreviousData });
   const history = useQuery({ queryKey: ["optimization-candidate-history", subject, kind, run, sort, descending], queryFn: ({ signal }) => getCandidateHistory(source, sort, descending, signal) });
   const candidates = useMemo(() => query.data?.candidates ?? [], [query.data]);
+  const metricKeys = useMemo(() => shownMetrics(history.data?.candidates ?? candidates), [history.data, candidates]);
   const selected = history.data?.candidates.find((candidate) => candidate.id === picked) ?? candidates.find((candidate) => candidate.id === picked) ?? candidates[0];
   function pickPoint(candidate: Candidate) {
     setPicked(candidate.id);
@@ -59,7 +59,7 @@ function CandidateBrowserContent({ subject, kind, run }: CandidateRun) {
     { id: "candidate", header: "Candidate", cell: ({ row }) => <button type="button" className="candidate-pick" aria-pressed={row.original.id === selected?.id} onClick={() => setPicked(row.original.id)}>{row.original.id}</button> },
     { accessorKey: "objective", header: "Objective", numeric: true, enableSorting: false, cell: ({ row }) => <span title={`${row.original.objective_label}; ${row.original.objective_direction}`}>{format(row.original.objective)}</span> },
     ...metricKeys.map((metric) => ({ id: metric, header: () => <span title={metricDefinition(selected?.metric_labels[metric] ?? labels[metric])}>{labels[metric]}</span>, numeric: true, enableSorting: false, cell: ({ row }: { row: { original: Candidate } }) => <span title={metricDefinition(row.original.metric_labels[metric] ?? METRIC_LABELS[metric])}>{format(row.original.metrics[metric])}</span> })),
-  ], [selected?.id, selected?.metric_labels, labels]);
+  ], [selected?.id, selected?.metric_labels, labels, metricKeys]);
   async function prepareSimulation() {
     if (!selected) return;
     setTransferring(true); setHandoffError(null);

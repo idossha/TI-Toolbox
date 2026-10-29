@@ -16,12 +16,16 @@
         "roi_p99_9": null,
         "background_mean": 0.5,
         "background_p95": null,
-        "contrast": 1.1
+        "contrast": 1.1,
+        "hf_focality": null,
+        "ti_selectivity": null
       },
       "metric_labels": {
         "roi_mean": "ROI mean (V/m, volume weighted)",
         "background_mean": "Whole GM mean (V/m, includes ROI)",
-        "contrast": "ROI / whole-GM mean"
+        "contrast": "ROI / whole-GM mean",
+        "hf_focality": "hf_peak ROI / whole-GM mean (carrier focality)",
+        "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak"
       },
       "comparison_key": "/mnt/example/derivatives/SimNIBS/sub-ernie/m-ex-search/mex_Thalamus_20260814_140000",
       "pairs": [

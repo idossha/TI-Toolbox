@@ -260,18 +260,18 @@ class TestBuildCsvRows:
     """Tests for build_csv_rows()."""
 
     def test_header_row(self):
-        """First row is the header with 8 columns."""
+        """First row is the header with 10 columns (HF_Focality, TI_Selectivity last)."""
         results = _make_results(1)
         rows, *_ = build_csv_rows(results, "region")
         assert rows[0][0] == "Montage"
         assert "Composite_Index" in rows[0]
-        assert len(rows[0]) == 8
+        assert len(rows[0]) == 10
 
-    def test_data_row_has_8_elements(self):
-        """Each data row has 8 elements matching the header."""
+    def test_data_row_has_10_elements(self):
+        """Each data row has 10 elements matching the header."""
         results = _make_results(1)
         rows, *_ = build_csv_rows(results, "region")
-        assert len(rows[1]) == 8
+        assert len(rows[1]) == 10
 
     def test_row_count(self):
         """Number of data rows equals number of results + 1 header."""

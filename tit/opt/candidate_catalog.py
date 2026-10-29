@@ -17,6 +17,9 @@ _FIELDS = {
     "background_p95": "non_roi_p95",
     "contrast": "target_background_ratio",
 }
+#: Carrier metrics an ex/mEx ``final_output.csv`` reports beside its ranking (``None`` for flex
+#: and for a CSV written before them).
+_CARRIER_METRICS = {"hf_focality": "HF_Focality", "ti_selectivity": "TI_Selectivity"}
 _MAX_BYTES = 128 * 1024 * 1024
 _MAX_ROWS = 250_000
 
@@ -207,11 +210,17 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                         "background_mean": _number(row.get("TImean_GM")),
                         "background_p95": None,
                         "contrast": _number(row.get("Focality")),
+                        **{
+                            key: _number(row.get(column))
+                            for key, column in _CARRIER_METRICS.items()
+                        },
                     },
                     "metric_labels": {
                         "roi_mean": "ROI mean (V/m, volume weighted)",
                         "background_mean": "Whole GM mean (V/m, includes ROI)",
                         "contrast": "ROI / whole-GM mean",
+                        "hf_focality": "hf_peak ROI / whole-GM mean (carrier focality)",
+                        "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak",
                     },
                     "comparison_key": str(directory),
                     "pairs": [labels[i : i + 2] for i in range(0, len(labels), 2)],
@@ -373,7 +382,7 @@ def list_candidates(
     root = Path(pm.project_dir)
     directory = run_directory(pm, subject, kind, run)
     rows = _rows(root, directory, subject, kind)
-    if sort not in {*_FIELDS, "objective"}:
+    if sort not in {*_FIELDS, *_CARRIER_METRICS, "objective"}:
         raise ValueError("Unknown sort metric.")
 
     def key(row):

@@ -162,6 +162,9 @@ def build_csv_rows(
         "TImean_GM",
         "Focality",
         "Composite_Index",
+        # Reported beside the ranking, never in it: empty for a result without them.
+        "HF_Focality",
+        "TI_Selectivity",
     ]
     rows = [header]
     timax_vals, timean_vals, foc_vals, comp_vals = [], [], [], []
@@ -186,6 +189,13 @@ def build_csv_rows(
                 f"{ti_mean_gm:.4f}",
                 f"{focality:.4f}",
                 f"{composite:.4f}",
+                *(
+                    "" if data.get(key) is None else f"{data[key]:.4f}"
+                    for key in (
+                        f"{roi_name}_HF_Focality",
+                        f"{roi_name}_TI_Selectivity",
+                    )
+                ),
             ]
         )
         timax_vals.append(ti_max)

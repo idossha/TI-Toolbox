@@ -5,7 +5,7 @@ from collections import deque
 
 from simnibs.utils import TI_utils as TI
 
-from tit.calc import envelope_max
+from tit.calc import envelope_max, hf_peak
 from tit.opt.ex.engine import ExSearchEngine
 from tit.opt.ex.logic import format_current_mA
 from tit.opt.ex.parallel import evaluate_ordered, resolve_n_jobs
@@ -45,6 +45,12 @@ class MExSearchEngine(ExSearchEngine):
         metric = envelope_max(fields)
 
         data = self._roi_metrics(metric[roi_pos], metric[gm_pos])
+        peak = hf_peak(fields)  # all four channels' carriers
+        data.update(
+            self._carrier_metrics(
+                peak[roi_pos], peak[gm_pos], data[f"{self.roi_name}_Focality"]
+            )
+        )
         for ch in range(1, 5):
             data[f"current_ch{ch}_mA"] = current_mA
         return data

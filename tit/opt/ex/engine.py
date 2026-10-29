@@ -10,7 +10,7 @@ import time
 import numpy as np
 from simnibs.utils import TI_utils as TI
 
-from tit.calc import envelope_max
+from tit.calc import envelope_max, hf_peak
 
 from .roi import read_roi_center
 from .logic import (
@@ -254,6 +254,30 @@ class ExSearchEngine:
             f"{self.roi_name}_n_elements": n_elements,
         }
 
+    def _carrier_metrics(
+        self, peak_roi: np.ndarray, peak_gm: np.ndarray, focality: float
+    ) -> dict:
+        """``HF_Focality`` and ``TI_Selectivity`` of one candidate, beside its ``Focality``.
+
+        ``HF_Focality`` is ``Focality`` computed on the peak carrier field
+        (:func:`tit.calc.hf_peak` of every channel field): the volume-weighted ROI mean over
+        the volume-weighted GM mean, on the same elements and volumes. ``TI_Selectivity`` is
+        ``Focality / HF_Focality``: above 1 the envelope is more focal than the carriers that
+        make it. Reported only; the ranking (``Composite_Index``) does not use them. An empty
+        ROI or GM scores 0, as ``Focality`` does (:meth:`_roi_metrics`).
+        """
+        hf_focality = 0.0
+        if len(peak_roi) and len(peak_gm):
+            roi_mean = float(np.average(peak_roi, weights=self.roi_volumes))
+            gm_mean = float(np.average(peak_gm, weights=self.gm_volumes))
+            hf_focality = roi_mean / gm_mean if gm_mean > 0 else 0.0
+        return {
+            f"{self.roi_name}_HF_Focality": hf_focality,
+            f"{self.roi_name}_TI_Selectivity": (
+                focality / hf_focality if hf_focality > 0 else 0.0
+            ),
+        }
+
     def compute_ti_fields(
         self,
         e1_plus: str,
@@ -282,6 +306,12 @@ class ExSearchEngine:
             ef2 = (current_ch2_mA / 1000) * unit2
             ti_max = envelope_max([ef1, ef2])
             data = self._roi_metrics(ti_max[roi_pos], ti_max[gm_pos])
+            peak = hf_peak([ef1, ef2])
+            data.update(
+                self._carrier_metrics(
+                    peak[roi_pos], peak[gm_pos], data[f"{self.roi_name}_Focality"]
+                )
+            )
             data["current_ch1_mA"] = current_ch1_mA
             data["current_ch2_mA"] = current_ch2_mA
             results.append(data)
