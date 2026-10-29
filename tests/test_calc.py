@@ -714,7 +714,7 @@ def peak_sets():
 
 
 class TestHfPeak:
-    @pytest.mark.parametrize("n", [1, 2, 3, 4, 5, 6, 8, 10])
+    @pytest.mark.parametrize("n", [1, 2, 3, 4, 5, 6, 8, 9, 10])
     def test_random_matches_full_sign_enumeration(self, n):
         fields = random_fields(130 + n, 300, n)
         np.testing.assert_allclose(
@@ -726,6 +726,18 @@ class TestHfPeak:
         fields = peak_sets()[name]
         np.testing.assert_allclose(
             hf_peak(fields), sign_enumeration(fields), rtol=1e-12
+        )
+
+    @pytest.mark.parametrize("name", list(peak_sets()))
+    def test_zonotope_path_matches_full_sign_enumeration_on_degenerate_sets(self, name):
+        """``hf_peak`` tries every sign pattern up to 8 fields and the zonotope vertices from
+        9; the degenerate sets have 4-6 fields, so the vertex path is driven directly here.
+        """
+        fields = peak_sets()[name]
+        np.testing.assert_allclose(
+            calc._hf_peak_vertices(np.stack(fields)),
+            sign_enumeration(fields),
+            rtol=1e-12,
         )
 
     def test_two_carriers_is_cassara_eq3(self):

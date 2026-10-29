@@ -507,8 +507,9 @@ def hf_peak(
     by incommensurate frequencies), the safety-relevant value.  ``coherent=True``
     gives ``|sum_c E_c|``, the phase-aligned sum some scripts call "peak HF".
 
-    Method: exact for any number of channels; closed form up to two, zonotope
-    vertices from three (cost ~F^3 per element for F fields, 3.5 ms at 52).
+    Method: exact for any number of channels; closed form up to two, every
+    sign pattern from three to eight (``2^(F-1)`` of them), zonotope vertices
+    from nine (cost ~F^3 per element for F fields, 3.5 ms at 52).
     Literature: Cassarà et al. 2025 Part I Eq. 3.
 
     Args:
@@ -529,12 +530,31 @@ def hf_peak(
         return np.maximum(
             np.linalg.norm(E[0] + E[1], axis=-1), np.linalg.norm(E[0] - E[1], axis=-1)
         )
+    exact = _hf_peak_signs if len(E) <= _SIGN_ENUMERATION_MAX else _hf_peak_vertices
     n_el = E.shape[1]
     out = np.empty(n_el)
     for lo in range(0, n_el, _CHUNK):
         sl = slice(lo, min(lo + _CHUNK, n_el))
-        out[sl] = _hf_peak_vertices(E[:, sl])
+        out[sl] = exact(E[:, sl])
     return out
+
+
+# Up to 8 fields, trying all 2^(F-1) sign patterns is 4-20x faster than the zonotope
+# vertices (16384 elements: 1.0 vs 20 ms at 4 fields, 24 vs 160 ms at 8) and its
+# (patterns, chunk, 3) work array stays under ~50 MB.
+_SIGN_ENUMERATION_MAX = 8
+
+
+def _hf_peak_signs(E):
+    """Exact ``max_s |sum s_c E_c|`` for ``(F <= 8, n, 3)``: the definition, every sign pattern.
+
+    ``s_1 = +1`` throughout: ``-s`` gives the same norm, so half the patterns suffice.
+    """
+    patterns = np.array(
+        [(1.0, *s) for s in itertools.product((1.0, -1.0), repeat=len(E) - 1)]
+    )
+    total = np.einsum("pf,fnx->pnx", patterns, E)
+    return np.sqrt(np.einsum("pnx,pnx->pn", total, total).max(axis=0))
 
 
 def _hf_peak_vertices(E):
