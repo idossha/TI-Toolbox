@@ -3595,3 +3595,23 @@ vocabulary.
 
 **Revisit if.** A montage needs more than 26 channels (mTI's lettered files cap there), or a reader
 needs the role in a place too narrow for "Ek+ name · Ek- name".
+
+## 2026-10-28 — The Simulator's scene draws the net the user is looking at, on a head that has it
+
+**Decision.** With the New montage form open the scene draws the form's net; otherwise the selected
+job row's net, whether or not the row has a montage (`MontagePreview` with `net` and `name: ""`). A
+new draft starts on the selected row's net. Named montages stay on the packaged guide, except a net
+the guide does not package, which is drawn on the first of the previewed row's subject, the shell
+subject and the usable subjects whose `eeg_nets` lists it (`subjectForOffGuideNet`).
+
+**Why.** Maintainer report (sub-101): two rows on EEG10-10_Cutini_2011 and EEG10-20_Okamoto_2004
+both drew Okamoto, because a row without a montage sent no preview and the pane fell back to the
+last net touched; and New montage on BioSemi-64-10-10 drew no electrodes, because the guide
+packages 8 caps (`tit/scene/guide/manifest.json`) and a cap warped from `resources/ElectrodeCaps_MNI/`
+exists only in the subject's `eeg_positions`. Pinned by `desktop/tests/e2e/simulator-scene-net-sync.spec.ts`
+and `desktop/tests/unit/simulator-scene-net.test.ts`.
+
+**Alternatives rejected.** Syncing the editor's net to the active row on every selection: a row's
+net select changes the editor's net without selecting the row, so the two drift again. Packaging
+every warped cap into the guide: a project's own uploaded caps would still be missing. Drawing
+every named montage on the subject: slower first paint for the common, guide-packaged case.

@@ -27,10 +27,12 @@ import {
   type MontagePreview,
   type MontageSource,
   type SelectedRow,
+  subjectForOffGuideNet,
 } from "./types";
 import { RunPanel, RunWork, jobCountLabel, stepsFor } from "../_shared/run";
 import { candidateMetricsChanged, candidateRow } from "./candidateHandoff";
 import { ScenePane, firstEmptySlot, withSlot } from "../_shared/scene";
+import { useGuideManifest } from "../_shared/scene/queries";
 import type { GlobalParams } from "./buildConfig";
 import { FreehandDraftProvider, useFreehandDraft } from "./freehandDraft";
 import { markerIndexOfRow, placementMarkers, rowOfMarkerIndex, savedMarkers } from "./freehandPlacement";
@@ -221,13 +223,18 @@ function SimulatorPage() {
     const fresh = emptyDraft();
     setMontageDraft({ ...fresh, pairs: withSlot(fresh.pairs, 0, electrode) });
   }
-  // Named montage choices use the packaged guide. Actual XYZ placement and snap
-  // displacements must retain their subject geometry; guide coordinates cannot run a simulation.
+  /** The net the pane draws: the open draft's, else the previewed row's, else the editor's. */
+  const sceneNet = (montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null;
+  // The pane's own manifest query (same key), so this costs no request.
+  const guideNets = useGuideManifest().data?.nets.map((entry) => entry.name);
+  // Named montage choices use the packaged guide — unless the guide lacks the net, which is then
+  // drawn on a subject that has it. Actual XYZ placement and snap displacements must retain their
+  // subject geometry; guide coordinates cannot run a simulation.
   const sceneSubject = freehand.open
     ? (freehand.subject ?? usable[0] ?? null)
     : montagePreview?.positions || montagePreview?.originalPositions
       ? (montagePreview.subject ?? null)
-      : null;
+      : subjectForOffGuideNet(sceneNet, guideNets, [montagePreview?.subject, shellSubject, ...usable], subjectNets);
 
   /** The dots: the rows being placed, or the saved set the previewed job row runs. */
   const placedDots = useMemo(
@@ -317,7 +324,7 @@ function SimulatorPage() {
                 selectedMarkers={selectedMarkers}
                 placedMarkers={placedDots}
                 originalPositions={!montageDraft && !freehand.open ? montagePreview?.originalPositions : undefined}
-                net={(montageDraft ? montageNet : (montagePreview?.net ?? montageNet)) ?? null}
+                net={sceneNet}
                 pairs={montageDraft?.pairs ?? (previewIsMontage ? montagePreview?.pairs : undefined)}
                 electrodePad={scenePad}
                 showing={
@@ -326,7 +333,7 @@ function SimulatorPage() {
                       ? /* A free-hand set has no net; say what it IS, so the chip never reads
                            "Showing: my_set · undefined". */
                         { montage: montagePreview.name, net: `${montagePreview.positions.length} placed positions` }
-                      : previewIsMontage && montagePreview.net
+                      : previewIsMontage && montagePreview.net && montagePreview.name
                         ? { montage: montagePreview.name, net: montagePreview.net }
                         : null
                     : null

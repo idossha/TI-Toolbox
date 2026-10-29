@@ -566,7 +566,9 @@ atlas/mode/region state; switching atlas clears incompatible labels. Subcortical
 non-subcortical compartments. No subject atlas extraction runs when browsing these guides.
 Only the selected atlas surface and skin are fetched. Guide coordinates never become scientific
 coordinates. Masks, spheres and saved coordinate targets retain explicit native TetraVox inspection.
-Simulator also uses the guide for named montage browsing; actual freehand/XYZ placements and snap
+Simulator also uses the guide for named montage browsing — the selected job row's net, or the open
+New montage form's — except for a net the guide does not package (a cap warped onto subjects), which
+is drawn on a subject that has it (`subjectForOffGuideNet`); actual freehand/XYZ placements and snap
 displacements retain subject geometry to preserve their coordinate meaning. Peeling and isolation
 controls are omitted. `POST /api/scene/target-preview` remains the explicit native volume path.
 

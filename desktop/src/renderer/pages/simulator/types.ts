@@ -375,7 +375,8 @@ export const CONDUCTIVITY_OPTIONS = [
  *
  * Two shapes in one type because the pane takes both: a *named montage* is `net` + `pairs`
  * (electrode names on that net), a *free-hand set* is `positions` (millimetres in `subject`'s own
- * head mesh). `subject` is on both, because since 2026-09-06 the pane draws the row's own subject
+ * head mesh). A row with a net and no montage yet is `net` alone, with `name` `""`: the pane still
+ * draws the net the row is on. `subject` is on both, because since 2026-09-06 the pane draws the row's own subject
  * rather than the packaged guide, and a coordinate is only meaningful against the head it came
  * from.
  */
@@ -389,4 +390,24 @@ export interface MontagePreview {
   net?: string;
   pairs?: [string, string][];
   positions?: { label?: string; x: number; y: number; z: number }[];
+}
+
+/**
+ * The subject whose own head draws `net` when the packaged guide does not carry it, else `null`.
+ *
+ * Named montages are drawn on the guide, which packages the standard caps only; a cap warped onto
+ * a subject (BioSemi-64-10-10, GSN-HydroCel-128) is a file in that subject's `eeg_positions` and
+ * nowhere else, so on the guide its electrodes were simply missing. The first of `candidates`
+ * (the previewed row's subject, then the shell's, then every usable one) that has the net wins.
+ * `null` too while the guide's net list has not arrived, so the pane never flips head on a guess.
+ */
+export function subjectForOffGuideNet(
+  net: string | null,
+  guideNets: string[] | undefined,
+  candidates: (string | null | undefined)[],
+  subjectNets: Record<string, string[]>,
+): string | null {
+  const bare = (name: string) => name.replace(/\.csv$/i, "");
+  if (!net || !guideNets || guideNets.some((name) => bare(name) === bare(net))) return null;
+  return candidates.find((id): id is string => !!id && (subjectNets[id] ?? []).some((name) => bare(name) === bare(net))) ?? null;
 }

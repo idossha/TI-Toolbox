@@ -830,6 +830,13 @@ export function JobsTable({
   const activeRow = rows.find((r) => r.id === activeId) ?? null;
   const activeRowId = activeRow?.id;
   const activeNet = activeRow?.eegNet;
+  // A new draft (New montage, or a click on the head) starts on the net the pane was drawing: the
+  // selected row's, else the last one touched. An edit (`savedAs`) has already chosen its own.
+  const [draftWasOpen, setDraftWasOpen] = useState(!!editing);
+  if (!!editing !== draftWasOpen) {
+    setDraftWasOpen(!!editing);
+    if (editing && !editing.savedAs && activeNet) setNetChoice(activeNet);
+  }
   const activeName = activeRow?.name;
   const activePairs = activeRow?.pairs;
   const activeSource = activeRow?.source ?? null;
@@ -851,8 +858,14 @@ export function JobsTable({
         positions: pairs.flat().map(([x, y, z]) => ({ x, y, z })),
       });
     }
+    // A row with a net and no montage yet still previews its net, so the pane follows the row
+    // rather than whichever net was touched last.
     onPreviewChange?.(
-      activeNet && activeName && activePairs?.length ? { rowId: activeRowId, net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) } : null,
+      activeNet && activeName && activePairs?.length
+        ? { rowId: activeRowId, net: activeNet, name: activeName, subject: activeSubject, pairs: activePairs, originalPositions: (JSON.parse(originalXyz) as NonNullable<SelectedRow["xyzPairs"]>).flat().map(([x, y, z]) => ({ x, y, z })) }
+        : activeNet
+          ? { rowId: activeRowId, net: activeNet, name: "", subject: activeSubject }
+          : null,
     );
   }, [activeRowId, activeNet, activeName, activePairs, activeSubject, activeXyz, originalXyz, onPreviewChange]);
   useEffect(() => {
