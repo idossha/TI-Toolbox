@@ -3924,3 +3924,33 @@ number with no marker.
 of the solve is kept (then `hf_power_density` can be produced too), or TetraVox's per-field
 metadata key ships (units/labels for the field switch; not written yet).
 
+## 2026-10-30 — On-demand persistence is staged and crash-safe; MNI implies NIfTIs; voxel reads what exists first
+
+Amends "Field meshes by default" above, after review.
+
+**Decision.** (1) A production writes the volume mesh, its grey/white copies, the central surface and
+any NIfTIs into a hidden `<sim>/<mode>/.on-demand-*` folder and moves them into place with
+`os.replace`, derived files first and the volume mesh last; `_missing` reads the volume mesh, so a
+saved field implies complete derived files. A killed producer's stage is removed by the next one
+under the lock. Pinned by `test_a_production_killed_midway_leaves_nothing_half_written_and_a_rerun_completes`.
+(2) `map_to_mni=True` sets `map_to_vol=True` (MNI output is a NIfTI) instead of refusing the config,
+so older specs and replays still run; the Simulator shows MNI as a sub-option that ticks the NIfTIs.
+(3) A voxel analysis asks `select_field_file` first and produces only when it finds nothing, so an
+older/renamed NIfTI or a NIfTI-only archive analyses; preflight follows the same order. Only the
+analysed field must be saved or producible; carriers that cannot be produced leave the carrier
+metrics `None` with the reason in `carrier_note`. (4) An unreadable field-mesh header is a
+`FieldUnavailableError` naming the file, not a skip. (5) Auto on a carrier-only run is `hf_peak`
+(`field_selector.default_field`). (6) fsaverage: the projection computes `TI_max`, `TI_normal`,
+`hf_peak` and `hf_sar` from the overlays and channel meshes regardless of `output_fields`, so a
+field produced into the mesh later is already on fsaverage when the run had `map_to_fsavg`;
+`TI_avg` and `hf_power_density` are never projected, and surface statistics refuse them with that
+reason. (7) The report voxelises through `tit.volume_fields.voxelise` and shows why a figure is
+missing.
+
+**Why.** A crash after the mesh rename could leave truncated derived files that `_missing` /
+`_saved` then trusted forever. Refusing `map_to_mni` alone broke older job specs for no gain.
+Producing before looking would refuse archives that have exactly the NIfTI needed.
+
+**Measured.** The grey field mesh the Viewer now opens is 112 MB for Ernie
+(`grey_AF3_PO10_AF4_Oz_TI.msh`, 111,879,220 bytes, 2026-10-30 run above); kept visible.
+

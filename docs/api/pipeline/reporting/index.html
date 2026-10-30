@@ -1206,15 +1206,7 @@ software check, advisory, reported) and citation, and the rules are in
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/simulation.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
-<span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-656">656</a></span>
 <span class="normal"><a href="#__codelineno-0-657">657</a></span>
 <span class="normal"><a href="#__codelineno-0-658">658</a></span>
 <span class="normal"><a href="#__codelineno-0-659">659</a></span>
@@ -1242,43 +1234,53 @@ software check, advisory, reported) and citation, and the rules are in
 <span class="normal"><a href="#__codelineno-0-681">681</a></span>
 <span class="normal"><a href="#__codelineno-0-682">682</a></span>
 <span class="normal"><a href="#__codelineno-0-683">683</a></span>
-<span class="normal"><a href="#__codelineno-0-684">684</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_simulation_report</span><span class="p">(</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="w">    </span><span class="sd">"""Write the report for one simulation folder; into the project's reports unless *out_dir*."""</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a>    <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a>    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">"tit-sim-report-"</span><span class="p">)</span> <span class="k">as</span> <span class="n">scratch</span><span class="p">:</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>        <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a>            <span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">),</span> <span class="n">m2m</span><span class="o">=</span><span class="n">m2m</span><span class="p">,</span> <span class="n">scratch</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">)</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a>        <span class="p">)</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>        <span class="k">if</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">]:</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>                <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_mni"</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_mni</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_world"</span><span class="p">],</span> <span class="n">m2m</span><span class="p">)</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a>            <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: peak left in subject space (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a>            <span class="n">images</span> <span class="o">=</span> <span class="n">field_images</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">m2m</span> <span class="o">/</span> <span class="s2">"T1.nii.gz"</span><span class="p">)</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: no envelope figure (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>            <span class="n">images</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="n">html</span><span class="p">,</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>        <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a>        <span class="n">out_dir</span><span class="p">,</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a>        <span class="n">t0</span><span class="p">,</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Simulation report"</span><span class="p">,</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-684">684</a></span>
+<span class="normal"><a href="#__codelineno-0-685">685</a></span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_simulation_report</span><span class="p">(</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="w">    </span><span class="sd">"""Write the report for one simulation folder; into the project's reports unless *out_dir*."""</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a>    <span class="n">m2m</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a>    <span class="k">with</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">TemporaryDirectory</span><span class="p">(</span><span class="n">prefix</span><span class="o">=</span><span class="s2">"tit-sim-report-"</span><span class="p">)</span> <span class="k">as</span> <span class="n">scratch</span><span class="p">:</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a>        <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>            <span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">),</span> <span class="n">m2m</span><span class="o">=</span><span class="n">m2m</span><span class="p">,</span> <span class="n">scratch</span><span class="o">=</span><span class="n">Path</span><span class="p">(</span><span class="n">scratch</span><span class="p">)</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="p">)</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="k">if</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">]:</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>                <span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_mni"</span><span class="p">]</span> <span class="o">=</span> <span class="n">to_mni</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">"envelope"</span><span class="p">][</span><span class="s2">"peak_world"</span><span class="p">],</span> <span class="n">m2m</span><span class="p">)</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a>            <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a>                <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: peak left in subject space (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a>            <span class="n">images</span> <span class="o">=</span> <span class="n">field_images</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">m2m</span> <span class="o">/</span> <span class="s2">"T1.nii.gz"</span><span class="p">)</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>        <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a>            <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Simulation report: no envelope figure (</span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">)"</span><span class="p">)</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a>            <span class="n">rec</span><span class="o">.</span><span class="n">setdefault</span><span class="p">(</span><span class="s2">"figure_note"</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a>            <span class="n">images</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a>    <span class="n">html</span> <span class="o">=</span> <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">images</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a>        <span class="n">html</span><span class="p">,</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Simulation report"</span><span class="p">,</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

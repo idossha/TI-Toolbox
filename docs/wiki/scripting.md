@@ -243,7 +243,7 @@ run_simulation(cfg)
 | `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; two-channel TI, `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
 | `map_to_surf` | — | `True` |
 | `map_to_vol` | **Write NIfTI volumes (one per field)** | `False` |
-| `map_to_mni` | **Also in MNI space** (needs `map_to_vol`) | `False` |
+| `map_to_mni` | **Also in MNI space** (turns `map_to_vol` on) | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |
 
 Two channels (electrode pairs) run a TI simulation, four or more run mTI — the API picks for you.

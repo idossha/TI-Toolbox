@@ -682,7 +682,10 @@ must equal the mesh field set or the run fails (`check_niftis_match_meshes`). A 
 step needs and the run did not save is produced by [`tit/volume_fields.py`](../../tit/volume_fields.py)
 with the simulator's own `compute_volume_fields` on the kept channel meshes, persisted into the
 simulation (volume mesh, grey/white, central surface; or `<mode>/niftis/`) and announced in one
-sentence before the work; the analyzer records it as `on_demand_note`. A run whose record has
+sentence before the work; the analyzer records it as `on_demand_note`. Writes are staged in a
+hidden `<sim>/<mode>/.on-demand-*` folder and renamed into place, the volume mesh last, so "the
+volume mesh carries the field" implies its derived files are complete. A voxel analysis asks the
+field selector first and produces only what it does not find. A run whose record has
 `map_to_vol` also gets every produced field's NIfTIs (all converted meshes, its spaces), so its NIfTI
 set stays its mesh field set; a run without NIfTIs has no such set, and its `niftis/` (created only
 when something is written) holds just the NIfTIs voxel steps asked for. Missing channel meshes,
