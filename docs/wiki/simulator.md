@@ -66,12 +66,16 @@ To add a net to a head model that already exists, such as your own MNI cap, use 
 
 ## Job settings
 
-Open a job's settings with the row's settings button, or double-click the row. A new row starts from the settings you configured last.
+Open a job's settings with the row's settings button, or double-click the row. A new row starts from your defaults (see [Your defaults for new jobs](#your-defaults-for-new-jobs)); what you change here applies to that job only. **Reset to defaults** puts the job back on your defaults.
 
 - **Electrodes**: **Shape** (Ellipse or Rectangle), **Dimensions** (width × height, mm) and **Gel thickness** (the saline layer between skin and the 2 mm rubber). Defaults: ellipse, 8 × 8 mm, 1 mm gel. The **?** beside **Electrodes** explains each, with a diagram and links to the SimNIBS electrode reference and Saturnino et al. 2015.
-- **Conductivity**: the **Model** and, for the anisotropic models, its bounds (see [Conductivity and Anisotropy](#conductivity-and-anisotropy)). **Edit values…** overrides the per-tissue conductivities for this job only.
+- **Conductivity**: the **Model** and, for the anisotropic models, its bounds (see [Conductivity and Anisotropy](#conductivity-and-anisotropy)). **Edit values…** overrides the per-tissue conductivities.
 - **Output fields**: see [Output Fields](#output-fields) and [Carrier-only control](#carrier-only-control).
 - **Output files**: **Write NIfTI volumes (one per field)** (off by default) also saves every output field as a 3-D NIfTI (see [Output Layout](#output-layout-and-cli)); **Also in MNI space**, its sub-option, writes their MNI-space copies and the T1 in MNI space; ticking it ticks **Write NIfTI volumes** too (MNI output is itself a NIfTI), and unticking **Write NIfTI volumes** unticks it. Without them the field mesh is the output: a voxel analysis or a group tool ([cluster permutation testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/), [Nilearn visuals]({{ site.baseurl }}/wiki/nilearn-visuals/)) writes the NIfTI it reads when it first needs it (see [Fields computed on demand](#fields-computed-on-demand)). **Map fields to fsaverage** (off by default in the app; `map_to_fsavg` defaults to `True` in Python) projects the fields to fsaverage5 after simulation, for TI and mTI alike. The result is `fsaverage/sub-<id>_sim-<sim>_space-fsaverage5_fields.msh` in the simulation folder, a surface mesh you can open in the Viewer or Gmsh (see [Extensions]({{ site.baseurl }}/wiki/extension/)).
+
+### Your defaults for new jobs
+
+**Settings ▸ Simulator** holds the settings a new job starts with: the same controls as **Job settings**, with the same rules (carrier-only keeps only the carrier fields; **Also in MNI space** ticks **Write NIfTI volumes**). Changes apply at once and are kept on this computer across restarts. A job without settings of its own follows them; a job you changed in its **Job settings** keeps its own values, as do jobs already queued or run. **Restore factory defaults** returns to the app's defaults listed above (ellipse, 8 × 8 mm, 1 mm gel, isotropic, `TI_max`, `hf_peak` and `hf_sar`, no NIfTIs, no fsaverage mapping). Agents and scripts that leave a field out get the app's defaults, not these.
 
 ---
 

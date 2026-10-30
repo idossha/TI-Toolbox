@@ -368,8 +368,8 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
   await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveCount(0);
 
-  // And a NEW row starts from the settings the user configured last, not from the built-ins: the
-  // seed is what makes "configure one job, then add the next like it" one gesture.
+  // And a NEW row starts from the defaults (Settings ▸ Simulator), not from the job configured
+  // last: one job's own settings never leak into the next.
   await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const again = page.getByRole("dialog");
   await again.getByRole("radio", { name: "Rectangle", exact: true }).click();

@@ -10,8 +10,9 @@ import { ConductivityDialog, type CustomConductivities } from "./ConductivityDia
 import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
 
 /**
- * Shared per-job simulation controls, used by the Simulator. `carrierOnlyAllowed` is false for an
- * mTI job: a carrier-only (ΔF = 0) control is defined for 2-pair TI only.
+ * The simulation controls: one job's (the Simulator's Job settings dialog) and the defaults for new
+ * jobs (Settings ▸ Simulator). `carrierOnlyAllowed` is false for an mTI job: a carrier-only (ΔF = 0)
+ * control is defined for 2-pair TI only.
  */
 export function SimulationSettings({
   value: draft,
@@ -67,7 +68,7 @@ export function SimulationSettings({
                   />
                 </Field>
               </>}
-              <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this job only.">
+              <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults.">
                 <Button variant="secondary" onClick={() => setTissueOpen(true)}>
                   Edit values…
                 </Button>
@@ -141,7 +142,7 @@ export function SimulationSettings({
                 <Checkbox checked={draft.mapToFsavg ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToFsavg: checked })} />
                 Map fields to fsaverage
               </label>
-              <HelpIcon variant="plain" title="Surface mapping" text="Project this job’s surface fields to fsaverage5 after simulation for comparisons across subjects." />
+              <HelpIcon variant="plain" title="Surface mapping" text="Project the simulation’s surface fields to fsaverage5 after simulation for comparisons across subjects." />
             </div>
           </section>
         </div>

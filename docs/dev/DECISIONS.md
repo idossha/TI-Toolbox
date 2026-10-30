@@ -3954,3 +3954,21 @@ Producing before looking would refuse archives that have exactly the NIfTI neede
 **Measured.** The grey field mesh the Viewer now opens is 112 MB for Ernie
 (`grey_AF3_PO10_AF4_Oz_TI.msh`, 111,879,220 bytes, 2026-10-30 run above); kept visible.
 
+## 2026-10-30 — The Simulator's defaults for new jobs are the user's own
+
+**Decision.** Settings ▸ Simulator holds the user's defaults for new simulation jobs, in the same
+`SimulationSettings` form as a job's Job settings dialog. They are stored in `localStorage` as the
+changes from `defaultJobSettings()` (the factory defaults, still `x-app-defaults.sim` over the
+schema), so a factory default the user never changed keeps following the app. A new row carries no
+settings and runs with them; **Reset to defaults** returns to them; **Restore factory defaults**
+clears them. A new row no longer copies the settings of the row configured last (2026-09-06
+behaviour, superseded): a job's own settings are that job's only. Pinned by
+`desktop/tests/unit/simulator-user-defaults.test.tsx`.
+
+**Why.** The user asked for their own defaults with per-job overrides that do not leak; copying the
+last-configured row made one job's override reach the next. Duplicate still copies a row.
+
+**Alternatives rejected.** A server-side store beside the Pre-processing preferences
+(`tit.surfer_settings`), which would also reach agent jobs: a new route, contract and Python for a
+preference nobody asked agents to follow; `localStorage` matches Execution and the theme. Storing
+the whole form: a later factory change would never reach a user who changed one unrelated field.

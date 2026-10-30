@@ -116,7 +116,7 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(replace?.disabled).toBe(false);
 
     const tabs = [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-    expect(tabs.map((button) => button.textContent)).toEqual(["Project", "Pre-processing", "Extensions", "Viewer", "Server"]);
+    expect(tabs.map((button) => button.textContent)).toEqual(["Project", "Pre-processing", "Simulator", "Extensions", "Viewer", "Server"]);
     expect(container.querySelectorAll('[role="tabpanel"][data-state="active"]')).toHaveLength(1);
     const select = (label: string) => act(() => {
       tabs.find((button) => button.textContent === label)!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
