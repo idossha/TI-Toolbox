@@ -79,7 +79,7 @@ test("a uni-polar montage plans as a 2-pair, 2-current SimulationConfig", async 
     electrode_shape: "ellipse",
     electrode_dimensions: [8, 8],
     gel_thickness: 4,
-    output_fields: ["TI_max", "hf_peak", "hf_sar"],
+    output_fields: ["TI_max", "hf_peak", "hf_rms"],
     montages: [
       {
         _type: "Montage",

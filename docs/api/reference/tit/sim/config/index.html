@@ -1849,7 +1849,7 @@ map_to_mni : bool
     <em>map_to_vol</em> on as well (subject and MNI NIfTIs).  Default <code>False</code>.
 map_to_fsavg : bool
     After each TI montage finishes, project its surface fields
-    (<code>TI_max</code>, <code>TI_normal</code>, <code>hf_peak</code>, <code>hf_sar</code>) onto fsaverage5
+    (<code>TI_max</code>, <code>TI_normal</code>, <code>hf_peak</code>, <code>hf_rms</code>) onto fsaverage5
     for group surface analysis.  Default <code>True</code>; set <code>False</code> to
     skip.  Failures are logged and never abort the simulation.
 open_in_gmsh : bool
@@ -1869,12 +1869,12 @@ aniso_maxcond : float
 output_fields : list[str]
     Which volume-mesh fields to compute and write. Logical names from
     :data:<code>tit.constants.SELECTABLE_OUTPUT_FIELDS</code>: <code>"TI_max"</code>,
-    <code>"TI_avg"</code>, <code>"hf_peak"</code>, <code>"hf_sar"</code>, <code>"hf_power_density"</code>.
+    <code>"TI_avg"</code>, <code>"hf_peak"</code>, <code>"hf_rms"</code>, <code>"hf_power_density"</code>.
     <code>"TI_max"</code> maps to <code>mTI_max</code> on disk for mTI meshes. <code>None</code>
     (the default) is :data:<code>tit.constants.DEFAULT_OUTPUT_FIELDS</code> --
-    <code>["TI_max", "hf_peak", "hf_sar"]</code>, the envelope and the carrier
+    <code>["TI_max", "hf_peak", "hf_rms"]</code>, the envelope and the carrier
     fields an analysis's carrier metrics read -- or, for a <em>carrier_only</em>
-    run, which has no envelope, <code>["hf_peak", "hf_sar"]</code>.  <code>TI_avg</code> and
+    run, which has no envelope, <code>["hf_peak", "hf_rms"]</code>.  <code>TI_avg</code> and
     <code>hf_power_density</code> are opt-in; a field not saved here is computed
     later, from the kept channel meshes, by the step that needs it
     (<code>hf_power_density</code> excepted: its conductivity is not kept).
@@ -1897,7 +1897,7 @@ tissue_conductivities : dict[int, float] or None
 carrier_only : bool
     Carrier-only control: both channels run at the same frequency, in
     phase (ΔF = 0), so there is no beat.  The carrier fields <code>hf_peak</code>,
-    <code>hf_sar</code> and <code>hf_power_density</code> then add the two channel fields
+    <code>hf_rms</code> and <code>hf_power_density</code> then add the two channel fields
     coherently (<code>|E1+E2|</code>, see :func:<code>tit.calc.hf_peak</code>) and no envelope
     field (<code>TI_max</code>, <code>TI_avg</code>, <code>TI_normal</code>) is computed.  Requires a
     two-channel TI montage; an explicit <code>output_fields</code> must be drawn
@@ -1946,7 +1946,7 @@ frequency, in phase; no envelope, so only carrier fields):</p>
 ...     carrier_only=True,
 ... )
 sham.output_fields
-['hf_peak', 'hf_sar']</p>
+['hf_peak', 'hf_rms']</p>
 </blockquote>
 </blockquote>
 </blockquote>

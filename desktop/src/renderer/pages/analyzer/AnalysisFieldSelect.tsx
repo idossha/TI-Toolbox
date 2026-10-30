@@ -1,6 +1,6 @@
 import { Select } from "../../ui/Select";
 import { AUTO_FIELD, type Space } from "./buildConfig";
-import { FIELD_REGISTRY, fieldSpecForName } from "./fields";
+import { FIELD_REGISTRY, HF_POWER_DENSITY, fieldLabel, fieldSpecForName } from "./fields";
 
 /** The envelope fields a carrier-only (ΔF = 0) simulation can never have. */
 const ENVELOPE_FIELDS = ["TI_max", "mTI_max", "TI_avg", "TI_normal"];
@@ -12,7 +12,7 @@ export function fieldOptionNote(name: string, space: Space, saved: string[]): { 
   // Nothing known about the simulation (no catalog entry yet): no claim either way.
   if (!saved.length || saved.includes(name) || (name === "TI_max" && saved.includes("mTI_max")) || name === "TI_normal") return { disabled: false };
   // Its conductivity is not kept, so it cannot be computed after the run (tit/volume_fields.py).
-  if (name === "hf_power_density") return { note: "not saved", disabled: true };
+  if (name === HF_POWER_DENSITY) return { note: "not saved", disabled: true };
   return { disabled: false };
 }
 
@@ -31,9 +31,9 @@ export function AnalysisFieldSelect({value,space,available=[],carrierOnly=false,
   const offered=[AUTO_FIELD,...names];
   const retained=offered.includes(value) ? offered : [value,...offered];
   return <Select value={value} onValueChange={onChange} aria-label="Field" options={retained.map((name)=>{
-    if (name === AUTO_FIELD) return {value:name,label:carrierOnly ? "Auto (hf_peak)" : "Auto",disabled:false};
-    if (!offered.includes(name)) return {value:name,label:`${name} (carrier-only run)`,disabled:true};
+    if (name === AUTO_FIELD) return {value:name,label:carrierOnly ? `Auto (${fieldLabel("hf_peak")})` : "Auto",disabled:false};
+    if (!offered.includes(name)) return {value:name,label:`${fieldLabel(name)} (carrier-only run)`,disabled:true};
     const {note,disabled}=fieldOptionNote(name,space,saved);
-    return {value:name,label:note ? `${name} (${note})` : name,disabled};
+    return {value:name,label:note ? `${fieldLabel(name)} (${note})` : fieldLabel(name),disabled};
   })}/>;
 }

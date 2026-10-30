@@ -1783,9 +1783,7 @@ rings, the winner filled, and three curves of equal composite (ROI mean × focal
 
             <details class="quote">
               <summary>Source code in <code>tit/reporting/generators/ex_search.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-644">644</a></span>
-<span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-646">646</a></span>
 <span class="normal"><a href="#__codelineno-0-647">647</a></span>
 <span class="normal"><a href="#__codelineno-0-648">648</a></span>
 <span class="normal"><a href="#__codelineno-0-649">649</a></span>
@@ -1813,37 +1811,39 @@ rings, the winner filled, and three curves of equal composite (ROI mean × focal
 <span class="normal"><a href="#__codelineno-0-671">671</a></span>
 <span class="normal"><a href="#__codelineno-0-672">672</a></span>
 <span class="normal"><a href="#__codelineno-0-673">673</a></span>
-<span class="normal"><a href="#__codelineno-0-674">674</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_ex_search_report</span><span class="p">(</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="w">    </span><span class="sd">"""Write the report for one ex- or mEx-search run folder; into the project's reports unless</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="sd">    *out_dir*."""</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">,</span> <span class="n">pm</span><span class="o">.</span><span class="n">leadfields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]:</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv has no montages"</span><span class="p">)</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"TImax_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">r</span><span class="p">[</span><span class="s2">"TImean_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]):</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>            <span class="sa">f</span><span class="s2">"Every montage in </span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv scored 0 in the ROI "</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rec</span><span class="p">[</span><span class="s1">'config'</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'roi_name'</span><span class="p">)</span><span class="si">!r}</span><span class="s2">: the ROI selected no leadfield mesh elements, "</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a>            <span class="s2">"so the ranking is arbitrary and there is no winner to report."</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>        <span class="p">)</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a>        <span class="n">project_dir</span><span class="p">,</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a>        <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="n">out_dir</span><span class="p">,</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="n">t0</span><span class="p">,</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Ex-search report"</span><span class="p">,</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-674">674</a></span>
+<span class="normal"><a href="#__codelineno-0-675">675</a></span>
+<span class="normal"><a href="#__codelineno-0-676">676</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_ex_search_report</span><span class="p">(</span>
+<a id="__codelineno-0-647" name="__codelineno-0-647"></a>    <span class="n">project_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-648" name="__codelineno-0-648"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-649" name="__codelineno-0-649"></a>    <span class="n">run_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
+<a id="__codelineno-0-650" name="__codelineno-0-650"></a>    <span class="n">out_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="w">    </span><span class="sd">"""Write the report for one ex- or mEx-search run folder; into the project's reports unless</span>
+<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">    *out_dir*."""</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a>    <span class="n">t0</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">project_dir</span><span class="p">))</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a>    <span class="n">rec</span> <span class="o">=</span> <span class="n">collect</span><span class="p">(</span><span class="n">run_dir</span><span class="p">,</span> <span class="n">pm</span><span class="o">.</span><span class="n">leadfields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]:</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv has no montages"</span><span class="p">)</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">r</span><span class="p">[</span><span class="s2">"TImax_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">r</span><span class="p">[</span><span class="s2">"TImean_ROI"</span><span class="p">]</span> <span class="o">==</span> <span class="mi">0</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">rec</span><span class="p">[</span><span class="s2">"rows"</span><span class="p">]):</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a>            <span class="sa">f</span><span class="s2">"Every montage in </span><span class="si">{</span><span class="n">run_dir</span><span class="si">}</span><span class="s2">/final_output.csv scored 0 in the ROI "</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">rec</span><span class="p">[</span><span class="s1">'config'</span><span class="p">]</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">'roi_name'</span><span class="p">)</span><span class="si">!r}</span><span class="s2">: the ROI selected no leadfield mesh elements, "</span>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a>            <span class="s2">"so the ranking is arbitrary and there is no winner to report."</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a>        <span class="p">)</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a>    <span class="k">return</span> <span class="n">common</span><span class="o">.</span><span class="n">write_report</span><span class="p">(</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a>        <span class="n">build_html</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">),</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a>        <span class="n">project_dir</span><span class="p">,</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>        <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a>        <span class="n">REPORT_PREFIX</span><span class="p">,</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a>        <span class="n">SIZE_BUDGET</span><span class="p">,</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a>        <span class="n">out_dir</span><span class="p">,</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>        <span class="n">t0</span><span class="p">,</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a>        <span class="n">label</span><span class="o">=</span><span class="s2">"Ex-search report"</span><span class="p">,</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

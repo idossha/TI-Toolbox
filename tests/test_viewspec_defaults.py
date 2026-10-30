@@ -549,20 +549,20 @@ def test_a_simulations_three_volumes_do_not_all_come_out_named_TI_max() -> None:
     """The field is the basename's **last token**, not any substring of it.
 
     `L_Insula_TI_subject_hf_peak.nii.gz` contains "ti" twice, and the old substring chain answered
-    `TI_max` for it — so a simulation's TI_max, hf_peak and hf_sar volumes all rendered as
+    `TI_max` for it — so a simulation's TI_max, hf_peak and hf_rms volumes all rendered as
     "TI_max (volume)": three identical rows in the viewer's Layers list, and three identical
     checkboxes once the composition tree existed (screenshot, 2026-09-07).
     """
     sim = "L_Insula_TI_subject"
     assert viewspec._scene_field_name(f"{sim}_TI_max.nii.gz") == "TI_max"
     assert viewspec._scene_field_name(f"{sim}_hf_peak.nii.gz") == "hf_peak"
-    assert viewspec._scene_field_name(f"{sim}_hf_sar.nii.gz") == "hf_sar"
+    assert viewspec._scene_field_name(f"{sim}_hf_rms.nii.gz") == "hf_rms"
     assert viewspec._scene_field_name(f"grey_{sim}_TI_normal.nii.gz") == "TI_normal"
     assert viewspec._scene_field_name("101_TDCS_1_scalar_subject_magnE.nii.gz") == "magnE"
 
     names = {
         viewspec._scene_field_name(f"{sim}_{token}.nii.gz")
-        for token in ("TI_max", "hf_peak", "hf_sar")
+        for token in ("TI_max", "hf_peak", "hf_rms")
     }
     assert len(names) == 3, "three different fields must not share one name"
 

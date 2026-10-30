@@ -7,7 +7,7 @@ What this pins
        the weighted and the unweighted 99.9th percentiles differ: before the fix the lines were
        drawn at 50 % ... of ``np.percentile(values, 99.9)`` and missed the table's numbers.
     2. The histogram (x axis, cutoff legend) and the analysis scene's colour bar carry the unit
-       ``tit.constants.FIELD_REGISTRY`` gives the field: ``hf_sar`` is (V/m)^2 (carrier power),
+       ``tit.constants.FIELD_REGISTRY`` gives the field: ``hf_power_density`` is W/m^3,
        ``TI_max`` is V/m.
 
 Where the numbers come from
@@ -16,7 +16,7 @@ Where the numbers come from
     (1000 + 9 = 1009), so the weighted 99.9th percentile is 9 and the cutoffs are 4.5, 6.75,
     8.1 and 8.55. ``np.percentile`` of the same eleven values gives 9.99. The same 9 must come
     out of :meth:`Analyzer._compute_focality_metrics` (the results.csv path). Units: the
-    registry's ``units`` strings, ``^2`` shown as a superscript.
+    registry's ``units`` strings, ``^3`` shown as a superscript.
 
 Run (in the image; matplotlib is real there)::
 
@@ -107,15 +107,15 @@ def test_cutoffs_match_the_percentile_results_csv_reports(drawn, tmp_path) -> No
     )
 
 
-def test_hf_sar_histogram_is_labelled_in_volts_squared_per_metre_squared(
+def test_hf_power_density_histogram_is_labelled_in_watts_per_cubic_metre(
     drawn, tmp_path
 ) -> None:
-    fig = drawn(tmp_path, field_name="hf_sar")
+    fig = drawn(tmp_path, field_name="hf_power_density")
     ax = fig.axes[0]
-    assert ax.get_xlabel() == "hf_sar ((V/m)²)"
+    assert ax.get_xlabel() == "hf_power_density (W/m³)"
     labels = [t.get_text() for t in ax.get_legend().get_texts()]
     assert len(labels) == 4
-    assert all("(V/m)²," in label for label in labels), labels
+    assert all("W/m³," in label for label in labels), labels
 
 
 def test_ti_max_histogram_stays_in_volts_per_metre(drawn, tmp_path) -> None:
@@ -124,14 +124,15 @@ def test_ti_max_histogram_stays_in_volts_per_metre(drawn, tmp_path) -> None:
 
 
 @pytest.mark.parametrize(
-    "field, unit", [("hf_sar", "(V/m)²"), ("TI_max", "V/m"), ("hf_peak", "V/m")]
+    "field, unit",
+    [("hf_power_density", "W/m³"), ("hf_rms", "V/m"), ("TI_max", "V/m"), ("hf_peak", "V/m")],
 )
 def test_scene_colour_bar_unit_is_the_fields(field, unit) -> None:
     from tit import constants as const
     from tit.analyzer.scene import _meta
 
-    # The registry is the spec: its "^2" is what the superscript shows.
-    assert const.get_field_spec(field).units.replace("^2", "²") == unit
+    # The registry is the spec: its "^3" is what the superscript shows.
+    assert const.get_field_spec(field).units.replace("^3", "³") == unit
     plan = SimpleNamespace(cursor_ras=(1.0, 2.0, 3.0), rule="test", as_dict=dict)
     meta = _meta({}, plan, field, np.array([0.0, 0.2, 0.4]), 0.08, 0.4, "voxels")
     assert meta["field"]["unit"] == unit

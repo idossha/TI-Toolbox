@@ -45,11 +45,11 @@ from tit.paths import get_path_manager
 
 #: Element fields the post-process adds to the ``<name>_<mode>.msh`` volume mesh
 #: (``TI.py`` ``_post_process`` / ``mTI.py`` ``_post_process``, ``add_element_field``).
-#: mTI spells the envelope ``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep
+#: mTI spells the envelope ``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_rms`` keep
 #: their names in both modes.
 VOLUME_FIELDS = {
-    "TI": ("TI_max", "TI_avg", "hf_peak", "hf_sar"),
-    "mTI": ("mTI_max", "TI_avg", "hf_peak", "hf_sar"),
+    "TI": ("TI_max", "TI_avg", "hf_peak", "hf_rms"),
+    "mTI": ("mTI_max", "TI_avg", "hf_peak", "hf_rms"),
 }
 #: ``extract_fields`` writes ``grey_<base>.msh`` and ``white_<base>.msh`` beside ``<base>.msh``.
 TISSUE_PREFIX = {None: "", "grey": "grey_", "white": "white_"}
@@ -252,7 +252,7 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
         "voxel GM TI_max alias": (voxel("GM", "TI_max"), nii("grey", "subject", env)),
         "voxel GM TI_avg": (voxel("GM", "TI_avg"), nii("grey", "subject", "TI_avg")),
         "voxel GM hf_peak": (voxel("GM", "hf_peak"), nii("grey", "subject", "hf_peak")),
-        "voxel WM hf_sar": (voxel("WM", "hf_sar"), nii("white", "subject", "hf_sar")),
+        "voxel WM hf_rms": (voxel("WM", "hf_rms"), nii("white", "subject", "hf_rms")),
         "mesh default": (
             lambda: select_field_file(sid, sim, "mesh")[0],
             mesh_dir / f"{sim}_{mode}.msh",

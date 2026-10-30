@@ -6,6 +6,7 @@
  * or the DOM beyond `<html data-theme>`.
  */
 import type { Space, ViewKind } from "./api";
+import { HF_POWER_DENSITY } from "../analyzer/fields";
 
 export interface ViewerDeepLink {
   kind?: ViewKind;
@@ -552,7 +553,7 @@ export function rescopeNotice(dropped: string[]): string | null {
  */
 export function fieldOfNode(name: string): string | null {
   const stem = name.replace(/\.(nii\.gz|nii|mgz|msh|gii)$/i, "");
-  for (const field of ["mTI_max", "TI_normal", "TI_max", "hf_peak", "hf_sar", "hf_power_density", "magnE", "normE"]) {
+  for (const field of ["mTI_max", "TI_normal", "TI_max", "hf_peak", "hf_rms", HF_POWER_DENSITY, "magnE", "normE"]) {
     if (stem.endsWith(`_${field}`) || stem === field) return field;
   }
   return null;

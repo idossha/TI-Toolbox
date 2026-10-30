@@ -233,7 +233,7 @@ th:last-child, td:last-child { padding-right: 0; }
       <tr><td><code>TI_avg</code></td><td>envelope depth, averaged over direction</td><td>functional</td><td>ours</td></tr>
       <tr><td><code>TI_normal</code></td><td>envelope depth along the cortical normal</td><td>functional</td><td>Grossman 2017 [1]</td></tr>
       <tr><td><code>hf_peak</code></td><td>worst-case instantaneous carrier field</td><td>safety</td><td>Cassar&agrave; 2025 Eq. 3 [3]</td></tr>
-      <tr><td><code>hf_sar</code></td><td>\(\sum_i \lVert \mathbf{E}_i \rVert^2\), heating driver</td><td>safety</td><td>Cassar&agrave; 2025 [3]</td></tr>
+      <tr><td><code>hf_rms</code></td><td>RMS carrier field over time, \(\sqrt{\tfrac{1}{2}\sum_i \lVert \mathbf{E}_i \rVert^2}\)</td><td>safety</td><td>Cassar&agrave; 2025 [3]</td></tr>
       <tr><td><code>magnitude_am</code></td><td>envelope of \(\lVert \mathbf{E}(t) \rVert\), no direction search</td><td>removed (no consumer)</td><td>one reading of Botzanowski 2025&rsquo;s prose procedure &mdash; the published paper states no equation and its referenced appendix does not exist in the version of record [4]</td></tr>
     </tbody>
   </table>
@@ -277,7 +277,7 @@ th:last-child, td:last-child { padding-right: 0; }
   </div>
 
   <p>Three consequences decided most of the API. <strong>RMS is not a new metric</strong>
-  &mdash; \(\mathrm{RMS}^2 \equiv P \equiv \mathrm{hf\_sar}/2\), exactly; a vector RMS is
+  &mdash; \(\mathrm{RMS}^2 \equiv P\), exactly (saved as \(\mathrm{hf\_rms} = \sqrt{P}\)); a vector RMS is
   meaningless besides, since heating is isotropic. <strong>The envelope trough is
   free</strong> &mdash; \(\mathrm{env\_min} = \mathrm{env\_max} - \mathrm{depth}\) to
   \(4 \times 10^{-16}\). <strong>The modulation index adds little</strong>
@@ -333,7 +333,7 @@ th:last-child, td:last-child { padding-right: 0; }
       <tr><td>direction: secondary max</td><td>a second local maximum in another direction</td><td><strong>no</strong> [6]</td></tr>
       <tr><td>envelope of magnitude</td><td>modulation of \(\lVert \mathbf{E} \rVert\), not of a projection</td><td><code>magnitude_am</code></td></tr>
       <tr><td>carrier peak</td><td>instantaneous worst case</td><td><code>hf_peak</code></td></tr>
-      <tr><td>carrier power</td><td>heating</td><td><code>hf_sar</code></td></tr>
+      <tr><td>carrier power</td><td>heating</td><td><code>hf_rms</code> (\(\sqrt{P}\)), <code>hf_power_density</code></td></tr>
       <tr><td>envelope slope</td><td>rate of change, not height</td><td><strong>no</strong> [7]</td></tr>
       <tr><td>time above threshold</td><td>fraction of the beat cycle over threshold</td><td><strong>no</strong> [8]</td></tr>
       <tr><td>activating function</td><td>second spatial derivative along an axon</td><td><strong>no</strong> [9]</td></tr>
@@ -538,7 +538,7 @@ th:last-child, td:last-child { padding-right: 0; }
     <caption><span class="lbl">Table 7.</span> Candidates considered.</caption>
     <thead><tr><th>Candidate</th><th>Verdict</th><th>Reason</th></tr></thead>
     <tbody>
-      <tr><td>RMS / mean-square</td><td class="v">Redundant</td><td>identically <code>hf_sar/2</code></td></tr>
+      <tr><td>RMS / mean-square</td><td class="v">Redundant</td><td>identically \(P\), saved as <code>hf_rms</code> = \(\sqrt{P}\)</td></tr>
       <tr><td>Modulation index \(1 - \min/\max\)</td><td class="v">Redundant</td><td>0.88 correlated with depth; derivable</td></tr>
       <tr><td>Envelope minimum</td><td class="v">Redundant</td><td>free from the two stored fields</td></tr>
       <tr><td>Huang&ndash;Parra / Meng iterative max&ndash;min</td><td class="v">Redundant</td><td>the same value our closed form returns</td></tr>

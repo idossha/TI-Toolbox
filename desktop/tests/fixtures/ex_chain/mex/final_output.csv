@@ -1,4 +1,4 @@
-Montage,Current_Ch1_mA,Current_Ch2_mA,Current_Ch3_mA,Current_Ch4_mA,TImax_ROI,TImean_ROI,TImean_GM,Focality,Composite_Index,HF_Focality,TI_Selectivity
+Montage,Current_Ch1_mA,Current_Ch2_mA,Current_Ch3_mA,Current_Ch4_mA,TImax_ROI,TImean_ROI,TImean_GM,Focality,Composite_Index,HFpeak_Focality,TI_Selectivity
 E010_E011 <> E020_E021 <> E030_E031 <> E040_E041_I-2.0mA,2.0,2.0,2.0,2.0,0.4748,0.2950,0.1977,1.4924,0.4402,1.3515,1.1042
 E010_E011 <> E020_E023 <> E030_E031 <> E040_E041_I-2.0mA,2.0,2.0,2.0,2.0,0.2208,0.1708,0.1263,1.3521,0.2309,1.2882,1.0496
 E010_E011 <> E022_E021 <> E030_E031 <> E040_E041_I-2.0mA,2.0,2.0,2.0,2.0,0.2084,0.1447,0.1380,1.0482,0.1517,1.1916,0.8796

@@ -9,6 +9,7 @@ import { IconButton } from "../../../ui/Button";
 import { DataTable, type DataTableColumn } from "../../../ui/DataTable";
 import { DefinitionList } from "../../../ui/Feedback";
 import { Chip } from "../../../ui/Status";
+import { Subscripted } from "../../../ui/Subscripted";
 import { notify } from "../../../ui/Toast";
 import { artifactUrl, getTextFile, type Artifact } from "../api";
 import { isPdf, PdfCanvas } from "./PdfCanvas";
@@ -22,7 +23,7 @@ export function SummaryRows({ rows, testid }: { rows: SummaryRow[]; testid?: str
   return (
     <div data-testid={testid}>
       <DefinitionList
-        entries={rows.map((r) => [r.label, r.mono ? <span className="mono">{r.value}</span> : r.value] as [string, ReactNode])}
+        entries={rows.map((r) => [r.label, r.mono ? <span className="mono">{r.value}</span> : <Subscripted text={r.value} />] as [string, ReactNode])}
       />
     </div>
   );

@@ -1289,3 +1289,16 @@ simulation field mesh too. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`. `SimulationDetail` gains `carrier_only` (boolean, the run record's; absent reads as false), which
 the Analyzer uses to offer a carrier-only control its carrier fields only.
 
+
+## 2026-10-30 — `hf_sar` is `hf_rms`; carrier metrics name their carrier field; mesh layers carry field labels
+
+The saved field `hf_sar` is replaced by `hf_rms` (`sqrt(hf_power)`, V/m) wherever a field name is a
+value: `SimulationConfig.output_fields` (default `["TI_max", "hf_peak", "hf_rms"]`,
+`["hf_peak", "hf_rms"]` for `carrier_only`), `x-app-defaults.sim.output_fields`,
+`SimulationDetail.fields`, `FsavgMapConfig.fields` and the analyzer/stats `field` strings. The
+`OptimizationCandidate.metrics` key `hf_focality` is `hf_peak_focality` (still an open map, so no
+schema change). The TetraVox scene's mesh layers gain `fields: {<name>: {label, units}}` for the
+registered fields the mesh carries (`TI_{max}`, `HF_{rms}`, ...), which TetraVox's own `MeshLayer`
+type defines; a TetraVox that does not know the block ignores it. Regenerated
+`contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.

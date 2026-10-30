@@ -9,7 +9,7 @@ against Dataset 000 on 2026-10-22: ``sub-101/Simulations/L_Insula/TI/niftis/*``,
 nilearn_visuals}``). Image payloads are placeholders (the host suite mocks nibabel); what
 matters to the routes is which files exist and what the JSON/CSV sidecars say.
 
-It covers: a TI simulation with MNI outputs and ``hf_peak``/``hf_sar``; an mTI
+It covers: a TI simulation with MNI outputs and ``hf_peak``/``hf_rms``; an mTI
 simulation; an anisotropic (``vn``) simulation; Mesh and Voxel analyses; a flex run with
 an ``electrode_mapping_<net>.json``; an ex run; a report; group-comparison and
 correlation stats runs; a NIfTI average and a nilearn visual; subject and MNI ROIs; a
@@ -203,7 +203,7 @@ def build_contract_project(root: Path) -> ContractProject:
         b"0" * 1024,
     )
 
-    # -- TI simulation: subject + MNI volumes, hf_peak/hf_sar, HF fields ----------
+    # -- TI simulation: subject + MNI volumes, hf_peak/hf_rms, HF fields ----------
     ti_dir = pm.simulation(sid, TI_SIM)
     _json(
         os.path.join(ti_dir, "documentation", "config.json"),
@@ -216,7 +216,7 @@ def build_contract_project(root: Path) -> ContractProject:
     )
     for prefix in ("", "grey_", "white_"):
         for space in ("subject", "MNI_MNI"):
-            for fld in ("TI_max", "hf_peak", "hf_sar"):
+            for fld in ("TI_max", "hf_peak", "hf_rms"):
                 _write(
                     os.path.join(
                         ti_dir,

@@ -18,8 +18,8 @@ What this pins (``tit/volume_fields.py``; docs/dev/DECISIONS.md 2026-10-30, fiel
 
 Where the expected numbers come from
     Hand formulas on authored channel fields: for two channels ``hf_peak = max(|E1 + E2|,
-    |E1 - E2|)`` and ``hf_sar = |E1|^2 + |E2|^2`` (Cassarà 2025), and the coherent carrier-only
-    ``hf_sar = |E1 + E2|^2``. Meshes are real Gmsh 2.2 ASCII files (their headers are what is
+    |E1 - E2|)`` and ``hf_rms = sqrt((|E1|^2 + |E2|^2) / 2)`` (Cassarà 2025), and the coherent carrier-only
+    ``hf_rms = |E1 + E2| / sqrt(2)``. Meshes are real Gmsh 2.2 ASCII files (their headers are what is
     checked); SimNIBS is mocked on the host, so ``mesh_io`` here reads and writes those files.
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_sim_fields_on_demand.py -q -p no:cacheprovider``
@@ -219,18 +219,18 @@ def test_a_missing_field_is_computed_from_the_channel_meshes_and_saved(
     sim_dir = make_simulation(producer.pm)
     volume = sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh"
 
-    notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_peak", "hf_sar"])
+    notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_peak", "hf_rms"])
 
     assert notices == [
-        "hf_peak and hf_sar were not saved for M; computing them from the channel "
+        "hf_peak and hf_rms were not saved for M; computing them from the channel "
         "fields and saving them to M_TI.msh."
     ]
-    assert msh_field_names(volume) == {"TI_max", "hf_peak", "hf_sar"}
+    assert msh_field_names(volume) == {"TI_max", "hf_peak", "hf_rms"}
     e1, e2 = E1[BRAIN], E2[BRAIN]  # the brain crop drops the rubber element
     peak = np.maximum(np.linalg.norm(e1 + e2, axis=1), np.linalg.norm(e1 - e2, axis=1))
-    sar = (e1**2).sum(axis=1) + (e2**2).sum(axis=1)
+    rms = np.sqrt(((e1**2).sum(axis=1) + (e2**2).sum(axis=1)) / 2)
     np.testing.assert_allclose(msh_element_field(volume, "hf_peak"), peak)
-    np.testing.assert_allclose(msh_element_field(volume, "hf_sar"), sar)
+    np.testing.assert_allclose(msh_element_field(volume, "hf_rms"), rms)
     np.testing.assert_allclose(
         msh_element_field(volume, "TI_max"), 1.0
     )  # kept as saved
@@ -242,7 +242,7 @@ def test_a_missing_field_is_computed_from_the_channel_meshes_and_saved(
         assert msh_field_names(volume.parent / derived) == {
             "TI_max",
             "hf_peak",
-            "hf_sar",
+            "hf_rms",
         }
     assert not list((volume.parents[1]).glob(".on-demand-*"))
 
@@ -277,7 +277,7 @@ def test_a_production_killed_midway_leaves_nothing_half_written_and_a_rerun_comp
 
 
 def test_saved_fields_produce_nothing(producer) -> None:
-    make_simulation(producer.pm, saved=("TI_max", "hf_peak", "hf_sar"))
+    make_simulation(producer.pm, saved=("TI_max", "hf_peak", "hf_rms"))
     assert fields.ensure_mesh_fields(SID, SIM, ["mTI_max", "hf_peak"]) == []
     assert producer.io.reads == [] and producer.calls.surface == []
 
@@ -309,7 +309,7 @@ def test_a_run_without_its_record_cannot_name_its_channels(producer) -> None:
     sim_dir = make_simulation(producer.pm)
     (sim_dir / "documentation" / "config.json").unlink()
     with pytest.raises(FieldUnavailableError, match="config.json"):
-        fields.ensure_mesh_fields(SID, SIM, ["hf_sar"])
+        fields.ensure_mesh_fields(SID, SIM, ["hf_rms"])
 
 
 def test_no_field_mesh_is_run_the_simulation_first(producer) -> None:
@@ -325,11 +325,11 @@ def test_a_carrier_only_run_has_no_envelope_and_adds_its_carriers_coherently(
     sim_dir = make_simulation(producer.pm, carrier_only=True, saved=("hf_peak",))
     with pytest.raises(FieldUnavailableError, match="carrier-only control"):
         fields.ensure_mesh_fields(SID, SIM, ["TI_max"])
-    fields.ensure_mesh_fields(SID, SIM, ["hf_sar"])
+    fields.ensure_mesh_fields(SID, SIM, ["hf_rms"])
     e = E1[BRAIN] + E2[BRAIN]  # one sinusoid of amplitude E1 + E2
     np.testing.assert_allclose(
-        msh_element_field(sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh", "hf_sar"),
-        (e**2).sum(axis=1),
+        msh_element_field(sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh", "hf_rms"),
+        np.sqrt((e**2).sum(axis=1) / 2),
     )
 
 
@@ -364,15 +364,15 @@ def test_an_mti_run_reads_its_lettered_channels_in_order(init_pm) -> None:
         patch.object(tit.sim.utils, "extract_fields", cut_tissues([])),
         patch.object(tit.sim.utils, "generate_central_surface", map_surface([])),
     ):
-        notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_sar"])
+        notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_rms"])
     assert notices == [
-        "hf_sar was not saved for M; computing it from the channel fields and saving it "
+        "hf_rms was not saved for M; computing it from the channel fields and saving it "
         "to M_mTI.msh."
     ]
     assert io.reads[:4] == [f"{SID}_TDCS_{c}_scalar.msh" for c in "ABCD"]
-    sar = sum((v[BRAIN] ** 2).sum(axis=1) for v in e)
+    rms = np.sqrt(sum((v[BRAIN] ** 2).sum(axis=1) for v in e) / 2)
     volume = Path(init_pm.simulation(SID, SIM)) / "mTI" / "mesh" / "M_mTI.msh"
-    np.testing.assert_allclose(msh_element_field(volume, "hf_sar"), sar)
+    np.testing.assert_allclose(msh_element_field(volume, "hf_rms"), rms)
 
 
 @pytest.fixture()
@@ -452,7 +452,7 @@ def test_a_voxel_step_writes_the_tissue_niftis_it_reads(converter) -> None:
 
 def test_an_mni_nifti_is_warped_from_the_tissue_mesh(converter) -> None:
     sim_dir = make_simulation(
-        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_sar")
+        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_rms")
     )
     paths, notices = fields.ensure_niftis(
         SID, SIM, ["TI_max"], tissue=None, space="mni"
@@ -466,12 +466,12 @@ def test_an_mni_nifti_is_warped_from_the_tissue_mesh(converter) -> None:
 
 def test_a_group_tool_path_is_produced_and_any_other_name_left_alone(converter) -> None:
     sim_dir = make_simulation(
-        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_sar")
+        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_rms")
     )
     niftis = sim_dir / "TI" / "niftis"
-    wanted = niftis / "white_M_TI_MNI_MNI_hf_sar.nii.gz"
+    wanted = niftis / "white_M_TI_MNI_MNI_hf_rms.nii.gz"
     assert fields.ensure_nifti_file(SID, SIM, wanted) == [
-        "hf_sar was not saved as an MNI-space NIfTI for M; writing it from white_M_TI.msh."
+        "hf_rms was not saved as an MNI-space NIfTI for M; writing it from white_M_TI.msh."
     ]
     assert wanted.is_file()
     assert fields.ensure_nifti_file(SID, SIM, niftis / "my_own_average.nii.gz") == []
@@ -500,7 +500,7 @@ def test_an_unproducible_nifti_is_refused_before_any_conversion(converter) -> No
 
 def test_an_uncompressed_nifti_counts_as_saved(converter) -> None:
     sim_dir = make_simulation(
-        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_sar")
+        converter.producer.pm, saved=("TI_max", "hf_peak", "hf_rms")
     )
     niftis = sim_dir / "TI" / "niftis"
     niftis.mkdir()

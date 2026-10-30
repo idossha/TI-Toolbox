@@ -1193,7 +1193,7 @@
   forward solution (leadfield, source space, fsaverage morph) from an existing
   SimNIBS head model.</li>
 <li>:class:<code>FsavgMapConfig</code> -- parameters for projecting existing simulation field
-  outputs (TI_max, TI_normal, hf_peak, hf_sar) onto an fsaverage template.</li>
+  outputs (TI_max, TI_normal, hf_peak, hf_rms) onto an fsaverage template.</li>
 </ul>
 <h4 id="tit.source.config--see-also">See Also<a class="headerlink" href="#tit.source.config--see-also" title="Permanent link">&para;</a></h4>
 <p>tit.source.forward.prepare_forward : Consumes :class:<code>ForwardConfig</code>.
@@ -1299,7 +1299,7 @@ overwrite : bool
 <p>fields : tuple of str
     Which field quantities to project.  Any of
     :data:<code>VALID_FSAVG_FIELDS</code> (<code>"TI_max"</code>, <code>"TI_normal"</code>,
-    <code>"hf_peak"</code>, <code>"hf_sar"</code>).
+    <code>"hf_peak"</code>, <code>"hf_rms"</code>).
 fsaverage_spacing : int
     fsaverage subdivision factor (5, 6, or 7) to morph onto.
 workers : int

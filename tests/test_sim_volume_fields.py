@@ -5,7 +5,7 @@ on fake carrier meshes (SimNIBS is mocked on the host): the channel fields are c
 ``BRAIN_TISSUE_TAG_RANGES`` before anything is computed; the volume mesh carries exactly the
 selected fields, in registry order, under their on-disk names (``mTI_max`` for mTI); each value is
 the ``tit.calc`` function for that quantity over ALL channel fields in channel order
-(``envelope_max``, ``envelope_mean``, ``hf_peak``, ``2 * hf_power`` for ``hf_sar``,
+(``envelope_max``, ``envelope_mean``, ``hf_peak``, ``sqrt(hf_power)`` for ``hf_rms``,
 ``sigma * hf_power`` for ``hf_power_density``); a carrier-only TI run adds the carriers
 coherently; mTI writes one ``TI_vectors`` mesh per adjacent channel pair, the K=1 envelope
 maximum times its direction; and, before field extraction, TI writes ``<montage>_normal.msh`` and
@@ -171,7 +171,13 @@ def _fields(mesh):
 
 
 def _power(fields):
+    """``sum_c |E_c|^2``: twice the time-averaged mean square of the carriers."""
     return sum(np.sum(e * e, axis=1) for e in fields)
+
+
+def _rms(fields):
+    """RMS over time of carriers at distinct frequencies: ``sqrt(sum_c |E_c|^2 / 2)``."""
+    return np.sqrt(0.5 * _power(fields))
 
 
 def test_ti_writes_each_selected_field_from_its_calc_function():
@@ -187,7 +193,7 @@ def test_ti_writes_each_selected_field_from_its_calc_function():
         np.linalg.norm(e1 + e2, axis=1), np.linalg.norm(e1 - e2, axis=1)
     )
     np.testing.assert_allclose(got["hf_peak"], by_hand_peak, rtol=1e-12)
-    np.testing.assert_allclose(got["hf_sar"], _power(kept), rtol=1e-12)
+    np.testing.assert_allclose(got["hf_rms"], _rms(kept), rtol=1e-12)
     np.testing.assert_allclose(
         got["hf_power_density"], 0.5 * _SIGMA[_KEEP] * _power(kept), rtol=1e-12
     )
@@ -213,7 +219,7 @@ def test_ti_carrier_only_adds_the_carriers_coherently():
     np.testing.assert_allclose(
         got["hf_peak"], np.linalg.norm(total, axis=1), rtol=1e-12
     )
-    np.testing.assert_allclose(got["hf_sar"], _power([total]), rtol=1e-12)
+    np.testing.assert_allclose(got["hf_rms"], _rms([total]), rtol=1e-12)
     np.testing.assert_allclose(
         got["hf_power_density"], 0.5 * _SIGMA[_KEEP] * _power([total]), rtol=1e-12
     )
@@ -229,7 +235,7 @@ def test_mti_writes_each_selected_field_over_all_channels(n_channels):
     np.testing.assert_allclose(got["mTI_max"], envelope_max(kept), rtol=1e-12)
     np.testing.assert_allclose(got["TI_avg"], envelope_mean(kept), rtol=1e-12)
     np.testing.assert_allclose(got["hf_peak"], hf_peak(kept), rtol=1e-12)
-    np.testing.assert_allclose(got["hf_sar"], _power(kept), rtol=1e-12)
+    np.testing.assert_allclose(got["hf_rms"], _rms(kept), rtol=1e-12)
     np.testing.assert_allclose(
         got["hf_power_density"], 0.5 * _SIGMA[_KEEP] * _power(kept), rtol=1e-12
     )
@@ -291,7 +297,7 @@ def test_without_ti_max_the_view_opens_on_the_first_selected_field(shift):
     fields = [
         const.FIELD_TI_AVG,
         const.FIELD_HF_PEAK,
-        const.FIELD_HF_SAR,
+        const.FIELD_HF_RMS,
         const.FIELD_HF_POWER_DENSITY,
     ]
     selection = fields[shift:] + fields[:shift]

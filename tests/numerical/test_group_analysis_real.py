@@ -131,7 +131,7 @@ def _project(tmp_path: Path) -> Path:
         affine = np.diag([2.0, 2.0, 2.0, 1.0])
         # The default fields, so the analyses have nothing to produce on demand.
         for prefix in ("grey_", "white_"):
-            for name in ("TI_max", "hf_peak", "hf_sar"):
+            for name in ("TI_max", "hf_peak", "hf_rms"):
                 nib.save(
                     nib.Nifti1Image(field, affine),
                     str(niftis / f"{prefix}{SIM}_TI_subject_{name}.nii"),

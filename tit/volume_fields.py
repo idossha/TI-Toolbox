@@ -24,7 +24,7 @@ each a NIfTI of a field its mesh carries, never one the mesh lacks.
 Writes are crash-safe: everything is staged in a hidden folder and moved into place with atomic
 renames, derived files first and the volume mesh last (:func:`_produce_mesh_fields`).
 
-Each says one plain sentence per production before doing it ("hf_peak and hf_sar were not saved
+Each says one plain sentence per production before doing it ("hf_peak and hf_rms were not saved
 for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh."),
 through the caller's ``say`` (its own ``logger.info``, so it reaches that job's output), and
 returns the sentences so the caller can show them wherever its results are read.
@@ -64,7 +64,7 @@ _FIELD_ORDER = (
     const.FIELD_TI_MAX,
     const.FIELD_TI_AVG,
     const.FIELD_HF_PEAK,
-    const.FIELD_HF_SAR,
+    const.FIELD_HF_RMS,
     const.FIELD_HF_POWER_DENSITY,
 )
 _ENVELOPE_FIELDS = (const.FIELD_TI_MAX, const.FIELD_TI_AVG)
@@ -75,13 +75,13 @@ class FieldUnavailableError(FileNotFoundError):
 
 
 def hf_power_density(fields, sigma, *, coherent: bool = False) -> np.ndarray:
-    """Time-averaged carrier power absorbed per volume, W/m^3.
+    """Absorbed (Joule) power density of the carriers, time-averaged, W/m^3.
 
     ``(1/2) sum_c E_c^T sigma E_c`` for zero-to-peak carrier fields ``E_c``
     (V/m) at distinct frequencies: ``sigma * hf_power`` for isotropic
     ``sigma`` ``(N,)`` S/m, the full tensor form for ``(N, 9)`` anisotropic
-    conductivities (``J . E`` averaged over time).  ``SAR = this / rho``
-    (IEEE C95.1-2019, p. 35).  *coherent* is the carrier-only control: one
+    conductivities (``J . E`` averaged over time).  Not SAR (that is this over the
+    tissue density, IEEE C95.1-2019 p. 35, and no SAR limit applies below 100 kHz).  *coherent* is the carrier-only control: one
     sinusoid of amplitude ``sum_c E_c``.
     """
     sigma = np.asarray(sigma, dtype=np.float64)
@@ -124,9 +124,9 @@ def compute_volume_fields(
         elif name == const.FIELD_HF_PEAK:
             # Peak carrier field (Cassarà 2025 Part I, Eq. 3); each channel field enters on its own.
             out.append((name, hf_peak(e_fields, coherent=coherent)))
-        elif name == const.FIELD_HF_SAR:
-            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            out.append((name, 2.0 * hf_power(e_fields, coherent=coherent)))
+        elif name == const.FIELD_HF_RMS:
+            # RMS carrier field over time: power adds across carriers (Cassarà 2025).
+            out.append((name, np.sqrt(hf_power(e_fields, coherent=coherent))))
         else:
             out.append((name, hf_power_density(e_fields, sigma, coherent=coherent)))
     return out
@@ -281,7 +281,7 @@ def check_producible(subject_id: str, simulation: str, fields) -> None:
 
 
 def _listed(names: list[str]) -> str:
-    """``hf_peak``, ``hf_peak and hf_sar``, ``TI_max, hf_peak and hf_sar``."""
+    """``hf_peak``, ``hf_peak and hf_rms``, ``TI_max, hf_peak and hf_rms``."""
     return names[0] if len(names) == 1 else f"{', '.join(names[:-1])} and {names[-1]}"
 
 

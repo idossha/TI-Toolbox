@@ -42,7 +42,7 @@
         ],
         "output_fields": [
           "hf_peak",
-          "hf_sar"
+          "hf_rms"
         ],
         "subject_id": "001"
       },

@@ -152,7 +152,7 @@ def simulation_nifti_path(
     Patterns use the TI spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
     read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``
     into ``mTI/niftis/``, and of its fields only the envelope is spelled differently
-    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep their names). So for mTI the
+    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_rms`` keep their names). So for mTI the
     mesh token before the space (``_TI_subject_`` / ``_TI_MNI_``) becomes ``_mTI_`` and a
     trailing ``_TI_max`` becomes ``_mTI_max``: ``grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz``,
     ``grey_<sim>_mTI_MNI_MNI_TI_avg.nii.gz``. A pattern already spelled for mTI is unchanged.

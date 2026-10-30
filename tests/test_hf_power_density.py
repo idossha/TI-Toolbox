@@ -13,7 +13,7 @@ Pins (2026-10-26):
 Reproduce: ``.venv/bin/python -m pytest tests/test_hf_power_density.py -q``.
 Deliberately elsewhere: that ``_element_conductivity`` returns SimNIBS's solve conductivity needs
 real SimNIBS (``tests/numerical``); ``hf_power`` itself is ``tests/test_calc.py``. The writers'
-``hf_sar`` (``sum_c |E_c|^2``, unchanged on disk) is checked on the same runs.
+``hf_rms`` (``sum_c |E_c|^2``, unchanged on disk) is checked on the same runs.
 """
 
 from __future__ import annotations
@@ -151,7 +151,7 @@ def _run_post_process(sim_cls, n_carriers, carrier_only=False):
             )
         ],
         intensities=[1.0] * n_carriers,
-        output_fields=[const.FIELD_HF_SAR, const.FIELD_HF_POWER_DENSITY],
+        output_fields=[const.FIELD_HF_RMS, const.FIELD_HF_POWER_DENSITY],
         carrier_only=carrier_only,
     )
     with (
@@ -165,11 +165,11 @@ def _run_post_process(sim_cls, n_carriers, carrier_only=False):
             sim._post_process(dirs)
     mout = written.value.args[0]
     kept = [c[_KEEP] for c in carriers]
-    # hf_sar on disk is sum_c |E_c|^2 (= 2 * hf_power), coherent: |sum_c E_c|^2
+    # hf_rms is sqrt(1/2 sum_c |E_c|^2) (= sqrt(hf_power)), coherent: |sum_c E_c| / sqrt(2)
     summed = [sum(kept)] if carrier_only else kept
-    expected_sar = sum(np.sum(e * e, axis=1) for e in summed)
+    expected_rms = np.sqrt(0.5 * sum(np.sum(e * e, axis=1) for e in summed))
     np.testing.assert_allclose(
-        mout.field[const.FIELD_HF_SAR].value, expected_sar, rtol=1e-12
+        mout.field[const.FIELD_HF_RMS].value, expected_rms, rtol=1e-12
     )
     return mout.field[const.FIELD_HF_POWER_DENSITY].value, kept
 

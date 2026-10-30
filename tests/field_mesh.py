@@ -11,7 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 #: What a default simulation saves.
-DEFAULT_FIELDS = ("TI_max", "hf_peak", "hf_sar")
+DEFAULT_FIELDS = ("TI_max", "hf_peak", "hf_rms")
 
 
 def write_field_mesh(path, fields=DEFAULT_FIELDS) -> Path:

@@ -168,7 +168,7 @@ class TestTISimulation:
 
     def test_run_writes_ti_avg_field(self):
         """TI_avg (tit.calc.envelope_mean) must be written as a volume field
-        on the TI output mesh alongside TI_max, hf_peak, and hf_sar."""
+        on the TI output mesh alongside TI_max, hf_peak, and hf_rms."""
         with (
             patch.object(_base_mod, "get_path_manager") as mock_pm,
             patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
@@ -216,7 +216,7 @@ class TestTISimulation:
                         const.FIELD_TI_MAX,
                         const.FIELD_TI_AVG,
                         const.FIELD_HF_PEAK,
-                        const.FIELD_HF_SAR,
+                        const.FIELD_HF_RMS,
                     ]
                 ),
                 _make_ti_montage(),
@@ -421,7 +421,7 @@ class TestMTISimulation:
                     const.FIELD_TI_MAX,
                     const.FIELD_TI_AVG,
                     const.FIELD_HF_PEAK,
-                    const.FIELD_HF_SAR,
+                    const.FIELD_HF_RMS,
                 ],
             )
             montage = _make_mti_montage()
@@ -448,14 +448,14 @@ class TestMTISimulation:
             # fields at once, not a recursive TI-of-TI recombination.
             assert len(mock_get_ti.call_args.args[0]) == 4
 
-            # D2 regression guard: hf_peak/hf_sar safety metrics must be
+            # D2 regression guard: hf_peak/hf_rms safety metrics must be
             # written onto the mTI output mesh when selected.
             mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
             written_field_names = [
                 call.args[1] for call in mout.add_element_field.call_args_list
             ]
             assert const.FIELD_HF_PEAK in written_field_names
-            assert const.FIELD_HF_SAR in written_field_names
+            assert const.FIELD_HF_RMS in written_field_names
 
             # TI_avg (tit.calc.envelope_mean): orientation-averaged companion
             # to mTI_max, must also be written when selected.
@@ -756,7 +756,7 @@ class TestOutputFieldSelection:
     """Only the selected output fields are computed and written.
 
     The point of gating is cost, not tidiness: the mTI TI_avg is a
-    2048-direction hemisphere quadrature, while hf_peak/hf_sar are nearly
+    2048-direction hemisphere quadrature, while hf_peak/hf_rms are nearly
     free. Skipping the write but still computing would save nothing.
     """
 
@@ -780,7 +780,7 @@ class TestOutputFieldSelection:
             patch.object(_base_mod, "deepcopy") as mock_deepcopy,
             patch.object(_fields_mod, "envelope_mean") as mock_ti_avg,
             patch.object(_fields_mod, "hf_peak") as mock_hf_peak,
-            patch.object(_fields_mod, "hf_power") as mock_hf_sar,
+            patch.object(_fields_mod, "hf_power") as mock_hf_rms,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
@@ -811,11 +811,11 @@ class TestOutputFieldSelection:
             sim.run("/fake/simulation_dir")
             mout = mock_mesh_io.read_msh.return_value.crop_mesh.return_value
             written = [c.args[1] for c in mout.add_element_field.call_args_list]
-            return written, mock_ti_avg, mock_hf_peak, mock_hf_sar
+            return written, mock_ti_avg, mock_hf_peak, mock_hf_rms
 
-    def test_default_writes_ti_max_hf_peak_and_hf_sar(self):
-        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti(None)
-        assert written == [const.FIELD_TI_MAX, const.FIELD_HF_PEAK, const.FIELD_HF_SAR]
+    def test_default_writes_ti_max_hf_peak_and_hf_rms(self):
+        written, ti_avg, hf_peak_m, hf_rms_m = self._run_ti(None)
+        assert written == [const.FIELD_TI_MAX, const.FIELD_HF_PEAK, const.FIELD_HF_RMS]
         ti_avg.assert_not_called()
 
     def test_selecting_ti_max_alone_writes_only_it(self):
@@ -823,10 +823,10 @@ class TestOutputFieldSelection:
         assert written == [const.FIELD_TI_MAX]
 
     def test_unselected_fields_are_not_computed(self):
-        _, ti_avg, hf_peak_m, hf_sar_m = self._run_ti([const.FIELD_TI_MAX])
+        _, ti_avg, hf_peak_m, hf_rms_m = self._run_ti([const.FIELD_TI_MAX])
         ti_avg.assert_not_called()
         hf_peak_m.assert_not_called()
-        hf_sar_m.assert_not_called()
+        hf_rms_m.assert_not_called()
 
     def test_selecting_ti_avg_computes_it(self):
         written, ti_avg, _, _ = self._run_ti([const.FIELD_TI_MAX, const.FIELD_TI_AVG])
@@ -834,11 +834,11 @@ class TestOutputFieldSelection:
         assert const.FIELD_TI_AVG in written
 
     def test_selecting_safety_fields_computes_them(self):
-        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti(
-            [const.FIELD_HF_PEAK, const.FIELD_HF_SAR]
+        written, ti_avg, hf_peak_m, hf_rms_m = self._run_ti(
+            [const.FIELD_HF_PEAK, const.FIELD_HF_RMS]
         )
         hf_peak_m.assert_called_once()
-        hf_sar_m.assert_called_once()
+        hf_rms_m.assert_called_once()
         ti_avg.assert_not_called()
         assert const.FIELD_TI_MAX not in written
 
@@ -864,10 +864,10 @@ class TestOutputFieldsSurviveDeserialization:
         return deserialize_config(SimulationConfig, data)
 
     def test_selection_survives_round_trip(self):
-        back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_SAR])
-        assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_SAR]
+        back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_RMS])
+        assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_RMS]
 
-    def test_absent_key_defaults_to_ti_max_hf_peak_and_hf_sar(self):
+    def test_absent_key_defaults_to_ti_max_hf_peak_and_hf_rms(self):
         import json as _json
         from tit.config_io import deserialize_config, serialize_config
         from tit.sim.config import SimulationConfig
@@ -882,7 +882,7 @@ class TestOutputFieldsSurviveDeserialization:
         assert deserialize_config(SimulationConfig, data).output_fields == [
             const.FIELD_TI_MAX,
             const.FIELD_HF_PEAK,
-            const.FIELD_HF_SAR,
+            const.FIELD_HF_RMS,
         ]
 
 

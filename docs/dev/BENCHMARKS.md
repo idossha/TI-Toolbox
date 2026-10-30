@@ -240,7 +240,7 @@ End to end, `ExSearchEngine.compute_ti_fields` (one split) and `MExSearchEngine.
 on a synthetic float32 leadfield (20 electrodes, 200,000 elements all in GM, ROI 2,000), with
 `simnibs.utils.TI_utils.get_field` replaced by its arithmetic:
 
-| per candidate | before | after (with `HF_Focality`, `TI_Selectivity`) |
+| per candidate | before | after (with `HFpeak_Focality`, `TI_Selectivity`) |
 |---|---:|---:|
 | Ex | 36.7–37.1 ms | 46.0–47.1 ms |
 | mEx | 0.53–0.54 s | 0.55–0.60 s |

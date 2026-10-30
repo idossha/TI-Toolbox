@@ -128,11 +128,11 @@ Each analysis returns an `AnalysisResult` dataclass with these fields:
 | `focality_95_area` | Area (cm^2, mesh) or volume (cm^3, voxel) above 95% of 99.9th percentile |
 | `n_elements` | Number of mesh nodes or voxels in the ROI |
 | `total_area_or_volume` | Total area (mm^2, mesh) or volume (mm^3, voxel) of the ROI |
-| `hf_roi_mean`, `hf_gm_mean` | Weighted mean `hf_peak` (V/m) over the same ROI and GM elements (modulation fields only, optional) |
-| `hf_focality` | `hf_roi_mean / hf_gm_mean`: focality of the stimulation (carrier) intensity |
-| `rms_roi_mean`, `rms_gm_mean`, `rms_focality` | The same on the RMS carrier field `sqrt(hf_sar / 2)` (V/m) |
-| `ti_selectivity` | `roi_focality / hf_focality`; above 1 the modulation is more focal than its carriers |
-| `hf_focality_50_area` ... `hf_focality_95_area` | `focality_*_area` computed on `hf_peak` |
+| `hf_peak_roi_mean`, `hf_peak_gm_mean` | Weighted mean `hf_peak` (V/m) over the same ROI and GM elements (modulation fields only, optional) |
+| `hf_peak_focality` | `hf_peak_roi_mean / hf_peak_gm_mean`: focality of the stimulation (carrier) intensity |
+| `hf_rms_roi_mean`, `hf_rms_gm_mean`, `hf_rms_focality` | The same on the RMS carrier field `hf_rms` (V/m) |
+| `ti_selectivity` | `roi_focality / hf_peak_focality`; above 1 the modulation is more focal than its carriers |
+| `hf_peak_focality_50_area` ... `hf_peak_focality_95_area` | `focality_*_area` computed on `hf_peak` |
 | `carrier_note` | Why a carrier metric is `None` (a carrier field has no usable values on the analysed elements, or the analysed field is a carrier field) |
 | `on_demand_note` | What the analysis computed or wrote because the simulation had not saved it (`None` when everything was saved) |
 

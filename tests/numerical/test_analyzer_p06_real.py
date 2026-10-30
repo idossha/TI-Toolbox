@@ -81,7 +81,7 @@ def _voxel_project(tmp_path: Path) -> tuple[Path, np.ndarray]:
     affine = np.diag([2.0, 2.0, 2.0, 1.0])  # 2 mm voxels, origin at voxel (0, 0, 0)
     # A finished default run: the envelope and the carriers its metrics read, so the
     # analysis has nothing to produce on demand (tests/test_analyzer_on_demand.py).
-    for name in ("TI_max", "hf_peak", "hf_sar"):
+    for name in ("TI_max", "hf_peak", "hf_rms"):
         nib.save(
             nib.Nifti1Image(field, affine),
             str(niftis / f"grey_{SIM}_TI_subject_{name}.nii"),

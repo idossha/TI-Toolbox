@@ -679,7 +679,7 @@ Run names and output folders identify real destinations, so replacement rules ap
 
 **A simulation's output is its field mesh; NIfTIs are opt-in and everything not saved is produced
 on demand.** A run writes the selected fields into one volume mesh,
-`<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` (default `TI_max`/`mTI_max`, `hf_peak`, `hf_sar`:
+`<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` (default `TI_max`/`mTI_max`, `hf_peak`, `hf_rms`:
 `tit.constants.DEFAULT_OUTPUT_FIELDS`, or its carrier fields for a carrier-only run), its
 grey/white copies and its central surface, and keeps the channel meshes in
 `high_Frequency/mesh/`. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
@@ -698,7 +698,30 @@ when something is written) holds just the NIfTIs voxel steps asked for. Missing 
 an envelope of a carrier-only run and an unsaved `hf_power_density` are errors naming what is
 missing, never a fallback. Excluded: NIfTIs by default (most of a run's post-processing for files
 most analyses never read) and on-demand results that are not persisted (every later step would
-redo them). Ex previews count the engine’s electrode arrangements and valid current splits separately;
+redo them).
+
+**A field has a saved name and a display label, both from `tit.constants.FIELD_REGISTRY`.** The
+saved name (`TI_max`, `mTI_max`, `TI_normal`, `TI_avg`, `hf_peak`, `hf_rms`, `hf_power_density`)
+is what files, configs, IDs and scripts use; the label (`TI_{max}`, `mTI_{max}`, `TI_{normal}`,
+`TI_{avg}`, `HF_{peak}`, `HF_{rms}`, `p_{HF}`) is what a person reads, with `X_{sub}` drawn as a
+subscript. The desktop mirrors the registry in `desktop/src/renderer/pages/analyzer/fields.ts`
+(`tests/test_field_registry.py` holds name, label and units equal) and renders labels with one
+helper, `fieldLabel()` + `<Subscripted>`; a place that holds no markup (a `title`) shows the
+saved spelling. The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
+layer from the same registry. `hf_peak` is zero-to-peak and is the field to compare with exposure
+limits (ICNIRP 2010 / IEEE C95.1-2019 peak limit = √2 × tabulated RMS, amplitudes summed across
+carriers, after the standards' spatial averaging); `hf_rms` = √`hf_power` is the RMS carrier field
+and not a compliance metric (it underestimates against RMS tables by up to √N for N carriers);
+`hf_power_density` is the absorbed (Joule) power density, never called SAR. The analyzer's carrier
+metrics are `hf_peak_*` / `hf_rms_*` (`hf_peak_focality`, `hf_rms_focality`,
+`hf_peak_focality_{50,75,90,95}_area`, their ROI/GM means) and `ti_selectivity`; Ex/mEx write
+`HFpeak_Focality` and `TI_Selectivity`, the group summary `HFpeak_Focality`, `HFrms_Focality` and
+`TI_Selectivity`. The retired spellings are kept out of everything but the history files by
+`tests/test_field_rename_guard.py`. Excluded: deriving labels from names in each consumer (three
+spellings drifted within a week), and reading an old run's retired field (its `hf_rms` is produced
+on demand from the channel meshes like any missing field).
+
+Ex previews count the engine’s electrode arrangements and valid current splits separately;
 total iterations are their product, including one split for fixed balanced currents.
 Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total/2, total/2)]`
 (`generate_current_ratios`), and the page and `APP_DEFAULTS["ex"]` start at a 1.0 mA limit for

@@ -1125,7 +1125,7 @@ set. A run with NIfTIs off has no such set: its <code>niftis/</code> holds only 
 each a NIfTI of a field its mesh carries, never one the mesh lacks.</p>
 <p>Writes are crash-safe: everything is staged in a hidden folder and moved into place with atomic
 renames, derived files first and the volume mesh last (:func:<code>_produce_mesh_fields</code>).</p>
-<p>Each says one plain sentence per production before doing it ("hf_peak and hf_sar were not saved
+<p>Each says one plain sentence per production before doing it ("hf_peak and hf_rms were not saved
 for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh."),
 through the caller's <code>say</code> (its own <code>logger.info</code>, so it reaches that job's output), and
 returns the sentences so the caller can show them wherever its results are read.
@@ -1193,12 +1193,12 @@ envelope of a carrier-only run, <code>hf_power_density</code> whose conductivity
 
     <div class="doc doc-contents ">
 
-        <p>Time-averaged carrier power absorbed per volume, W/m^3.</p>
+        <p>Absorbed (Joule) power density of the carriers, time-averaged, W/m^3.</p>
 <p><code>(1/2) sum_c E_c^T sigma E_c</code> for zero-to-peak carrier fields <code>E_c</code>
 (V/m) at distinct frequencies: <code>sigma * hf_power</code> for isotropic
 <code>sigma</code> <code>(N,)</code> S/m, the full tensor form for <code>(N, 9)</code> anisotropic
-conductivities (<code>J . E</code> averaged over time).  <code>SAR = this / rho</code>
-(IEEE C95.1-2019, p. 35).  <em>coherent</em> is the carrier-only control: one
+conductivities (<code>J . E</code> averaged over time).  Not SAR (that is this over the
+tissue density, IEEE C95.1-2019 p. 35, and no SAR limit applies below 100 kHz).  <em>coherent</em> is the carrier-only control: one
 sinusoid of amplitude <code>sum_c E_c</code>.</p>
 
 
@@ -1221,13 +1221,13 @@ sinusoid of amplitude <code>sum_c E_c</code>.</p>
 <span class="normal"><a href="#__codelineno-0-91">91</a></span>
 <span class="normal"><a href="#__codelineno-0-92">92</a></span>
 <span class="normal"><a href="#__codelineno-0-93">93</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power_density</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">"""Time-averaged carrier power absorbed per volume, W/m^3.</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">"""Absorbed (Joule) power density of the carriers, time-averaged, W/m^3.</span>
 <a id="__codelineno-0-79" name="__codelineno-0-79"></a>
 <a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    ``(1/2) sum_c E_c^T sigma E_c`` for zero-to-peak carrier fields ``E_c``</span>
 <a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    (V/m) at distinct frequencies: ``sigma * hf_power`` for isotropic</span>
 <a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    ``sigma`` ``(N,)`` S/m, the full tensor form for ``(N, 9)`` anisotropic</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    conductivities (``J . E`` averaged over time).  ``SAR = this / rho``</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    (IEEE C95.1-2019, p. 35).  *coherent* is the carrier-only control: one</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    conductivities (``J . E`` averaged over time).  Not SAR (that is this over the</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    tissue density, IEEE C95.1-2019 p. 35, and no SAR limit applies below 100 kHz).  *coherent* is the carrier-only control: one</span>
 <a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    sinusoid of amplitude ``sum_c E_c``.</span>
 <a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    """</span>
 <a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="n">sigma</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">sigma</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
@@ -1423,9 +1423,9 @@ in registry order whatever order they come in.</p>
 <a id="__codelineno-0-124" name="__codelineno-0-124"></a>        <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">const</span><span class="o">.</span><span class="n">FIELD_HF_PEAK</span><span class="p">:</span>
 <a id="__codelineno-0-125" name="__codelineno-0-125"></a>            <span class="c1"># Peak carrier field (Cassarà 2025 Part I, Eq. 3); each channel field enters on its own.</span>
 <a id="__codelineno-0-126" name="__codelineno-0-126"></a>            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">hf_peak</span><span class="p">(</span><span class="n">e_fields</span><span class="p">,</span> <span class="n">coherent</span><span class="o">=</span><span class="n">coherent</span><span class="p">)))</span>
-<a id="__codelineno-0-127" name="__codelineno-0-127"></a>        <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">const</span><span class="o">.</span><span class="n">FIELD_HF_SAR</span><span class="p">:</span>
-<a id="__codelineno-0-128" name="__codelineno-0-128"></a>            <span class="c1"># hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.</span>
-<a id="__codelineno-0-129" name="__codelineno-0-129"></a>            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="mf">2.0</span> <span class="o">*</span> <span class="n">hf_power</span><span class="p">(</span><span class="n">e_fields</span><span class="p">,</span> <span class="n">coherent</span><span class="o">=</span><span class="n">coherent</span><span class="p">)))</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>        <span class="k">elif</span> <span class="n">name</span> <span class="o">==</span> <span class="n">const</span><span class="o">.</span><span class="n">FIELD_HF_RMS</span><span class="p">:</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>            <span class="c1"># RMS carrier field over time: power adds across carriers (Cassarà 2025).</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">hf_power</span><span class="p">(</span><span class="n">e_fields</span><span class="p">,</span> <span class="n">coherent</span><span class="o">=</span><span class="n">coherent</span><span class="p">))))</span>
 <a id="__codelineno-0-130" name="__codelineno-0-130"></a>        <span class="k">else</span><span class="p">:</span>
 <a id="__codelineno-0-131" name="__codelineno-0-131"></a>            <span class="n">out</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">name</span><span class="p">,</span> <span class="n">hf_power_density</span><span class="p">(</span><span class="n">e_fields</span><span class="p">,</span> <span class="n">sigma</span><span class="p">,</span> <span class="n">coherent</span><span class="o">=</span><span class="n">coherent</span><span class="p">)))</span>
 <a id="__codelineno-0-132" name="__codelineno-0-132"></a>    <span class="k">return</span> <span class="n">out</span>

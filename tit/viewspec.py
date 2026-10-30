@@ -313,7 +313,7 @@ def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
         if not os.path.isfile(mesh):
             continue
         carried = msh_field_names(mesh) or set()
-        preferred = ("mTI_max" if mode == "mTI" else "TI_max", "hf_peak", "hf_sar")
+        preferred = ("mTI_max" if mode == "mTI" else "TI_max", "hf_peak", "hf_rms")
         field = next((f for f in preferred if f in carried), None)
         layer = _layer(mesh, kind="label", colormap="jet", opacity=1.0)
         if field is not None:
@@ -1859,7 +1859,7 @@ def _scene_field_name(name: str) -> str | None:
 
     # A **volume** says which field it is in its last token, and that is what to read. The loose
     # substring chain below is wrong for one: `L_Insula_TI_subject_hf_peak.nii.gz` contains "ti"
-    # (twice) and was answered `TI_max`, so a simulation's TI_max, hf_peak and hf_sar volumes all
+    # (twice) and was answered `TI_max`, so a simulation's TI_max, hf_peak and hf_rms volumes all
     # came out named "TI_max (volume)" -- three identical rows in the Layers list and, once the
     # composition tree existed, three identical checkboxes (screenshot, 2026-09-07). Matching the
     # trailing token instead is both correct and narrower.
@@ -2731,6 +2731,27 @@ def _sidecar_ref(path: str) -> dict[str, str]:
     return {"path": url, "absPath": url}
 
 
+def _mesh_fields_display(path: str) -> dict[str, dict[str, str]]:
+    """``MeshLayer.fields`` for the registered fields a field mesh carries: label and units.
+
+    From :data:`tit.constants.FIELD_REGISTRY`, the one source of both: ``{"TI_max": {"label":
+    "TI_{max}", "units": "V/m"}, ...}``. TetraVox draws ``X_{sub}`` as a subscript (0.6.4+;
+    0.6.3 ignores the block). Empty when the mesh's field list cannot be read.
+    """
+    from tit import constants as const
+    from tit.tools.msh_fields import msh_field_names
+
+    carried = msh_field_names(path) or set()
+    return {
+        spec.name: {
+            "label": spec.label,
+            "units": spec.units.replace("^2", "\u00b2").replace("^3", "\u00b3"),
+        }
+        for spec in const.FIELD_REGISTRY
+        if spec.name in carried
+    }
+
+
 def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
     """The real Tetravox ``ViewSpec`` (v2) for an already-resolved *spec* (pure I/O-wise).
 
@@ -2925,6 +2946,11 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     "contoursIn2D": name.lower().startswith("grey_"),
                     "contourWidthPx": 1.0,
                     "fillIn2D": True,
+                    **(
+                        {"fields": display}
+                        if (display := _mesh_fields_display(path))
+                        else {}
+                    ),
                 }
             )
         else:

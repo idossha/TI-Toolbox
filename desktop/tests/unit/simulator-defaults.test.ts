@@ -215,7 +215,7 @@ describe("Simulator page configs validate against contracts/generated/config.sch
   });
 
   // SimulationConfig.carrier_only (tit/sim/config.py): ΔF = 0 has no envelope, so the server
-  // rejects any output field but hf_peak/hf_sar/hf_power_density and any montage that is not 2-pair TI.
+  // rejects any output field but hf_peak/hf_rms/hf_power_density and any montage that is not 2-pair TI.
   const tiRow: SelectedRow = {
     id: "carrier",
     subjectId: "ernie",
@@ -231,15 +231,15 @@ describe("Simulator page configs validate against contracts/generated/config.sch
   };
 
   it("a carrier-only TI job sends the flag and only the carrier fields, and validates", async () => {
-    const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max", "TI_avg", "hf_sar"] });
+    const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max", "TI_avg", "hf_rms"] });
     expect(config.carrier_only).toBe(true);
-    expect(config.output_fields).toEqual(["hf_sar"]);
+    expect(config.output_fields).toEqual(["hf_rms"]);
     expect(await validate("SimulationConfig", config)).toMatchObject({ valid: true, errors: {} });
   });
 
-  it("a carrier-only job with no carrier field ticked computes hf_peak and hf_sar", () => {
+  it("a carrier-only job with no carrier field ticked computes hf_peak and hf_rms", () => {
     const config = buildSimulationConfig(tiRow, { ...baseParams, carrierOnly: true, outputFields: ["TI_max"] });
-    expect(config.output_fields).toEqual(["hf_peak", "hf_sar"]);
+    expect(config.output_fields).toEqual(["hf_peak", "hf_rms"]);
   });
 
   it("an ordinary job omits carrier_only, so an older server sees the previous body", () => {

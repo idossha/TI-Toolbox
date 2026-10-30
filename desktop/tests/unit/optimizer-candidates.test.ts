@@ -23,8 +23,8 @@ describe("carrier metric columns", () => {
     expect(shownMetrics([candidate("a", 3, 2), candidate("b", 2, 3)])).toEqual(base);
   });
   it("shows them as soon as one ex/mEx candidate carries a value", () => {
-    const ex = { ...candidate("ex-0", 3, 2), metrics: { roi_mean: 3, contrast: 1.6, hf_focality: 1.2, ti_selectivity: null } };
-    expect(shownMetrics([candidate("a", 3, 2), ex])).toEqual([...base, "hf_focality"]);
+    const ex = { ...candidate("ex-0", 3, 2), metrics: { roi_mean: 3, contrast: 1.6, hf_peak_focality: 1.2, ti_selectivity: null } };
+    expect(shownMetrics([candidate("a", 3, 2), ex])).toEqual([...base, "hf_peak_focality"]);
   });
 });
 

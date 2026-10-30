@@ -84,7 +84,7 @@ def test_a_simulation_without_niftis_shows_its_field_mesh_coloured_by_ti_max(
         tmp_path,
         "M1",
         "TI",
-        {"TI_max": VALUES, "hf_peak": 2 * VALUES, "hf_sar": VALUES},
+        {"TI_max": VALUES, "hf_peak": 2 * VALUES, "hf_rms": VALUES},
     )
     spec_layers, scene_layers = mesh_layers("M1")
     assert [Path(la["path"]).name for la in spec_layers] == ["grey_M1_TI.msh"]
@@ -110,7 +110,7 @@ def test_an_mti_simulation_opens_on_mti_max(tmp_path: Path) -> None:
 
 
 def test_a_carrier_only_run_opens_on_its_carrier_field(tmp_path: Path) -> None:
-    simulation(tmp_path, "C0", "TI", {"hf_sar": VALUES, "hf_peak": 3 * VALUES})
+    simulation(tmp_path, "C0", "TI", {"hf_rms": VALUES, "hf_peak": 3 * VALUES})
     _, scene_layers = mesh_layers("C0")
     assert scene_layers[0]["field"]["name"] == "hf_peak"
     lo, hi = np.percentile(3 * VALUES[VALUES != 0], [95, 99.9])
@@ -120,7 +120,7 @@ def test_a_carrier_only_run_opens_on_its_carrier_field(tmp_path: Path) -> None:
 
 def test_the_catalog_lists_the_fields_the_mesh_saved(tmp_path: Path) -> None:
     mesh_dir = simulation(
-        tmp_path, "M1", "TI", {"TI_max": VALUES, "hf_peak": VALUES, "hf_sar": VALUES}
+        tmp_path, "M1", "TI", {"TI_max": VALUES, "hf_peak": VALUES, "hf_rms": VALUES}
     )
     niftis = mesh_dir.parent / "niftis"
     niftis.mkdir()
@@ -128,16 +128,16 @@ def test_the_catalog_lists_the_fields_the_mesh_saved(tmp_path: Path) -> None:
         b"x"
     )  # one written on demand
     detail = catalog.simulation_detail(get_path_manager(), SID, "M1")
-    assert detail["fields"] == ["TI_avg", "TI_max", "hf_peak", "hf_sar"]
+    assert detail["fields"] == ["TI_avg", "TI_max", "hf_peak", "hf_rms"]
     assert detail["carrier_only"] is False  # no run record says otherwise
 
 
 def test_the_catalog_says_a_run_is_a_carrier_only_control(tmp_path: Path) -> None:
     import json
 
-    mesh_dir = simulation(tmp_path, "C0", "TI", {"hf_peak": VALUES, "hf_sar": VALUES})
+    mesh_dir = simulation(tmp_path, "C0", "TI", {"hf_peak": VALUES, "hf_rms": VALUES})
     record = mesh_dir.parents[1] / "documentation" / "config.json"
     record.parent.mkdir()
     record.write_text(json.dumps({"carrier_only": True}))
     detail = catalog.simulation_detail(get_path_manager(), SID, "C0")
-    assert detail["carrier_only"] is True and detail["fields"] == ["hf_peak", "hf_sar"]
+    assert detail["carrier_only"] is True and detail["fields"] == ["hf_peak", "hf_rms"]

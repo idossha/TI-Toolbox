@@ -1593,7 +1593,7 @@ simulation : str
 <p>Patterns use the TI spelling (<code>grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz</code>,
 read from <code>TI/niftis/</code>). An mTI run writes the same files from its <code>&lt;sim&gt;_mTI.msh</code>
 into <code>mTI/niftis/</code>, and of its fields only the envelope is spelled differently
-(<code>mTI_max</code>; <code>TI_avg</code>, <code>hf_peak</code> and <code>hf_sar</code> keep their names). So for mTI the
+(<code>mTI_max</code>; <code>TI_avg</code>, <code>hf_peak</code> and <code>hf_rms</code> keep their names). So for mTI the
 mesh token before the space (<code>_TI_subject_</code> / <code>_TI_MNI_</code>) becomes <code>_mTI_</code> and a
 trailing <code>_TI_max</code> becomes <code>_mTI_max</code>: <code>grey_&lt;sim&gt;_mTI_MNI_MNI_mTI_max.nii.gz</code>,
 <code>grey_&lt;sim&gt;_mTI_MNI_MNI_TI_avg.nii.gz</code>. A pattern already spelled for mTI is unchanged.</p>
@@ -1654,7 +1654,7 @@ nifti_file_pattern : str
 <a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">    Patterns use the TI spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,</span>
 <a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">    read from ``TI/niftis/``). An mTI run writes the same files from its ``&lt;sim&gt;_mTI.msh``</span>
 <a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    into ``mTI/niftis/``, and of its fields only the envelope is spelled differently</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep their names). So for mTI the</span>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_rms`` keep their names). So for mTI the</span>
 <a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">    mesh token before the space (``_TI_subject_`` / ``_TI_MNI_``) becomes ``_mTI_`` and a</span>
 <a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    trailing ``_TI_max`` becomes ``_mTI_max``: ``grey_&lt;sim&gt;_mTI_MNI_MNI_mTI_max.nii.gz``,</span>
 <a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    ``grey_&lt;sim&gt;_mTI_MNI_MNI_TI_avg.nii.gz``. A pattern already spelled for mTI is unchanged.</span>

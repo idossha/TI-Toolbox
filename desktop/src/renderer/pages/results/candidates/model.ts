@@ -1,6 +1,6 @@
 /** Candidate metrics are optimization estimates, comparable only within their recorded domain. */
 export type CandidateKind = "flex" | "ex" | "mex";
-export type Metric = "roi_mean" | "roi_p99_9" | "background_mean" | "background_p95" | "contrast" | "hf_focality" | "ti_selectivity";
+export type Metric = "roi_mean" | "roi_p99_9" | "background_mean" | "background_p95" | "contrast" | "hf_peak_focality" | "ti_selectivity";
 export interface Candidate {
   id: string;
   objective: number | null;
@@ -26,10 +26,10 @@ export interface CandidateRun { subject: string; kind: CandidateKind; run: strin
 export const METRIC_LABELS: Record<Metric, string> = {
   roi_mean: "ROI mean (V/m)", roi_p99_9: "ROI p99.9 (V/m)",
   background_mean: "Non-ROI mean (V/m)", background_p95: "Non-ROI p95 (V/m)", contrast: "ROI / non-ROI ratio (see definition)",
-  hf_focality: "HF focality (hf_peak ROI / GM)", ti_selectivity: "TI selectivity (focality / HF focality)",
+  hf_peak_focality: "HF_{peak} focality (ROI / GM)", ti_selectivity: "TI selectivity (focality / HF_{peak} focality)",
 };
 /** Ex/mEx report these beside the ranking; flex never does, so their columns show only when a row has them. */
-export const CARRIER_METRICS: ReadonlySet<Metric> = new Set<Metric>(["hf_focality", "ti_selectivity"]);
+export const CARRIER_METRICS: ReadonlySet<Metric> = new Set<Metric>(["hf_peak_focality", "ti_selectivity"]);
 /** The metric columns to show: every one, minus a carrier metric no candidate has a value for. */
 export function shownMetrics(candidates: Candidate[]): Metric[] {
   return (Object.keys(METRIC_LABELS) as Metric[]).filter((m) => !CARRIER_METRICS.has(m) || candidates.some((c) => finite(c.metrics[m])));

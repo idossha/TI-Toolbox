@@ -43,7 +43,7 @@
           "TI_max",
           "TI_avg",
           "hf_peak",
-          "hf_sar",
+          "hf_rms",
           "hf_power_density"
         ],
         "subject_id": "001"

@@ -19,6 +19,7 @@ import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { AnalysisFieldSelect } from "../../src/renderer/pages/analyzer/AnalysisFieldSelect";
 import { AUTO_FIELD, type Space } from "../../src/renderer/pages/analyzer/buildConfig";
+import { fieldLabel } from "../../src/renderer/pages/analyzer/fields";
 import type { SelectOption } from "../../src/renderer/ui/Select";
 
 /** `FIELD_REGISTRY`'s names, read from the Python source: `name=FIELD_X` against `FIELD_X = "..."`. */
@@ -45,7 +46,7 @@ const option = (available: string[], name: string, space: Space = "voxel") => op
 
 describe("AnalysisFieldSelect", () => {
   it("reads seven analyzer fields from the Python registry", () => {
-    expect(ACCEPTED).toEqual(["TI_max", "mTI_max", "TI_normal", "TI_avg", "hf_peak", "hf_sar", "hf_power_density"]);
+    expect(ACCEPTED).toEqual(["TI_max", "mTI_max", "TI_normal", "TI_avg", "hf_peak", "hf_rms", "hf_power_density"]);
   });
 
   it("offers every accepted field in registry order, whatever the catalog sent", () => {
@@ -55,44 +56,44 @@ describe("AnalysisFieldSelect", () => {
   });
 
   it("names a field the simulation saved plainly, mTI_max counting as TI_max", () => {
-    // A default simulation's field mesh: TI_max, hf_peak, hf_sar.
-    expect(option(["TI_max", "hf_peak", "hf_sar"], "hf_peak")).toEqual({ value: "hf_peak", label: "hf_peak", disabled: false });
-    expect(option(["mTI_max", "hf_peak", "hf_sar"], "TI_max")).toEqual({ value: "TI_max", label: "TI_max", disabled: false });
+    // A default simulation's field mesh: TI_max, hf_peak, hf_rms.
+    expect(option(["TI_max", "hf_peak", "hf_rms"], "hf_peak")).toEqual({ value: "hf_peak", label: "HF_{peak}", disabled: false });
+    expect(option(["mTI_max", "hf_peak", "hf_rms"], "TI_max")).toEqual({ value: "TI_max", label: "TI_{max}", disabled: false });
   });
 
   it("lists a field the simulation did not save plainly: the analysis computes it", () => {
-    expect(option(["TI_max", "hf_peak", "hf_sar"], "TI_avg")).toEqual({ value: "TI_avg", label: "TI_avg", disabled: false });
+    expect(option(["TI_max", "hf_peak", "hf_rms"], "TI_avg")).toEqual({ value: "TI_avg", label: "TI_{avg}", disabled: false });
     // A simulation from before the new defaults: TI_max only, so its carrier fields are computed.
-    expect(option(["TI_max", "magnE"], "hf_sar")).toEqual({ value: "hf_sar", label: "hf_sar", disabled: false });
+    expect(option(["TI_max", "magnE"], "hf_rms")).toEqual({ value: "hf_rms", label: "HF_{rms}", disabled: false });
   });
 
   it("disables an unsaved hf_power_density: its conductivity is not kept", () => {
-    expect(option(["TI_max", "hf_peak", "hf_sar"], "hf_power_density")).toEqual({ value: "hf_power_density", label: "hf_power_density (not saved)", disabled: true });
+    expect(option(["TI_max", "hf_peak", "hf_rms"], "hf_power_density")).toEqual({ value: "hf_power_density", label: "p_{HF} (not saved)", disabled: true });
     expect(option(["TI_max", "hf_power_density"], "hf_power_density")?.disabled).toBe(false);
   });
 
   it("makes no claim when the catalog names no analysable field", () => {
     for (const o of options(["magnE"], { space: "mesh" }).slice(1)) {
-      expect(o.label).toBe(o.value);
+      expect(o.label).toBe(fieldLabel(o.value));
       expect(o.disabled).toBe(false);
     }
   });
 
   it("still marks TI_normal mesh-only in voxel space", () => {
-    expect(option(["TI_max", "TI_normal"], "TI_normal")).toEqual({ value: "TI_normal", label: "TI_normal (mesh only)", disabled: true });
-    expect(option(["TI_max"], "TI_normal", "mesh")).toEqual({ value: "TI_normal", label: "TI_normal", disabled: false });
+    expect(option(["TI_max", "TI_normal"], "TI_normal")).toEqual({ value: "TI_normal", label: "TI_{normal} (mesh only)", disabled: true });
+    expect(option(["TI_max"], "TI_normal", "mesh")).toEqual({ value: "TI_normal", label: "TI_{normal}", disabled: false });
   });
 
   it("offers a carrier-only simulation its carrier fields only, Auto being hf_peak", () => {
     // ΔF = 0: no envelope, so TI_max, TI_avg and TI_normal can never be analysed; Auto, which
     // the analyzer resolves to hf_peak for such a run (default_field), says so and stays valid.
-    const carriers = options(["hf_peak", "hf_sar"], { carrierOnly: true });
-    expect(carriers.map((o) => o.value)).toEqual([AUTO_FIELD, "hf_peak", "hf_sar", "hf_power_density"]);
-    expect(carriers[0]).toEqual({ value: AUTO_FIELD, label: "Auto (hf_peak)", disabled: false });
+    const carriers = options(["hf_peak", "hf_rms"], { carrierOnly: true });
+    expect(carriers.map((o) => o.value)).toEqual([AUTO_FIELD, "hf_peak", "hf_rms", "hf_power_density"]);
+    expect(carriers[0]).toEqual({ value: AUTO_FIELD, label: "Auto (HF_{peak})", disabled: false });
     expect(carriers.find((o) => o.value === "hf_power_density")?.disabled).toBe(true); // not saved
     // A row still on an envelope field shows it, disabled, until it is changed.
-    const stale = options(["hf_peak", "hf_sar"], { carrierOnly: true, value: "TI_max" });
-    expect(stale[0]).toEqual({ value: "TI_max", label: "TI_max (carrier-only run)", disabled: true });
+    const stale = options(["hf_peak", "hf_rms"], { carrierOnly: true, value: "TI_max" });
+    expect(stale[0]).toEqual({ value: "TI_max", label: "TI_{max} (carrier-only run)", disabled: true });
     expect(options(["TI_max"])[0]).toEqual({ value: AUTO_FIELD, label: "Auto", disabled: false });
   });
 });

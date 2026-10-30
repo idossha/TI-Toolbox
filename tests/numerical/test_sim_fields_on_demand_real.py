@@ -5,9 +5,9 @@ Pins (2026-10-30, docs/dev/DECISIONS.md "field meshes by default"): on SimNIBS's
 keeps them in ``high_Frequency/mesh/``):
 
 * a run that saved only ``TI_max`` (written by ``BaseSimulation._write_volume_mesh`` itself) gets
-  ``hf_peak`` and ``hf_sar`` from ``tit.volume_fields.ensure_mesh_fields``, and the saved values are
+  ``hf_peak`` and ``hf_rms`` from ``tit.volume_fields.ensure_mesh_fields``, and the saved values are
   bit-identical to a run that selected them (the same ``compute_volume_fields``, the same crop);
-* ``hf_peak`` equals ``max(|E1 + E2|, |E1 - E2|)`` and ``hf_sar`` ``|E1|^2 + |E2|^2`` on the
+* ``hf_peak`` equals ``max(|E1 + E2|, |E1 - E2|)`` and ``hf_rms`` ``sqrt((|E1|^2 + |E2|^2) / 2)`` on the
   brain-cropped elements, computed here with numpy from the channel meshes read back by SimNIBS;
 * the header reader ``tit.tools.msh_fields`` (no SimNIBS) reads SimNIBS's binary output: the field
   list, and ``TI_max``'s values equal to what ``mesh_io.read_msh`` reads.
@@ -89,22 +89,22 @@ def cut(volume, out_dir, stem, *rest):  # sphere3 has no GM/WM tags: copy, as a 
 
 with patch.object(tit.sim.utils, "extract_fields", cut), \
      patch.object(tit.sim.utils, "generate_central_surface", lambda *a: None):
-    notices = fields.ensure_mesh_fields("s", "M", ["TI_max", "hf_peak", "hf_sar"])
-assert notices == ["hf_peak and hf_sar were not saved for M; computing them from the channel "
+    notices = fields.ensure_mesh_fields("s", "M", ["TI_max", "hf_peak", "hf_rms"])
+assert notices == ["hf_peak and hf_rms were not saved for M; computing them from the channel "
                    "fields and saving them to M_TI.msh."], notices
-assert msh_field_names(volume) == {"TI_max", "hf_peak", "hf_sar"}
+assert msh_field_names(volume) == {"TI_max", "hf_peak", "hf_rms"}
 
 selected = Path(tempfile.mkdtemp()) / "M_TI.msh"
-written_by_the_simulator(["TI_max", "hf_peak", "hf_sar"], selected)
+written_by_the_simulator(["TI_max", "hf_peak", "hf_rms"], selected)
 produced, reference = mesh_io.read_msh(str(volume)), mesh_io.read_msh(str(selected))
-for name in ("TI_max", "hf_peak", "hf_sar"):
+for name in ("TI_max", "hf_peak", "hf_rms"):
     assert np.array_equal(produced.field[name].value, reference.field[name].value), name
 
 e1, e2 = (c.field["E"].value for c in channels)
 peak = np.maximum(np.linalg.norm(e1 + e2, axis=1), np.linalg.norm(e1 - e2, axis=1))
 np.testing.assert_allclose(produced.field["hf_peak"].value, peak, rtol=1e-12)
-np.testing.assert_allclose(produced.field["hf_sar"].value,
-                           (e1 ** 2).sum(axis=1) + (e2 ** 2).sum(axis=1), rtol=1e-12)
+np.testing.assert_allclose(produced.field["hf_rms"].value,
+                           np.sqrt(((e1 ** 2).sum(axis=1) + (e2 ** 2).sum(axis=1)) / 2), rtol=1e-12)
 print("OK", produced.elm.nr)
 """
 

@@ -6,6 +6,7 @@ import { Button } from "../../../ui/Button";
 import { DataTable, type DataTableColumn } from "../../../ui/DataTable";
 import { Callout } from "../../../ui/Feedback";
 import { Select } from "../../../ui/Select";
+import { plainLabel, Subscripted } from "../../../ui/Subscripted";
 import { ElectrodePositionTable } from "../preview/views";
 import { ScenePane, useSceneManifest } from "../../_shared/scene";
 import { getCandidate, getCandidateHistory, getCandidates } from "./api";
@@ -58,7 +59,7 @@ function CandidateBrowserContent({ subject, kind, run }: CandidateRun) {
   const columns = useMemo<DataTableColumn<Candidate>[]>(() => [
     { id: "candidate", header: "Candidate", cell: ({ row }) => <button type="button" className="candidate-pick" aria-pressed={row.original.id === selected?.id} onClick={() => setPicked(row.original.id)}>{row.original.id}</button> },
     { accessorKey: "objective", header: "Objective", numeric: true, enableSorting: false, cell: ({ row }) => <span title={`${row.original.objective_label}; ${row.original.objective_direction}`}>{format(row.original.objective)}</span> },
-    ...metricKeys.map((metric) => ({ id: metric, header: () => <span title={metricDefinition(selected?.metric_labels[metric] ?? labels[metric])}>{labels[metric]}</span>, numeric: true, enableSorting: false, cell: ({ row }: { row: { original: Candidate } }) => <span title={metricDefinition(row.original.metric_labels[metric] ?? METRIC_LABELS[metric])}>{format(row.original.metrics[metric])}</span> })),
+    ...metricKeys.map((metric) => ({ id: metric, header: () => <span title={metricDefinition(selected?.metric_labels[metric] ?? plainLabel(labels[metric]))}><Subscripted text={labels[metric]} /></span>, numeric: true, enableSorting: false, cell: ({ row }: { row: { original: Candidate } }) => <span title={metricDefinition(row.original.metric_labels[metric] ?? plainLabel(METRIC_LABELS[metric]))}>{format(row.original.metrics[metric])}</span> })),
   ], [selected?.id, selected?.metric_labels, labels, metricKeys]);
   async function prepareSimulation() {
     if (!selected) return;

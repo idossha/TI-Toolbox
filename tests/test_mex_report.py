@@ -197,7 +197,7 @@ def test_ex_csv_rows_keep_exactly_two_current_columns():
         "TImean_GM",
         "Focality",
         "Composite_Index",
-        "HF_Focality",
+        "HFpeak_Focality",
         "TI_Selectivity",
     ]
 

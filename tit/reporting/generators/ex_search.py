@@ -44,7 +44,7 @@ SIZE_BUDGET = 1_000_000
 TOP_N = 25
 _FIELDS = ("TImax_ROI", "TImean_ROI", "TImean_GM", "Focality", "Composite_Index")
 #: Reported beside the ranking; a CSV written before them has no such columns (``None``).
-_CARRIER_FIELDS = ("HF_Focality", "TI_Selectivity")
+_CARRIER_FIELDS = ("HFpeak_Focality", "TI_Selectivity")
 
 
 def read_results(csv_path: str | Path) -> list[dict]:
@@ -383,7 +383,9 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         )
     total, step = cfg.get("total_current_mA", 0), cfg.get("current_step_mA", 0)
     limit = cfg.get("channel_limit_mA")
-    if limit is None:  # runs before 2026-10-24 recorded no limit and swept up to total - step
+    if (
+        limit is None
+    ):  # runs before 2026-10-24 recorded no limit and swept up to total - step
         limit = round(total - step, 9)
     dose = [
         ("Electrodes", electrodes),
@@ -449,7 +451,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         "Up and to the right is better on both. Dashed curves have equal composite; hover a cell or ring for its values.",
     )
     top = top_distinct(rows)
-    carrier = any(r["HF_Focality"] is not None for r in top)
+    carrier = any(r["HFpeak_Focality"] is not None for r in top)
     table_rows = []
     for i, r in enumerate(top, 1):
         currents = channel_currents(r)

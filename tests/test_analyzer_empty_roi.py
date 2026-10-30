@@ -67,7 +67,7 @@ def project(tmp_path: Path) -> Path:
     _touch(pm.ti_central_surface(SID, SIM))
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
     for tissue in ("grey", "white"):
-        for field in ("TI_max", "hf_peak", "hf_sar"):
+        for field in ("TI_max", "hf_peak", "hf_rms"):
             _touch(niftis / f"{tissue}_{SIM}_TI_subject_{field}.nii.gz")
     return tmp_path
 

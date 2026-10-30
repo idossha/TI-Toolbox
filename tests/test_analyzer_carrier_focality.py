@@ -3,9 +3,9 @@
 What this pins
     An analysis of a modulation field (TI_max, mTI_max, TI_avg, TI_normal) also reports,
     over the *same* ROI and GM elements and weights as ``roi_focality``:
-    ``hf_focality`` = mean_ROI(hf_peak) / mean_GM(hf_peak), ``rms_focality`` on
-    E_rms = sqrt(hf_sar / 2), ``ti_selectivity`` = roi_focality / hf_focality and the
-    ``hf_focality_*_area`` hot-spot extents on hf_peak. A carrier field the simulation did
+    ``hf_peak_focality`` = mean_ROI(hf_peak) / mean_GM(hf_peak), ``hf_rms_focality`` the
+    same on the saved RMS carrier field hf_rms, ``ti_selectivity`` = roi_focality / hf_peak_focality and the
+    ``hf_peak_focality_*_area`` hot-spot extents on hf_peak. A carrier field the simulation did
     not save is produced before the analysis reads anything (tests/test_analyzer_on_demand.py);
     one still absent when the metrics are taken, a carrier with NaN/inf on the analysed
     elements, a reference mean of 0, or a voxel carrier on another grid (shape or affine) leaves
@@ -34,7 +34,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from tit.analyzer.analyzer import CARRIER_RESULT_KEYS, Analyzer, rms_from_hf_sar
+from tit.analyzer.analyzer import CARRIER_RESULT_KEYS, Analyzer
 
 # Ten surface nodes on a line (x = 0..9); the ROI sphere about x = 1.5, r = 2 holds
 # x = 0..3. Node 9 has TI = 0 (outside "positive GM") but a carrier of 1000.
@@ -46,8 +46,8 @@ TI[9] = 0.0
 HF = np.where(ROI, 3.0, 1.0)
 HF[9] = 1000.0
 ERMS = np.where(ROI, 4.0, 1.0)
-HF_SAR = 2.0 * ERMS**2  # hf_sar = sum |E_c|^2 = 2 E_rms^2
-HF_SAR[9] = 1e6
+HF_RMS = ERMS.copy()  # the saved hf_rms field is the RMS carrier field itself (V/m)
+HF_RMS[9] = 1e6
 
 
 def _hand_means(values: np.ndarray) -> tuple[float, float]:
@@ -88,25 +88,19 @@ def _csv(tmp_path: Path) -> dict:
         return {row["Metric"]: row["Value"] for row in csv.DictReader(fh)}
 
 
-def test_rms_from_hf_sar_is_the_rms_of_two_carriers() -> None:
-    # E1 = (3, 0, 0), E2 = (0, 4, 0) V/m zero-to-peak: hf_sar = 9 + 16 = 25, and the RMS of
-    # two sinusoids at distinct frequencies is sqrt((9 + 16) / 2) = sqrt(12.5).
-    assert rms_from_hf_sar(np.array([25.0])) == pytest.approx([np.sqrt(12.5)])
-
-
 def test_uniform_carrier_has_focality_one_and_selectivity_equal_to_ti_focality(
     tmp_path: Path,
 ) -> None:
     flat = np.full(10, 0.7)
-    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=flat, hf_sar=flat))
-    assert r.hf_focality == pytest.approx(1.0)
-    assert r.rms_focality == pytest.approx(1.0)
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=flat, hf_rms=flat))
+    assert r.hf_peak_focality == pytest.approx(1.0)
+    assert r.hf_rms_focality == pytest.approx(1.0)
     assert r.ti_selectivity == pytest.approx(r.roi_focality)
     assert r.carrier_note is None
 
 
 def test_designed_mesh_fields_give_the_hand_ratios(tmp_path: Path) -> None:
-    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=HF, hf_sar=HF_SAR))
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=HF, hf_rms=HF_RMS))
     ti_roi, ti_gm = _hand_means(TI)
     hf_roi, hf_gm = _hand_means(HF)
     rms_roi, rms_gm = _hand_means(ERMS)
@@ -116,16 +110,16 @@ def test_designed_mesh_fields_give_the_hand_ratios(tmp_path: Path) -> None:
     assert (hf_roi, hf_gm) == pytest.approx((3.0, 39 / 19))
     assert (rms_roi, rms_gm) == pytest.approx((4.0, 49 / 19))
     assert r.roi_focality == pytest.approx(38 / 29)
-    assert (r.hf_roi_mean, r.hf_gm_mean) == pytest.approx((hf_roi, hf_gm))
-    assert r.hf_focality == pytest.approx(57 / 39)
-    assert (r.rms_roi_mean, r.rms_gm_mean) == pytest.approx((rms_roi, rms_gm))
-    assert r.rms_focality == pytest.approx(76 / 49)
+    assert (r.hf_peak_roi_mean, r.hf_peak_gm_mean) == pytest.approx((hf_roi, hf_gm))
+    assert r.hf_peak_focality == pytest.approx(57 / 39)
+    assert (r.hf_rms_roi_mean, r.hf_rms_gm_mean) == pytest.approx((rms_roi, rms_gm))
+    assert r.hf_rms_focality == pytest.approx(76 / 49)
     # (38/29) / (57/39) = 38*39 / (29*57) = 1482/1653: here the carrier is the more focal one.
     assert r.ti_selectivity == pytest.approx(1482 / 1653)
     # hf_peak hot spot: the 99.9th percentile of {3 (area 10), 1 (area 9)} is 3, every cutoff
     # 1.5 ... 2.85 keeps only the ROI's 10 mm^2 = 0.1 cm^2.
     for pct in (50, 75, 90, 95):
-        assert getattr(r, f"hf_focality_{pct}_area") == pytest.approx(0.1)
+        assert getattr(r, f"hf_peak_focality_{pct}_area") == pytest.approx(0.1)
     assert r.carrier_note is None
     row = _csv(tmp_path)
     for key in CARRIER_RESULT_KEYS[:-1]:
@@ -134,14 +128,14 @@ def test_designed_mesh_fields_give_the_hand_ratios(tmp_path: Path) -> None:
 
 
 def test_mti_analysis_reads_the_mti_surface_carriers(tmp_path: Path) -> None:
-    r = _sphere(_mesh(tmp_path, field="mTI_max", mTI_max=TI, hf_peak=HF, hf_sar=HF_SAR))
+    r = _sphere(_mesh(tmp_path, field="mTI_max", mTI_max=TI, hf_peak=HF, hf_rms=HF_RMS))
     assert r.field_name == "mTI_max"
-    assert r.hf_focality == pytest.approx(57 / 39)
+    assert r.hf_peak_focality == pytest.approx(57 / 39)
     assert r.ti_selectivity == pytest.approx(1482 / 1653)
 
 
 def test_ti_normal_selectivity_uses_the_normal_fields_focality(tmp_path: Path) -> None:
-    analyzer = _mesh(tmp_path, field="TI_normal", hf_peak=HF, hf_sar=HF_SAR)
+    analyzer = _mesh(tmp_path, field="TI_normal", hf_peak=HF, hf_rms=HF_RMS)
     normal = np.where(ROI, 3.0, 1.0)
     normal[9] = 0.0
     analyzer._field_values = lambda surface: normal
@@ -151,12 +145,12 @@ def test_ti_normal_selectivity_uses_the_normal_fields_focality(tmp_path: Path) -
     assert r.ti_selectivity == pytest.approx(1.0)
 
 
-def test_a_missing_hf_sar_leaves_only_the_rms_metrics_out(tmp_path: Path) -> None:
+def test_a_missing_hf_rms_leaves_only_the_rms_metrics_out(tmp_path: Path) -> None:
     r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=HF))
-    assert r.hf_focality == pytest.approx(57 / 39)
-    assert r.rms_roi_mean is r.rms_gm_mean is r.rms_focality is None
+    assert r.hf_peak_focality == pytest.approx(57 / 39)
+    assert r.hf_rms_roi_mean is r.hf_rms_gm_mean is r.hf_rms_focality is None
     assert r.carrier_note == (
-        f"the central surface {tmp_path / 'sim_TI_central.msh'} carries no hf_sar."
+        f"the central surface {tmp_path / 'sim_TI_central.msh'} carries no hf_rms."
     )
     assert _csv(tmp_path)["carrier_note"] == r.carrier_note
 
@@ -170,7 +164,7 @@ def test_no_carrier_fields_is_one_warning_naming_both(
     surface = tmp_path / "sim_TI_central.msh"
     assert r.carrier_note == (
         f"the central surface {surface} carries no hf_peak; "
-        f"the central surface {surface} carries no hf_sar."
+        f"the central surface {surface} carries no hf_rms."
     )
     warnings = [rec for rec in caplog.records if rec.levelname == "WARNING"]
     assert len(warnings) == 1 and r.carrier_note in warnings[0].getMessage()
@@ -180,12 +174,12 @@ def test_no_carrier_fields_is_one_warning_naming_both(
 def test_a_non_finite_carrier_is_no_metric_and_never_a_nan(tmp_path: Path) -> None:
     hf = HF.copy()
     hf[2] = np.nan  # an ROI node
-    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=hf, hf_sar=HF_SAR))
-    assert r.hf_focality is r.ti_selectivity is r.hf_focality_50_area is None
-    assert r.rms_focality == pytest.approx(76 / 49)  # hf_sar is fine
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=hf, hf_rms=HF_RMS))
+    assert r.hf_peak_focality is r.ti_selectivity is r.hf_peak_focality_50_area is None
+    assert r.hf_rms_focality == pytest.approx(76 / 49)  # hf_rms is fine
     assert "hf_peak has NaN or inf values" in r.carrier_note
     values = {k: v for k, v in _csv(tmp_path).items() if k != "carrier_note"}
-    assert "hf_focality" not in values and "nan" not in {
+    assert "hf_peak_focality" not in values and "nan" not in {
         v.lower() for v in values.values()
     }
     assert r.roi_focality == pytest.approx(38 / 29)
@@ -193,16 +187,16 @@ def test_a_non_finite_carrier_is_no_metric_and_never_a_nan(tmp_path: Path) -> No
 
 def test_a_zero_reference_carrier_has_no_focality(tmp_path: Path) -> None:
     zero = np.zeros(10)
-    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=zero, hf_sar=zero))
-    assert r.hf_focality is None and r.rms_focality is None
+    r = _sphere(_mesh(tmp_path, TI_max=TI, hf_peak=zero, hf_rms=zero))
+    assert r.hf_peak_focality is None and r.hf_rms_focality is None
     assert "hf_peak's mean over the reference elements is 0" in r.carrier_note
-    assert "E_rms from hf_sar's mean over the reference elements is 0" in r.carrier_note
+    assert "hf_rms's mean over the reference elements is 0" in r.carrier_note
 
 
 def test_a_carrier_field_analysis_has_no_carrier_metrics(tmp_path: Path) -> None:
     hf = HF.copy()
     hf[9] = 0.0
-    r = _sphere(_mesh(tmp_path, field="hf_peak", hf_peak=hf, hf_sar=HF_SAR))
+    r = _sphere(_mesh(tmp_path, field="hf_peak", hf_peak=hf, hf_rms=HF_RMS))
     assert all(getattr(r, k) is None for k in CARRIER_RESULT_KEYS[:-1])
     assert "hf_peak is not a modulation field" in r.carrier_note
 
@@ -214,7 +208,7 @@ VOXEL = np.diag([2.0, 2.0, 2.0, 1.0])  # 8 mm^3 voxels
 
 def _voxel(
     tmp_path: Path,
-    written=("hf_peak", "hf_sar"),
+    written=("hf_peak", "hf_rms"),
     shape=(10, 1, 1),
     carrier_affine=VOXEL,
 ):
@@ -228,7 +222,7 @@ def _voxel(
     analyzer._surface_mesh = None
     analyzer._is_mti = False
     images = {analyzer.field_path.name: (TI, VOXEL)}
-    for name, values in (("hf_peak", HF), ("hf_sar", HF_SAR)):
+    for name, values in (("hf_peak", HF), ("hf_rms", HF_RMS)):
         if name in written:
             path = tmp_path / f"grey_sim_TI_subject_{name}.nii.gz"
             path.touch()
@@ -257,23 +251,23 @@ def test_voxel_path_uses_the_same_voxels_and_volumes(tmp_path: Path) -> None:
     r = _voxel_sphere(*_voxel(tmp_path))
     # Equal 8 mm^3 voxels: ROI 4 voxels, rest 5 positive voxels (voxel 9 has TI = 0).
     assert r.roi_focality == pytest.approx(2.0 / (13 / 9))
-    assert r.hf_focality == pytest.approx(3.0 / (17 / 9))
-    assert r.rms_focality == pytest.approx(4.0 / (21 / 9))
+    assert r.hf_peak_focality == pytest.approx(3.0 / (17 / 9))
+    assert r.hf_rms_focality == pytest.approx(4.0 / (21 / 9))
     assert r.ti_selectivity == pytest.approx((18 / 13) / (27 / 17))
     # Hot spot: the 4 ROI voxels, 32 mm^3 = 0.032 cm^3.
-    assert r.hf_focality_50_area == pytest.approx(0.032)
+    assert r.hf_peak_focality_50_area == pytest.approx(0.032)
     assert r.carrier_note is None
 
 
 def test_voxel_missing_carrier_nifti_names_the_file(tmp_path: Path) -> None:
     r = _voxel_sphere(*_voxel(tmp_path, written=("hf_peak",)))
-    assert r.hf_focality is not None and r.rms_focality is None
-    assert r.carrier_note == f"grey_sim_TI_subject_hf_sar.nii.gz is not in {tmp_path}."
+    assert r.hf_peak_focality is not None and r.hf_rms_focality is None
+    assert r.carrier_note == f"grey_sim_TI_subject_hf_rms.nii.gz is not in {tmp_path}."
 
 
 def test_voxel_carrier_of_another_shape_is_refused_by_name(tmp_path: Path) -> None:
     r = _voxel_sphere(*_voxel(tmp_path, shape=(5, 2, 1)))
-    assert r.hf_focality is None and r.rms_focality is None
+    assert r.hf_peak_focality is None and r.hf_rms_focality is None
     assert "grey_sim_TI_subject_hf_peak.nii.gz is not on the grid of" in r.carrier_note
     assert "(5, 2, 1) vs (10, 1, 1)" in r.carrier_note
 
@@ -282,6 +276,6 @@ def test_voxel_carrier_with_another_affine_is_refused(tmp_path: Path) -> None:
     shifted = VOXEL.copy()
     shifted[0, 3] = 2.0  # same shape, one voxel along x: not the same points
     r = _voxel_sphere(*_voxel(tmp_path, carrier_affine=shifted))
-    assert r.hf_focality is None and r.rms_focality is None
-    assert "grey_sim_TI_subject_hf_sar.nii.gz is not on the grid of" in r.carrier_note
+    assert r.hf_peak_focality is None and r.hf_rms_focality is None
+    assert "grey_sim_TI_subject_hf_rms.nii.gz is not on the grid of" in r.carrier_note
     assert r.roi_focality == pytest.approx(2.0 / (13 / 9))

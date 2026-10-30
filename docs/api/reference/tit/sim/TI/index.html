@@ -1075,7 +1075,7 @@ official SimNIBS TI example:</p>
   the cortical surface overlays</li>
 </ul>
 <p>Output mesh includes the selected <code>TI_max</code>, <code>TI_avg</code>, <code>hf_peak</code>,
-<code>hf_sar</code> and <code>hf_power_density</code>.
+<code>hf_rms</code> and <code>hf_power_density</code>.
 Per-channel E-field magnitudes are not retained on it; those live on the
 <code>high_Frequency/</code> carrier meshes.</p>
 <h4 id="tit.sim.TI--see-also">See Also<a class="headerlink" href="#tit.sim.TI--see-also" title="Permanent link">&para;</a></h4>
@@ -1124,7 +1124,7 @@ run_simulation : Top-level orchestration that dispatches to this class.</p>
 <li>Set up BIDS output directory structure.</li>
 <li>Visualize electrode placement.</li>
 <li>Build SimNIBS SESSION, run FEM.</li>
-<li>Compute <code>TI_max</code>/<code>TI_avg</code>/<code>hf_peak</code>/<code>hf_sar</code>/
+<li>Compute <code>TI_max</code>/<code>TI_avg</code>/<code>hf_peak</code>/<code>hf_rms</code>/
    <code>hf_power_density</code> (volume) and
    <code>TI_normal</code> (surface).</li>
 <li>Extract GM/WM meshes and organize outputs; with <code>map_to_vol</code>, write

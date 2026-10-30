@@ -109,7 +109,7 @@ SimNIBS CHARM head mesh `m2m_<id>`) → **Optimize** electrode positions
 **ex-search**: exhaustive over a leadfield and candidate pool, a global optimum
 *within the discretisation it was given*; **mex-search**: multipolar variant) →
 **Simulate** a montage (2 channels = TI, 4+ even = mTI; fields `TI_max`, optional
-`TI_avg`/`TI_normal`, exposure `hf_peak`/`hf_sar`/`hf_power_density`) → **Analyze** (spherical or atlas
+`TI_avg`/`TI_normal`, exposure `hf_peak`/`hf_rms`/`hf_power_density`) → **Analyze** (spherical or atlas
 ROI stats in mesh or voxel space, group analysis) → **Stats** (cluster-based
 permutation, volumetric MNI or fsaverage surface). The head model, DTI, every simulation and
 every flex/ex search write their own HTML report. The

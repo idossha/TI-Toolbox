@@ -3972,3 +3972,34 @@ last-configured row made one job's override reach the next. Duplicate still copi
 (`tit.surfer_settings`), which would also reach agent jobs: a new route, contract and Python for a
 preference nobody asked agents to follow; `localStorage` matches Execution and the theme. Storing
 the whole form: a later factory change would never reach a user who changed one unrelated field.
+
+## 2026-10-30 — Field renames and display labels: `hf_sar` is `hf_rms`, carrier metrics say which carrier field
+
+**Decision.** (1) The saved field `hf_sar` (`Σ|E_c|²`, (V/m)²) is replaced by `hf_rms` =
+`sqrt(hf_power)` = `sqrt(½Σ|E_c|²)` in V/m, the RMS in-situ carrier field over time; an old run's
+`hf_sar` is never read, and its `hf_rms` is produced on demand from the channel meshes. (2) Every
+field gets a display label in `FIELD_REGISTRY`: `TI_{max}`, `mTI_{max}`, `TI_{normal}`,
+`TI_{avg}`, `HF_{peak}`, `HF_{rms}`, `p_{HF}` (maintainer's table, 2026-10-30;
+`hf_power_density` keeps its saved name, label `p_{HF}`, one constant to rename). The desktop
+draws them with `<sub>` through one helper; TetraVox gets them as the mesh layer's `fields` block
+(0.6.3 ignores it, verified by the maintainer; 0.6.4 renders `X_{sub}`). (3) Analyzer metrics
+`hf_focality`→`hf_peak_focality`, `rms_focality`→`hf_rms_focality` (now the focality of the
+saved `hf_rms`; the private `rms_from_hf_sar` conversion is gone), `hf_focality_*_area`→
+`hf_peak_focality_*_area`, `hf_roi_mean`/`hf_gm_mean`→`hf_peak_roi_mean`/`hf_peak_gm_mean`,
+`rms_roi_mean`/`rms_gm_mean`→`hf_rms_roi_mean`/`hf_rms_gm_mean`; Ex/mEx column `HF_Focality`→
+`HFpeak_Focality`; group columns `HF_Focality`/`RMS_Focality`→`HFpeak_Focality`/`HFrms_Focality`;
+`ti_selectivity` / `TI_Selectivity` unchanged. (4) Docs state `hf_peak` is zero-to-peak and the
+quantity to compare with ICNIRP 2010 / IEEE C95.1-2019 (RMS tables, peak limit √2 × RMS,
+amplitudes summed across carriers, after the 2×2×2 mm³ cube + 99th percentile / 5 mm line
+averaging; per-element values are not the compliance quantity), that `hf_rms` is not a compliance
+metric (up to √N low for N carriers), and that `hf_power_density` is absorbed (Joule) power
+density, never SAR (no SAR limit below 100 kHz). Pinned by `tests/test_field_registry.py`
+(`TestDisplayLabels`) and `tests/test_field_rename_guard.py`.
+
+**Why.** `hf_sar` was neither SAR nor a field strength, so every consumer converted it
+(`sqrt(hf_sar/2)`), and the name invited comparison with SAR limits that do not apply at 1–10 kHz.
+`hf_focality` did not say which carrier field. All of it is unreleased, so no alias is kept.
+
+**Alternatives rejected.** Keeping `hf_sar` with a better description (the conversion stays in
+every reader); `hf_power` on disk ((V/m)², not comparable with a field ratio); aliases for the old
+metric names (the branch is unreleased; an alias is a second spelling to keep forever).

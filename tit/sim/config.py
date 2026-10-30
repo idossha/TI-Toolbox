@@ -425,7 +425,7 @@ class SimulationConfig:
         *map_to_vol* on as well (subject and MNI NIfTIs).  Default ``False``.
     map_to_fsavg : bool
         After each TI montage finishes, project its surface fields
-        (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
+        (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_rms``) onto fsaverage5
         for group surface analysis.  Default ``True``; set ``False`` to
         skip.  Failures are logged and never abort the simulation.
     open_in_gmsh : bool
@@ -445,12 +445,12 @@ class SimulationConfig:
     output_fields : list[str]
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
-        ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``, ``"hf_power_density"``.
+        ``"TI_avg"``, ``"hf_peak"``, ``"hf_rms"``, ``"hf_power_density"``.
         ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. ``None``
         (the default) is :data:`tit.constants.DEFAULT_OUTPUT_FIELDS` --
-        ``["TI_max", "hf_peak", "hf_sar"]``, the envelope and the carrier
+        ``["TI_max", "hf_peak", "hf_rms"]``, the envelope and the carrier
         fields an analysis's carrier metrics read -- or, for a *carrier_only*
-        run, which has no envelope, ``["hf_peak", "hf_sar"]``.  ``TI_avg`` and
+        run, which has no envelope, ``["hf_peak", "hf_rms"]``.  ``TI_avg`` and
         ``hf_power_density`` are opt-in; a field not saved here is computed
         later, from the kept channel meshes, by the step that needs it
         (``hf_power_density`` excepted: its conductivity is not kept).
@@ -473,7 +473,7 @@ class SimulationConfig:
     carrier_only : bool
         Carrier-only control: both channels run at the same frequency, in
         phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
-        ``hf_sar`` and ``hf_power_density`` then add the two channel fields
+        ``hf_rms`` and ``hf_power_density`` then add the two channel fields
         coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope
         field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
         two-channel TI montage; an explicit ``output_fields`` must be drawn
@@ -519,7 +519,7 @@ class SimulationConfig:
     ...     carrier_only=True,
     ... )
     >>> sham.output_fields
-    ['hf_peak', 'hf_sar']
+    ['hf_peak', 'hf_rms']
 
     Then ``run_simulation(cfg)`` (needs SimNIBS and the subject's m2m
     directory).

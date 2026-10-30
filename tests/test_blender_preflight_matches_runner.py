@@ -115,7 +115,7 @@ def _field_mesh(path: Path, fields: tuple[str, ...]) -> None:
 
 def _mti_tree(sim: Path, *, surface: bool = True) -> None:
     name = sim.name
-    _field_mesh(sim / "mTI" / "mesh" / f"{name}_mTI.msh", ("mTI_max", "hf_peak", "hf_sar"))
+    _field_mesh(sim / "mTI" / "mesh" / f"{name}_mTI.msh", ("mTI_max", "hf_peak", "hf_rms"))
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
     if surface:
         _touch(sim / "mTI" / "mesh" / "surfaces" / f"{name}_mTI_central.msh")

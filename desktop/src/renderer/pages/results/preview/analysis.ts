@@ -14,7 +14,7 @@
  * adds falls through to `extras` rather than being silently dropped.
  *
  * Units. Field values carry the unit `tit.constants.FIELD_REGISTRY` gives the analysed field
- * (`field_name`): V/m for the envelopes and `hf_peak`, (V/m)² for `hf_sar`, W/m³ for
+ * (`field_name`): V/m for the envelopes, `hf_peak` and `hf_rms`, W/m³ for
  * `hf_power_density`. `focality_*_area` is
  * cm² in **mesh** space and cm³ in **voxel** space — the field name says "area" for both, which is
  * the naming SCI-03 deliberately kept when it fixed the voxel divisor; the label here says which
@@ -28,8 +28,8 @@
  * an ROI percentile. `focality_X_area` is the extent at or above X % of that 99.9th percentile.
  *
  * Carrier metrics. An analysis of a modulation field also reports the stimulation (carrier)
- * intensity's focality over the same elements: `hf_focality` (hf_peak), `rms_focality` (E_rms),
- * `ti_selectivity` = `roi_focality / hf_focality` and the `hf_focality_*_area` hot spot. When one
+ * intensity's focality over the same elements: `hf_peak_focality` (hf_peak), `hf_rms_focality` (hf_rms),
+ * `ti_selectivity` = `roi_focality / hf_peak_focality` and the `hf_peak_focality_*_area` hot spot. When one
  * cannot be computed its rows are absent and `carrier_note` says why; the pane shows it as one
  * muted line (`carrierNote`).
  *
@@ -37,7 +37,7 @@
  * by the analysis from the channel meshes and kept; `on_demand_note` says what was, in the words
  * the analysis logged, and the pane shows it as one muted line (`onDemandNote`).
  */
-import { fieldSpecForName } from "../../analyzer/fields";
+import { fieldLabel, fieldSpecForName } from "../../analyzer/fields";
 import { formatCount, formatMetric, type KeyNumber } from "./metrics";
 import type { SummaryRow } from "./simulation";
 
@@ -142,17 +142,17 @@ const NAMED = new Set([
   "focality_95_area",
   "n_elements",
   "total_area_or_volume",
-  "hf_roi_mean",
-  "hf_gm_mean",
-  "hf_focality",
-  "rms_roi_mean",
-  "rms_gm_mean",
-  "rms_focality",
+  "hf_peak_roi_mean",
+  "hf_peak_gm_mean",
+  "hf_peak_focality",
+  "hf_rms_roi_mean",
+  "hf_rms_gm_mean",
+  "hf_rms_focality",
   "ti_selectivity",
-  "hf_focality_50_area",
-  "hf_focality_75_area",
-  "hf_focality_90_area",
-  "hf_focality_95_area",
+  "hf_peak_focality_50_area",
+  "hf_peak_focality_75_area",
+  "hf_peak_focality_90_area",
+  "hf_peak_focality_95_area",
   "carrier_note",
   "on_demand_note",
 ]);
@@ -187,7 +187,7 @@ export function analysisView(
   if (context.subject) header.push({ label: "Subject", value: context.subject });
   if (context.simulation) header.push({ label: "Simulation", value: context.simulation });
   const field = map.get("field_name");
-  if (field) header.push({ label: "Field", value: field, mono: true });
+  if (field) header.push({ label: "Field", value: fieldLabel(field.trim()) });
   if (space) header.push({ label: "Space", value: SPACE_LABELS[space] ?? space });
   const type = map.get("analysis_type");
   if (type) header.push({ label: "Analysis", value: TYPE_LABELS[type] ?? type });
@@ -233,25 +233,25 @@ export function analysisView(
       ]),
     },
     {
-      // hf_peak and E_rms are V/m whatever field was analysed (tit/analyzer AnalysisResult).
+      // hf_peak and hf_rms are V/m whatever field was analysed (tit/analyzer AnalysisResult).
       title: "Stimulation (carrier) focality",
       metrics: keep([
         metric("TI selectivity", numberOf(map, "ti_selectivity"), undefined, { lead: true }),
-        metric("hf_peak focality ratio", numberOf(map, "hf_focality")),
-        metric("E_rms focality ratio", numberOf(map, "rms_focality")),
-        metric("hf_peak ROI mean", numberOf(map, "hf_roi_mean"), "V/m"),
-        metric("hf_peak GM mean", numberOf(map, "hf_gm_mean"), "V/m"),
-        metric("E_rms ROI mean", numberOf(map, "rms_roi_mean"), "V/m"),
-        metric("E_rms GM mean", numberOf(map, "rms_gm_mean"), "V/m"),
+        metric("HF_{peak} focality ratio", numberOf(map, "hf_peak_focality")),
+        metric("HF_{rms} focality ratio", numberOf(map, "hf_rms_focality")),
+        metric("HF_{peak} ROI mean", numberOf(map, "hf_peak_roi_mean"), "V/m"),
+        metric("HF_{peak} GM mean", numberOf(map, "hf_peak_gm_mean"), "V/m"),
+        metric("HF_{rms} ROI mean", numberOf(map, "hf_rms_roi_mean"), "V/m"),
+        metric("HF_{rms} GM mean", numberOf(map, "hf_rms_gm_mean"), "V/m"),
       ]),
     },
     {
       title: `Carrier hot spot · ${fu}`,
       metrics: keep([
-        metric(`hf_peak ≥ 50 % of its 99.9th percentile`, numberOf(map, "hf_focality_50_area"), fu),
-        metric("≥ 75 %", numberOf(map, "hf_focality_75_area"), fu),
-        metric("≥ 90 %", numberOf(map, "hf_focality_90_area"), fu),
-        metric("≥ 95 %", numberOf(map, "hf_focality_95_area"), fu),
+        metric(`HF_{peak} ≥ 50 % of its 99.9th percentile`, numberOf(map, "hf_peak_focality_50_area"), fu),
+        metric("≥ 75 %", numberOf(map, "hf_peak_focality_75_area"), fu),
+        metric("≥ 90 %", numberOf(map, "hf_peak_focality_90_area"), fu),
+        metric("≥ 95 %", numberOf(map, "hf_peak_focality_95_area"), fu),
       ]),
     },
     {

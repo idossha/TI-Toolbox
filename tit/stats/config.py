@@ -255,7 +255,7 @@ class GroupComparisonConfig:
     fsaverage_field : str
         Surface field for ``space="fsaverage"``; one of
         :data:`tit.constants.FSAVG_FIELD_NAMES` (``"TI_max"``,
-        ``"TI_normal"``, ``"hf_peak"``, ``"hf_sar"``).  Default
+        ``"TI_normal"``, ``"hf_peak"``, ``"hf_rms"``).  Default
         ``"TI_max"``.
     fsaverage_spacing : int
         fsaverage ico spacing for ``space="fsaverage"``: ``5`` (default),

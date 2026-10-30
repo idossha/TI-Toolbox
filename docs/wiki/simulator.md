@@ -75,7 +75,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 
 ### Your defaults for new jobs
 
-**Settings ▸ Simulator** holds the settings a new job starts with: the same controls as **Job settings**, with the same rules (carrier-only keeps only the carrier fields; **Also in MNI space** ticks **Write NIfTI volumes**). Changes apply at once and are kept on this computer across restarts. A job without settings of its own follows them; a job you changed in its **Job settings** keeps its own values, as do jobs already queued or run. **Restore factory defaults** returns to the app's defaults listed above (ellipse, 8 × 8 mm, 1 mm gel, isotropic, `TI_max`, `hf_peak` and `hf_sar`, no NIfTIs, no fsaverage mapping). Agents and scripts that leave a field out get the app's defaults, not these.
+**Settings ▸ Simulator** holds the settings a new job starts with: the same controls as **Job settings**, with the same rules (carrier-only keeps only the carrier fields; **Also in MNI space** ticks **Write NIfTI volumes**). Changes apply at once and are kept on this computer across restarts. A job without settings of its own follows them; a job you changed in its **Job settings** keeps its own values, as do jobs already queued or run. **Restore factory defaults** returns to the app's defaults listed above (ellipse, 8 × 8 mm, 1 mm gel, isotropic, `TI_max`, `hf_peak` and `hf_rms`, no NIfTIs, no fsaverage mapping). Agents and scripts that leave a field out get the app's defaults, not these.
 
 ---
 
@@ -123,7 +123,7 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels form a beating pair. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) are the first beating pair and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …) and the first pair's field is `TI_AB`.
 
-The kHz-exposure safety metrics `hf_peak`/`hf_sar`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The kHz-exposure safety metrics `hf_peak`/`hf_rms`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
 **References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. _Bioelectronic Medicine_ 11(1):7.
 
@@ -131,31 +131,31 @@ The kHz-exposure safety metrics `hf_peak`/`hf_sar`/`hf_power_density` include ev
 
 ## Output Fields
 
-The **Output fields** in a job's settings choose which volume-mesh fields are computed and written into the simulation's field mesh, for TI and mTI alike: `TI_max`, `hf_peak` and `hf_sar` (ticked by default), `TI_avg` and `hf_power_density`. At least one must be ticked ("Select at least one output field."). From Python the same choice is `SimulationConfig.output_fields`; left out (`None`), it is `["TI_max", "hf_peak", "hf_sar"]`, or `["hf_peak", "hf_sar"]` for a [carrier-only control](#carrier-only-control). `hf_peak` and `hf_sar` are what an analysis's carrier metrics read.
+The **Output fields** in a job's settings choose which volume-mesh fields are computed and written into the simulation's field mesh, for TI and mTI alike: `TI_max`, `hf_peak` and `hf_rms` (ticked by default), `TI_avg` and `hf_power_density`. At least one must be ticked ("Select at least one output field."). From Python the same choice is `SimulationConfig.output_fields`; left out (`None`), it is `["TI_max", "hf_peak", "hf_rms"]`, or `["hf_peak", "hf_rms"]` for a [carrier-only control](#carrier-only-control). `hf_peak` and `hf_rms` are what an analysis's carrier metrics read.
 
 ### Fields computed on demand
 
-A field left unticked is not lost: when an analysis needs it (the **Field** you pick, or `hf_peak` and `hf_sar` for the carrier metrics), or a voxel analysis or group tool needs a NIfTI the simulation did not write, the job computes it from the simulation's channel meshes in `high_Frequency/mesh/`, with the same calculation the Simulator uses, saves it into the simulation (the field mesh, its grey/white copies and central surface, or the NIfTI in `TI/niftis/`), and says so in one line in the job's output, for example:
+A field left unticked is not lost: when an analysis needs it (the **Field** you pick, or `hf_peak` and `hf_rms` for the carrier metrics), or a voxel analysis or group tool needs a NIfTI the simulation did not write, the job computes it from the simulation's channel meshes in `high_Frequency/mesh/`, with the same calculation the Simulator uses, saves it into the simulation (the field mesh, its grey/white copies and central surface, or the NIfTI in `TI/niftis/`), and says so in one line in the job's output, for example:
 
 ```
-hf_peak and hf_sar were not saved for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh.
+hf_peak and hf_rms were not saved for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh.
 ```
 
 The next step finds it saved. A simulation that wrote NIfTIs (**Write NIfTI volumes**) gets the new field's NIfTIs too, in the spaces it wrote, so its NIfTIs stay one per mesh field; one that did not gets only the NIfTIs a voxel step reads. Everything is written to a hidden staging folder and moved into place, the field mesh last, so a job stopped midway leaves nothing half-written. Two exceptions, which refuse the job before it runs and say why: `hf_power_density` needs the conductivity of the original solve, which is not kept, so tick it before the run; and a carrier-only control has no `TI_max` or `TI_avg`. A simulation whose `high_Frequency/mesh/` channel meshes were deleted can no longer produce anything it did not save; NIfTIs it did save are still analysed.
 
 What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest). `TI_max` and `TI_normal` are computed with `tit.calc` (`envelope_max`, and `envelope` along the cortical normals), `TI_avg` with `envelope_mean`.
 
-`hf_power_density` (W/m³) is the time-averaged carrier power absorbed per volume, $$\tfrac{1}{2}\sum_j \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j$$, with the conductivity this job solved with: the tissue values (including any overrides) for `scalar`, and each element's DTI tensor for the anisotropic models. Divide by tissue density for SAR. It is a volume field only and is not projected to fsaverage.
+`hf_power_density` ($$p_{HF}$$, W/m³) is the absorbed (Joule) power density of the carriers, $$\tfrac{1}{2}\sum_j \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j$$, with the conductivity this job solved with: the tissue values (including any overrides) for `scalar`, and each element's DTI tensor for the anisotropic models. It is not SAR (no SAR limit applies below 100 kHz). It is a volume field only and is not projected to fsaverage.
 
-All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_power` (= `hf_sar`/2) is the time-averaged mean square $$E_{\mathrm{rms}}^2$$. Compare $$\sqrt{\mathrm{hf\_power}}$$ with RMS standards tables (ICNIRP 2010 / IEEE C95.1-2019 limit the RMS in-situ E-field at 1–10 kHz, not SAR), or `hf_peak` with $$\sqrt{2}$$ times the limit.
+All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_rms` is the RMS carrier field over time. To compare with exposure limits use `hf_peak`, against $$\sqrt{2}$$ times the tabulated RMS limit and after the standards' spatial averaging; `hf_rms` against the RMS tables underestimates by up to $$\sqrt{N}$$ for $$N$$ carriers ([Safety metrics]({{ site.baseurl }}/wiki/analyzer/#safety-metrics)).
 
 ## Carrier-only control (ΔF = 0) {#carrier-only-control}
 
 A carrier-only control drives the two channels of a TI montage at the **same** frequency and in phase (e.g. 15,000 / 15,000 Hz instead of 15,000 / 15,010 Hz), so there is no interference beat. Use it for carrier-only or sham-style control conditions: the tissue receives kHz exposure without an envelope.
 
-Without a beat the two channel fields add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
+Without a beat the two channel fields add coherently into one fixed field, so the exposure metrics become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_rms} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert / \sqrt{2}$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
 
-- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_sar` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
+- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_rms` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
 - **From Python or a JSON config**:
 
 ```python
@@ -166,7 +166,7 @@ cfg = SimulationConfig(
     montages=montages,              # two-channel TI montages only
     intensities=[1.0, 1.0],
     carrier_only=True,
-    output_fields=["hf_peak", "hf_sar"],
+    output_fields=["hf_peak", "hf_rms"],
 )
 run_simulation(cfg)
 ```
@@ -222,7 +222,7 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
 │   ├── montage_imgs/{montage}_highlighted_visualization.png
 │   └── surface_overlays/
 └── mTI/                                  # multipolar TI (4+ channels)
-    ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_sar / hf_power_density (selected)
+    ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_rms / hf_power_density (selected)
     ├── mesh/grey_{montage}_mTI.msh, white_{montage}_mTI.msh
     ├── mesh/surfaces/                    # central cortical surface (msh2cortex)
     ├── niftis/                           # as TI/niftis/

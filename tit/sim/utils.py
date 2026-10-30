@@ -1109,7 +1109,7 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
         # A carrier-only run has no envelope overlays; its coherent carrier
         # sum is read back from the run's config.json by the projection.
         cfg = (
-            FsavgMapConfig(overwrite=True, fields=("hf_peak", "hf_sar"))
+            FsavgMapConfig(overwrite=True, fields=("hf_peak", "hf_rms"))
             if config.carrier_only
             else FsavgMapConfig(overwrite=True)
         )

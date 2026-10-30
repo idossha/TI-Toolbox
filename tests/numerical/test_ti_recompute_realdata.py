@@ -10,8 +10,8 @@ Pins (2026-10-22, package p25), on Dataset 000 read-only, no FEM:
   closed form) equals the stored ``TI_max`` that SimNIBS's ``TI.get_maxTI`` (Grossman 2017
   preprocess-then-branch form) wrote, to ``rtol 1e-4``: two independent implementations of one
   formula on every one of those elements. On the same fields: ``TI_max <= 2 min(|E1|, |E2|)``,
-  ``TI_max <= hf_peak`` and ``hf_sar <= hf_peak^2 <= 2 hf_sar`` (derivations in
-  ``tests/test_field_physics_invariants.py``). No Dataset 000 simulation stores hf_peak/hf_sar,
+  ``TI_max <= hf_peak`` and ``hf_rms <= hf_peak <= 2 hf_rms`` (from ``S <= hf_peak^2 <= 2 S``, ``S = sum |E_c|^2 = 2 hf_rms^2``) (derivations in
+  ``tests/test_field_physics_invariants.py``). No Dataset 000 simulation stores hf_peak/hf_rms,
   so those are computed here from the stored carriers.
 * **What ran (host)**: every simulation's newest SimNIBS log (``documentation/simnibs_simulation_*.log``)
   prints ``Currents (A): [I, -I]`` once per pair, and ``I * 1000`` is the pair's
@@ -137,7 +137,7 @@ def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
 
     n1, n2 = np.linalg.norm(e1, axis=1), np.linalg.norm(e2, axis=1)
     assert np.all(ti_stored <= 2 * np.minimum(n1, n2) + ATOL)
-    peak, sar = hf_peak([e1, e2]), 2.0 * hf_power([e1, e2])  # sar: on-disk hf_sar
+    peak, sar = hf_peak([e1, e2]), 2.0 * hf_power([e1, e2])  # sar = sum |E_c|^2 = 2 hf_rms^2
     assert np.all(ti_stored <= peak + ATOL)
     assert np.all(sar <= peak**2 * (1 + 1e-12) + ATOL)
     assert np.all(peak**2 <= 2 * sar * (1 + 1e-12) + ATOL)

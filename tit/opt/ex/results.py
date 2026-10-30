@@ -163,7 +163,7 @@ def build_csv_rows(
         "Focality",
         "Composite_Index",
         # Reported beside the ranking, never in it: empty for a result without them.
-        "HF_Focality",
+        "HFpeak_Focality",
         "TI_Selectivity",
     ]
     rows = [header]
@@ -192,7 +192,7 @@ def build_csv_rows(
                 *(
                     "" if data.get(key) is None else f"{data[key]:.4f}"
                     for key in (
-                        f"{roi_name}_HF_Focality",
+                        f"{roi_name}_HFpeak_Focality",
                         f"{roi_name}_TI_Selectivity",
                     )
                 ),

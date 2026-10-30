@@ -4,6 +4,7 @@ import { HelpIcon } from "../../ui/HelpPopover";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
+import { Subscripted } from "../../ui/Subscripted";
 import { Checkbox } from "../../ui/Toggle";
 import { ElectrodeSettings } from "../_shared/electrodes/ElectrodeSettings";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
@@ -97,6 +98,7 @@ export function SimulationSettings({
               {OUTPUT_FIELDS.map((f) => (
                 <label key={f.name} title={f.description} className="checkbox-label-row">
                   <Checkbox
+                    aria-label={f.name}
                     checked={draft.outputFields.includes(f.name)}
                     disabled={carrierOnly && !CARRIER_FIELDS.includes(f.name)}
                     onCheckedChange={(checked) =>
@@ -106,7 +108,7 @@ export function SimulationSettings({
                       })
                     }
                   />
-                  {f.name}
+                  <Subscripted text={f.label} />
                 </label>
               ))}
             </div>

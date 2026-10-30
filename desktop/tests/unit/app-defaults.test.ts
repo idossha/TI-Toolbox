@@ -52,7 +52,7 @@ describe("run-page defaults come from the server's table unchanged", () => {
       electrodeShape: "ellipse",
       dimensions: [8, 8],
       gelThickness: 1,
-      outputFields: ["TI_max", "hf_peak", "hf_sar"],
+      outputFields: ["TI_max", "hf_peak", "hf_rms"],
       writeNiftis: false,
       mapToMni: false,
       mapToFsavg: false,

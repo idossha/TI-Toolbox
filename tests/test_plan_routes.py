@@ -133,7 +133,7 @@ def test_validate_sim_reports_carrier_only_errors(client: TestClient) -> None:
     assert body["ok"] is False
     assert body["errors"][0]["path"] == "carrier_only"
 
-    assert check(output_fields=["hf_peak", "hf_sar"]) == {"ok": True, "errors": []}
+    assert check(output_fields=["hf_peak", "hf_rms"]) == {"ok": True, "errors": []}
 
 
 def test_validate_sim_reports_error_for_bad_output_fields(client: TestClient) -> None:

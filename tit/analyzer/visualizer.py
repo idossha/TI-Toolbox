@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 def field_unit(field_name: str | None) -> str:
     """Display unit of *field_name*'s values, from ``constants.FIELD_REGISTRY``.
 
-    ``hf_sar`` is ``(V/m)²`` (carrier power), ``hf_power_density`` ``W/m³``; every
+    ``hf_power_density`` is ``W/m³``; every
     other registered field, and a field the registry does not list (``magnE``), is
     ``V/m``.
     """

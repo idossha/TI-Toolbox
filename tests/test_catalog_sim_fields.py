@@ -3,7 +3,7 @@
 What this pins (2026-10-22, package p04 "catalog-sim-field-names")
     ``simulation_detail()['fields']`` feeds the Analyzer's Field dropdown and the Results tree.
     It used to take the last ``_`` token of an unrecognised name, so ``hf_peak`` came out as
-    ``peak``, ``hf_sar`` as ``sar``, ``TI_avg`` as ``avg`` and ``mTI_max`` as ``max`` -- names
+    ``peak``, ``hf_rms`` as ``rms``, ``TI_avg`` as ``avg`` and ``mTI_max`` as ``max`` -- names
     the analyzer then rejected ("Unknown field: 'peak'"). High-frequency ``magnE`` volumes were
     globbed as ``*_scalar_*magnE.nii.gz``, so an anisotropic (``vn``/``dir``/``mc``) run listed
     none, in the catalog and in the viewer alike.
@@ -47,7 +47,7 @@ from tit.constants import get_field_names
 from tit.paths import get_path_manager
 
 #: What the old last-token rule produced; none of these is a field anything accepts.
-TRUNCATED = {"peak", "sar", "avg", "max", "normal", "subject"}
+TRUNCATED = {"peak", "rms", "avg", "max", "normal", "subject"}
 
 
 def _detail(project: Path, sid: str, sim: str) -> dict:
@@ -175,7 +175,7 @@ def test_detail_route_serves_registry_field_names(tmp_path, monkeypatch):
     )
     assert response.status_code == 200
     body = response.json()
-    assert body["fields"] == sorted(["TI_max", "TI_avg", "hf_peak", "hf_sar", "magnE"])
+    assert body["fields"] == sorted(["TI_max", "TI_avg", "hf_peak", "hf_rms", "magnE"])
     assert (
         sum(n["field"] == "magnE" for n in body["niftis"]) == 4
     )  # 2 carriers x 2 spaces
@@ -187,7 +187,7 @@ def test_files_the_simulator_did_not_name_are_not_offered_as_fields(tmp_path):
     (niftis / "notes_peak.nii.gz").write_bytes(b"nii")  # a user's own file
     (niftis / "grey_L_Insula_TI_subject.nii.gz").write_bytes(b"nii")  # no field token
     detail = _detail(tmp_path, "101", "L_Insula")
-    assert set(detail["fields"]) == {"TI_max", "TI_avg", "hf_peak", "hf_sar", "magnE"}
+    assert set(detail["fields"]) == {"TI_max", "TI_avg", "hf_peak", "hf_rms", "magnE"}
     names = {os.path.basename(n["path"]) for n in detail["niftis"]}
     assert "notes_peak.nii.gz" not in names
 
@@ -291,9 +291,9 @@ def test_dataset_000_fields_are_registry_names_and_vn_carriers_are_listed():
     )
     assert ernie["fields"] == ["TI_max", "magnE"]
 
-    # sub-101/L_Insula holds TI_max, hf_peak and hf_sar volumes plus scalar carriers.
+    # sub-101/L_Insula holds TI_max, hf_peak and hf_rms volumes plus scalar carriers.
     insula = catalog.simulation_detail(pm, "101", "L_Insula")
-    assert set(insula["fields"]) == {"TI_max", "hf_peak", "hf_sar", "magnE"}
+    assert set(insula["fields"]) == {"TI_max", "hf_peak", "hf_rms", "magnE"}
     assert insula["space"] == ["mni", "subject"]
 
     assert {w: _mtimes(w) for w in watched} == before

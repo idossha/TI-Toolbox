@@ -19,6 +19,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Callout, Skeleton } from "../../../ui/Feedback";
 import { IconButton } from "../../../ui/Button";
+import { Subscripted } from "../../../ui/Subscripted";
 import type { KeyNumber } from "./metrics";
 import type { SummaryRow } from "./simulation";
 import type { Artifact } from "../api";
@@ -149,7 +150,7 @@ export function KeyNumberTable({
               return (
                 <tr key={m.label} data-lead={m.lead || undefined}>
                   <th scope="row">
-                    {m.label}
+                    <Subscripted text={m.label} />
                     {m.hint && <span className="results-keynumber-hint"> {m.hint}</span>}
                   </th>
                   <td className="mono">

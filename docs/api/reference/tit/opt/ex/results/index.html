@@ -1702,7 +1702,7 @@ comp_vals : list of float
 <a id="__codelineno-0-163" name="__codelineno-0-163"></a>        <span class="s2">"Focality"</span><span class="p">,</span>
 <a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="s2">"Composite_Index"</span><span class="p">,</span>
 <a id="__codelineno-0-165" name="__codelineno-0-165"></a>        <span class="c1"># Reported beside the ranking, never in it: empty for a result without them.</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="s2">"HF_Focality"</span><span class="p">,</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="s2">"HFpeak_Focality"</span><span class="p">,</span>
 <a id="__codelineno-0-167" name="__codelineno-0-167"></a>        <span class="s2">"TI_Selectivity"</span><span class="p">,</span>
 <a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="p">]</span>
 <a id="__codelineno-0-169" name="__codelineno-0-169"></a>    <span class="n">rows</span> <span class="o">=</span> <span class="p">[</span><span class="n">header</span><span class="p">]</span>
@@ -1731,7 +1731,7 @@ comp_vals : list of float
 <a id="__codelineno-0-192" name="__codelineno-0-192"></a>                <span class="o">*</span><span class="p">(</span>
 <a id="__codelineno-0-193" name="__codelineno-0-193"></a>                    <span class="s2">""</span> <span class="k">if</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">data</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">"</span>
 <a id="__codelineno-0-194" name="__codelineno-0-194"></a>                    <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">_HF_Focality"</span><span class="p">,</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">_HFpeak_Focality"</span><span class="p">,</span>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a>                        <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">roi_name</span><span class="si">}</span><span class="s2">_TI_Selectivity"</span><span class="p">,</span>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a>                    <span class="p">)</span>
 <a id="__codelineno-0-198" name="__codelineno-0-198"></a>                <span class="p">),</span>

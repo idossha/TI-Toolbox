@@ -275,7 +275,7 @@ All paths are managed by `PathManager`, which enforces a BIDS-compliant director
 - **TI_max**: Maximum TI envelope over all directions (two-channel simulations; `tit.calc.envelope_max`)
 - **TI_normal**: TI envelope along the cortical surface normal (`tit.calc.envelope`)
 - **mTI_max**: Maximum of the joint envelope of all channels (mTI simulations, 4 or more channels; `tit.calc.envelope_max`)
-- **TI_avg**, **hf_peak**, **hf_sar**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, `hf_sar` = Σ|E_c|² = 2 × `tit.calc.hf_power`, absorbed carrier power in W/m³)
+- **TI_avg**, **hf_peak**, **hf_rms**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field in V/m, and the absorbed (Joule) power density in W/m³)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

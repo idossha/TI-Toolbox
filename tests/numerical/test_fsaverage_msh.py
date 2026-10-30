@@ -126,7 +126,7 @@ def _check_layout_and_round_trip(tmp: str) -> None:
     columns = {sid: rng.normal(size=n) for sid in ("001", "002")}
     for sid, values in columns.items():
         path = Path(pm.sim_fsaverage_fields(sid, "sim", spacing))
-        maps = {"TI_max": values, "hf_sar": -values}
+        maps = {"TI_max": values, "hf_rms": -values}
         write_fsaverage_msh(
             path,
             maps,
@@ -138,19 +138,19 @@ def _check_layout_and_round_trip(tmp: str) -> None:
             "subject_id": sid,
             "simulation": "sim",
             "carrier_only": False,
-            "fields": ["TI_max", "hf_sar"],
+            "fields": ["TI_max", "hf_rms"],
         }
         mesh = mesh_io.read_msh(str(path))
         lh = mesh_io.load_fsaverage_template("central", spacing)["lh"]
         assert np.allclose(mesh.nodes.node_coord[: n // 2], lh.nodes.node_coord)
-        assert set(mesh.field) == {"TI_max", "hf_sar"}
+        assert set(mesh.field) == {"TI_max", "hf_rms"}
 
     data, ids = load_group_surface_data(
         [("001", "sim"), ("002", "sim")], "TI_max", spacing
     )
     assert ids == ["001", "002"]
     assert np.array_equal(data, np.column_stack([columns["001"], columns["002"]]))
-    data, _ = load_group_surface_data([("001", "sim")], "hf_sar", spacing)
+    data, _ = load_group_surface_data([("001", "sim")], "hf_rms", spacing)
     assert np.array_equal(data[:, 0], -columns["001"])
 
 

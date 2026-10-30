@@ -511,7 +511,7 @@ class TestComputeMtiField:
             "TestROI_TImean_GM",
             "TestROI_Focality",
             "TestROI_n_elements",
-            "TestROI_HF_Focality",
+            "TestROI_HFpeak_Focality",
             "TestROI_TI_Selectivity",
             "current_ch1_mA",
             "current_ch2_mA",

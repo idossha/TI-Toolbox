@@ -236,7 +236,7 @@
       "output_fields": [
         "TI_max",
         "hf_peak",
-        "hf_sar"
+        "hf_rms"
       ],
       "tissue_conductivities": null,
       "carrier_only": false,

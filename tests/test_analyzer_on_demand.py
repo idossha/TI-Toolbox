@@ -2,7 +2,7 @@
 
 What this pins
     * ``Analyzer.volume_fields_read``: an analysis of a modulation field reads the field and the
-      ``hf_peak`` / ``hf_sar`` its carrier metrics need; a carrier field reads itself; TI_normal
+      ``hf_peak`` / ``hf_rms`` its carrier metrics need; a carrier field reads itself; TI_normal
       (a surface field) reads only the carriers; a request ``select_field_file`` refuses reads
       nothing;
     * ``Analyzer(...)`` asks ``tit.volume_fields`` for exactly those, in its space -- the field
@@ -41,7 +41,7 @@ from tit.analyzer.analyzer import Analyzer
 from tit.volume_fields import FieldUnavailableError
 
 SID, SIM = "001", "M1"
-CARRIERS = ["hf_peak", "hf_sar"]
+CARRIERS = ["hf_peak", "hf_rms"]
 
 
 @pytest.mark.parametrize(
@@ -96,7 +96,7 @@ def _construct(space, tissue="GM", field=None, found=True, **ensure):
 def test_a_mesh_analysis_produces_into_the_field_mesh_and_says_so_first(
     init_pm, caplog
 ) -> None:
-    notice = "hf_peak and hf_sar were not saved for M1; computing them from the channel fields and saving them to M1_TI.msh."
+    notice = "hf_peak and hf_rms were not saved for M1; computing them from the channel fields and saving them to M1_TI.msh."
     with caplog.at_level(logging.INFO, logger="tit.analyzer.analyzer"):
         analyzer, calls = _construct("mesh", mesh=[notice])
     # The analysed field first (it must be there), then the carriers its metrics read.
@@ -190,14 +190,14 @@ def test_a_nifti_only_archive_is_analysed_with_the_carrier_reason(init_pm) -> No
     with patch("tit.analyzer.analyzer.add_file_handler"):
         analyzer = Analyzer(SID, SIM, space="voxel")
     assert analyzer.field_path == niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz"
-    assert "has no field mesh" in analyzer._carrier_reasons["hf_sar"]
+    assert "has no field mesh" in analyzer._carrier_reasons["hf_rms"]
 
 
 def test_auto_on_a_carrier_only_run_is_hf_peak(init_pm) -> None:
     from tit.analyzer.field_selector import default_field
 
     sim_dir = Path(init_pm.simulation(SID, SIM))
-    _run_record(sim_dir, fields=("hf_peak", "hf_sar"), carrier_only=True)
+    _run_record(sim_dir, fields=("hf_peak", "hf_rms"), carrier_only=True)
     assert default_field(SID, SIM) == "hf_peak"
     with patch("tit.analyzer.analyzer.add_file_handler"):
         analyzer = Analyzer(SID, SIM, space="mesh")  # Auto: no field
@@ -205,7 +205,7 @@ def test_auto_on_a_carrier_only_run_is_hf_peak(init_pm) -> None:
 
 
 def test_the_note_and_the_carrier_metrics_reach_results_csv(tmp_path: Path) -> None:
-    # The surface as the producer leaves it: hf_peak / hf_sar mapped onto it by msh2cortex.
+    # The surface as the producer leaves it: hf_peak / hf_rms mapped onto it by msh2cortex.
     x = np.arange(10.0)
     roi = x <= 3.5
     ti = np.where(roi, 2.0, 1.0)
@@ -221,18 +221,18 @@ def test_the_note_and_the_carrier_metrics_reach_results_csv(tmp_path: Path) -> N
         field={
             "TI_max": SimpleNamespace(value=ti),
             "hf_peak": SimpleNamespace(value=hf),
-            "hf_sar": SimpleNamespace(value=2.0 * hf**2),
+            "hf_rms": SimpleNamespace(value=hf / 2.0),
         },
         nodes_areas=lambda: np.ones(10),
     )
     analyzer._surface_mesh_path = tmp_path / "M1_TI_central.msh"
     analyzer._get_normal_stats = lambda *a: None
-    analyzer._on_demand = ("hf_peak and hf_sar were not saved for M1; computing them.",)
+    analyzer._on_demand = ("hf_peak and hf_rms were not saved for M1; computing them.",)
 
     r = analyzer.analyze_sphere((1.5, 0.0, 0.0), 2.0)
 
     # Unit areas: ROI nodes 0..3 at 3 V/m, the other six at 1 -> GM mean 18/10.
-    assert r.hf_focality == pytest.approx(3.0 / 1.8)
+    assert r.hf_peak_focality == pytest.approx(3.0 / 1.8)
     assert r.carrier_note is None
     assert r.on_demand_note == analyzer._on_demand[0]
     with open(tmp_path / "out" / "results.csv", newline="") as fh:
@@ -273,5 +273,5 @@ def test_the_group_loader_fails_naming_what_cannot_produce_the_nifti(init_pm) ->
     _run_record(Path(init_pm.simulation(SID, SIM)))
     with pytest.raises(FieldUnavailableError, match="TDCS_1_scalar.msh"):
         load_subject_nifti_ti_toolbox(
-            SID, SIM, "grey_{simulation_name}_TI_MNI_MNI_hf_sar.nii.gz"
+            SID, SIM, "grey_{simulation_name}_TI_MNI_MNI_hf_rms.nii.gz"
         )

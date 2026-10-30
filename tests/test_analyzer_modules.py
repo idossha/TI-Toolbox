@@ -258,14 +258,14 @@ class TestSelectFieldFileExplicitField:
 
     @pytest.mark.unit
     def test_default_unchanged_with_coexisting_fields_voxel(self, tmp_path):
-        """field=None must keep picking the same file even with hf_peak/hf_sar niftis
+        """field=None must keep picking the same file even with hf_peak/hf_rms niftis
         present alongside TI_max (regression guard for the new field filter)."""
         sim_dir = tmp_path / "sim"
         nifti_dir = sim_dir / "TI" / "niftis"
         nifti_dir.mkdir(parents=True)
         (nifti_dir / "grey_montage1_TI_subject_TI_max.nii.gz").touch()
         (nifti_dir / "grey_montage1_TI_subject_hf_peak.nii.gz").touch()
-        (nifti_dir / "grey_montage1_TI_subject_hf_sar.nii.gz").touch()
+        (nifti_dir / "grey_montage1_TI_subject_hf_rms.nii.gz").touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
@@ -300,7 +300,7 @@ class TestSelectFieldFileExplicitField:
         nifti_dir.mkdir(parents=True)
         (nifti_dir / "grey_montage1_TI_subject_TI_max.nii.gz").touch()
         (nifti_dir / "grey_montage1_TI_subject_hf_peak.nii.gz").touch()
-        (nifti_dir / "grey_montage1_TI_subject_hf_sar.nii.gz").touch()
+        (nifti_dir / "grey_montage1_TI_subject_hf_rms.nii.gz").touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
@@ -320,8 +320,8 @@ class TestSelectFieldFileExplicitField:
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
-            with pytest.raises(FileNotFoundError, match="hf_sar"):
-                select_field_file("001", "montage1", "voxel", field="hf_sar")
+            with pytest.raises(FileNotFoundError, match="hf_rms"):
+                select_field_file("001", "montage1", "voxel", field="hf_rms")
 
     @pytest.mark.unit
     def test_ti_normal_resolves_separate_mesh(self, tmp_path):
@@ -714,7 +714,7 @@ class TestFieldUnit:
         "field, unit",
         [
             ("TI_max", "V/m"),
-            ("hf_sar", "(V/m)²"),
+            ("hf_rms", "V/m"),
             ("hf_power_density", "W/m³"),
             ("magnE", "V/m"),
         ],

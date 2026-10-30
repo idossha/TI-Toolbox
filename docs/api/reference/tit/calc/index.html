@@ -2060,13 +2060,15 @@ Literature: Cassarà et al. 2025 Part I Eq. 3.</p>
 
     <div class="doc doc-contents ">
 
-        <p>Time-averaged mean-square carrier field, <code>(1/2) sum_c |E_c|^2 = E_rms^2</code>.</p>
+        <p>Time-averaged mean-square carrier field, <code>(1/2) sum_c |E_c|^2</code>.</p>
 <p>Channel fields at distinct frequencies add in power (their cross terms
-average out).  <code>sigma * hf_power</code> (isotropic <code>sigma</code>) is the absorbed
-power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time
-average: compare <code>sqrt(hf_power)</code> with RMS limits (at 1-10 kHz ICNIRP 2010
-and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:<code>hf_peak</code>
-with <code>sqrt(2)</code> times them.</p>
+average out).  The saved <code>hf_rms</code> field is <code>sqrt(hf_power)</code>, and
+<code>sigma * hf_power</code> (isotropic <code>sigma</code>) the absorbed (Joule) power density
+<code>hf_power_density</code> in W/m^3.  Unlike every other output this is a time
+average, and not the quantity to compare with exposure limits: ICNIRP 2010
+and IEEE C95.1-2019 sum amplitudes across frequencies, so compare
+:func:<code>hf_peak</code> with <code>sqrt(2)</code> times their RMS tables (<code>sqrt(hf_power)</code>
+against them is up to <code>sqrt(N)</code> low for N carriers).</p>
 <p>Method: closed form, exact for any number of channels.  Literature:
 Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</p>
 
@@ -2198,37 +2200,41 @@ Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</p>
 <span class="normal"><a href="#__codelineno-0-625">625</a></span>
 <span class="normal"><a href="#__codelineno-0-626">626</a></span>
 <span class="normal"><a href="#__codelineno-0-627">627</a></span>
-<span class="normal"><a href="#__codelineno-0-628">628</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-598" name="__codelineno-0-598"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-628">628</a></span>
+<span class="normal"><a href="#__codelineno-0-629">629</a></span>
+<span class="normal"><a href="#__codelineno-0-630">630</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-598" name="__codelineno-0-598"></a><span class="k">def</span><span class="w"> </span><span class="nf">hf_power</span><span class="p">(</span>
 <a id="__codelineno-0-599" name="__codelineno-0-599"></a>    <span class="n">fields</span><span class="p">:</span> <span class="n">Sequence</span><span class="p">[</span><span class="n">ArrayLike</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">coherent</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span>
 <a id="__codelineno-0-600" name="__codelineno-0-600"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">NDArray</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">]:</span>
-<a id="__codelineno-0-601" name="__codelineno-0-601"></a><span class="w">    </span><span class="sd">"""Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.</span>
+<a id="__codelineno-0-601" name="__codelineno-0-601"></a><span class="w">    </span><span class="sd">"""Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2``.</span>
 <a id="__codelineno-0-602" name="__codelineno-0-602"></a>
 <a id="__codelineno-0-603" name="__codelineno-0-603"></a><span class="sd">    Channel fields at distinct frequencies add in power (their cross terms</span>
-<a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="sd">    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed</span>
-<a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="sd">    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time</span>
-<a id="__codelineno-0-606" name="__codelineno-0-606"></a><span class="sd">    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010</span>
-<a id="__codelineno-0-607" name="__codelineno-0-607"></a><span class="sd">    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`</span>
-<a id="__codelineno-0-608" name="__codelineno-0-608"></a><span class="sd">    with ``sqrt(2)`` times them.</span>
-<a id="__codelineno-0-609" name="__codelineno-0-609"></a>
-<a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="sd">    Method: closed form, exact for any number of channels.  Literature:</span>
-<a id="__codelineno-0-611" name="__codelineno-0-611"></a><span class="sd">    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</span>
-<a id="__codelineno-0-612" name="__codelineno-0-612"></a>
-<a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">    Args:</span>
-<a id="__codelineno-0-614" name="__codelineno-0-614"></a><span class="sd">        fields: one or more zero-to-peak channel fields (N, 3) in V/m.</span>
-<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
-<a id="__codelineno-0-616" name="__codelineno-0-616"></a><span class="sd">            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so</span>
-<a id="__codelineno-0-617" name="__codelineno-0-617"></a><span class="sd">            ``(1/2) |sum_c E_c|^2``.</span>
-<a id="__codelineno-0-618" name="__codelineno-0-618"></a>
-<a id="__codelineno-0-619" name="__codelineno-0-619"></a><span class="sd">    Returns:</span>
-<a id="__codelineno-0-620" name="__codelineno-0-620"></a><span class="sd">        (N,) mean-square carrier field in (V/m)^2.</span>
-<a id="__codelineno-0-621" name="__codelineno-0-621"></a>
-<a id="__codelineno-0-622" name="__codelineno-0-622"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-623" name="__codelineno-0-623"></a><span class="sd">        ValueError: as :func:`hf_peak`.</span>
-<a id="__codelineno-0-624" name="__codelineno-0-624"></a><span class="sd">    """</span>
-<a id="__codelineno-0-625" name="__codelineno-0-625"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-626" name="__codelineno-0-626"></a>    <span class="k">if</span> <span class="n">coherent</span><span class="p">:</span>
-<a id="__codelineno-0-627" name="__codelineno-0-627"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-628" name="__codelineno-0-628"></a>    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,fnx-&gt;n"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
+<a id="__codelineno-0-604" name="__codelineno-0-604"></a><span class="sd">    average out).  The saved ``hf_rms`` field is ``sqrt(hf_power)``, and</span>
+<a id="__codelineno-0-605" name="__codelineno-0-605"></a><span class="sd">    ``sigma * hf_power`` (isotropic ``sigma``) the absorbed (Joule) power density</span>
+<a id="__codelineno-0-606" name="__codelineno-0-606"></a><span class="sd">    ``hf_power_density`` in W/m^3.  Unlike every other output this is a time</span>
+<a id="__codelineno-0-607" name="__codelineno-0-607"></a><span class="sd">    average, and not the quantity to compare with exposure limits: ICNIRP 2010</span>
+<a id="__codelineno-0-608" name="__codelineno-0-608"></a><span class="sd">    and IEEE C95.1-2019 sum amplitudes across frequencies, so compare</span>
+<a id="__codelineno-0-609" name="__codelineno-0-609"></a><span class="sd">    :func:`hf_peak` with ``sqrt(2)`` times their RMS tables (``sqrt(hf_power)``</span>
+<a id="__codelineno-0-610" name="__codelineno-0-610"></a><span class="sd">    against them is up to ``sqrt(N)`` low for N carriers).</span>
+<a id="__codelineno-0-611" name="__codelineno-0-611"></a>
+<a id="__codelineno-0-612" name="__codelineno-0-612"></a><span class="sd">    Method: closed form, exact for any number of channels.  Literature:</span>
+<a id="__codelineno-0-613" name="__codelineno-0-613"></a><span class="sd">    Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.</span>
+<a id="__codelineno-0-614" name="__codelineno-0-614"></a>
+<a id="__codelineno-0-615" name="__codelineno-0-615"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-616" name="__codelineno-0-616"></a><span class="sd">        fields: one or more zero-to-peak channel fields (N, 3) in V/m.</span>
+<a id="__codelineno-0-617" name="__codelineno-0-617"></a><span class="sd">        coherent: carrier-only control (all channels at one frequency, in phase,</span>
+<a id="__codelineno-0-618" name="__codelineno-0-618"></a><span class="sd">            ΔF = 0): one sinusoid of amplitude ``sum_c E_c``, so</span>
+<a id="__codelineno-0-619" name="__codelineno-0-619"></a><span class="sd">            ``(1/2) |sum_c E_c|^2``.</span>
+<a id="__codelineno-0-620" name="__codelineno-0-620"></a>
+<a id="__codelineno-0-621" name="__codelineno-0-621"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-622" name="__codelineno-0-622"></a><span class="sd">        (N,) mean-square carrier field in (V/m)^2.</span>
+<a id="__codelineno-0-623" name="__codelineno-0-623"></a>
+<a id="__codelineno-0-624" name="__codelineno-0-624"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-625" name="__codelineno-0-625"></a><span class="sd">        ValueError: as :func:`hf_peak`.</span>
+<a id="__codelineno-0-626" name="__codelineno-0-626"></a><span class="sd">    """</span>
+<a id="__codelineno-0-627" name="__codelineno-0-627"></a>    <span class="n">E</span> <span class="o">=</span> <span class="n">_stack</span><span class="p">(</span><span class="n">fields</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-628" name="__codelineno-0-628"></a>    <span class="k">if</span> <span class="n">coherent</span><span class="p">:</span>
+<a id="__codelineno-0-629" name="__codelineno-0-629"></a>        <span class="n">E</span> <span class="o">=</span> <span class="n">E</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">keepdims</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-630" name="__codelineno-0-630"></a>    <span class="k">return</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">einsum</span><span class="p">(</span><span class="s2">"fnx,fnx-&gt;n"</span><span class="p">,</span> <span class="n">E</span><span class="p">,</span> <span class="n">E</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

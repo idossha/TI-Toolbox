@@ -42,7 +42,7 @@
         "output_fields": [
           "TI_max",
           "hf_peak",
-          "hf_sar"
+          "hf_rms"
         ],
         "subject_id": "001",
         "tissue_conductivities": {

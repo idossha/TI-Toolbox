@@ -159,7 +159,7 @@ describe("the user's Simulator defaults", () => {
   it("Settings ▸ Simulator never saves a form with no output field", () => {
     useSimulatorDefaults.getState().setSimulatorDefaults({ ...factory, outputFields: ["TI_max"] });
     render(createElement(SimulatorDefaultsCard));
-    const tiMax = [...document.querySelectorAll("label")].find((l) => l.textContent === "TI_max")!.querySelector("button")!;
+    const tiMax = document.querySelector<HTMLElement>('button[aria-label="TI_max"]')!;
     click(tiMax);
     expect(document.body.textContent).toContain("Select at least one output field.");
     expect(userDefaults().outputFields).toEqual(["TI_max"]);

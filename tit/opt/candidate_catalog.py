@@ -19,7 +19,10 @@ _FIELDS = {
 }
 #: Carrier metrics an ex/mEx ``final_output.csv`` reports beside its ranking (``None`` for flex
 #: and for a CSV written before them).
-_CARRIER_METRICS = {"hf_focality": "HF_Focality", "ti_selectivity": "TI_Selectivity"}
+_CARRIER_METRICS = {
+    "hf_peak_focality": "HFpeak_Focality",
+    "ti_selectivity": "TI_Selectivity",
+}
 _MAX_BYTES = 128 * 1024 * 1024
 _MAX_ROWS = 250_000
 
@@ -219,7 +222,7 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                         "roi_mean": "ROI mean (V/m, volume weighted)",
                         "background_mean": "Whole GM mean (V/m, includes ROI)",
                         "contrast": "ROI / whole-GM mean",
-                        "hf_focality": "hf_peak ROI / whole-GM mean (carrier focality)",
+                        "hf_peak_focality": "hf_peak ROI / whole-GM mean (carrier focality)",
                         "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak",
                     },
                     "comparison_key": str(directory),

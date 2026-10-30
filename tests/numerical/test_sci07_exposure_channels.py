@@ -14,11 +14,10 @@ at its own carrier frequency, so *one FEM field is one carrier* and the
 coherent pre-sum within a frequency is the identity.  The exposure metrics
 therefore sum incoherently over the N fields:
 
-    ``hf_power = sum_i |E_i|^2 / 2``      (power adds; the on-disk ``hf_sar`` is 2x this)
+    ``hf_power = sum_i |E_i|^2 / 2``      (power adds; the on-disk ``hf_rms`` is its root)
     ``hf_peak = max_s |sum_i s_i E_i|``   (worst-case realisable phase)
 
-with the sinusoid's ``1/2`` applied exactly once, in the SAR calibration
-``(sigma / 2 rho) * hf_sar``, and nowhere in the field-domain quantity itself.
+with the sinusoid's ``1/2`` applied exactly once, inside ``hf_power``.
 
 Everything below is checked against an **independent time-domain simulation**:
 the fields are given actual carrier frequencies and phases, ``E(t)`` is summed
@@ -81,7 +80,7 @@ def _true_peak(fields, freqs, phases):
     return float(np.max(np.linalg.norm(e_t, axis=1)))
 
 
-def _reference_hf_sar(carriers):
+def _reference_sum_sq(carriers):
     """``sum_c |E_c|^2`` written out longhand."""
     return sum(float(np.dot(c, c)) for c in carriers)
 
@@ -101,18 +100,18 @@ def _as_rows(*vectors):
 
 
 # --------------------------------------------------------------------------
-# 1. One field is one carrier: hf_sar / 2 is the measured time-average.
+# 1. One field is one carrier: hf_power is the measured time-average.
 # --------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("n_carriers", [2, 3, 4, 6, 8])
-def test_hf_sar_matches_measured_time_average(n_carriers):
-    """``hf_sar / 2`` is the true time-averaged ``|E(t)|^2``.
+def test_hf_power_matches_measured_time_average(n_carriers):
+    """``hf_power`` (``hf_rms`` squared) is the true time-averaged ``|E(t)|^2``.
 
     The ``1/2`` is the sinusoid's time-average (Cassarà Part II, p. 6: "For
     sinusoidal currents, root mean square (RMS) peak E-field and current
     density differ by a factor of sqrt(2)").  Since 2026-10-26 it is inside
-    ``hf_power`` (``E_rms^2``; ``SAR = sigma hf_power / rho``, IEEE C95.1-2019
+    ``hf_power`` (``hf_rms^2``; ``SAR = sigma hf_power / rho``, IEEE C95.1-2019
     p. 35), so ``hf_power`` *is* the measured time average.
     """
     from tit.calc import hf_power
@@ -129,15 +128,15 @@ def test_hf_sar_matches_measured_time_average(n_carriers):
     assert got.shape == (4,)
     assert float(got[0]) == pytest.approx(measured, rel=1e-9)
     # ... and it is half the longhand incoherent sum (summation order aside).
-    assert float(got[0]) == pytest.approx(0.5 * _reference_hf_sar(vecs), rel=1e-15)
+    assert float(got[0]) == pytest.approx(0.5 * _reference_sum_sq(vecs), rel=1e-15)
 
 
-def test_hf_sar_is_phase_blind():
+def test_hf_power_is_phase_blind():
     """Distinct carriers: the time-average does not depend on their phases.
 
     This is the whole content of "incoherent superposition" -- the cross terms
     of two different frequencies integrate to zero over the common period, so
-    ``hf_sar`` is a function of the amplitudes alone.
+    ``hf_power`` (and ``hf_rms``) is a function of the amplitudes alone.
     """
     from tit.calc import hf_power
 
@@ -336,7 +335,7 @@ def test_shared_frequency_would_need_a_coherent_presum_and_never_occurs():
     If two electrode pairs were driven *phase-locked at one frequency* -- the
     Lee et al. 2022 shared-carrier design -- the true time-averaged ``|E|^2``
     would be ``|E_a + E_b|^2 / 2``, not ``(|E_a|^2 + |E_b|^2) / 2``, and
-    ``hf_sar`` over the raw fields would understate exposure by the cross term
+    ``hf_power`` over the raw fields would understate exposure by the cross term
     (a factor of 2 for two equal aligned fields).  That is why the metric is
     stated over *carriers*.  Positional wiring gives every field its own
     frequency, so the case cannot arise from a montage -- ``Montage`` has no

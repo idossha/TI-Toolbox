@@ -16,7 +16,7 @@ const base: JobSettings = {
   electrodeShape: "ellipse",
   dimensions: [8, 8],
   gelThickness: 1,
-  outputFields: ["TI_max", "hf_peak", "hf_sar"],
+  outputFields: ["TI_max", "hf_peak", "hf_rms"],
   customConductivities: {},
 };
 const row: SelectedRow = { id: "r", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E1", "E2"], ["E3", "E4"]] };
