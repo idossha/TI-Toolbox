@@ -11,11 +11,12 @@ The NIfTI Group Averaging extension provides comprehensive tools for computing g
 - **Turn the panel on.** Enable **NIfTI group averaging** in **Settings ▸ Extensions** and reload
   the app; a panel toggle takes effect only after a reload. It then appears under **Extensions**
   in the navigation rail.
-- **Simulate with MNI outputs.** The default **Space**, **MNI volume**, reads each simulation's
-  MNI-space field NIfTI, which a simulation writes only when
-  **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Generate MNI NIfTI outputs** is ticked.
-  That option is **off by default**. When a file is missing the job is refused before it starts,
-  naming the simulation to re-run with the option ticked.
+- **MNI-space NIfTIs are written when needed.** The default **Space**, **MNI volume**, reads each
+  simulation's MNI-space field NIfTI. A simulation writes one only when
+  **Simulator ▸ Job settings ▸ Output files ▸ Also in MNI space** is ticked; otherwise the job
+  writes it from the simulation's field mesh the first time it is needed, says so in its output,
+  and keeps it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)). A simulation that cannot provide it
+  (its channel meshes are gone) is refused before the job starts, naming what is missing.
 - **mTI simulations work too.** They are read from the simulation's `mTI/niftis/` folder with mTI
   file names (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI pattern** typed in the TI
   spelling (`_TI_`) is read as `_mTI_`.

@@ -1149,7 +1149,12 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "only): both channels at one frequency and in phase (dF = 0), no envelope, so "
             "hf_peak = |E1+E2| and hf_sar = |E1+E2|^2 (coherent=True) and output_fields "
             "may only be hf_peak/hf_sar/hf_power_density; TI_max/TI_avg/TI_normal are not "
-            "computed.",
+            "computed. A simulation saves TI_max, hf_peak and hf_sar by default (carrier-only: "
+            "hf_peak, hf_sar) into its field mesh, writes NIfTIs only with map_to_vol "
+            "(map_to_mni needs it), and an analysis or group tool computes a field or NIfTI "
+            "it needs and the run did not save from the kept channel meshes "
+            "(high_Frequency/mesh/), saves it and says so; hf_power_density cannot be "
+            "computed afterwards.",
             "integrity_rule": "Numerical behavior changes in tit/stats, tit/analyzer, tit/calc "
             "or tit/sim need (1) a test in tests/numerical/ against the REAL libraries, "
             "asserting the claim independently rather than retyping the implementation, and "

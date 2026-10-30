@@ -671,9 +671,22 @@ Flex does not promise a global optimum; exhaustive search is exhaustive only wit
 discretization. Flex's CPU setting does not imply parallel differential-evolution candidates.
 Run names and output folders identify real destinations, so replacement rules apply to repeated names.
 
-New Simulator jobs opt into MNI NIfTI export separately from fsaverage mapping, with adjacent
-controls. The MNI flag gates both anatomical and field conversion to avoid unwanted registration
-work. Ex previews count the engine’s electrode arrangements and valid current splits separately;
+**A simulation's output is its field mesh; NIfTIs are opt-in and everything not saved is produced
+on demand.** A run writes the selected fields into one volume mesh,
+`<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` (default `TI_max`/`mTI_max`, `hf_peak`, `hf_sar`:
+`tit.constants.DEFAULT_OUTPUT_FIELDS`, or its carrier fields for a carrier-only run), its
+grey/white copies and its central surface, and keeps the channel meshes in
+`high_Frequency/mesh/`. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
+per mesh field, and `map_to_mni` (which requires it) their MNI copies and the MNI T1; the NIfTI set
+must equal the mesh field set or the run fails (`check_niftis_match_meshes`). A field or NIfTI a
+step needs and the run did not save is produced by [`tit/volume_fields.py`](../../tit/volume_fields.py)
+with the simulator's own `compute_volume_fields` on the kept channel meshes, persisted into the
+simulation (volume mesh, grey/white, central surface; or `<mode>/niftis/`) and announced in one
+sentence before the work; the analyzer records it as `on_demand_note`. Missing channel meshes,
+an envelope of a carrier-only run and an unsaved `hf_power_density` are errors naming what is
+missing, never a fallback. Excluded: NIfTIs by default (most of a run's post-processing for files
+most analyses never read) and on-demand results that are not persisted (every later step would
+redo them). Ex previews count the engine’s electrode arrangements and valid current splits separately;
 total iterations are their product, including one split for fixed balanced currents.
 Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total/2, total/2)]`
 (`generate_current_ratios`), and the page and `APP_DEFAULTS["ex"]` start at a 1.0 mA limit for
@@ -877,7 +890,10 @@ disagree: the analyzer's `select_field_file` and `Analyzer._SURFACE_ATLAS_VOLUME
 analysis of the surface atlas id `DK40` needs FastSurfer's DKT volume; the mesh analysis needs no
 parcellation), the flex mapping-net rule, `ExConfig`'s `.csv` suffixing, the stats/nilearn MNI
 NIfTI patterns resolved by `simulation_nifti_path` (the loader's own rule: `TI/niftis/`, or
-`mTI/niftis/` with `_TI_` read as `_mTI_` for an mTI run), `tit.pre.preflight` for preprocessing. Each finding names the input, the exact
+`mTI/niftis/` with `_TI_` read as `_mTI_` for an mTI run), `tit.pre.preflight` for preprocessing.
+A field or simulator NIfTI the run did not save is not missing when the job can produce it
+(`tit.volume_fields.check_producible` / `check_nifti_producible`: the field mesh, the run record and
+the channel meshes are on disk); when it cannot, the finding is the producer's own error. Each finding names the input, the exact
 path it was expected at and what produces it ("run FastSurfer for sub-101", "run the L_Insula
 simulation first", "analyze in mesh space instead"). A `pre` group is checked with the whole
 group's flags, not per stage, because an early stage supplies what a later one needs. The

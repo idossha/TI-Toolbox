@@ -512,9 +512,10 @@ ti_selectivity = roi_focality / hf_focality                 # Ex: TI_Selectivity
 `ti_selectivity > 1`: the envelope is more focal than its carriers, which is the TI
 premise. `<= 1`: a plain kHz field with the carriers' distribution targets as well.
 The RMS ratio uses E_rms, not power, so it is linear like `roi_focality`. The
-analyzer reads `hf_peak`/`hf_sar` from the same simulation; a run that did not write
-them (the default output is `TI_max` only) leaves these `None`, with `carrier_note`
-saying why. Ex/mEx never rank on them (`Composite_Index` is unchanged).
+analyzer reads `hf_peak`/`hf_sar` from the same simulation, which saves them by default
+(`TI_max`, `hf_peak`, `hf_sar`); for a run that did not, the analysis computes them from the
+channel meshes first and says so (`on_demand_note`). Ex/mEx never rank on them
+(`Composite_Index` is unchanged).
 
 #### Units — the one thing to get right
 
@@ -826,9 +827,9 @@ project_root/
 │   │   │   └── ...                      # Tissue maps, transforms
 │   │   ├── Simulations/                 # TI simulation outputs
 │   │   │   └── {montage_name}/          # Per-montage results
-│   │   │       ├── TI/{mesh,niftis}/    # TI_max (+TI_avg/TI_normal) meshes and NIfTIs
+│   │   │       ├── TI/{mesh,niftis}/    # field mesh (TI_max, hf_peak, hf_sar by default) + NIfTIs (opt-in / on demand)
 │   │   │       ├── mTI/{mesh,niftis}/   # mTI only: {montage}_mTI.msh + its NIfTIs
-│   │   │       ├── high_Frequency/      # per-channel fields (hf_peak/hf_sar inputs)
+│   │   │       ├── high_Frequency/      # per-channel meshes: what an unsaved field is computed from
 │   │   │       └── Analyses/{Mesh,Voxel}/   # ROI analyses of this simulation
 │   │   ├── flex-search/{run}/           # optimisation runs (the run name is the dir)
 │   │   ├── ex-search/{run}/

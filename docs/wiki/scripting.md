@@ -224,7 +224,7 @@ cfg = SimulationConfig(
     montages=montages,
     conductivity="scalar",
     intensities=[1.0, 1.0],
-    output_fields=["TI_max"],
+    # output_fields defaults to ["TI_max", "hf_peak", "hf_sar"]; map_to_vol=True adds NIfTIs
 )
 run_simulation(cfg)
 ```
@@ -239,10 +239,11 @@ run_simulation(cfg)
 | `electrode_dimensions` | **Electrodes ▸ Dimensions** (mm) | `[8.0, 8.0]` |
 | `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `1.0` |
 | `rubber_thickness` | — | `2.0` |
-| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`, `hf_power_density`) | `["TI_max"]` |
-| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; two-channel TI with `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
-| `map_to_surf` / `map_to_vol` | — | `True` / `False` |
-| `map_to_mni` | **Generate MNI NIfTI outputs** | `False` |
+| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`, `hf_power_density`) | `None`: `["TI_max", "hf_peak", "hf_sar"]`, or `["hf_peak", "hf_sar"]` with `carrier_only` |
+| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; two-channel TI, `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
+| `map_to_surf` | — | `True` |
+| `map_to_vol` | **Write NIfTI volumes (one per field)** | `False` |
+| `map_to_mni` | **Also in MNI space** (needs `map_to_vol`) | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |
 
 Two channels (electrode pairs) run a TI simulation, four or more run mTI — the API picks for you.

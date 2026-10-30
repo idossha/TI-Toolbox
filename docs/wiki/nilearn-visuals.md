@@ -47,7 +47,7 @@ Both cutoffs start empty, and each can be left empty on its own. Click **Generat
 
 ### Basic Group Visualization
 
-1. **Check the inputs**: every simulation needs MNI NIfTI outputs (see [File Format Requirements](#file-format-requirements))
+1. **Check the inputs**: every simulation is read as its MNI-space NIfTI, written by the job when the simulation did not (see [File Format Requirements](#file-format-requirements))
 2. **Open tool**: enable **Nilearn visuals** in **Settings ▸ Extensions**, then select it under **Extensions** in the sidebar
 3. **Configure Subjects**: use **Add pair** and choose a subject and a simulation for each row
 4. **Set Parameters**:
@@ -132,7 +132,7 @@ The extension generates two high-resolution PDFs:
 
 ### File Format Requirements
 
-- **MNI NIfTI outputs are required**: every simulation needs them. In the Simulator, tick **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Generate MNI NIfTI outputs** before running the simulation. It is off by default, and without it the job is refused with that instruction. See the [Simulator]({{ site.baseurl }}/wiki/simulator/)
+- **MNI-space NIfTIs are written when needed**: every simulation is read as its MNI-space field NIfTI. A simulation writes it when **Simulator ▸ Job settings ▸ Output files ▸ Also in MNI space** is ticked; otherwise the job writes it from the field mesh the first time, says so in its output and keeps it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)). A simulation that cannot provide it is refused before the job starts, naming what is missing
 - **TI runs** read `TI/niftis/grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz` from the simulation folder
 - **mTI runs**, recognised by an `mTI/mesh/` folder, read `mTI/niftis/grey_{simulation_name}_mTI_MNI_MNI_mTI_max.nii.gz`
 - **Mixing**: TI and mTI runs can be averaged together

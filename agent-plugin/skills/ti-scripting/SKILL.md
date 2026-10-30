@@ -122,14 +122,20 @@ cfg = SimulationConfig(
     gel_thickness=1.0, rubber_thickness=2.0,
     map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
-    output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar", "hf_power_density"
+    # output_fields=None (default) -> ["TI_max", "hf_peak", "hf_sar"]; add "TI_avg",
+    # "hf_power_density" by listing them. map_to_vol=True writes one NIfTI per field
+    # (map_to_mni=True, which needs it, adds MNI copies); both default False.
+)
 run_simulation(cfg)
 # ΔF = 0 carrier-only control (two-channel TI; coherent sum, no envelope fields):
-# SimulationConfig(..., carrier_only=True, output_fields=["hf_peak", "hf_sar"])
-# (hf_power_density is a carrier field too and may be added)
+# SimulationConfig(..., carrier_only=True)   # output_fields default -> ["hf_peak", "hf_sar"]
+# (hf_power_density is a carrier field too and may be listed)
 ```
-2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs:
-`Simulations/<name>/TI/{mesh,niftis}` plus MNI-space NIfTIs. `TI_normal` is written
+2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs: the field mesh
+`Simulations/<name>/TI/mesh/<name>_TI.msh` (every saved field) with its grey/white copies and
+central surface; `TI/niftis/` only with `map_to_vol`. A field or NIfTI an analysis or group
+tool needs and the run did not save is computed then from `high_Frequency/mesh/` and saved
+(`tit.volume_fields`; `AnalysisResult.on_demand_note` says what), except `hf_power_density`. `TI_normal` is written
 to `<montage>_mTI_normal.msh` for mTI runs (via `envelope` along the cortical
 normals) and is **mesh-only** — asking for it in voxel space is an error by design.
 
@@ -201,8 +207,9 @@ re-run. `total_area_or_volume` is mm² / mm³ and was always correct.
 **Carrier focality:** a TI/mTI analysis also returns `hf_focality` (hf_peak ROI /
 GM mean), `rms_focality` (on E_rms = sqrt(hf_sar / 2)), `ti_selectivity`
 (`roi_focality / hf_focality`) and `hf_focality_50..95_area`, in V/m terms. They are
-`None` when the simulation did not write `hf_peak` / `hf_sar` (add them to
-`SimulationConfig.output_fields`); `r.carrier_note` says why.
+computed from the simulation's `hf_peak` / `hf_sar`, which are saved by default and
+produced on demand otherwise; they are `None` only when a carrier has no usable values (or the
+analysed field is a carrier field), and `r.carrier_note` says why.
 
 ## Statistics (cluster-based permutation)
 

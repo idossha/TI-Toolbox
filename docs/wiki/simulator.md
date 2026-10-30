@@ -14,7 +14,7 @@ The Simulator computes the full FEM temporal interference field. It sits between
 - **Jobs**: one row per simulation, each with its own **Subject** and **Source**: `Montage`, `Flex result` or `Free-hand` (see [Montage Sources](#montage-sources)). Line 2 of a row lists its channels, each named by its two electrodes (`E1+ F3 · E1- F4`: channel k runs from electrode Ek+ to Ek-) with its own current field in mA. **Add job** adds a row; the copy button duplicates one.
 - **TI or mTI**: not a control. It is read off the number of channels: 2 channels run standard TI, 4, 6, 8 … run mTI (see [How the Toolbox Detects mTI](#how-the-toolbox-detects-mti)).
 - **Montages**: **New montage**, the pencil **Edit** on a Montage row, and **Manage montages**, which deletes saved montages and free-hand placements (see [Montage Sources](#montage-sources)). **New placement** opens the [free-hand placement editor]({{ site.baseurl }}/wiki/electrode-placement/).
-- **Job settings**: electrodes, conductivity, output fields, the carrier-only control and standard-space outputs, per job (see [Job settings](#job-settings)).
+- **Job settings**: electrodes, conductivity, output fields, the carrier-only control and output files, per job (see [Job settings](#job-settings)).
 - **Scene pane**: shows what you last touched, marked by an accent tint and bar, on that job's own subject's head: a job (its row or any control in it, not its action buttons) with the electrodes its cells name and its channels, the **New montage** form with its net and channels, or the **New placement** form with its subject's head and positions. Until the subject's head is ready the reference head stands in, and the line under the pane says so. Clicking a job while a form is open shows the job and keeps the form; clicking the form, or an electrode on the head, shows the form again; **Cancel** or **Save** returns to the job. **New montage**, **New placement** and **Edit** never discard an open draft.
 - **Real-time Logging**: Simulation progress and status updates
 
@@ -71,7 +71,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 - **Electrodes**: **Shape** (Ellipse or Rectangle), **Dimensions** (width × height, mm) and **Gel thickness** (the saline layer between skin and the 2 mm rubber). Defaults: ellipse, 8 × 8 mm, 1 mm gel. The **?** beside **Electrodes** explains each, with a diagram and links to the SimNIBS electrode reference and Saturnino et al. 2015.
 - **Conductivity**: the **Model** and, for the anisotropic models, its bounds (see [Conductivity and Anisotropy](#conductivity-and-anisotropy)). **Edit values…** overrides the per-tissue conductivities for this job only.
 - **Output fields**: see [Output Fields](#output-fields) and [Carrier-only control](#carrier-only-control).
-- **Standard-space outputs**: **Generate MNI NIfTI outputs** (off by default) also writes the fields and the T1 in MNI space. The MNI-space group tools read these files: [cluster permutation testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/) and [Nilearn visuals]({{ site.baseurl }}/wiki/nilearn-visuals/). **Map fields to fsaverage** (off by default in the app; `map_to_fsavg` defaults to `True` in Python) projects the fields to fsaverage5 after simulation, for TI and mTI alike. The result is `fsaverage/sub-<id>_sim-<sim>_space-fsaverage5_fields.msh` in the simulation folder, a surface mesh you can open in the Viewer or Gmsh (see [Extensions]({{ site.baseurl }}/wiki/extension/)).
+- **Output files**: **Write NIfTI volumes (one per field)** (off by default) also saves every output field as a 3-D NIfTI (see [Output Layout](#output-layout-and-cli)); **Also in MNI space**, available once it is ticked, writes their MNI-space copies and the T1 in MNI space. Without them the field mesh is the output: a voxel analysis or a group tool ([cluster permutation testing]({{ site.baseurl }}/wiki/cluster-permutation-testing/), [NIfTI group averaging]({{ site.baseurl }}/wiki/nifti-group-averaging/), [Nilearn visuals]({{ site.baseurl }}/wiki/nilearn-visuals/)) writes the NIfTI it reads when it first needs it (see [Fields computed on demand](#fields-computed-on-demand)). **Map fields to fsaverage** (off by default in the app; `map_to_fsavg` defaults to `True` in Python) projects the fields to fsaverage5 after simulation, for TI and mTI alike. The result is `fsaverage/sub-<id>_sim-<sim>_space-fsaverage5_fields.msh` in the simulation folder, a surface mesh you can open in the Viewer or Gmsh (see [Extensions]({{ site.baseurl }}/wiki/extension/)).
 
 ---
 
@@ -127,7 +127,17 @@ The kHz-exposure safety metrics `hf_peak`/`hf_sar`/`hf_power_density` include ev
 
 ## Output Fields
 
-The **Output fields** in a job's settings choose which volume-mesh fields are computed and written, for TI and mTI alike: `TI_max` (ticked by default), `TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density`. At least one must be ticked ("Select at least one output field."). An unticked field is never computed, not merely left unwritten. From Python the same choice is `SimulationConfig.output_fields`, default `["TI_max"]`.
+The **Output fields** in a job's settings choose which volume-mesh fields are computed and written into the simulation's field mesh, for TI and mTI alike: `TI_max`, `hf_peak` and `hf_sar` (ticked by default), `TI_avg` and `hf_power_density`. At least one must be ticked ("Select at least one output field."). From Python the same choice is `SimulationConfig.output_fields`; left out (`None`), it is `["TI_max", "hf_peak", "hf_sar"]`, or `["hf_peak", "hf_sar"]` for a [carrier-only control](#carrier-only-control). `hf_peak` and `hf_sar` are what an analysis's carrier metrics read.
+
+### Fields computed on demand
+
+A field left unticked is not lost: when an analysis needs it (the **Field** you pick, or `hf_peak` and `hf_sar` for the carrier metrics), or a voxel analysis or group tool needs a NIfTI the simulation did not write, the job computes it from the simulation's channel meshes in `high_Frequency/mesh/`, with the same calculation the Simulator uses, saves it into the simulation (the field mesh, its grey/white copies and central surface, or the NIfTI in `TI/niftis/`), and says so in one line in the job's output, for example:
+
+```
+hf_peak and hf_sar were not saved for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh.
+```
+
+The next step finds it saved. Two exceptions, which refuse the job before it runs and say why: `hf_power_density` needs the conductivity of the original solve, which is not kept, so tick it before the run; and a carrier-only control has no `TI_max` or `TI_avg`. A simulation whose `high_Frequency/mesh/` channel meshes were deleted can no longer produce anything it did not save.
 
 What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest). `TI_max` and `TI_normal` are computed with `tit.calc` (`envelope_max`, and `envelope` along the cortical normals), `TI_avg` with `envelope_mean`.
 
@@ -204,21 +214,21 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
 ├── high_Frequency/{mesh,niftis,analysis} # per-channel SimNIBS outputs
 ├── TI/                                   # standard TI (2 channels)
 │   ├── mesh/{montage}_TI.msh, grey_*.msh, white_*.msh
-│   ├── niftis/{montage}_TI_subject_TI_max.nii.gz (+ _MNI_ when MNI export is on)
+│   ├── niftis/                           # only with Write NIfTI volumes, or written on demand
 │   ├── montage_imgs/{montage}_highlighted_visualization.png
 │   └── surface_overlays/
 └── mTI/                                  # multipolar TI (4+ channels)
     ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_sar / hf_power_density (selected)
     ├── mesh/grey_{montage}_mTI.msh, white_{montage}_mTI.msh
     ├── mesh/surfaces/                    # central cortical surface (msh2cortex)
-    ├── niftis/                           # mesh -> NIfTI conversion
+    ├── niftis/                           # as TI/niftis/
     └── montage_imgs/                     # combined_montage_visualization.png
 ```
 
-NIfTI exports are written in subject space by default. Enable **Generate MNI NIfTI outputs** beside the fsaverage option in job settings to also export MNI fields and the MNI anatomical reference — ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
+The field mesh `{montage}_TI.msh` (`{montage}_mTI.msh`) holds every saved field; its grey/white copies and central surface carry the same fields. With **Write NIfTI volumes (one per field)** (`map_to_vol`), every field of the field mesh and of its grey/white copies is also written as one 3-D NIfTI, `{mesh}_subject_{field}.nii.gz` (for example `grey_{montage}_TI_subject_hf_peak.nii.gz`), and each channel's `magnE` to `high_Frequency/niftis/`; the run fails if the NIfTIs are not exactly the mesh's fields. **Also in MNI space** (`map_to_mni`, which needs `map_to_vol`) adds `{mesh}_MNI_MNI_{field}.nii.gz` and the T1 in MNI space. ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
 
 The app runs each job as `simnibs_python -m tit.sim config.json` in the container; the same command works from a shell (see [Scripting]({{ site.baseurl }}/wiki/scripting/) for the `SimulationConfig` fields).
 
 ## Report generation
 
-Every simulated montage writes a simulation report, from the app, `run_simulation()` or a JSON config alike: the grey-matter envelope and where its maximum is, the montage on the EEG cap with its dose (on nets with a cap diagram; see [Montage Visualizer]({{ site.baseurl }}/wiki/montage_visualizer/)), and the envelope in three planes. Rebuild one without re-simulating with `simnibs_python -m tit.reporting.generators.simulation <project> <subject> <simulation>`. See [Reports]({{ site.baseurl }}/wiki/reports/).
+Every simulated montage writes a simulation report, from the app, `run_simulation()` or a JSON config alike: the grey-matter envelope (voxelised from the field mesh when the run wrote no NIfTI; nothing extra is kept) and where its maximum is, the montage on the EEG cap with its dose (on nets with a cap diagram; see [Montage Visualizer]({{ site.baseurl }}/wiki/montage_visualizer/)), and the envelope in three planes. Rebuild one without re-simulating with `simnibs_python -m tit.reporting.generators.simulation <project> <subject> <simulation>`. See [Reports]({{ site.baseurl }}/wiki/reports/).
