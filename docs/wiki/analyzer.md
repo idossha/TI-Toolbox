@@ -229,7 +229,7 @@ Each row analyses its field in one of two spaces:
 - **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, which the simulation writes with SimNIBS `msh2cortex`. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
 - **Voxel** (`space="voxel"`) reads the simulation's NIfTI on the subject grid and keeps the voxels of the selected tissue. Each voxel is weighted by its volume, so sizes come out in mm³ and cm³. Measure deep structures here. A simulation writes no NIfTIs unless asked to, so the first voxel analysis of a tissue writes the NIfTIs it reads from that tissue's field mesh and keeps them for the next one.
 
-The **Field** list offers every field. One the simulation did not save is marked **(computed when analysed)**: the analysis computes it from the channel meshes, saves it into the simulation and says so in its job output and in its Results pane ("Produced for this analysis: …"). An unsaved `hf_power_density` is marked **(not saved)** and cannot be picked.
+The **Field** list offers every field. One the simulation did not save is marked **(computed when analysed)**: the analysis computes it from the channel meshes, saves it into the simulation and says so in its job output and in its Results pane ("Produced for this analysis: …"). An unsaved `hf_power_density` is marked **(not saved)** and cannot be picked. For a carrier-only control the list holds only its carrier fields (`hf_peak`, `hf_sar`, `hf_power_density`): it has no envelope, so `TI_max`, `TI_avg`, `TI_normal` and **Auto** are not offered.
 
 <div class="image-row">
   <div class="image-container">

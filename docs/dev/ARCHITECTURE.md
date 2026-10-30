@@ -682,7 +682,10 @@ must equal the mesh field set or the run fails (`check_niftis_match_meshes`). A 
 step needs and the run did not save is produced by [`tit/volume_fields.py`](../../tit/volume_fields.py)
 with the simulator's own `compute_volume_fields` on the kept channel meshes, persisted into the
 simulation (volume mesh, grey/white, central surface; or `<mode>/niftis/`) and announced in one
-sentence before the work; the analyzer records it as `on_demand_note`. Missing channel meshes,
+sentence before the work; the analyzer records it as `on_demand_note`. A run whose record has
+`map_to_vol` also gets every produced field's NIfTIs (all converted meshes, its spaces), so its NIfTI
+set stays its mesh field set; a run without NIfTIs has no such set, and its `niftis/` (created only
+when something is written) holds just the NIfTIs voxel steps asked for. Missing channel meshes,
 an envelope of a carrier-only run and an unsaved `hf_power_density` are errors naming what is
 missing, never a fallback. Excluded: NIfTIs by default (most of a run's post-processing for files
 most analyses never read) and on-demand results that are not persisted (every later step would

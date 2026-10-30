@@ -3883,7 +3883,11 @@ loader (`tit.stats.nifti`, so group comparison and NIfTI averaging), Nilearn vis
 sub-cortical Visual Exporter. No fallback: missing channel meshes or run record, an envelope of a
 carrier-only run, or an unsaved `hf_power_density` (its conductivity is not kept) raise
 `FieldUnavailableError` naming what is missing, and job preflight refuses the job with the same
-text (`check_producible`, filesystem only, no SimNIBS import). The simulation report voxelises its
+text (`check_producible`, filesystem only, no SimNIBS import). A run whose record has `map_to_vol` also gets the produced
+field's NIfTIs in every space it wrote, so the NIfTI set stays the mesh field set after on-demand
+production; a run without NIfTIs keeps only what voxel steps wrote, and no empty `niftis/` folder.
+The catalog's `carrier_only` lets the Analyzer offer a carrier-only run its carrier fields only.
+The simulation report voxelises its
 envelope into a scratch folder (not persisted); the Viewer's simulation scene shows the grey field
 mesh coloured by `mesh_field` `TI_max` (windowed from its own values when no NIfTI exists).
 Pinned by `tests/test_sim_fields_on_demand.py`, `tests/test_analyzer_on_demand.py`,

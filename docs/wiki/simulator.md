@@ -137,7 +137,7 @@ A field left unticked is not lost: when an analysis needs it (the **Field** you 
 hf_peak and hf_sar were not saved for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh.
 ```
 
-The next step finds it saved. Two exceptions, which refuse the job before it runs and say why: `hf_power_density` needs the conductivity of the original solve, which is not kept, so tick it before the run; and a carrier-only control has no `TI_max` or `TI_avg`. A simulation whose `high_Frequency/mesh/` channel meshes were deleted can no longer produce anything it did not save.
+The next step finds it saved. A simulation that wrote NIfTIs (**Write NIfTI volumes**) gets the new field's NIfTIs too, in the spaces it wrote, so its NIfTIs stay one per mesh field; one that did not gets only the NIfTIs a voxel step reads. Two exceptions, which refuse the job before it runs and say why: `hf_power_density` needs the conductivity of the original solve, which is not kept, so tick it before the run; and a carrier-only control has no `TI_max` or `TI_avg`. A simulation whose `high_Frequency/mesh/` channel meshes were deleted can no longer produce anything it did not save.
 
 What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier-exposure safety metrics — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest). `TI_max` and `TI_normal` are computed with `tit.calc` (`envelope_max`, and `envelope` along the cortical normals), `TI_avg` with `envelope_mean`.
 
