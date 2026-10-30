@@ -5,6 +5,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "F3_F4"
       ],
@@ -78,6 +79,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "E37_E18"
       ],
@@ -122,6 +124,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example",
       "has_ti": false,
       "has_mti": true,
+      "carrier_only": false,
       "montages": [
         "mTI_F3F4_P3P4"
       ],
@@ -177,6 +180,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "F3_F4"
       ],

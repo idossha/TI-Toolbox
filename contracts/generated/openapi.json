@@ -9496,6 +9496,10 @@
                 },
                 "description": "The fields the simulation saved: those its field mesh (<TI|mTI>/mesh/<sim>_<TI|mTI>.msh) carries and those of its NIfTIs (with the carriers' magnE), sorted. NIfTIs are opt-in, so a default run lists its mesh fields (TI_max or mTI_max, hf_peak, hf_sar) with no NIfTI; an analysis of a field not listed computes it first."
               },
+              "carrier_only": {
+                "type": "boolean",
+                "description": "The run record says carrier-only control (\u0394F = 0): it has no envelope, so TI_max, TI_avg and TI_normal are neither saved nor producible. Absent: false."
+              },
               "space": {
                 "type": "array",
                 "items": {

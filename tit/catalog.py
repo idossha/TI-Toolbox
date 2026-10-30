@@ -928,6 +928,8 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
         "has_mti": has_mti,
         "montages": [montage_name],
         "fields": fields,
+        # A carrier-only control (ΔF = 0) has no envelope to analyse or compute.
+        "carrier_only": config.get("carrier_only") is True,
         "space": spaces,
         "report_ids": _report_ids_for_simulation(all_reports, sim),
         "niftis": niftis,

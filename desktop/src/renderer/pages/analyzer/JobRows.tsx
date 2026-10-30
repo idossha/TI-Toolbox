@@ -203,6 +203,7 @@ export function AnalyzerJobRows({
   rows,
   onRowsChange,
   fieldsFor,
+  carrierOnlyFor = () => false,
   group,
   onGroupChange,
   activeRowId,
@@ -217,6 +218,8 @@ export function AnalyzerJobRows({
   onGroupChange: (next: boolean) => void;
   /** Fields a given (subject, simulation) actually wrote; empty falls back to the registry. */
   fieldsFor: (subjectId: string, simulation: string) => string[];
+  /** Whether the simulation is a carrier-only control (its catalog `carrier_only`). */
+  carrierOnlyFor?: (subjectId: string, simulation: string) => boolean;
   /** The row the 3-D pane is drawing — highlighted here, exactly as the Simulator's table does. */
   activeRowId: string | null;
   onActiveRowChange: (id: string) => void;
@@ -418,7 +421,7 @@ export function AnalyzerJobRows({
                     />
                   </td>
                   <td data-cell="field">
-                    <AnalysisFieldSelect value={row.field} space={row.space} available={fieldsFor(row.subjectId,row.simulation)} onChange={(field)=>patch(row.id,{field})}/>
+                    <AnalysisFieldSelect value={row.field} space={row.space} available={fieldsFor(row.subjectId,row.simulation)} carrierOnly={carrierOnlyFor(row.subjectId,row.simulation)} onChange={(field)=>patch(row.id,{field})}/>
                   </td>
                   <td data-cell="actions" className="montage-actions">
                     <IconButton aria-label={`Duplicate row ${i + 1}`} icon={<Copy size={14} />} onClick={() => duplicate(row)} />

@@ -129,3 +129,15 @@ def test_the_catalog_lists_the_fields_the_mesh_saved(tmp_path: Path) -> None:
     )  # one written on demand
     detail = catalog.simulation_detail(get_path_manager(), SID, "M1")
     assert detail["fields"] == ["TI_avg", "TI_max", "hf_peak", "hf_sar"]
+    assert detail["carrier_only"] is False  # no run record says otherwise
+
+
+def test_the_catalog_says_a_run_is_a_carrier_only_control(tmp_path: Path) -> None:
+    import json
+
+    mesh_dir = simulation(tmp_path, "C0", "TI", {"hf_peak": VALUES, "hf_sar": VALUES})
+    record = mesh_dir.parents[1] / "documentation" / "config.json"
+    record.parent.mkdir()
+    record.write_text(json.dumps({"carrier_only": True}))
+    detail = catalog.simulation_detail(get_path_manager(), SID, "C0")
+    assert detail["carrier_only"] is True and detail["fields"] == ["hf_peak", "hf_sar"]

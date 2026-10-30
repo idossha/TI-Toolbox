@@ -2,6 +2,9 @@ import { Select } from "../../ui/Select";
 import { AUTO_FIELD, type Space } from "./buildConfig";
 import { FIELD_REGISTRY, fieldSpecForName } from "./fields";
 
+/** The envelope fields a carrier-only (ΔF = 0) simulation can never have. */
+const ENVELOPE_FIELDS = ["TI_max", "mTI_max", "TI_avg", "TI_normal"];
+
 /** The suffix an option carries: why it cannot be picked, or that the analysis will compute it. */
 export function fieldOptionNote(name: string, space: Space, saved: string[]): { note?: string; disabled: boolean } {
   if (space === "voxel" && name === "TI_normal") return { note: "mesh only", disabled: true };
@@ -16,16 +19,19 @@ export function fieldOptionNote(name: string, space: Space, saved: string[]): { 
  * `available` is the simulation's catalog `fields`: what it saved, read from its field mesh and its
  * NIfTIs (`magnE` included). Every field the analyzer accepts is offered: one the simulation did not
  * save is computed from its channel meshes when the analysis runs (and kept), and says so;
- * `hf_power_density` cannot be, so unsaved it is disabled.
+ * `hf_power_density` cannot be, so unsaved it is disabled. A carrier-only simulation
+ * (`carrierOnly`) offers its carrier fields only: no envelope, and no Auto (which means TI_max).
+ * A value it cannot take stays visible, disabled, so the row shows what it has to change.
  */
-export function AnalysisFieldSelect({value,space,available=[],onChange}: {value:string;space:Space;available?:string[];onChange:(value:string)=>void}) {
+export function AnalysisFieldSelect({value,space,available=[],carrierOnly=false,onChange}: {value:string;space:Space;available?:string[];carrierOnly?:boolean;onChange:(value:string)=>void}) {
   const saved=available.filter((name)=>fieldSpecForName(name) !== undefined);
-  const names=FIELD_REGISTRY.map((field)=>field.name);
-  const retained=value !== AUTO_FIELD && !names.includes(value) ? [value,...names] : names;
-  return <Select value={value} onValueChange={onChange} aria-label="Field" options={[
-    {value:AUTO_FIELD,label:"Auto"},...retained.map((name)=>{
-      const {note,disabled}=fieldOptionNote(name,space,saved);
-      return {value:name,label:note ? `${name} (${note})` : name,disabled};
-    }),
-  ]}/>;
+  const names=FIELD_REGISTRY.map((field)=>field.name).filter((name)=>!carrierOnly || !ENVELOPE_FIELDS.includes(name));
+  const offered=carrierOnly ? names : [AUTO_FIELD,...names];
+  const retained=offered.includes(value) ? offered : [value,...offered];
+  return <Select value={value} onValueChange={onChange} aria-label="Field" options={retained.map((name)=>{
+    if (name === AUTO_FIELD) return {value:name,label:"Auto",disabled:!offered.includes(name)};
+    if (!offered.includes(name)) return {value:name,label:`${name} (carrier-only run)`,disabled:true};
+    const {note,disabled}=fieldOptionNote(name,space,saved);
+    return {value:name,label:note ? `${name} (${note})` : name,disabled};
+  })}/>;
 }

@@ -1286,5 +1286,6 @@ write one NIfTI per field, and its MNI copies (which need `map_to_vol`; a config
 `openapi.yaml`: `SimulationDetail.fields` is described (mesh fields plus NIfTI fields) and
 `ViewLayer.mesh_field` — already sent for analysis overlays — is declared, optional, for the
 simulation field mesh too. Regenerated `contracts/generated/config.schema.json`,
-`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`. `SimulationDetail` gains `carrier_only` (boolean, the run record's; absent reads as false), which
+the Analyzer uses to offer a carrier-only control its carrier fields only.
 

@@ -6125,6 +6125,8 @@ export interface components {
             montages: string[];
             /** @description The fields the simulation saved: those its field mesh (<TI|mTI>/mesh/<sim>_<TI|mTI>.msh) carries and those of its NIfTIs (with the carriers' magnE), sorted. NIfTIs are opt-in, so a default run lists its mesh fields (TI_max or mTI_max, hf_peak, hf_sar) with no NIfTI; an analysis of a field not listed computes it first. */
             fields: string[];
+            /** @description The run record says carrier-only control (ΔF = 0): it has no envelope, so TI_max, TI_avg and TI_normal are neither saved nor producible. Absent: false. */
+            carrier_only?: boolean;
             space: ("subject" | "mni")[];
             report_ids: string[];
             niftis: components["schemas"]["NiftiRef"][];

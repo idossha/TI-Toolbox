@@ -36,8 +36,8 @@ const ACCEPTED = pythonRegistryNames();
 const OFFERED = ACCEPTED.filter((name) => name !== "mTI_max");
 
 /** The options the component hands its `Select` (no DOM needed: it is a plain function of props). */
-function options(available: string[], { value = AUTO_FIELD, space = "voxel" as Space } = {}): SelectOption[] {
-  const element = AnalysisFieldSelect({ value, space, available, onChange: () => {} }) as ReactElement<{ options: SelectOption[] }>;
+function options(available: string[], { value = AUTO_FIELD, space = "voxel" as Space, carrierOnly = false } = {}): SelectOption[] {
+  const element = AnalysisFieldSelect({ value, space, available, carrierOnly, onChange: () => {} }) as ReactElement<{ options: SelectOption[] }>;
   return element.props.options;
 }
 
@@ -81,5 +81,16 @@ describe("AnalysisFieldSelect", () => {
   it("still marks TI_normal mesh-only in voxel space", () => {
     expect(option(["TI_max", "TI_normal"], "TI_normal")).toEqual({ value: "TI_normal", label: "TI_normal (mesh only)", disabled: true });
     expect(option(["TI_max"], "TI_normal", "mesh")).toEqual({ value: "TI_normal", label: "TI_normal", disabled: false });
+  });
+
+  it("offers a carrier-only simulation its carrier fields only", () => {
+    // ΔF = 0: no envelope, so TI_max, TI_avg, TI_normal and Auto (= TI_max) can never be analysed.
+    const carriers = options(["hf_peak", "hf_sar"], { carrierOnly: true, value: "hf_peak" });
+    expect(carriers.map((o) => o.value)).toEqual(["hf_peak", "hf_sar", "hf_power_density"]);
+    expect(carriers.find((o) => o.value === "hf_power_density")?.disabled).toBe(true); // not saved
+    // A row still on an envelope field shows it, disabled, until it is changed.
+    const stale = options(["hf_peak", "hf_sar"], { carrierOnly: true, value: "TI_max" });
+    expect(stale[0]).toEqual({ value: "TI_max", label: "TI_max (carrier-only run)", disabled: true });
+    expect(options([], { carrierOnly: true })[0]).toEqual({ value: AUTO_FIELD, label: "Auto", disabled: true });
   });
 });
