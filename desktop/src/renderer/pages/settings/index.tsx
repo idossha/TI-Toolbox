@@ -424,11 +424,15 @@ function SettingsPage() {
           )}
         </TabsPrimitive.Root>
 
-        <div className="settings-save">
-          <Button variant="primary" disabled={!dirty} loading={saveMutation.isPending} onClick={handleSave}>
-            Save changes
-          </Button>
-        </div>
+        {/* Settings ▸ Simulator applies at once (SimulatorDefaultsCard): a page Save there would
+            contradict it, so the tab has none. */}
+        {tab !== "simulator" && (
+          <div className="settings-save">
+            <Button variant="primary" disabled={!dirty} loading={saveMutation.isPending} onClick={handleSave}>
+              Save changes
+            </Button>
+          </div>
+        )}
       </div>
     </PageLayout>
   );

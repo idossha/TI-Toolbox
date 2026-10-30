@@ -75,7 +75,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 
 ### Your defaults for new jobs
 
-**Settings ▸ Simulator** holds the settings a new job starts with: the same controls as **Job settings**, with the same rules (carrier-only keeps only the carrier fields; **Also in MNI space** ticks **Write NIfTI volumes**). Changes apply at once and are kept on this computer across restarts. A job without settings of its own follows them; a job you changed in its **Job settings** keeps its own values, as do jobs already queued or run. **Restore factory defaults** returns to the app's defaults listed above (ellipse, 8 × 8 mm, 1 mm gel, isotropic, `TI_max`, `hf_peak` and `hf_rms`, no NIfTIs, no fsaverage mapping). Agents and scripts that leave a field out get the app's defaults, not these.
+**Settings ▸ Simulator** holds the settings a new job starts with: the same controls as **Job settings**, with the same rules (carrier-only keeps only the carrier fields; **Also in MNI space** ticks **Write NIfTI volumes**). Changes apply at once (there is nothing to save) and are kept on this computer across restarts. A job without settings of its own follows them; a job you changed in its **Job settings** keeps its own values, as do jobs already queued or run. **Restore factory defaults** returns to the app's defaults listed above (ellipse, 8 × 8 mm, 1 mm gel, isotropic, `TI_max`, `hf_peak` and `hf_rms`, no NIfTIs, no fsaverage mapping). Agents and scripts that leave a field out get the app's defaults, not these.
 
 ---
 

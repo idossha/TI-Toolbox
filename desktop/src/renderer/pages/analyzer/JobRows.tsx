@@ -309,18 +309,19 @@ export function AnalyzerJobRows({
         <table className="data-table analysis-jobs-table" onKeyDown={onTableKeyDown} data-testid="analysis-jobs-table">
           {/*
             Fixed widths in pixels, not percentages (maintainer, 2026-09-06: the cells were
-            printing "Choose a sim…", "M…" and a truncated atlas name). Space needs 80px to print
-            "Voxel", Field 150px for a closed "Auto (hf_peak)" (the trigger's padding and
-            chevron take 40px of it; 110px clipped it to "Auto (h…"), Subject 150px for the longest id a project has;
-            Simulation takes whatever is left, because a montage name is the one cell whose length
-            nobody controls. `table-layout: fixed` (analyzer-page.css) makes them authoritative.
-            The actions column grew from 72 to 96 when the row gained its Edit pencil.
+            printing "Choose a sim…", "M…" and a truncated atlas name). Space 88px prints "Voxel",
+            Field 128px a closed "Auto (HF<sub>peak</sub>)" (the trigger's padding and chevron take
+            40px of it), Subject 120px an id of ten characters; Simulation takes whatever is left,
+            because a montage name is the one cell whose length nobody controls (2026-10-30: a
+            150px Field and Subject left "docs_exam…" at the default 1280px window).
+            `table-layout: fixed` (analyzer-page.css) makes them authoritative. The actions column
+            grew from 72 to 96 when the row gained its Edit pencil.
           */}
           <colgroup>
-            <col style={{ width: "150px" }} />
+            <col style={{ width: "120px" }} />
             <col />
-            <col style={{ width: "104px" }} />
-            <col style={{ width: "150px" }} />
+            <col style={{ width: "88px" }} />
+            <col style={{ width: "128px" }} />
             {/* 96px: three 28px icon buttons (duplicate · edit · remove) plus their gaps — the
                 same actions column the Simulator's and Optimizer's jobs tables reserve. */}
             <col style={{ width: "96px" }} />
