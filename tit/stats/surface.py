@@ -32,6 +32,7 @@ from pathlib import Path
 import numpy as np
 
 from tit.constants import FSAVG_NODES as _FSAVG_NODES
+from tit.constants import FSAVG_NOT_PROJECTED
 from tit.paths import get_path_manager
 from tit.source.config import VALID_FSAVG_FIELDS
 from tit.source.fsaverage import read_fsaverage_field, write_fsaverage_msh
@@ -84,7 +85,10 @@ def load_group_surface_data(
         column order.
     """
     if field not in VALID_FSAVG_FIELDS:
-        raise ValueError(f"Unknown field {field!r}; valid: {VALID_FSAVG_FIELDS}")
+        raise ValueError(
+            f"{field!r} is not on the fsaverage surface; valid: {VALID_FSAVG_FIELDS}. "
+            + FSAVG_NOT_PROJECTED
+        )
     pm = get_path_manager()
     expected = _FSAVG_NODES[spacing]
     columns: list[np.ndarray] = []

@@ -38,6 +38,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.paths import get_path_manager
 
 # ── the writer model ─────────────────────────────────────────────────────────
@@ -145,7 +146,7 @@ def write_simulation(
     # msh2cortex -o surfaces/ names its output <mesh stem>_central.msh.
     central = mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh"
     for tissue in TISSUE_PREFIX:
-        (mesh_dir / f"{envelope_base(sim, mode, tissue)}.msh").write_bytes(b"msh")
+        write_field_mesh(mesh_dir / f"{envelope_base(sim, mode, tissue)}.msh", fields)
     normal.write_bytes(b"msh")
     central.write_bytes(b"msh")
     if mode == "mTI":

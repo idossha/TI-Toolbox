@@ -29,6 +29,7 @@ The same path on real SimNIBS meshes is tests/numerical/test_sim_fields_on_deman
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -173,6 +174,30 @@ def make_simulation(
     return sim_dir
 
 
+def cut_tissues(calls: list):
+    """``extract_fields``: the grey/white copies of the volume mesh, where it is asked to write."""
+
+    def cut(volume, out_dir, stem, *rest):
+        calls.append((volume, out_dir, stem))
+        for tissue in ("grey", "white"):
+            shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
+
+    return cut
+
+
+def map_surface(calls: list, fail: list | None = None):
+    """``generate_central_surface``: writes ``<stem>_central.msh``; raises while *fail* is set."""
+
+    def surface(mesh, m2m, out_dir):
+        calls.append((mesh, m2m, out_dir))
+        if fail:
+            raise RuntimeError(fail.pop())
+        Path(out_dir).mkdir(parents=True, exist_ok=True)
+        shutil.copy(mesh, Path(out_dir) / f"{Path(mesh).stem}_central.msh")
+
+    return surface
+
+
 @pytest.fixture()
 def producer(init_pm):
     """Mocked SimNIBS reading TI channel fields E1/E2; grey/white cut and msh2cortex recorded."""
@@ -180,13 +205,9 @@ def producer(init_pm):
     calls = SimpleNamespace(extract=[], surface=[])
     with (
         patch.object(sys.modules["simnibs"], "mesh_io", io),
+        patch.object(tit.sim.utils, "extract_fields", cut_tissues(calls.extract)),
         patch.object(
-            tit.sim.utils, "extract_fields", lambda *a: calls.extract.append(a)
-        ),
-        patch.object(
-            tit.sim.utils,
-            "generate_central_surface",
-            lambda *a: calls.surface.append(a),
+            tit.sim.utils, "generate_central_surface", map_surface(calls.surface)
         ),
     ):
         yield SimpleNamespace(io=io, calls=calls, pm=init_pm)
@@ -213,11 +234,46 @@ def test_a_missing_field_is_computed_from_the_channel_meshes_and_saved(
     np.testing.assert_allclose(
         msh_element_field(volume, "TI_max"), 1.0
     )  # kept as saved
-    # The grey/white copies are re-cut from the volume mesh, the central surface regenerated.
-    assert [a[:3] for a in producer.calls.extract] == [
-        (str(volume), str(volume.parent), f"{SIM}_TI")
-    ]
-    assert [a[2] for a in producer.calls.surface] == [str(volume.parent / "surfaces")]
+    # The grey/white copies and the central surface are regenerated from the new mesh, in a
+    # staging folder, and moved into place: they carry the new fields, and no stage is left.
+    assert [Path(a[0]).name for a in producer.calls.extract] == [volume.name]
+    assert [a[2] for a in producer.calls.extract] == [f"{SIM}_TI"]
+    for derived in ("grey_M_TI.msh", "white_M_TI.msh", "surfaces/M_TI_central.msh"):
+        assert msh_field_names(volume.parent / derived) == {
+            "TI_max",
+            "hf_peak",
+            "hf_sar",
+        }
+    assert not list((volume.parents[1]).glob(".on-demand-*"))
+
+
+def test_a_production_killed_midway_leaves_nothing_half_written_and_a_rerun_completes(
+    producer,
+) -> None:
+    sim_dir = make_simulation(producer.pm)
+    volume = sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh"
+    before = volume.read_bytes()
+    fail = ["msh2cortex died"]
+    with patch.object(tit.sim.utils, "generate_central_surface", map_surface([], fail)):
+        with pytest.raises(RuntimeError, match="msh2cortex died"):
+            fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
+        # Nothing moved: the volume mesh is as it was, no grey/white/surface appeared, and
+        # the staging folder is gone, so the field still reads as not saved.
+        assert volume.read_bytes() == before
+        assert not (sim_dir / "TI" / "mesh" / "grey_M_TI.msh").exists()
+        assert not list((sim_dir / "TI" / "mesh" / "surfaces").iterdir())
+        assert not list((sim_dir / "TI").glob(".on-demand-*"))
+        # A stage left by a producer that was killed outright is cleared by the next one.
+        (sim_dir / "TI" / ".on-demand-killed").mkdir()
+        assert fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
+    assert msh_field_names(volume) == {"TI_max", "hf_peak"}
+    assert msh_field_names(
+        sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
+    ) == {
+        "TI_max",
+        "hf_peak",
+    }
+    assert not list((sim_dir / "TI").glob(".on-demand-*"))
 
 
 def test_saved_fields_produce_nothing(producer) -> None:
@@ -305,8 +361,8 @@ def test_an_mti_run_reads_its_lettered_channels_in_order(init_pm) -> None:
     make_simulation(init_pm, mode="mTI", channels=4, saved=("mTI_max",))
     with (
         patch.object(sys.modules["simnibs"], "mesh_io", io),
-        patch.object(tit.sim.utils, "extract_fields", lambda *a: None),
-        patch.object(tit.sim.utils, "generate_central_surface", lambda *a: None),
+        patch.object(tit.sim.utils, "extract_fields", cut_tissues([])),
+        patch.object(tit.sim.utils, "generate_central_surface", map_surface([])),
     ):
         notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_sar"])
     assert notices == [
@@ -347,19 +403,9 @@ def converter(producer):
 def test_a_run_that_writes_niftis_still_has_one_per_mesh_field_after_on_demand(
     converter, spaces
 ) -> None:
-    import shutil
-
     sim_dir = make_simulation(converter.producer.pm, niftis=spaces)
     mesh_dir = sim_dir / "TI" / "mesh"
-
-    def cut(
-        volume, out_dir, stem, *rest
-    ):  # extract_fields: grey/white copies of the mesh
-        for tissue in ("grey", "white"):
-            shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
-
-    with patch.object(tit.sim.utils, "extract_fields", cut):
-        notices = fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
+    notices = fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
 
     kind = "subject and MNI-space NIfTIs" if "mni" in spaces else "NIfTIs"
     assert notices == [

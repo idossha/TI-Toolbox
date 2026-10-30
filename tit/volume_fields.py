@@ -21,6 +21,9 @@ mesh, subject space and, with ``map_to_mni``, MNI space -- and the set still equ
 set. A run with NIfTIs off has no such set: its ``niftis/`` holds only what voxel steps asked for,
 each a NIfTI of a field its mesh carries, never one the mesh lacks.
 
+Writes are crash-safe: everything is staged in a hidden folder and moved into place with atomic
+renames, derived files first and the volume mesh last (:func:`_produce_mesh_fields`).
+
 Each says one plain sentence per production before doing it ("hf_peak and hf_sar were not saved
 for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh."),
 through the caller's ``say`` (its own ``logger.info``, so it reaches that job's output), and
@@ -36,7 +39,9 @@ import fcntl
 import json
 import logging
 import os
+import shutil
 import string
+import tempfile
 from collections.abc import Callable
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -215,14 +220,22 @@ def _validated(names) -> list[str]:
 
 
 def _missing(sim: _Simulation, names: list[str]) -> list[str]:
-    """Logical *names* the volume mesh does not carry (none when its header cannot be read)."""
+    """Logical *names* the volume mesh does not carry.
+
+    Raises:
+        FieldUnavailableError: there is no volume mesh, or its field list cannot be read.
+    """
     if not sim.volume_mesh.is_file():
         raise FieldUnavailableError(
             f"{sim.name} has no field mesh at {sim.volume_mesh}; run the simulation first."
         )
     carried = msh_field_names(sim.volume_mesh)
-    if carried is None:  # not a mesh whose headers this can read: the reader will say
-        return []
+    if carried is None:
+        raise FieldUnavailableError(
+            f"Cannot read the field list of {sim.volume_mesh} (not a Gmsh 2.2 mesh, or "
+            "truncated), so which fields the simulation saved is unknown. Re-run the "
+            "simulation."
+        )
     return [n for n in names if _on_disk(sim, n) not in carried]
 
 
@@ -280,15 +293,49 @@ def _quiet(notice: str) -> None:
     """The default ``say``: the notice is still returned to the caller."""
 
 
+_STAGE_PREFIX = ".on-demand-"
+
+
 @contextmanager
 def _producing(sim: _Simulation):
-    """One producer per simulation at a time: two analyses may need the same field at once."""
+    """One producer per simulation at a time: two analyses may need the same field at once.
+
+    Holding the lock, any staging folder left in ``<sim>/<mode>/`` is from a producer that was
+    killed, so it is removed first: nothing in it was ever moved into place.
+    """
     with open(sim.dir / ".on-demand.lock", "w") as handle:
         fcntl.flock(handle, fcntl.LOCK_EX)
         try:
+            for stale in (sim.dir / sim.mode).glob(_STAGE_PREFIX + "*"):
+                shutil.rmtree(stale, ignore_errors=True)
             yield
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+@contextmanager
+def _staging(sim: _Simulation):
+    """A hidden folder in ``<sim>/<mode>/`` (the outputs' filesystem), removed on exit.
+
+    Everything a production writes goes here first and is moved into place with
+    :func:`os.replace` only once complete, so a reader never sees a partial file.
+    """
+    parent = sim.dir / sim.mode
+    parent.mkdir(parents=True, exist_ok=True)
+    stage = Path(tempfile.mkdtemp(prefix=_STAGE_PREFIX, dir=parent))
+    try:
+        yield stage
+    finally:
+        shutil.rmtree(stage, ignore_errors=True)
+
+
+def _move_all(src: Path, dst: Path) -> None:
+    """Move every file of *src* into *dst*, each with one atomic rename."""
+    if not src.is_dir():
+        return
+    dst.mkdir(parents=True, exist_ok=True)
+    for path in sorted(src.iterdir()):
+        os.replace(path, dst / path.name)
 
 
 def ensure_mesh_fields(
@@ -333,12 +380,7 @@ def ensure_mesh_fields(
             f"channel fields and saving {it} to {sim.volume_mesh.name}{also}."
         )
         say(notice)
-        _produce_mesh_fields(sim, config, missing)
-        # A run that writes NIfTIs keeps one per mesh field (check_niftis_match_meshes).
-        for space in spaces:
-            for tissue in (None, "grey", "white"):
-                base = f"{tissue + '_' if tissue else ''}{sim.name}_{sim.mode}"
-                _write_niftis(sim, sim.mesh_dir / f"{base}.msh", base, space, names)
+        _produce_mesh_fields(sim, config, missing, names, spaces)
     return [notice]
 
 
@@ -350,7 +392,18 @@ def _recorded_nifti_spaces(config: dict) -> tuple[str, ...]:
     return ("subject", "mni") if options.get("map_to_mni") is True else ("subject",)
 
 
-def _produce_mesh_fields(sim: _Simulation, config: dict, missing: list[str]) -> None:
+def _produce_mesh_fields(
+    sim: _Simulation, config: dict, missing: list[str], names: list[str], spaces
+) -> None:
+    """Compute *missing*, then write every output it changes, the volume mesh last.
+
+    All of it -- the volume mesh, its grey/white copies, the central surface and, for a run
+    that writes NIfTIs, the new fields' NIfTIs in its *spaces* -- is written into a staging
+    folder and moved into place once complete: the derived files first, the volume mesh
+    last. So "the volume mesh carries the field" (what :func:`_missing` reads) implies every
+    derived file is complete; a production killed earlier leaves the volume mesh without the
+    field and the next one redoes all of it.
+    """
     from simnibs import mesh_io
 
     from tit.paths import get_path_manager
@@ -374,16 +427,28 @@ def _produce_mesh_fields(sim: _Simulation, config: dict, missing: list[str]) -> 
         coherent=config.get("carrier_only") is True,
     ):
         volume.add_element_field(values, name)
-    partial = sim.volume_mesh.with_name(sim.volume_mesh.name + ".partial")
-    mesh_io.write_msh(volume, str(partial))
-    os.replace(partial, sim.volume_mesh)
 
     m2m = get_path_manager().m2m(sim.subject_id)
     stem = sim.volume_mesh.stem
-    extract_fields(
-        str(sim.volume_mesh), str(sim.mesh_dir), stem, m2m, sim.subject_id, logger
-    )
-    generate_central_surface(str(sim.volume_mesh), m2m, str(sim.mesh_dir / "surfaces"))
+    with _staging(sim) as stage:
+        staged = stage / sim.volume_mesh.name  # same name: msh2cortex names by stem
+        mesh_io.write_msh(volume, str(staged))
+        extract_fields(str(staged), str(stage), stem, m2m, sim.subject_id, logger)
+        generate_central_surface(str(staged), m2m, str(stage / "surfaces"))
+        # A run that writes NIfTIs keeps one per mesh field (check_niftis_match_meshes).
+        for space in spaces:
+            for tissue in (None, "grey", "white"):
+                base = f"{tissue + '_' if tissue else ''}{stem}"
+                _convert(
+                    stage / f"{base}.msh", m2m, stage / "niftis", base, space, names
+                )
+        _move_all(stage / "surfaces", sim.mesh_dir / "surfaces")
+        for tissue in ("grey", "white"):
+            os.replace(
+                stage / f"{tissue}_{stem}.msh", sim.mesh_dir / f"{tissue}_{stem}.msh"
+            )
+        _move_all(stage / "niftis", sim.niftis_dir)
+        os.replace(staged, sim.volume_mesh)
 
 
 def _nifti_name(base: str, space: str, field: str) -> str:
@@ -453,27 +518,66 @@ def ensure_niftis(
             )
             say(notice)
             notices.append(notice)
-            _write_niftis(sim, mesh, base, space, absent)
-            unwritten = [str(paths[f]) for f in absent if not _saved(paths[f])]
-            if unwritten:
-                raise RuntimeError(
-                    f"The NIfTI conversion of {mesh} did not write {', '.join(unwritten)}."
-                )
+            from tit.paths import get_path_manager
+
+            m2m = get_path_manager().m2m(sim.subject_id)
+            with _staging(sim) as stage:
+                _convert(mesh, m2m, stage, base, space, absent)
+                _move_all(stage, sim.niftis_dir)
     return {f: _saved(p) or p for f, p in paths.items()}, notices
 
 
-def _write_niftis(sim: _Simulation, mesh: Path, base: str, space: str, fields) -> None:
-    from tit.paths import get_path_manager
+def _convert(
+    mesh: Path, m2m, out_dir: Path, base: str, space: str, fields
+) -> list[Path]:
+    """The NIfTI of each of *fields* of *mesh* in *space*, written into *out_dir*.
+
+    The simulator's own conversion (:mod:`tit.tools.mesh2nii`) and names
+    (``<base>_subject_<field>.nii.gz`` / ``<base>_MNI_MNI_<field>.nii.gz``).
+
+    Raises:
+        RuntimeError: the conversion did not write a requested file.
+    """
     from tit.tools.mesh2nii import msh_to_mni, msh_to_nifti
 
-    sim.niftis_dir.mkdir(parents=True, exist_ok=True)
-    m2m = get_path_manager().m2m(sim.subject_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
     if space == "mni":
-        msh_to_mni(str(mesh), m2m, str(sim.niftis_dir / f"{base}_MNI"), fields=fields)
+        msh_to_mni(
+            str(mesh), str(m2m), str(out_dir / f"{base}_MNI"), fields=list(fields)
+        )
     else:
         msh_to_nifti(
-            str(mesh), m2m, str(sim.niftis_dir / f"{base}_subject"), fields=fields
+            str(mesh), str(m2m), str(out_dir / f"{base}_subject"), fields=list(fields)
         )
+    written = [out_dir / _nifti_name(base, space, f) for f in fields]
+    unwritten = [str(p) for p in written if not p.is_file()]
+    if unwritten:
+        raise RuntimeError(
+            f"The NIfTI conversion of {mesh} did not write {', '.join(unwritten)}."
+        )
+    return written
+
+
+def voxelise(mesh, m2m, out_dir, fields) -> dict[str, Path]:
+    """Subject-space NIfTIs of *fields* of the field mesh *mesh*, written into *out_dir*.
+
+    The conversion the on-demand path uses, for a caller that keeps the volumes elsewhere
+    (the simulation report voxelises its envelope into a scratch folder). Keyed by field.
+
+    Raises:
+        FieldUnavailableError: *mesh* is missing, or does not carry one of *fields*.
+        RuntimeError: the conversion did not write a requested file.
+    """
+    mesh = Path(mesh)
+    carried = msh_field_names(mesh) if mesh.is_file() else None
+    absent = [f for f in fields if carried is None or f not in carried]
+    if absent:
+        raise FieldUnavailableError(
+            f"{mesh} is missing or does not carry {_listed(absent)}, so it cannot be "
+            "voxelised."
+        )
+    written = _convert(mesh, m2m, Path(out_dir), mesh.stem, "subject", fields)
+    return dict(zip(fields, written))
 
 
 def _parse_nifti(sim: _Simulation, filename: str) -> tuple[str | None, str, str] | None:
@@ -516,9 +620,14 @@ def check_nifti_producible(subject_id: str, simulation: str, path) -> bool:
     if found is None:
         return False
     sim, (_, _, field) = found
-    missing = _missing(sim, [field])
-    if missing:
-        _check_producible(sim, missing)
+    try:
+        missing = _missing(sim, [field])
+        if missing:
+            _check_producible(sim, missing)
+    except FieldUnavailableError as exc:
+        raise FieldUnavailableError(
+            f"{path} was not saved and cannot be written: {exc}"
+        )
     return True
 
 
@@ -541,9 +650,14 @@ def ensure_nifti_file(
     if found is None or not found[0].volume_mesh.is_file():
         return []
     tissue, space, field = found[1]
-    return ensure_niftis(
-        subject_id, simulation, [field], tissue=tissue, space=space, say=say
-    )[1]
+    try:
+        return ensure_niftis(
+            subject_id, simulation, [field], tissue=tissue, space=space, say=say
+        )[1]
+    except FieldUnavailableError as exc:
+        raise FieldUnavailableError(
+            f"{path} was not saved and cannot be written: {exc}"
+        )
 
 
 def check_niftis_match_meshes(mesh_dir, niftis_dir, *, mni: bool) -> None:

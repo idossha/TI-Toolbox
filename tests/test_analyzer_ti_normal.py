@@ -33,6 +33,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.paths import get_path_manager
 
 SID = "101"
@@ -66,7 +67,7 @@ def _touch(path) -> Path:
 def project(tmp_path: Path) -> Path:
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
-    _touch(pm.ti_mesh(SID, SIM))
+    write_field_mesh(pm.ti_mesh(SID, SIM))
     _touch(pm.ti_central_surface(SID, SIM))
     _touch(Path(pm.ti_mesh_dir(SID, SIM)) / f"{SIM}_normal.msh")
     return tmp_path
@@ -305,10 +306,10 @@ def test_preflight_reports_an_unsaved_field_only_when_it_cannot_be_produced(
     assert [m.expected_path for m in found] == [str(volume)]
     assert "hf_peak" in found[0].what
     assert str(hf / f"{SID}_TDCS_1_scalar.msh") in found[0].how_to_fix
-    # TI_normal itself is read from the normal mesh; its carrier metrics need the carriers.
-    assert [m.what for m in _preflight(project, field="TI_normal")] == [
-        f"field(s) hf_peak, hf_sar for sub-{SID} / {SIM}"
-    ]
+    # TI_normal is read from the normal mesh; carriers it cannot get only empty its carrier
+    # metrics (carrier_note says why), so they are not a missing input.
+    assert _preflight(project, field="TI_normal") == []
+    assert _preflight(project) == []  # TI_max is saved
     # With the channel meshes kept, the analysis produces hf_peak (and TI_max's carriers).
     for label in ("1", "2"):
         _touch(hf / f"{SID}_TDCS_{label}_scalar.msh")

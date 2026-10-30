@@ -49,7 +49,8 @@ def select_field_file(
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
     field : str or None, optional
         Field name from ``constants.FIELD_REGISTRY`` (e.g. ``"hf_peak"``).
-        Default ``None`` resolves ``TI_max`` (TI) or ``mTI_max`` (mTI).
+        Default ``None`` resolves :func:`default_field`: ``TI_max`` (TI), ``mTI_max``
+        (mTI), or ``hf_peak`` for a carrier-only control.
         ``"TI_max"``/``"mTI_max"`` are treated as aliases for the same
         quantity; the on-disk spelling is always chosen by the detected
         simulation type, regardless of which alias is passed.
@@ -85,12 +86,40 @@ def select_field_file(
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))
     is_mti = is_mti_simulation(subject_id, simulation)
+    if field is None and sim_dir.is_dir():
+        # Only a carrier-only run changes the default; the envelope keeps None, whose voxel
+        # lookup still accepts an older run's unsuffixed NIfTI.
+        if default_field(subject_id, simulation) == const.FIELD_HF_PEAK:
+            field = const.FIELD_HF_PEAK
 
     if space == "mesh":
         return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
         return _select_voxel(sim_dir, simulation, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
+
+
+def default_field(subject_id: str, simulation: str) -> str:
+    """The field an analysis with no field (the app's **Auto**) analyses.
+
+    The envelope -- ``TI_max``, or ``mTI_max`` for an mTI run -- except for a carrier-only
+    control (its run record's ``carrier_only``), which has no envelope: there it is
+    ``hf_peak``. A run without a record is not carrier-only.
+
+    Raises:
+        ValueError: the run record is not JSON.
+    """
+    import json
+
+    record = Path(get_path_manager().simulation(subject_id, simulation))
+    record = record / "documentation" / "config.json"
+    if record.is_file() and json.loads(record.read_text()).get("carrier_only") is True:
+        return const.FIELD_HF_PEAK
+    return (
+        const.FIELD_MTI_MAX
+        if is_mti_simulation(subject_id, simulation)
+        else (const.FIELD_TI_MAX)
+    )
 
 
 def is_mti_simulation(subject_id: str, simulation: str) -> bool:

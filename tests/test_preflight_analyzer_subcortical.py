@@ -32,6 +32,7 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.jobs.preflight import preflight
 from tit.paths import get_path_manager
 
@@ -51,7 +52,7 @@ def project(tmp_path: Path) -> Path:
     """sub-ernie as Dataset 000 has it: a head model with no segmentation/ folder."""
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
-    _touch(pm.ti_mesh(SID, SIM))
+    write_field_mesh(pm.ti_mesh(SID, SIM))
     _touch(pm.ti_central_surface(SID, SIM))
     _touch(
         Path(pm.simulation(SID, SIM)) / "TI" / "niftis" / f"grey_{SIM}_TI_max.nii.gz"
@@ -163,7 +164,7 @@ def test_shipped_mni_atlas_checks_region_names_against_its_table(
 def test_group_mni_atlas_is_reported_once_not_per_subject(project: Path) -> None:
     pm = get_path_manager(str(project))
     _touch(Path(pm.m2m("101")) / "101.msh")
-    _touch(pm.ti_mesh("101", SIM))
+    write_field_mesh(pm.ti_mesh("101", SIM))
     _touch(pm.ti_central_surface("101", SIM))
     _touch(
         Path(pm.simulation("101", SIM)) / "TI" / "niftis" / f"grey_{SIM}_TI_max.nii.gz"

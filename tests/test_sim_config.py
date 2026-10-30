@@ -303,13 +303,13 @@ class TestSimulationConfig:
         config = SimulationConfig(subject_id="001", montages=[])
         assert config.map_to_vol is False and config.map_to_mni is False
 
-    def test_mni_niftis_need_nifti_volumes(self):
-        with pytest.raises(ValueError, match="needs map_to_vol"):
-            SimulationConfig(subject_id="001", montages=[], map_to_mni=True)
-        config = SimulationConfig(
-            subject_id="001", montages=[], map_to_vol=True, map_to_mni=True
-        )
-        assert config.map_to_mni is True
+    def test_mni_niftis_turn_nifti_volumes_on(self):
+        # MNI output is itself a NIfTI: an older spec with map_to_mni alone still runs, and
+        # writes subject and MNI NIfTIs.
+        config = SimulationConfig(subject_id="001", montages=[], map_to_mni=True)
+        assert (config.map_to_vol, config.map_to_mni) == (True, True)
+        config = SimulationConfig(subject_id="001", montages=[], map_to_vol=True)
+        assert (config.map_to_vol, config.map_to_mni) == (True, False)
 
     def test_output_fields_individually_selectable(self):
         for name in ("TI_max", "TI_avg", "hf_peak", "hf_sar"):

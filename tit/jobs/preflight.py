@@ -515,12 +515,19 @@ def _analyzer_field(
 ) -> list[MissingInput]:
     """The field file the analyzer would open, resolved by the analyzer's own selector.
 
-    A volume field (or its NIfTI) the simulation did not save is not missing when the job can
-    produce it from the channel meshes (:meth:`Analyzer.volume_fields_read`,
-    :func:`tit.volume_fields.check_producible`); when it cannot, that is the finding.
+    The analysed field (or, in voxel space, a NIfTI the selector finds -- an older or renamed
+    one included) the simulation did not save is not missing when the job can produce it from
+    the channel meshes (:func:`tit.volume_fields.check_producible`); when it cannot, that is
+    the finding. Carrier fields are not checked: an analysis without them still runs, with
+    the reason in ``carrier_note``.
     """
+    from tit import constants as const
     from tit.analyzer.analyzer import Analyzer
-    from tit.analyzer.field_selector import is_mti_simulation, select_field_file
+    from tit.analyzer.field_selector import (
+        default_field,
+        is_mti_simulation,
+        select_field_file,
+    )
     from tit.volume_fields import FieldUnavailableError, check_producible
 
     sim_dir = Path(pm.simulation(sid, sim))
@@ -538,33 +545,50 @@ def _analyzer_field(
         if not is_mti
         else str(Path(pm.mti_mesh_dir(sid, sim)) / f"{sim}_mTI.msh")
     )
-    produced = Analyzer.volume_fields_read(space, config.get("field"))
-    if produced:
+    field = config.get("field") or default_field(sid, sim)
+    if space == "voxel":
+        # The selector first: a NIfTI it finds is analysed as it is (an older or renamed one
+        # too). Carriers that cannot be produced only empty the carrier metrics.
         try:
-            check_producible(sid, sim, produced)
+            select_field_file(
+                sid,
+                sim,
+                "voxel",
+                tissue_type=config.get("tissue_type") or "GM",
+                field=config.get("field"),  # None keeps an older run's unsuffixed NIfTI
+            )
+            return []
+        except FileNotFoundError:
+            pass
+        except (ValueError, KeyError):
+            return []  # an invalid field/space is a config error, not a missing input
+    analysed = Analyzer.volume_fields_read(space, field)[:1]
+    if field == const.FIELD_TI_NORMAL:
+        analysed = []
+    if analysed:
+        try:
+            check_producible(sid, sim, analysed)
         except FieldUnavailableError as exc:
             return [
                 MissingInput(
-                    f"field(s) {', '.join(produced)} for sub-{sid} / {sim}",
-                    volume_mesh,
-                    str(exc),
+                    f"field {analysed[0]} for sub-{sid} / {sim}", volume_mesh, str(exc)
                 )
             ]
         except ValueError:
             return []  # an invalid field is a config error, not a missing input
         if space == "voxel":
-            return []  # each NIfTI it reads is saved or written from the field mesh
+            return []  # its NIfTI is written from the field mesh
     try:
         select_field_file(
             sid,
             sim,
             space,
             tissue_type=config.get("tissue_type") or "GM",
-            field=config.get("field"),
+            field=field,
         )
     except (
         FileNotFoundError
-    ) as exc:  # TI_normal: its normal mesh is written by the run only
+    ) as exc:  # TI_normal's normal mesh is written by the run only
         return [
             MissingInput(
                 f"field mesh for sub-{sid} / {sim}",

@@ -43,6 +43,7 @@ for _mod in ("scipy.ndimage", "scipy.stats"):
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from tests.field_mesh import write_field_mesh
 from tit.jobs import bootstrap  # noqa: E402
 from tit.jobs.manager import JobManager  # noqa: E402
 from tit.jobs.preflight import preflight  # noqa: E402
@@ -88,7 +89,9 @@ def _seed_inputs(kind: str, config: dict, project: Path) -> None:
             return
         for item in missing:
             path = Path(item.expected_path)
-            if path.suffix:
+            if path.suffix == ".msh":
+                write_field_mesh(path)  # a mesh whose field list can be read
+            elif path.suffix:
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.touch()
             else:

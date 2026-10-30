@@ -174,7 +174,13 @@ root.mkdir(parents=True, exist_ok=True)
 pm = get_path_manager(str(root))
 Path(pm.m2m("101")).mkdir(parents=True)
 Path(pm.ti_mesh("101", "M1")).parent.mkdir(parents=True)
-Path(pm.ti_mesh("101", "M1")).write_bytes(b"")
+# The field mesh: only its header (which fields the run saved) is read in mesh space.
+Path(pm.ti_mesh("101", "M1")).write_text(chr(10).join([
+    "$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "1", "1 0 0 0", "$EndNodes",
+    "$Elements", "0", "$EndElements", "$ElementData", "1", '"TI_max"', "1", "0.0", "3", "0",
+    "1", "0", "$EndElementData", "$ElementData", "1", '"hf_peak"', "1", "0.0", "3", "0",
+    "1", "0", "$EndElementData", "",
+]))  # hf_peak is saved but, below, not on the central surface: the reader names that
 surface({"TI_max": spec["ti_max"]}, Path(pm.ti_central_surface("101", "M1")))
 surface({"TI_normal": spec["ti_normal"]}, Path(pm.ti_mesh_dir("101", "M1")) / "M1_normal.msh")
 
@@ -340,9 +346,10 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
     shutil.copy(central, sim / "TI" / "mesh" / "surfaces" / central.name)
     shutil.copy(normal, sim / "TI" / "mesh" / normal.name)
-    (sim / "TI" / "mesh" / "Thalamus_example_TI.msh").write_bytes(
-        b""
-    )  # never read in mesh space
+    from tests.field_mesh import write_field_mesh
+
+    # Only its header (which fields the run saved) is read in mesh space.
+    write_field_mesh(sim / "TI" / "mesh" / "Thalamus_example_TI.msh")
     # The head model is only read (atlas2subject); link it rather than copy gigabytes.
     (project / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").symlink_to(head_model)
 

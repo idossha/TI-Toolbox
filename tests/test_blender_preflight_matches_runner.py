@@ -102,9 +102,20 @@ def _ti_tree(sim: Path, *, hf: bool = True, record: dict | None = LABELLED) -> N
         _write_config(sim, record)
 
 
+def _field_mesh(path: Path, fields: tuple[str, ...]) -> None:
+    """A Gmsh 2.2 field mesh with no elements whose header lists *fields* (what a run saved)."""
+    lines = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "1", "1 0 0 0"]
+    lines += ["$EndNodes", "$Elements", "0", "$EndElements"]
+    for name in fields:
+        lines += ["$ElementData", "1", f'"{name}"', "1", "0.0", "3", "0", "1", "0"]
+        lines += ["$EndElementData"]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n")
+
+
 def _mti_tree(sim: Path, *, surface: bool = True) -> None:
     name = sim.name
-    _touch(sim / "mTI" / "mesh" / f"{name}_mTI.msh")
+    _field_mesh(sim / "mTI" / "mesh" / f"{name}_mTI.msh", ("mTI_max", "hf_peak", "hf_sar"))
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
     if surface:
         _touch(sim / "mTI" / "mesh" / "surfaces" / f"{name}_mTI_central.msh")
@@ -161,12 +172,14 @@ def _patch_heavy_io(monkeypatch) -> None:
     """Replace what reads mesh/volume CONTENT or starts Blender; path logic stays real."""
     import tit.volume_fields
 
-    def convert(sim, mesh, base, space, fields):  # the on-demand NIfTI, as SimNIBS names it
+    def convert(mesh, m2m, out_dir, base, space, fields):  # the on-demand NIfTI, as named
         token = "MNI_MNI" if space == "mni" else "subject"
-        for f in fields:
-            _touch(sim.niftis_dir / f"{base}_{token}_{f}.nii.gz")
+        written = [out_dir / f"{base}_{token}_{f}.nii.gz" for f in fields]
+        for path in written:
+            _touch(path)
+        return written
 
-    monkeypatch.setattr(tit.volume_fields, "_write_niftis", convert)
+    monkeypatch.setattr(tit.volume_fields, "_convert", convert)
     surface = SimpleNamespace(field={"TI_max": None, "mTI_max": None})
     monkeypatch.setattr(region_exporter, "read_msh", lambda path: surface)
 

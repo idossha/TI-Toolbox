@@ -28,7 +28,7 @@ from pathlib import Path
 import numpy as np
 
 from tit import constants as const
-from tit.analyzer.field_selector import select_field_file
+from tit.analyzer.field_selector import default_field, select_field_file
 from tit.analyzer.masks import analysis_region_key
 from tit.atlas.segstats import compute_segstats, resolve_lut_for_atlas
 from tit.analyzer.visualizer import (
@@ -108,6 +108,20 @@ def weighted_percentiles(
         )
         for pct in percentiles
     ]
+
+
+def carrier_nifti(field_path: Path, field_name: str, carrier: str) -> Path | None:
+    """The *carrier* NIfTI beside the analysed one: the same mesh's file, field suffix swapped.
+
+    mesh2nii names every field of one mesh ``<mesh stem>_<field>.nii.gz`` in one folder, so it
+    is on the same grid. ``None`` when *field_path* is not named ``<mesh>_<field_name>.nii[.gz]``.
+    """
+    name = Path(field_path).name
+    for ext in (".nii.gz", ".nii"):
+        suffix = f"_{field_name}{ext}"
+        if name.endswith(suffix):
+            return Path(field_path).with_name(f"{name[: -len(suffix)]}_{carrier}{ext}")
+    return None
 
 
 def rms_from_hf_sar(hf_sar: np.ndarray) -> np.ndarray:
@@ -362,6 +376,8 @@ class Analyzer:
 
     #: What :meth:`_produce_missing_fields` produced (its notices); none until it runs.
     _on_demand: tuple[str, ...] = ()
+    #: Why a carrier field could not be produced, by field; replaced, never mutated.
+    _carrier_reasons: dict[str, str] = {}
     #: The central surface :meth:`_load_surface_mesh` read; ``None`` until it has.
     _surface_mesh_path: Path | None = None
 
@@ -448,21 +464,62 @@ class Analyzer:
         """Produce what this analysis reads and the simulation did not save; the notices said.
 
         :meth:`volume_fields_read`, into the field mesh and central surface (mesh space), or as
-        the tissue's subject-space NIfTIs (voxel space).
+        the tissue's subject-space NIfTIs (voxel space). In voxel space the field selector is
+        asked first: a NIfTI it finds (an older or renamed one included) is analysed as it is,
+        and only its missing carrier siblings are produced. The analysed field must be saved
+        or producible (else :class:`~tit.volume_fields.FieldUnavailableError`); carriers that
+        cannot be produced (a NIfTI-only archive, deleted channel meshes) leave the carrier
+        metrics empty with that reason in ``carrier_note``.
         """
-        from tit.volume_fields import ensure_mesh_fields, ensure_niftis
+        from tit.volume_fields import (
+            FieldUnavailableError,
+            ensure_mesh_fields,
+            ensure_niftis,
+        )
 
-        needed = self.volume_fields_read(self.space, field)
-        if not needed:
-            return []
+        sid, sim = self.subject_id, self.simulation
+        name = field or default_field(sid, sim)
+        needed = self.volume_fields_read(self.space, name)
+        analysed = [] if name == const.FIELD_TI_NORMAL else needed[:1]
+        carriers = needed[len(analysed) :]
+        notices: list[str] = []
         if self.space == "mesh":
-            return ensure_mesh_fields(
-                self.subject_id, self.simulation, needed, say=logger.info
-            )
-        tissue = {"GM": "grey", "WM": "white", "BOTH": None}[self.tissue_type]
-        return ensure_niftis(
-            self.subject_id, self.simulation, needed, tissue=tissue, say=logger.info
-        )[1]
+            if analysed:
+                notices += ensure_mesh_fields(sid, sim, analysed, say=logger.info)
+
+            def produce_carriers():
+                return ensure_mesh_fields(sid, sim, carriers, say=logger.info)
+
+        else:
+            tissue = {"GM": "grey", "WM": "white", "BOTH": None}[self.tissue_type]
+            try:
+                found, found_name = select_field_file(
+                    sid, sim, "voxel", tissue_type=self.tissue_type, field=field
+                )
+            except FileNotFoundError:
+                found = None
+            if found is None and analysed:
+                notices += ensure_niftis(
+                    sid, sim, analysed, tissue=tissue, say=logger.info
+                )[1]
+            elif found is not None:
+                carriers = [
+                    c
+                    for c in carriers
+                    if not (carrier_nifti(found, found_name, c) or found).is_file()
+                ]
+
+            def produce_carriers():
+                return ensure_niftis(
+                    sid, sim, carriers, tissue=tissue, say=logger.info
+                )[1]
+
+        if carriers:
+            try:
+                notices += produce_carriers()
+            except FieldUnavailableError as exc:
+                self._carrier_reasons = {c: str(exc) for c in carriers}
+        return notices
 
     # ------------------------------------------------------------------
     # Public API
@@ -1431,7 +1488,8 @@ class Analyzer:
             name: (
                 np.asarray(surface.field[name].value, dtype=np.float64)
                 if name in surface.field
-                else f"the central surface {self._surface_mesh_path} carries no {name}"
+                else self._carrier_reasons.get(name)
+                or f"the central surface {self._surface_mesh_path} carries no {name}"
             )
             for name in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR)
         }
@@ -1451,26 +1509,19 @@ class Analyzer:
         import nibabel as nib
 
         name = self.field_path.name
-        suffix = next(
-            (
-                f"_{self.field_name}{ext}"
-                for ext in (".nii.gz", ".nii")
-                if name.endswith(f"_{self.field_name}{ext}")
-            ),
-            None,
-        )
         out: dict = {}
         for carrier in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR):
-            if suffix is None:
+            path = carrier_nifti(self.field_path, self.field_name, carrier)
+            if path is None:
                 out[carrier] = (
                     f"{name} is not named <mesh>_{self.field_name}.nii.gz, so its "
                     f"{carrier} NIfTI cannot be identified"
                 )
                 continue
-            ext = suffix[len(self.field_name) + 1 :]
-            path = self.field_path.with_name(f"{name[: -len(suffix)]}_{carrier}{ext}")
             if not path.is_file():
-                out[carrier] = f"{path.name} is not in {path.parent}"
+                out[carrier] = self._carrier_reasons.get(
+                    carrier, f"{path.name} is not in {path.parent}"
+                )
                 continue
             img = nib.load(str(path))
             arr = self._squeeze_4d(np.asarray(img.get_fdata()))

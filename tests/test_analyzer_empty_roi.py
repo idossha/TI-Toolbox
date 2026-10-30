@@ -34,6 +34,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.paths import get_path_manager
 
 SID = "101"
@@ -62,7 +63,7 @@ def project(tmp_path: Path) -> Path:
     default fields (so a voxel analysis has nothing to produce on demand)."""
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
-    _touch(pm.ti_mesh(SID, SIM))
+    write_field_mesh(pm.ti_mesh(SID, SIM))
     _touch(pm.ti_central_surface(SID, SIM))
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
     for tissue in ("grey", "white"):

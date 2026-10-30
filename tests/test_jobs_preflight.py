@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.jobs.preflight import MissingInput, preflight
 from tit.paths import get_path_manager
 
@@ -37,7 +38,7 @@ def project(tmp_path: Path) -> Path:
         Path(pm.eeg_positions(SID)) / NET,
         "Electrode,10,0,0,E1\nElectrode,20,0,0,E2\nElectrode,30,0,0,E3\nElectrode,40,0,0,E4\n",
     )
-    touch(pm.ti_mesh(SID, SIM))
+    write_field_mesh(pm.ti_mesh(SID, SIM))
     touch(pm.ti_central_surface(SID, SIM))
     # The names v3.1.1 writes (Dataset 000, sub-LA/Simulations/L_Insula/TI/niftis/).
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
@@ -146,14 +147,26 @@ def test_analyzer_voxel_needs_its_niftis_or_what_produces_them(project: Path) ->
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
     for nifti in niftis.iterdir():
         nifti.unlink()  # NIfTIs are opt-in: the job writes the ones it reads
-    channels = saved_run(Path(pm.simulation(SID, SIM)), "TI", 2)
+    channels = saved_run(Path(pm.simulation(SID, SIM)), "TI", 2, fields=())
     cfg = analyzer_config("voxel", analysis_type="spherical", atlas=None)
     assert preflight("analyzer", cfg, str(project)) == []
-    channels[1].unlink()
+    channels[1].unlink()  # TI_max was not saved, and now it cannot be computed
     found = preflight("analyzer", cfg, str(project))
     assert missing_paths(found) == [pm.ti_mesh(SID, SIM)]
-    assert found[0].what == f"field(s) TI_max, hf_peak, hf_sar for sub-{SID} / {SIM}"
+    assert found[0].what == f"field TI_max for sub-{SID} / {SIM}"
     assert str(channels[1]) in found[0].how_to_fix
+
+
+def test_analyzer_voxel_reads_a_nifti_only_archive_and_an_older_name(project: Path) -> None:
+    # The selector first: the field mesh is gone, the NIfTI it needs is there.
+    pm = get_path_manager()
+    Path(pm.ti_mesh(SID, SIM)).unlink()
+    cfg = analyzer_config("voxel", analysis_type="spherical", atlas=None)
+    assert preflight("analyzer", cfg, str(project)) == []
+    # A renamed, unsuffixed NIfTI from an older release, found by the selector's scan.
+    niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
+    (niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz").rename(niftis / "grey_old_field.nii.gz")
+    assert preflight("analyzer", cfg, str(project)) == []
 
 
 def test_analyzer_mask_and_head_model(project: Path) -> None:

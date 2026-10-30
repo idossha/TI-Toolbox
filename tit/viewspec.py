@@ -300,7 +300,9 @@ def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
     layer names the one it opens on (``mesh_field``: ``TI_max``, ``mTI_max`` for mTI, or a
     carrier-only run's first carrier field, read from the mesh's section headers) and the
     others are a field switch away in TetraVox. It is the simulation's own view of its
-    result: field NIfTIs are opt-in (``map_to_vol``), the mesh always exists. Subject space
+    result: field NIfTIs are opt-in (``map_to_vol``), the mesh always exists. It is visible,
+    so it loads on open: 112 MB for Ernie with the three default fields (measured
+    2026-10-30), the smallest of a run's field meshes (the brain mesh is ~442 MB). Subject space
     only -- SimNIBS writes no MNI-space mesh. ``kind="label"`` matches the ``ViewLayer``
     contract's ``Literal["volume", "label"]`` (a mesh has no kind of its own there).
     """

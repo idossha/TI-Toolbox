@@ -112,24 +112,26 @@ def _voxelised_envelope(
 ) -> dict[str, Path]:
     """``{"grey": …, "white": …}`` envelope NIfTIs voxelised from the field meshes into *scratch*.
 
-    The same conversion the run's opt-in NIfTIs go through (:func:`tit.tools.mesh2nii.msh_to_nifti`,
-    onto the T1 grid), of ``<mode>/mesh/<tissue>_<name>_<mode>.msh``'s envelope only; nothing is
-    written into the simulation.
+    The on-demand path's conversion (:func:`tit.volume_fields.voxelise`, onto the T1 grid) of
+    ``<mode>/mesh/<tissue>_<name>_<mode>.msh``'s envelope only; nothing is written into the
+    simulation.
+
+    Raises:
+        FieldUnavailableError: a tissue's field mesh is missing or carries no envelope.
+        RuntimeError: the conversion did not write a volume.
     """
-    from tit.tools.mesh2nii import msh_to_nifti
+    from tit.volume_fields import voxelise
 
     field = "mTI_max" if mode == "mTI" else "TI_max"
-    out = {}
-    for tissue in ("grey", "white"):
-        mesh = sim_dir / mode / "mesh" / f"{tissue}_{name}_{mode}.msh"
-        if not mesh.is_file():
-            continue
-        prefix = scratch / f"{tissue}_{name}_{mode}_subject"
-        msh_to_nifti(str(mesh), str(m2m), str(prefix), fields=[field])
-        path = Path(f"{prefix}_{field}.nii.gz")
-        if path.is_file():
-            out[tissue] = path
-    return out
+    return {
+        tissue: voxelise(
+            sim_dir / mode / "mesh" / f"{tissue}_{name}_{mode}.msh",
+            m2m,
+            scratch,
+            [field],
+        )[field]
+        for tissue in ("grey", "white")
+    }
 
 
 def _volume(img) -> np.ndarray:
@@ -172,9 +174,13 @@ def collect(
         else _envelope_niftis(sim_dir, rec["name"], mode)
     )
     if not config.get("carrier_only") and "grey" not in niftis and scratch is not None:
+        from tit.volume_fields import FieldUnavailableError
+
         try:
             niftis = _voxelised_envelope(sim_dir, rec["name"], mode, Path(m2m), scratch)
-        except Exception as exc:  # noqa: BLE001 - the report stands without its figure
+        except (FieldUnavailableError, RuntimeError) as exc:
+            # The report stands without its envelope figure, and says why on the page.
+            rec["figure_note"] = str(exc)
             logger.warning(f"Simulation report: envelope not voxelised ({exc})")
     if "grey" in niftis:
         import nibabel as nib
@@ -505,6 +511,8 @@ def build_html(
         )
     elif carrier_only:
         body = '<p class="muted">No envelope figure: a carrier-only control has no envelope.</p>'
+    elif rec.get("figure_note"):
+        body = f'<p class="muted">No envelope figure: {esc(rec["figure_note"])}</p>'
     else:
         body = '<p class="muted">No envelope figure: the grey-matter envelope or the T1 could not be read.</p>'
     field_sec = c.section(
@@ -670,6 +678,7 @@ def create_simulation_report(
             images = field_images(rec, m2m / "T1.nii.gz")
         except (OSError, ValueError) as exc:
             logger.warning(f"Simulation report: no envelope figure ({exc})")
+            rec.setdefault("figure_note", str(exc))
             images = None
     html = build_html(rec, images, subject_id)
     return common.write_report(

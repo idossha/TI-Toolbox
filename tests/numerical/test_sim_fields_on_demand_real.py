@@ -12,7 +12,7 @@ keeps them in ``high_Frequency/mesh/``):
 * the header reader ``tit.tools.msh_fields`` (no SimNIBS) reads SimNIBS's binary output: the field
   list, and ``TI_max``'s values equal to what ``mesh_io.read_msh`` reads.
 
-The grey/white cut and ``msh2cortex`` need a subject's m2m and are stubbed; the image run in the
+The grey/white cut (sphere3 has no GM/WM tags) and ``msh2cortex`` (needs an m2m) are stubbed; the image run in the
 change's report covers them on Ernie.
 
 Reproduce in the image: ``simnibs_python -m pytest tests/numerical/test_sim_fields_on_demand_real.py -q``
@@ -81,7 +81,13 @@ assert msh_field_names(volume) == {"TI_max"}
 assert np.array_equal(msh_element_field(volume, "TI_max"),
                       mesh_io.read_msh(str(volume)).field["TI_max"].value)
 
-with patch.object(tit.sim.utils, "extract_fields", lambda *a: None), \
+import shutil
+
+def cut(volume, out_dir, stem, *rest):  # sphere3 has no GM/WM tags: copy, as a cut would
+    for tissue in ("grey", "white"):
+        shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
+
+with patch.object(tit.sim.utils, "extract_fields", cut), \
      patch.object(tit.sim.utils, "generate_central_surface", lambda *a: None):
     notices = fields.ensure_mesh_fields("s", "M", ["TI_max", "hf_peak", "hf_sar"])
 assert notices == ["hf_peak and hf_sar were not saved for M; computing them from the channel "

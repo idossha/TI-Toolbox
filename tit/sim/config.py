@@ -420,9 +420,9 @@ class SimulationConfig:
         step that needs a NIfTI (a voxel analysis, the group tools) writes the
         one it reads on demand (:mod:`tit.volume_fields`).
     map_to_mni : bool
-        With *map_to_vol*, also write each field NIfTI in MNI space
-        (``<mesh>_MNI_MNI_<field>.nii.gz``) and the T1 in MNI space.  Requires
-        *map_to_vol*.  Default ``False``.
+        Also write each field NIfTI in MNI space (``<mesh>_MNI_MNI_<field>.nii.gz``)
+        and the T1 in MNI space.  MNI output is itself a NIfTI, so ``True`` turns
+        *map_to_vol* on as well (subject and MNI NIfTIs).  Default ``False``.
     map_to_fsavg : bool
         After each TI montage finishes, project its surface fields
         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
@@ -488,8 +488,7 @@ class SimulationConfig:
         *intensities* is shorter than a montage needs (2 for TI, one per
         channel for mTI), if *tissue_conductivities* contains a
         non-positive value, if *carrier_only* is set with an envelope
-        output field or a montage that is not two-channel TI, or if
-        *map_to_mni* is set without *map_to_vol*.  Filesystem checks (the m2m directory, the
+        output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
         EEG-net CSV) happen later, in :func:`run_simulation`.
 
     Examples
@@ -569,11 +568,9 @@ class SimulationConfig:
                 for name in const.DEFAULT_OUTPUT_FIELDS
                 if not self.carrier_only or name in const.CARRIER_OUTPUT_FIELDS
             ]
-        if self.map_to_mni and not self.map_to_vol:
-            raise ValueError(
-                "map_to_mni writes the field NIfTIs in MNI space, so it needs map_to_vol "
-                "(write NIfTI volumes) as well."
-            )
+        if self.map_to_mni:
+            # MNI output is itself a NIfTI: asking for it asks for the NIfTIs.
+            self.map_to_vol = True
         invalid = sorted(set(self.output_fields) - set(const.SELECTABLE_OUTPUT_FIELDS))
         if invalid:
             raise ValueError(

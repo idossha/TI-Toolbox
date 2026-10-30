@@ -333,6 +333,14 @@ CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
 DEFAULT_OUTPUT_FIELDS: tuple[str, ...] = (FIELD_TI_MAX, FIELD_HF_PEAK, FIELD_HF_SAR)
 
 
+#: Why a volume field is not on the fsaverage surface (for the errors that refuse it).
+FSAVG_NOT_PROJECTED = (
+    "TI_avg and hf_power_density are volume fields only and are never projected to "
+    "fsaverage (the projection maps the channel fields and the envelope overlays, not the "
+    "conductivity or the direction average); analyse them in mesh or voxel space."
+)
+
+
 #: Field names valid on the fsaverage surface: every registered field except
 #: ``FIELD_MTI_MAX`` ("mTI_max"), ``FIELD_TI_AVG`` ("TI_avg") and
 #: ``FIELD_HF_POWER_DENSITY`` ("hf_power_density"). The
