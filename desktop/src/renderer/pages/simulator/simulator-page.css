@@ -191,7 +191,14 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  min-width: min(460px, 70vw);
+  /* Below the dialog's own content width, so the form never forces a horizontal scrollbar;
+     rows that are wider (the output-field checkboxes) wrap instead. */
+  min-width: min(400px, 70vw);
+}
+
+/* "Also in MNI space" sits under "Write NIfTI volumes", as the option of it that it is. */
+.job-settings-suboption {
+  padding-left: calc(var(--space-4) + var(--space-2));
 }
 
 .job-settings-form .field-row-inline {

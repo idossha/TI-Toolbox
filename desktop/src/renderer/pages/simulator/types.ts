@@ -314,6 +314,17 @@ export const CARRIER_FIELDS = ["hf_peak", "hf_sar", "hf_power_density"];
  *  (and what `SimulationConfig`'s default is for a carrier-only run). */
 export const DEFAULT_CARRIER_FIELDS = ["hf_peak", "hf_sar"];
 
+/** Tick or untick "Write NIfTI volumes": MNI NIfTIs are NIfTIs, so unticking it unticks MNI. */
+export function withNiftis(settings: JobSettings, on: boolean): JobSettings {
+  return { ...settings, writeNiftis: on, mapToMni: on && !!settings.mapToMni };
+}
+
+/** Tick or untick "Also in MNI space": MNI output is itself a NIfTI, so ticking it ticks NIfTIs
+ *  (`SimulationConfig` turns `map_to_vol` on for `map_to_mni` the same way). */
+export function withMni(settings: JobSettings, on: boolean): JobSettings {
+  return { ...settings, mapToMni: on, writeNiftis: on || !!settings.writeNiftis };
+}
+
 export const WRITE_NIFTIS_HELP =
   "Also save every output field as a 3-D NIfTI, one file per field. Off, the field mesh is the output: a voxel analysis or a group tool writes the NIfTI it reads when it needs one.";
 

@@ -83,14 +83,16 @@ describe("AnalysisFieldSelect", () => {
     expect(option(["TI_max"], "TI_normal", "mesh")).toEqual({ value: "TI_normal", label: "TI_normal", disabled: false });
   });
 
-  it("offers a carrier-only simulation its carrier fields only", () => {
-    // ΔF = 0: no envelope, so TI_max, TI_avg, TI_normal and Auto (= TI_max) can never be analysed.
-    const carriers = options(["hf_peak", "hf_sar"], { carrierOnly: true, value: "hf_peak" });
-    expect(carriers.map((o) => o.value)).toEqual(["hf_peak", "hf_sar", "hf_power_density"]);
+  it("offers a carrier-only simulation its carrier fields only, Auto being hf_peak", () => {
+    // ΔF = 0: no envelope, so TI_max, TI_avg and TI_normal can never be analysed; Auto, which
+    // the analyzer resolves to hf_peak for such a run (default_field), says so and stays valid.
+    const carriers = options(["hf_peak", "hf_sar"], { carrierOnly: true });
+    expect(carriers.map((o) => o.value)).toEqual([AUTO_FIELD, "hf_peak", "hf_sar", "hf_power_density"]);
+    expect(carriers[0]).toEqual({ value: AUTO_FIELD, label: "Auto (hf_peak)", disabled: false });
     expect(carriers.find((o) => o.value === "hf_power_density")?.disabled).toBe(true); // not saved
     // A row still on an envelope field shows it, disabled, until it is changed.
     const stale = options(["hf_peak", "hf_sar"], { carrierOnly: true, value: "TI_max" });
     expect(stale[0]).toEqual({ value: "TI_max", label: "TI_max (carrier-only run)", disabled: true });
-    expect(options([], { carrierOnly: true })[0]).toEqual({ value: AUTO_FIELD, label: "Auto", disabled: true });
+    expect(options(["TI_max"])[0]).toEqual({ value: AUTO_FIELD, label: "Auto", disabled: false });
   });
 });

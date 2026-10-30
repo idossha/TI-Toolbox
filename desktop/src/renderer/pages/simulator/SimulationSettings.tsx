@@ -7,7 +7,7 @@ import { Select } from "../../ui/Select";
 import { Checkbox } from "../../ui/Toggle";
 import { ElectrodeSettings } from "../_shared/electrodes/ElectrodeSettings";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
-import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, type JobSettings } from "./types";
+import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
 
 /**
  * Shared per-job simulation controls, used by the Simulator. `carrierOnlyAllowed` is false for an
@@ -117,24 +117,24 @@ export function SimulationSettings({
               <label className="checkbox-label-row">
                 <Checkbox
                   checked={draft.writeNiftis ?? false}
-                  onCheckedChange={(checked) => setDraft({ ...draft, writeNiftis: checked, mapToMni: checked && (draft.mapToMni ?? false) })}
+                  onCheckedChange={(checked) => setDraft(withNiftis(draft, checked))}
                   aria-label="Write NIfTI volumes"
                 />
                 Write NIfTI volumes (one per field)
               </label>
               <HelpIcon variant="plain" title="NIfTI volumes" text={WRITE_NIFTIS_HELP} label="About NIfTI volumes" />
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-              <label className="checkbox-label-row" title={draft.writeNiftis ? undefined : "Tick Write NIfTI volumes first."}>
+            {/* A sub-option of the NIfTIs: ticking it ticks them (MNI output is a NIfTI). */}
+            <div className="job-settings-suboption" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <label className="checkbox-label-row">
                 <Checkbox
                   checked={!!draft.writeNiftis && !!draft.mapToMni}
-                  disabled={!draft.writeNiftis}
-                  onCheckedChange={(checked) => setDraft({ ...draft, mapToMni: checked })}
+                  onCheckedChange={(checked) => setDraft(withMni(draft, checked))}
                   aria-label="Also in MNI space"
                 />
                 Also in MNI space
               </label>
-              <HelpIcon variant="plain" title="MNI NIfTIs" text="Also write each field NIfTI, and the T1, in MNI space." />
+              <HelpIcon variant="plain" title="MNI NIfTIs" text="Also write each field NIfTI, and the T1, in MNI space. Ticking it writes the NIfTIs too." />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <label className="checkbox-label-row">

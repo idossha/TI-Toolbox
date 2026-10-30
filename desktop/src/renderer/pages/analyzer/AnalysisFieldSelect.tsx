@@ -20,16 +20,17 @@ export function fieldOptionNote(name: string, space: Space, saved: string[]): { 
  * NIfTIs (`magnE` included). Every field the analyzer accepts is offered: one the simulation did not
  * save is computed from its channel meshes when the analysis runs (and kept), and says so;
  * `hf_power_density` cannot be, so unsaved it is disabled. A carrier-only simulation
- * (`carrierOnly`) offers its carrier fields only: no envelope, and no Auto (which means TI_max).
- * A value it cannot take stays visible, disabled, so the row shows what it has to change.
+ * (`carrierOnly`) offers its carrier fields only, no envelope; its Auto is hf_peak (the
+ * analyzer's `default_field`) and says so. An envelope value such a row still holds stays
+ * visible, disabled, so the row shows what it has to change.
  */
 export function AnalysisFieldSelect({value,space,available=[],carrierOnly=false,onChange}: {value:string;space:Space;available?:string[];carrierOnly?:boolean;onChange:(value:string)=>void}) {
   const saved=available.filter((name)=>fieldSpecForName(name) !== undefined);
   const names=FIELD_REGISTRY.map((field)=>field.name).filter((name)=>!carrierOnly || !ENVELOPE_FIELDS.includes(name));
-  const offered=carrierOnly ? names : [AUTO_FIELD,...names];
+  const offered=[AUTO_FIELD,...names];
   const retained=offered.includes(value) ? offered : [value,...offered];
   return <Select value={value} onValueChange={onChange} aria-label="Field" options={retained.map((name)=>{
-    if (name === AUTO_FIELD) return {value:name,label:"Auto",disabled:!offered.includes(name)};
+    if (name === AUTO_FIELD) return {value:name,label:carrierOnly ? "Auto (hf_peak)" : "Auto",disabled:false};
     if (!offered.includes(name)) return {value:name,label:`${name} (carrier-only run)`,disabled:true};
     const {note,disabled}=fieldOptionNote(name,space,saved);
     return {value:name,label:note ? `${name} (${note})` : name,disabled};

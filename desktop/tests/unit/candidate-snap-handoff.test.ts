@@ -12,9 +12,9 @@ describe("candidate cap selection", () => {
     const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_vol: true, map_to_mni: mapToMni } });
     expect(buildSimulationConfig(row, defaultJobSettings())).toMatchObject({ map_to_vol: true, map_to_mni: mapToMni });
   });
-  it("drops an MNI opt-in that comes without NIfTI volumes: the server refuses it", () => {
+  it("an MNI opt-in alone turns the NIfTIs on: MNI output is itself a NIfTI", () => {
     const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_mni: true } });
-    expect(buildSimulationConfig(row, defaultJobSettings())).toMatchObject({ map_to_vol: false, map_to_mni: false });
+    expect(buildSimulationConfig(row, defaultJobSettings())).toMatchObject({ map_to_vol: true, map_to_mni: true });
   });
   it("maps the chosen candidate without carrying optimized poses into labeled placement", () => {
     const row = candidateRow({ id: "8", subject: "101", run: "run-a", config });

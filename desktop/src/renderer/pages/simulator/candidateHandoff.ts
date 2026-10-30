@@ -16,8 +16,9 @@ export function settingsFromConfig(config: Record<string, unknown>): JobSettings
     dimensions: numbers(config.electrode_dimensions) && config.electrode_dimensions.length === 2 ? config.electrode_dimensions as [number, number] : defaults.dimensions,
     gelThickness: typeof config.gel_thickness === "number" ? config.gel_thickness : defaults.gelThickness,
     outputFields: Array.isArray(config.output_fields) && config.output_fields.every((v) => typeof v === "string") ? config.output_fields : defaults.outputFields,
-    writeNiftis: config.map_to_vol === true,
-    mapToMni: config.map_to_vol === true && config.map_to_mni === true,
+    // MNI output is a NIfTI: an MNI opt-in alone turns the NIfTIs on, as SimulationConfig does.
+    writeNiftis: config.map_to_vol === true || config.map_to_mni === true,
+    mapToMni: config.map_to_mni === true,
     mapToFsavg: config.map_to_fsavg === true,
     carrierOnly: config.carrier_only === true,
     customConductivities: object(config.tissue_conductivities) ? config.tissue_conductivities as Record<string, number> : {},
