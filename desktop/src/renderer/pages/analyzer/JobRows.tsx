@@ -310,7 +310,8 @@ export function AnalyzerJobRows({
           {/*
             Fixed widths in pixels, not percentages (maintainer, 2026-09-06: the cells were
             printing "Choose a sim…", "M…" and a truncated atlas name). Space needs 80px to print
-            "Voxel", Field 110px for "mTI_normal", Subject 150px for the longest id a project has;
+            "Voxel", Field 150px for a closed "Auto (hf_peak)" (the trigger's padding and
+            chevron take 40px of it; 110px clipped it to "Auto (h…"), Subject 150px for the longest id a project has;
             Simulation takes whatever is left, because a montage name is the one cell whose length
             nobody controls. `table-layout: fixed` (analyzer-page.css) makes them authoritative.
             The actions column grew from 72 to 96 when the row gained its Edit pencil.
@@ -319,7 +320,7 @@ export function AnalyzerJobRows({
             <col style={{ width: "150px" }} />
             <col />
             <col style={{ width: "104px" }} />
-            <col style={{ width: "110px" }} />
+            <col style={{ width: "150px" }} />
             {/* 96px: three 28px icon buttons (duplicate · edit · remove) plus their gaps — the
                 same actions column the Simulator's and Optimizer's jobs tables reserve. */}
             <col style={{ width: "96px" }} />

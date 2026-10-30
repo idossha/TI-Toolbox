@@ -8,7 +8,7 @@
  * the page and then failed at run time with "Unknown field". So the options never come from the
  * catalog: they are the registry, read here from `tit/constants.py`'s `FIELD_REGISTRY` -- the list
  * `select_field_file` checks -- not from the desktop's own mirror. An unsaved field is computed by
- * the analysis from the channel meshes (`tit/volume_fields.py`), so it is offered and says so, except
+ * the analysis from the channel meshes (`tit/volume_fields.py`), so it is offered plainly, except
  * `hf_power_density`, whose conductivity is not kept.
  *
  * Run: cd desktop && npx vitest run tests/unit/analysis-field-select.test.ts
@@ -60,10 +60,10 @@ describe("AnalysisFieldSelect", () => {
     expect(option(["mTI_max", "hf_peak", "hf_sar"], "TI_max")).toEqual({ value: "TI_max", label: "TI_max", disabled: false });
   });
 
-  it("says a field the simulation did not save is computed when analysed", () => {
-    expect(option(["TI_max", "hf_peak", "hf_sar"], "TI_avg")).toEqual({ value: "TI_avg", label: "TI_avg (computed when analysed)", disabled: false });
+  it("lists a field the simulation did not save plainly: the analysis computes it", () => {
+    expect(option(["TI_max", "hf_peak", "hf_sar"], "TI_avg")).toEqual({ value: "TI_avg", label: "TI_avg", disabled: false });
     // A simulation from before the new defaults: TI_max only, so its carrier fields are computed.
-    expect(option(["TI_max", "magnE"], "hf_sar")?.label).toBe("hf_sar (computed when analysed)");
+    expect(option(["TI_max", "magnE"], "hf_sar")).toEqual({ value: "hf_sar", label: "hf_sar", disabled: false });
   });
 
   it("disables an unsaved hf_power_density: its conductivity is not kept", () => {
