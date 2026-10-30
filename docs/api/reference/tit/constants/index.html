@@ -1337,21 +1337,21 @@ pair is tACS, not TI.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-379">379</a></span>
-<span class="normal"><a href="#__codelineno-0-380">380</a></span>
-<span class="normal"><a href="#__codelineno-0-381">381</a></span>
-<span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span>
-<span class="normal"><a href="#__codelineno-0-386">386</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="w">    </span><span class="sd">"""Is *n* an allowed electrode-pair (channel) count?</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="sd">    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="sd">    Odd counts leave a channel with nothing to beat against, and a single</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">    pair is tACS, not TI.</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    """</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="k">return</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="n">MIN_ELECTRODE_PAIRS</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-386" name="__codelineno-0-386"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="w">    </span><span class="sd">"""Is *n* an allowed electrode-pair (channel) count?</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="sd">    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="sd">    Odd counts leave a channel with nothing to beat against, and a single</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="sd">    pair is tACS, not TI.</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="sd">    """</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="k">return</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="n">MIN_ELECTRODE_PAIRS</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

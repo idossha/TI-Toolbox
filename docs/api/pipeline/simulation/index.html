@@ -1261,6 +1261,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tit.volume_fields.ensure_mesh_fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_mesh_fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.volume_fields.ensure_niftis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_niftis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.volume_fields.FieldUnavailableError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FieldUnavailableError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tit.sim.utils.load_montages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2474,6 +2507,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#tit.volume_fields.ensure_mesh_fields" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_mesh_fields
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.volume_fields.ensure_niftis" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ensure_niftis
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#tit.volume_fields.FieldUnavailableError" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        FieldUnavailableError
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#tit.sim.utils.load_montages" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2991,8 +3057,12 @@
 <td>Maximum joint envelope of all channels — scalar field on volume elements (mTI mode)</td>
 </tr>
 <tr>
-<td><strong>TI_avg</strong>, <strong>hf_peak</strong>, <strong>hf_sar</strong>, <strong>hf_power_density</strong></td>
-<td>Optional volume fields (<code>output_fields</code>): direction-averaged envelope, peak carrier field (V/m), <code>hf_sar</code> = Σ</td>
+<td><strong>hf_peak</strong>, <strong>hf_sar</strong></td>
+<td>Saved by default with <code>TI_max</code>/<code>mTI_max</code> (<code>output_fields=None</code>): peak carrier field (V/m), <code>hf_sar</code> = Σ</td>
+</tr>
+<tr>
+<td><strong>TI_avg</strong>, <strong>hf_power_density</strong></td>
+<td>Opt-in volume fields (<code>output_fields</code>): direction-averaged envelope, absorbed carrier power with the run's conductivity (W/m³)</td>
 </tr>
 <tr>
 <td><strong>TI_vectors</strong></td>
@@ -3000,22 +3070,27 @@
 </tr>
 </tbody>
 </table>
-<p>Outputs are saved as both mesh files (for surface analysis) and NIfTI volumes (for voxel analysis).</p>
+<p>The selected fields are written into one field mesh, <code>&lt;montage&gt;_TI.msh</code> (<code>&lt;montage&gt;_mTI.msh</code>), with its
+grey/white copies and central surface. NIfTI volumes are opt-in: <code>map_to_vol=True</code> writes one 3-D
+NIfTI per mesh field (<code>map_to_mni=True</code>, which needs it, adds MNI copies). A field or NIfTI an
+analysis or group tool needs and the run did not save is computed from the kept channel meshes
+(<code>high_Frequency/mesh/</code>) and saved by <code>tit.volume_fields</code> (<code>ensure_mesh_fields</code>, <code>ensure_niftis</code>),
+except <code>hf_power_density</code>, whose conductivity is not kept.</p>
 <h2 id="output-directory-structure">Output Directory Structure<a class="headerlink" href="#output-directory-structure" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>derivatives/SimNIBS/sub-001/Simulations/
 <a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>└── motor_cortex/
 <a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    ├── high_Frequency/
 <a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    │   ├── mesh/             # Per-channel HF mesh files
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    │   ├── niftis/           # Per-channel HF NIfTI volumes
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    │   ├── niftis/           # Per-channel HF NIfTI volumes (map_to_vol)
 <a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    │   └── analysis/         # fields_summary.txt
 <a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>    ├── TI/
 <a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>    │   ├── mesh/             # TI_max and GM/WM mesh files
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    │   ├── niftis/           # TI NIfTI volumes (subject + MNI space)
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>    │   ├── niftis/           # TI NIfTI volumes (map_to_vol, or written on demand)
 <a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a>    │   ├── surface_overlays/ # Cortical surface overlays (for TI_normal)
 <a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>    │   └── montage_imgs/     # Electrode placement visualizations
 <a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a>    ├── mTI/                  # (mTI mode only)
 <a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>    │   ├── mesh/             # mTI_max and intermediate TI meshes
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    │   ├── niftis/           # mTI NIfTI volumes
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>    │   ├── niftis/           # mTI NIfTI volumes (as TI/niftis/)
 <a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>    │   └── montage_imgs/     # Electrode placement visualizations
 <a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>    └── documentation/        # config.json, SimNIBS logs
 </code></pre></div>
@@ -3035,7 +3110,7 @@
   </span>
 
 <a href="#tit.sim.config.SimulationConfig" class="headerlink" title="Permanent link">&para;</a></h2>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="#tit.sim.config.Montage">Montage</a></span><span class="p">],</span> <span class="n">conductivity</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'scalar'</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])(),</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'ellipse'</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span> <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">output_fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n"><span title="tit.constants.FIELD_TI_MAX">FIELD_TI_MAX</span></span><span class="p">])(),</span> <span class="n">tissue_conductivities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="#tit.sim.config.Montage">Montage</a></span><span class="p">],</span> <span class="n">conductivity</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'scalar'</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])(),</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'ellipse'</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span> <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">output_fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tissue_conductivities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents first">
@@ -3085,13 +3160,18 @@ map_to_surf : bool
     (default) because the <code>TI_normal</code> calculation requires surface
     overlays.
 map_to_vol : bool
-    Not used.  Subject-space NIfTIs are always written after the run
-    by <code>tit.tools.mesh2nii</code>; SimNIBS is never asked for them.  The
-    value is only recorded in the run's <code>config.json</code>, and the field
-    is still accepted so older configs load.  Default <code>False</code>.
+    Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
+    name; <code>tit.tools.mesh2nii</code> does the conversion after the run): one
+    3-D <code>&lt;mesh&gt;_subject_&lt;field&gt;.nii.gz</code> per field of each field mesh --
+    the brain-tissue mesh and its grey- and white-matter copies -- so the
+    NIfTI set is the mesh field set, name for name, plus each channel's
+    <code>magnE</code>.  Default <code>False</code>: the field meshes are the output, and a
+    step that needs a NIfTI (a voxel analysis, the group tools) writes the
+    one it reads on demand (:mod:<code>tit.volume_fields</code>).
 map_to_mni : bool
-    Generate MNI-space field and T1 NIfTI outputs after simulation.
-    Default <code>False</code>; subject-space NIfTI outputs are always generated.
+    With <em>map_to_vol</em>, also write each field NIfTI in MNI space
+    (<code>&lt;mesh&gt;_MNI_MNI_&lt;field&gt;.nii.gz</code>) and the T1 in MNI space.  Requires
+    <em>map_to_vol</em>.  Default <code>False</code>.
 map_to_fsavg : bool
     After each TI montage finishes, project its surface fields
     (<code>TI_max</code>, <code>TI_normal</code>, <code>hf_peak</code>, <code>hf_sar</code>) onto fsaverage5
@@ -3115,9 +3195,14 @@ output_fields : list[str]
     Which volume-mesh fields to compute and write. Logical names from
     :data:<code>tit.constants.SELECTABLE_OUTPUT_FIELDS</code>: <code>"TI_max"</code>,
     <code>"TI_avg"</code>, <code>"hf_peak"</code>, <code>"hf_sar"</code>, <code>"hf_power_density"</code>.
-    <code>"TI_max"</code> maps to <code>mTI_max</code> on disk for mTI meshes. Defaults to
-    <code>["TI_max"]</code> only -- <code>TI_avg</code> and the safety fields
-    (<code>hf_peak</code>, <code>hf_sar</code>, <code>hf_power_density</code>) must be opted into.
+    <code>"TI_max"</code> maps to <code>mTI_max</code> on disk for mTI meshes. <code>None</code>
+    (the default) is :data:<code>tit.constants.DEFAULT_OUTPUT_FIELDS</code> --
+    <code>["TI_max", "hf_peak", "hf_sar"]</code>, the envelope and the carrier
+    fields an analysis's carrier metrics read -- or, for a <em>carrier_only</em>
+    run, which has no envelope, <code>["hf_peak", "hf_sar"]</code>.  <code>TI_avg</code> and
+    <code>hf_power_density</code> are opt-in; a field not saved here is computed
+    later, from the kept channel meshes, by the step that needs it
+    (<code>hf_power_density</code> excepted: its conductivity is not kept).
     <code>hf_power_density</code> (W/m^3) uses the conductivity of this run's own
     solve, the full tensor under the anisotropic models.
 tissue_conductivities : dict[int, float] or None
@@ -3140,8 +3225,8 @@ carrier_only : bool
     <code>hf_sar</code> and <code>hf_power_density</code> then add the two channel fields
     coherently (<code>|E1+E2|</code>, see :func:<code>tit.calc.hf_peak</code>) and no envelope
     field (<code>TI_max</code>, <code>TI_avg</code>, <code>TI_normal</code>) is computed.  Requires a
-    two-channel TI montage and <code>output_fields</code> from those carrier fields.
-    Default <code>False</code>.</p>
+    two-channel TI montage; an explicit <code>output_fields</code> must be drawn
+    from those carrier fields (the default already is).  Default <code>False</code>.</p>
 <h4 id="tit.sim.config.SimulationConfig--raises">Raises<a class="headerlink" href="#tit.sim.config.SimulationConfig--raises" title="Permanent link">&para;</a></h4>
 <p>ValueError
     If <em>conductivity</em> is not one of the valid model names, if
@@ -3149,8 +3234,9 @@ carrier_only : bool
     montage has a channel that is not exactly two electrodes, if
     <em>intensities</em> is shorter than a montage needs (2 for TI, one per
     channel for mTI), if <em>tissue_conductivities</em> contains a
-    non-positive value, or if <em>carrier_only</em> is set with an envelope
-    output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
+    non-positive value, if <em>carrier_only</em> is set with an envelope
+    output field or a montage that is not two-channel TI, or if
+    <em>map_to_mni</em> is set without <em>map_to_vol</em>.  Filesystem checks (the m2m directory, the
     EEG-net CSV) happen later, in :func:<code>run_simulation</code>.</p>
 <h4 id="tit.sim.config.SimulationConfig--examples">Examples<a class="headerlink" href="#tit.sim.config.SimulationConfig--examples" title="Permanent link">&para;</a></h4>
 <blockquote>
@@ -3183,10 +3269,10 @@ frequency, in phase; no envelope, so only carrier fields):</p>
 <blockquote>
 <p>sham = SimulationConfig(
 ...     subject_id="ernie", montages=[montage], intensities=[1.0, 1.0],
-...     carrier_only=True, output_fields=["hf_peak", "hf_sar"],
+...     carrier_only=True,
 ... )
-sham.carrier_only
-True</p>
+sham.output_fields
+['hf_peak', 'hf_sar']</p>
 </blockquote>
 </blockquote>
 </blockquote>
@@ -3571,30 +3657,7 @@ each electrode pair receives two intensities.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
-<span class="normal"><a href="#__codelineno-0-647">647</a></span>
-<span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
-<span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
-<span class="normal"><a href="#__codelineno-0-657">657</a></span>
-<span class="normal"><a href="#__codelineno-0-658">658</a></span>
-<span class="normal"><a href="#__codelineno-0-659">659</a></span>
-<span class="normal"><a href="#__codelineno-0-660">660</a></span>
-<span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
-<span class="normal"><a href="#__codelineno-0-663">663</a></span>
-<span class="normal"><a href="#__codelineno-0-664">664</a></span>
-<span class="normal"><a href="#__codelineno-0-665">665</a></span>
-<span class="normal"><a href="#__codelineno-0-666">666</a></span>
-<span class="normal"><a href="#__codelineno-0-667">667</a></span>
-<span class="normal"><a href="#__codelineno-0-668">668</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-668">668</a></span>
 <span class="normal"><a href="#__codelineno-0-669">669</a></span>
 <span class="normal"><a href="#__codelineno-0-670">670</a></span>
 <span class="normal"><a href="#__codelineno-0-671">671</a></span>
@@ -3605,41 +3668,64 @@ each electrode pair receives two intensities.</p>
 <span class="normal"><a href="#__codelineno-0-676">676</a></span>
 <span class="normal"><a href="#__codelineno-0-677">677</a></span>
 <span class="normal"><a href="#__codelineno-0-678">678</a></span>
-<span class="normal"><a href="#__codelineno-0-679">679</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-645" name="__codelineno-0-645"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="w">    </span><span class="sd">"""Parse a comma-separated intensity string into a list of floats.</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    A single value is duplicated to form a pair (``"2.0"`` becomes</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">    ``[2.0, 2.0]``).  Otherwise the value count must be even so that</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    each electrode pair receives two intensities.</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">    s : str</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="sd">        Comma-separated intensity values (e.g. ``"1.0,2.0"``).</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">    list[float]</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">        List of floats with an even number of elements.</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">        If the number of values is odd and greater than 1.</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">    SimulationConfig.intensities : Field populated by this function.</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">    """</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)]</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="k">return</span> <span class="n">v</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>        <span class="sa">f</span><span class="s2">"Invalid intensity format: expected 1 or an even number of values; got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">"</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-679">679</a></span>
+<span class="normal"><a href="#__codelineno-0-680">680</a></span>
+<span class="normal"><a href="#__codelineno-0-681">681</a></span>
+<span class="normal"><a href="#__codelineno-0-682">682</a></span>
+<span class="normal"><a href="#__codelineno-0-683">683</a></span>
+<span class="normal"><a href="#__codelineno-0-684">684</a></span>
+<span class="normal"><a href="#__codelineno-0-685">685</a></span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span>
+<span class="normal"><a href="#__codelineno-0-694">694</a></span>
+<span class="normal"><a href="#__codelineno-0-695">695</a></span>
+<span class="normal"><a href="#__codelineno-0-696">696</a></span>
+<span class="normal"><a href="#__codelineno-0-697">697</a></span>
+<span class="normal"><a href="#__codelineno-0-698">698</a></span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="w">    </span><span class="sd">"""Parse a comma-separated intensity string into a list of floats.</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    A single value is duplicated to form a pair (``"2.0"`` becomes</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    ``[2.0, 2.0]``).  Otherwise the value count must be even so that</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">    each electrode pair receives two intensities.</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    s : str</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">        Comma-separated intensity values (e.g. ``"1.0,2.0"``).</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    list[float]</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">        List of floats with an even number of elements.</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">        If the number of values is odd and greater than 1.</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a><span class="sd">    SimulationConfig.intensities : Field populated by this function.</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">    """</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)]</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>        <span class="k">return</span> <span class="n">v</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>        <span class="sa">f</span><span class="s2">"Invalid intensity format: expected 1 or an even number of values; got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">"</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3697,17 +3783,17 @@ run_simulation : Orchestrates <code>BaseSimulation.run</code> across montages.</
 
                   <details class="quote">
                     <summary>Source code in <code>tit/sim/base.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span>
-<span class="normal"><a href="#__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#__codelineno-0-117">117</a></span>
-<span class="normal"><a href="#__codelineno-0-118">118</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span> <span class="n">montage</span><span class="p">:</span> <span class="n">Montage</span><span class="p">,</span> <span class="n">logger</span><span class="p">):</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">config</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">montage</span> <span class="o">=</span> <span class="n">montage</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span> <span class="o">=</span> <span class="n">logger</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">m2m_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -3762,7 +3848,22 @@ overwrite : bool
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/base.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-147">147</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span>
+<span class="normal"><a href="#__codelineno-0-142">142</a></span>
+<span class="normal"><a href="#__codelineno-0-143">143</a></span>
+<span class="normal"><a href="#__codelineno-0-144">144</a></span>
+<span class="normal"><a href="#__codelineno-0-145">145</a></span>
+<span class="normal"><a href="#__codelineno-0-146">146</a></span>
+<span class="normal"><a href="#__codelineno-0-147">147</a></span>
 <span class="normal"><a href="#__codelineno-0-148">148</a></span>
 <span class="normal"><a href="#__codelineno-0-149">149</a></span>
 <span class="normal"><a href="#__codelineno-0-150">150</a></span>
@@ -3828,103 +3929,88 @@ overwrite : bool
 <span class="normal"><a href="#__codelineno-0-210">210</a></span>
 <span class="normal"><a href="#__codelineno-0-211">211</a></span>
 <span class="normal"><a href="#__codelineno-0-212">212</a></span>
-<span class="normal"><a href="#__codelineno-0-213">213</a></span>
-<span class="normal"><a href="#__codelineno-0-214">214</a></span>
-<span class="normal"><a href="#__codelineno-0-215">215</a></span>
-<span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<a id="__codelineno-0-148" name="__codelineno-0-148"></a><span class="w">    </span><span class="sd">"""Execute the full simulation pipeline for one montage.</span>
-<a id="__codelineno-0-149" name="__codelineno-0-149"></a>
-<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    This template method orchestrates directory setup, montage</span>
-<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">    visualisation, SimNIBS FEM execution, and subclass-specific</span>
-<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">    post-processing.</span>
-<a id="__codelineno-0-153" name="__codelineno-0-153"></a>
-<a id="__codelineno-0-154" name="__codelineno-0-154"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">    simulation_dir : str</span>
-<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">        Root simulations directory for the subject.</span>
-<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">    overwrite : bool</span>
-<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">        Replace an earlier result of this montage.  The earlier run's</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="sd">        derived outputs are removed first (see</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">        :func:`tit.sim.utils.clear_previous_outputs`), so the folder holds</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">        exactly what the new ``config.json`` says.</span>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="sd">    dict</span>
-<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="sd">        Result dictionary with keys ``montage_name``, ``montage_type``,</span>
-<a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="sd">        ``status``, and ``output_mesh``.</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    FileExistsError</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">        If *overwrite* is ``False`` and the montage folder already holds a</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a><span class="sd">        result mesh.  Nothing is written, ``config.json`` included.</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a><span class="sd">    run_simulation : Calls ``run`` for each montage in a config.</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="sd">    """</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="n">montage_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="p">)</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="c1"># SimNIBS's own guard looks for its session record in pathfem, which</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="c1"># _organize_files moves into documentation/, so after a completed run it</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="c1"># never fires: the result mesh is the toolbox's own marker of a result.</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="n">clear_previous_outputs</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">)</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="n">refuse_existing_result</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">)</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="n">create_simulation_config_file</span><span class="p">(</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s2">"documentation"</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="p">)</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="n">viz_pairs</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">run_montage_visualization</span><span class="p">(</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="n">montage_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="n">simulation_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">,</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="n">eeg_net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="n">output_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_montage_imgs_key</span><span class="p">],</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">viz_pairs</span><span class="p">,</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-213">213</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-132" name="__codelineno-0-132"></a><span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">simulation_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a><span class="w">    </span><span class="sd">"""Execute the full simulation pipeline for one montage.</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a><span class="sd">    This template method orchestrates directory setup, montage</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a><span class="sd">    visualisation, SimNIBS FEM execution, and subclass-specific</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a><span class="sd">    post-processing.</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a><span class="sd">    simulation_dir : str</span>
+<a id="__codelineno-0-142" name="__codelineno-0-142"></a><span class="sd">        Root simulations directory for the subject.</span>
+<a id="__codelineno-0-143" name="__codelineno-0-143"></a><span class="sd">    overwrite : bool</span>
+<a id="__codelineno-0-144" name="__codelineno-0-144"></a><span class="sd">        Replace an earlier result of this montage.  The earlier run's</span>
+<a id="__codelineno-0-145" name="__codelineno-0-145"></a><span class="sd">        derived outputs are removed first (see</span>
+<a id="__codelineno-0-146" name="__codelineno-0-146"></a><span class="sd">        :func:`tit.sim.utils.clear_previous_outputs`), so the folder holds</span>
+<a id="__codelineno-0-147" name="__codelineno-0-147"></a><span class="sd">        exactly what the new ``config.json`` says.</span>
+<a id="__codelineno-0-148" name="__codelineno-0-148"></a>
+<a id="__codelineno-0-149" name="__codelineno-0-149"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-150" name="__codelineno-0-150"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-151" name="__codelineno-0-151"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-152" name="__codelineno-0-152"></a><span class="sd">        Result dictionary with keys ``montage_name``, ``montage_type``,</span>
+<a id="__codelineno-0-153" name="__codelineno-0-153"></a><span class="sd">        ``status``, and ``output_mesh``.</span>
+<a id="__codelineno-0-154" name="__codelineno-0-154"></a>
+<a id="__codelineno-0-155" name="__codelineno-0-155"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-156" name="__codelineno-0-156"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="sd">    FileExistsError</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="sd">        If *overwrite* is ``False`` and the montage folder already holds a</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="sd">        result mesh.  Nothing is written, ``config.json`` included.</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a><span class="sd">    run_simulation : Calls ``run`` for each montage in a config.</span>
+<a id="__codelineno-0-164" name="__codelineno-0-164"></a><span class="sd">    """</span>
+<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="n">montage_dir</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span>
+<a id="__codelineno-0-166" name="__codelineno-0-166"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>    <span class="p">)</span>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a>    <span class="c1"># SimNIBS's own guard looks for its session record in pathfem, which</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a>    <span class="c1"># _organize_files moves into documentation/, so after a completed run it</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a>    <span class="c1"># never fires: the result mesh is the toolbox's own marker of a result.</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>        <span class="n">clear_previous_outputs</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">)</span>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>        <span class="n">refuse_existing_result</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="n">dirs</span> <span class="o">=</span> <span class="n">setup_montage_directories</span><span class="p">(</span><span class="n">montage_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">)</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="n">create_simulation_config_file</span><span class="p">(</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="p">,</span> <span class="n">dirs</span><span class="p">[</span><span class="s2">"documentation"</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">logger</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="p">)</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">viz_pairs</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">is_xyz</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">electrode_pairs</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">run_montage_visualization</span><span class="p">(</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="n">montage_name</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>        <span class="n">simulation_mode</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">_simulation_mode</span><span class="p">,</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>        <span class="n">eeg_net</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">,</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>        <span class="n">output_dir</span><span class="o">=</span><span class="n">dirs</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">_montage_imgs_key</span><span class="p">],</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="n">logger</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="p">,</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>        <span class="n">electrode_pairs</span><span class="o">=</span><span class="n">viz_pairs</span><span class="p">,</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="p">)</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"SimNIBS simulation: Started"</span><span class="p">)</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_session</span><span class="p">(</span><span class="n">dirs</span><span class="p">[</span><span class="s2">"hf_dir"</span><span class="p">])</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="n">session</span>  <span class="c1"># its conductivity settings feed hf_power_density</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>        <span class="c1"># run_simnibs does not expose this supported SESSION option. Keep the</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="c1"># native existence guard for ordinary runs; never delete marker files.</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="n">session</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">allow_multiple_runs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="n">run_simnibs</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"SimNIBS simulation: </span><span class="se">\u2713</span><span class="s2"> Complete"</span><span class="p">)</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>    <span class="n">output_mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_process</span><span class="p">(</span><span class="n">dirs</span><span class="p">)</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_write_report</span><span class="p">()</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\u2713</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> complete"</span><span class="p">)</span>
 <a id="__codelineno-0-206" name="__codelineno-0-206"></a>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"SimNIBS simulation: Started"</span><span class="p">)</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_build_session</span><span class="p">(</span><span class="n">dirs</span><span class="p">[</span><span class="s2">"hf_dir"</span><span class="p">])</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_session</span> <span class="o">=</span> <span class="n">session</span>  <span class="c1"># its conductivity settings feed hf_power_density</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>    <span class="k">if</span> <span class="n">overwrite</span><span class="p">:</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="c1"># run_simnibs does not expose this supported SESSION option. Keep the</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="c1"># native existence guard for ordinary runs; never delete marker files.</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="n">session</span><span class="o">.</span><span class="n">run</span><span class="p">(</span><span class="n">allow_multiple_runs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="n">run_simnibs</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"SimNIBS simulation: </span><span class="se">\u2713</span><span class="s2"> Complete"</span><span class="p">)</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>    <span class="n">output_mesh</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_post_process</span><span class="p">(</span><span class="n">dirs</span><span class="p">)</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_write_report</span><span class="p">()</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\u2713</span><span class="s2"> </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> complete"</span><span class="p">)</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>        <span class="s2">"montage_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="s2">"montage_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_montage_type_label</span><span class="p">,</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>        <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"completed"</span><span class="p">,</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="s2">"output_mesh"</span><span class="p">:</span> <span class="n">output_mesh</span><span class="p">,</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="s2">"output_dir"</span><span class="p">:</span> <span class="n">montage_dir</span><span class="p">,</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="p">}</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a>        <span class="s2">"montage_name"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="s2">"montage_type"</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_montage_type_label</span><span class="p">,</span>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a>        <span class="s2">"status"</span><span class="p">:</span> <span class="s2">"completed"</span><span class="p">,</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="s2">"output_mesh"</span><span class="p">:</span> <span class="n">output_mesh</span><span class="p">,</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>        <span class="s2">"output_dir"</span><span class="p">:</span> <span class="n">montage_dir</span><span class="p">,</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -4028,21 +4114,7 @@ mTISimulation : Concrete class for N-pair simulations.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-870">870</a></span>
-<span class="normal"><a href="#__codelineno-0-871">871</a></span>
-<span class="normal"><a href="#__codelineno-0-872">872</a></span>
-<span class="normal"><a href="#__codelineno-0-873">873</a></span>
-<span class="normal"><a href="#__codelineno-0-874">874</a></span>
-<span class="normal"><a href="#__codelineno-0-875">875</a></span>
-<span class="normal"><a href="#__codelineno-0-876">876</a></span>
-<span class="normal"><a href="#__codelineno-0-877">877</a></span>
-<span class="normal"><a href="#__codelineno-0-878">878</a></span>
-<span class="normal"><a href="#__codelineno-0-879">879</a></span>
-<span class="normal"><a href="#__codelineno-0-880">880</a></span>
-<span class="normal"><a href="#__codelineno-0-881">881</a></span>
-<span class="normal"><a href="#__codelineno-0-882">882</a></span>
-<span class="normal"><a href="#__codelineno-0-883">883</a></span>
-<span class="normal"><a href="#__codelineno-0-884">884</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-884">884</a></span>
 <span class="normal"><a href="#__codelineno-0-885">885</a></span>
 <span class="normal"><a href="#__codelineno-0-886">886</a></span>
 <span class="normal"><a href="#__codelineno-0-887">887</a></span>
@@ -4128,109 +4200,680 @@ mTISimulation : Concrete class for N-pair simulations.</p>
 <span class="normal"><a href="#__codelineno-0-967">967</a></span>
 <span class="normal"><a href="#__codelineno-0-968">968</a></span>
 <span class="normal"><a href="#__codelineno-0-969">969</a></span>
-<span class="normal"><a href="#__codelineno-0-970">970</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-870" name="__codelineno-0-870"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_simulation</span><span class="p">(</span>
-<a id="__codelineno-0-871" name="__codelineno-0-871"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
-<a id="__codelineno-0-872" name="__codelineno-0-872"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-873" name="__codelineno-0-873"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-874" name="__codelineno-0-874"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-875" name="__codelineno-0-875"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-876" name="__codelineno-0-876"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
-<a id="__codelineno-0-877" name="__codelineno-0-877"></a><span class="w">    </span><span class="sd">"""Run TI or mTI simulations for every montage in *config*.</span>
-<a id="__codelineno-0-878" name="__codelineno-0-878"></a>
-<a id="__codelineno-0-879" name="__codelineno-0-879"></a><span class="sd">    For each montage in ``config.montages``, this function:</span>
-<a id="__codelineno-0-880" name="__codelineno-0-880"></a>
-<a id="__codelineno-0-881" name="__codelineno-0-881"></a><span class="sd">    1. Auto-detects TI (2 pairs) vs mTI (4+ pairs) from the montage.</span>
-<a id="__codelineno-0-882" name="__codelineno-0-882"></a><span class="sd">    2. Builds a SimNIBS SESSION with electrode geometry and conductivity</span>
-<a id="__codelineno-0-883" name="__codelineno-0-883"></a><span class="sd">       settings from *config*.</span>
-<a id="__codelineno-0-884" name="__codelineno-0-884"></a><span class="sd">    3. Runs the FEM solver to compute electric-field distributions.</span>
-<a id="__codelineno-0-885" name="__codelineno-0-885"></a><span class="sd">    4. Computes temporal-interference envelope fields: ``TI_max``/``TI_avg``</span>
-<a id="__codelineno-0-886" name="__codelineno-0-886"></a><span class="sd">       plus ``TI_normal`` (2-pair TI only), or the multi-channel</span>
-<a id="__codelineno-0-887" name="__codelineno-0-887"></a><span class="sd">       superposition for mTI.</span>
-<a id="__codelineno-0-888" name="__codelineno-0-888"></a><span class="sd">    5. Writes output meshes, surface overlays, and NIfTIs to the</span>
-<a id="__codelineno-0-889" name="__codelineno-0-889"></a><span class="sd">       BIDS-compliant simulation directory.</span>
-<a id="__codelineno-0-890" name="__codelineno-0-890"></a>
-<a id="__codelineno-0-891" name="__codelineno-0-891"></a><span class="sd">    Montages are processed sequentially.  If no *logger* is provided,</span>
-<a id="__codelineno-0-892" name="__codelineno-0-892"></a><span class="sd">    a file logger is created under the subject's log directory.</span>
-<a id="__codelineno-0-893" name="__codelineno-0-893"></a>
-<a id="__codelineno-0-894" name="__codelineno-0-894"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-895" name="__codelineno-0-895"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-896" name="__codelineno-0-896"></a><span class="sd">    config : SimulationConfig</span>
-<a id="__codelineno-0-897" name="__codelineno-0-897"></a><span class="sd">        Full simulation configuration including subject ID, montage</span>
-<a id="__codelineno-0-898" name="__codelineno-0-898"></a><span class="sd">        list, electrode geometry, and conductivity model.</span>
-<a id="__codelineno-0-899" name="__codelineno-0-899"></a><span class="sd">    logger : logging.Logger or None, optional</span>
-<a id="__codelineno-0-900" name="__codelineno-0-900"></a><span class="sd">        Logger instance.  If ``None``, a file logger is created</span>
-<a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="sd">        automatically in the subject's BIDS logs directory.</span>
-<a id="__codelineno-0-902" name="__codelineno-0-902"></a><span class="sd">    progress_callback : callable or None, optional</span>
-<a id="__codelineno-0-903" name="__codelineno-0-903"></a><span class="sd">        Optional callback invoked before each montage as</span>
-<a id="__codelineno-0-904" name="__codelineno-0-904"></a><span class="sd">        ``callback(current_index, total, montage_name)`` and once more</span>
-<a id="__codelineno-0-905" name="__codelineno-0-905"></a><span class="sd">        with ``(total, total, "Complete")`` when finished.</span>
-<a id="__codelineno-0-906" name="__codelineno-0-906"></a>
-<a id="__codelineno-0-907" name="__codelineno-0-907"></a><span class="sd">    overwrite : bool, optional</span>
-<a id="__codelineno-0-908" name="__codelineno-0-908"></a><span class="sd">        Replace an earlier result of a montage. Defaults to False; existing-result</span>
-<a id="__codelineno-0-909" name="__codelineno-0-909"></a><span class="sd">        protection stays enabled unless confirmed. When set, the earlier run's</span>
-<a id="__codelineno-0-910" name="__codelineno-0-910"></a><span class="sd">        derived outputs (``TI/``, ``mTI/``, ``fsaverage/``, ``high_Frequency/``) are</span>
-<a id="__codelineno-0-911" name="__codelineno-0-911"></a><span class="sd">        removed before solving, keeping ``documentation/`` and ``Analyses/``, so the</span>
-<a id="__codelineno-0-912" name="__codelineno-0-912"></a><span class="sd">        folder holds exactly what the new ``config.json`` says.</span>
-<a id="__codelineno-0-913" name="__codelineno-0-913"></a>
-<a id="__codelineno-0-914" name="__codelineno-0-914"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-915" name="__codelineno-0-915"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-916" name="__codelineno-0-916"></a><span class="sd">    list[dict]</span>
-<a id="__codelineno-0-917" name="__codelineno-0-917"></a><span class="sd">        One result dict per montage with keys ``montage_name``,</span>
-<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="sd">        ``montage_type``, ``status``, and ``output_mesh``.</span>
-<a id="__codelineno-0-919" name="__codelineno-0-919"></a>
-<a id="__codelineno-0-920" name="__codelineno-0-920"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-921" name="__codelineno-0-921"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-922" name="__codelineno-0-922"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-923" name="__codelineno-0-923"></a><span class="sd">        If ``config.montages`` is empty, the subject's ``m2m_&lt;id&gt;``</span>
-<a id="__codelineno-0-924" name="__codelineno-0-924"></a><span class="sd">        directory does not exist, a montage has an invalid pair count</span>
-<a id="__codelineno-0-925" name="__codelineno-0-925"></a><span class="sd">        (must be an even number &gt;= 2), too few *intensities* are given</span>
-<a id="__codelineno-0-926" name="__codelineno-0-926"></a><span class="sd">        for a montage, a label-based montage has no *eeg_net* or its</span>
-<a id="__codelineno-0-927" name="__codelineno-0-927"></a><span class="sd">        EEG-net CSV is missing from the subject's ``eeg_positions``</span>
-<a id="__codelineno-0-928" name="__codelineno-0-928"></a><span class="sd">        folder, or an XYZ montage holds a malformed coordinate.</span>
-<a id="__codelineno-0-929" name="__codelineno-0-929"></a><span class="sd">    OSError</span>
-<a id="__codelineno-0-930" name="__codelineno-0-930"></a><span class="sd">        ``FileExistsError`` when a montage folder already holds a result mesh</span>
-<a id="__codelineno-0-931" name="__codelineno-0-931"></a><span class="sd">        (``TI/mesh`` or ``mTI/mesh``) and *overwrite* is ``False``; every</span>
-<a id="__codelineno-0-932" name="__codelineno-0-932"></a><span class="sd">        montage is checked before the first is solved, so nothing is</span>
-<a id="__codelineno-0-933" name="__codelineno-0-933"></a><span class="sd">        written.  SimNIBS raises its own ``OSError`` when an interrupted run</span>
-<a id="__codelineno-0-934" name="__codelineno-0-934"></a><span class="sd">        left a session record in ``high_Frequency/``.</span>
-<a id="__codelineno-0-935" name="__codelineno-0-935"></a>
-<a id="__codelineno-0-936" name="__codelineno-0-936"></a><span class="sd">    Examples</span>
-<a id="__codelineno-0-937" name="__codelineno-0-937"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-938" name="__codelineno-0-938"></a><span class="sd">    &gt;&gt;&gt; from tit.sim import SimulationConfig, load_montages, run_simulation</span>
-<a id="__codelineno-0-939" name="__codelineno-0-939"></a><span class="sd">    &gt;&gt;&gt; montages = load_montages(["L_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP</span>
-<a id="__codelineno-0-940" name="__codelineno-0-940"></a><span class="sd">    &gt;&gt;&gt; cfg = SimulationConfig(subject_id="ernie", montages=montages,</span>
-<a id="__codelineno-0-941" name="__codelineno-0-941"></a><span class="sd">    ...                        intensities=[1.0, 1.0], output_fields=["TI_max"])  # doctest: +SKIP</span>
-<a id="__codelineno-0-942" name="__codelineno-0-942"></a><span class="sd">    &gt;&gt;&gt; results = run_simulation(cfg)  # doctest: +SKIP</span>
-<a id="__codelineno-0-943" name="__codelineno-0-943"></a><span class="sd">    &gt;&gt;&gt; results[0]["status"], results[0]["output_mesh"]  # doctest: +SKIP</span>
-<a id="__codelineno-0-944" name="__codelineno-0-944"></a><span class="sd">    ('completed', '.../Simulations/L_Insula/TI/mesh/ernie_L_Insula_TI.msh')</span>
-<a id="__codelineno-0-945" name="__codelineno-0-945"></a>
-<a id="__codelineno-0-946" name="__codelineno-0-946"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-947" name="__codelineno-0-947"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-948" name="__codelineno-0-948"></a><span class="sd">    SimulationConfig : The configuration consumed by this function.</span>
-<a id="__codelineno-0-949" name="__codelineno-0-949"></a><span class="sd">    BaseSimulation.run : Per-montage pipeline called internally.</span>
-<a id="__codelineno-0-950" name="__codelineno-0-950"></a><span class="sd">    TISimulation : Concrete class for 2-pair simulations.</span>
-<a id="__codelineno-0-951" name="__codelineno-0-951"></a><span class="sd">    mTISimulation : Concrete class for N-pair simulations.</span>
-<a id="__codelineno-0-952" name="__codelineno-0-952"></a><span class="sd">    """</span>
-<a id="__codelineno-0-953" name="__codelineno-0-953"></a>    <span class="c1"># Determine dominant simulation type for telemetry</span>
-<a id="__codelineno-0-954" name="__codelineno-0-954"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
-<a id="__codelineno-0-955" name="__codelineno-0-955"></a>
-<a id="__codelineno-0-956" name="__codelineno-0-956"></a>    <span class="n">_validate_simulation_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-957" name="__codelineno-0-957"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
-<a id="__codelineno-0-958" name="__codelineno-0-958"></a>        <span class="c1"># Every montage before the first solve, not each one as its turn comes.</span>
-<a id="__codelineno-0-959" name="__codelineno-0-959"></a>        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-960" name="__codelineno-0-960"></a>        <span class="k">for</span> <span class="n">montage</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">montages</span><span class="p">:</span>
-<a id="__codelineno-0-961" name="__codelineno-0-961"></a>            <span class="n">refuse_existing_result</span><span class="p">(</span>
-<a id="__codelineno-0-962" name="__codelineno-0-962"></a>                <span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span>
-<a id="__codelineno-0-963" name="__codelineno-0-963"></a>            <span class="p">)</span>
-<a id="__codelineno-0-964" name="__codelineno-0-964"></a>    <span class="n">has_mti</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">MTI</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">montages</span><span class="p">)</span>
-<a id="__codelineno-0-965" name="__codelineno-0-965"></a>    <span class="n">_tel_op</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_SIM_MTI</span> <span class="k">if</span> <span class="n">has_mti</span> <span class="k">else</span> <span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_SIM_TI</span>
-<a id="__codelineno-0-966" name="__codelineno-0-966"></a>
-<a id="__codelineno-0-967" name="__codelineno-0-967"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">_tel_op</span><span class="p">):</span>
-<a id="__codelineno-0-968" name="__codelineno-0-968"></a>        <span class="k">return</span> <span class="n">_run_simulation_inner</span><span class="p">(</span>
-<a id="__codelineno-0-969" name="__codelineno-0-969"></a>            <span class="n">config</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span>
-<a id="__codelineno-0-970" name="__codelineno-0-970"></a>        <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-970">970</a></span>
+<span class="normal"><a href="#__codelineno-0-971">971</a></span>
+<span class="normal"><a href="#__codelineno-0-972">972</a></span>
+<span class="normal"><a href="#__codelineno-0-973">973</a></span>
+<span class="normal"><a href="#__codelineno-0-974">974</a></span>
+<span class="normal"><a href="#__codelineno-0-975">975</a></span>
+<span class="normal"><a href="#__codelineno-0-976">976</a></span>
+<span class="normal"><a href="#__codelineno-0-977">977</a></span>
+<span class="normal"><a href="#__codelineno-0-978">978</a></span>
+<span class="normal"><a href="#__codelineno-0-979">979</a></span>
+<span class="normal"><a href="#__codelineno-0-980">980</a></span>
+<span class="normal"><a href="#__codelineno-0-981">981</a></span>
+<span class="normal"><a href="#__codelineno-0-982">982</a></span>
+<span class="normal"><a href="#__codelineno-0-983">983</a></span>
+<span class="normal"><a href="#__codelineno-0-984">984</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-884" name="__codelineno-0-884"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_simulation</span><span class="p">(</span>
+<a id="__codelineno-0-885" name="__codelineno-0-885"></a>    <span class="n">config</span><span class="p">:</span> <span class="n">SimulationConfig</span><span class="p">,</span>
+<a id="__codelineno-0-886" name="__codelineno-0-886"></a>    <span class="n">logger</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-887" name="__codelineno-0-887"></a>    <span class="n">progress_callback</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-888" name="__codelineno-0-888"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-889" name="__codelineno-0-889"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-890" name="__codelineno-0-890"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">]:</span>
+<a id="__codelineno-0-891" name="__codelineno-0-891"></a><span class="w">    </span><span class="sd">"""Run TI or mTI simulations for every montage in *config*.</span>
+<a id="__codelineno-0-892" name="__codelineno-0-892"></a>
+<a id="__codelineno-0-893" name="__codelineno-0-893"></a><span class="sd">    For each montage in ``config.montages``, this function:</span>
+<a id="__codelineno-0-894" name="__codelineno-0-894"></a>
+<a id="__codelineno-0-895" name="__codelineno-0-895"></a><span class="sd">    1. Auto-detects TI (2 pairs) vs mTI (4+ pairs) from the montage.</span>
+<a id="__codelineno-0-896" name="__codelineno-0-896"></a><span class="sd">    2. Builds a SimNIBS SESSION with electrode geometry and conductivity</span>
+<a id="__codelineno-0-897" name="__codelineno-0-897"></a><span class="sd">       settings from *config*.</span>
+<a id="__codelineno-0-898" name="__codelineno-0-898"></a><span class="sd">    3. Runs the FEM solver to compute electric-field distributions.</span>
+<a id="__codelineno-0-899" name="__codelineno-0-899"></a><span class="sd">    4. Computes temporal-interference envelope fields: ``TI_max``/``TI_avg``</span>
+<a id="__codelineno-0-900" name="__codelineno-0-900"></a><span class="sd">       plus ``TI_normal`` (2-pair TI only), or the multi-channel</span>
+<a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="sd">       superposition for mTI.</span>
+<a id="__codelineno-0-902" name="__codelineno-0-902"></a><span class="sd">    5. Writes output meshes, surface overlays, and NIfTIs to the</span>
+<a id="__codelineno-0-903" name="__codelineno-0-903"></a><span class="sd">       BIDS-compliant simulation directory.</span>
+<a id="__codelineno-0-904" name="__codelineno-0-904"></a>
+<a id="__codelineno-0-905" name="__codelineno-0-905"></a><span class="sd">    Montages are processed sequentially.  If no *logger* is provided,</span>
+<a id="__codelineno-0-906" name="__codelineno-0-906"></a><span class="sd">    a file logger is created under the subject's log directory.</span>
+<a id="__codelineno-0-907" name="__codelineno-0-907"></a>
+<a id="__codelineno-0-908" name="__codelineno-0-908"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-909" name="__codelineno-0-909"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-910" name="__codelineno-0-910"></a><span class="sd">    config : SimulationConfig</span>
+<a id="__codelineno-0-911" name="__codelineno-0-911"></a><span class="sd">        Full simulation configuration including subject ID, montage</span>
+<a id="__codelineno-0-912" name="__codelineno-0-912"></a><span class="sd">        list, electrode geometry, and conductivity model.</span>
+<a id="__codelineno-0-913" name="__codelineno-0-913"></a><span class="sd">    logger : logging.Logger or None, optional</span>
+<a id="__codelineno-0-914" name="__codelineno-0-914"></a><span class="sd">        Logger instance.  If ``None``, a file logger is created</span>
+<a id="__codelineno-0-915" name="__codelineno-0-915"></a><span class="sd">        automatically in the subject's BIDS logs directory.</span>
+<a id="__codelineno-0-916" name="__codelineno-0-916"></a><span class="sd">    progress_callback : callable or None, optional</span>
+<a id="__codelineno-0-917" name="__codelineno-0-917"></a><span class="sd">        Optional callback invoked before each montage as</span>
+<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="sd">        ``callback(current_index, total, montage_name)`` and once more</span>
+<a id="__codelineno-0-919" name="__codelineno-0-919"></a><span class="sd">        with ``(total, total, "Complete")`` when finished.</span>
+<a id="__codelineno-0-920" name="__codelineno-0-920"></a>
+<a id="__codelineno-0-921" name="__codelineno-0-921"></a><span class="sd">    overwrite : bool, optional</span>
+<a id="__codelineno-0-922" name="__codelineno-0-922"></a><span class="sd">        Replace an earlier result of a montage. Defaults to False; existing-result</span>
+<a id="__codelineno-0-923" name="__codelineno-0-923"></a><span class="sd">        protection stays enabled unless confirmed. When set, the earlier run's</span>
+<a id="__codelineno-0-924" name="__codelineno-0-924"></a><span class="sd">        derived outputs (``TI/``, ``mTI/``, ``fsaverage/``, ``high_Frequency/``) are</span>
+<a id="__codelineno-0-925" name="__codelineno-0-925"></a><span class="sd">        removed before solving, keeping ``documentation/`` and ``Analyses/``, so the</span>
+<a id="__codelineno-0-926" name="__codelineno-0-926"></a><span class="sd">        folder holds exactly what the new ``config.json`` says.</span>
+<a id="__codelineno-0-927" name="__codelineno-0-927"></a>
+<a id="__codelineno-0-928" name="__codelineno-0-928"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-929" name="__codelineno-0-929"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-930" name="__codelineno-0-930"></a><span class="sd">    list[dict]</span>
+<a id="__codelineno-0-931" name="__codelineno-0-931"></a><span class="sd">        One result dict per montage with keys ``montage_name``,</span>
+<a id="__codelineno-0-932" name="__codelineno-0-932"></a><span class="sd">        ``montage_type``, ``status``, and ``output_mesh``.</span>
+<a id="__codelineno-0-933" name="__codelineno-0-933"></a>
+<a id="__codelineno-0-934" name="__codelineno-0-934"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-935" name="__codelineno-0-935"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-936" name="__codelineno-0-936"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-937" name="__codelineno-0-937"></a><span class="sd">        If ``config.montages`` is empty, the subject's ``m2m_&lt;id&gt;``</span>
+<a id="__codelineno-0-938" name="__codelineno-0-938"></a><span class="sd">        directory does not exist, a montage has an invalid pair count</span>
+<a id="__codelineno-0-939" name="__codelineno-0-939"></a><span class="sd">        (must be an even number &gt;= 2), too few *intensities* are given</span>
+<a id="__codelineno-0-940" name="__codelineno-0-940"></a><span class="sd">        for a montage, a label-based montage has no *eeg_net* or its</span>
+<a id="__codelineno-0-941" name="__codelineno-0-941"></a><span class="sd">        EEG-net CSV is missing from the subject's ``eeg_positions``</span>
+<a id="__codelineno-0-942" name="__codelineno-0-942"></a><span class="sd">        folder, or an XYZ montage holds a malformed coordinate.</span>
+<a id="__codelineno-0-943" name="__codelineno-0-943"></a><span class="sd">    OSError</span>
+<a id="__codelineno-0-944" name="__codelineno-0-944"></a><span class="sd">        ``FileExistsError`` when a montage folder already holds a result mesh</span>
+<a id="__codelineno-0-945" name="__codelineno-0-945"></a><span class="sd">        (``TI/mesh`` or ``mTI/mesh``) and *overwrite* is ``False``; every</span>
+<a id="__codelineno-0-946" name="__codelineno-0-946"></a><span class="sd">        montage is checked before the first is solved, so nothing is</span>
+<a id="__codelineno-0-947" name="__codelineno-0-947"></a><span class="sd">        written.  SimNIBS raises its own ``OSError`` when an interrupted run</span>
+<a id="__codelineno-0-948" name="__codelineno-0-948"></a><span class="sd">        left a session record in ``high_Frequency/``.</span>
+<a id="__codelineno-0-949" name="__codelineno-0-949"></a>
+<a id="__codelineno-0-950" name="__codelineno-0-950"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-951" name="__codelineno-0-951"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-952" name="__codelineno-0-952"></a><span class="sd">    &gt;&gt;&gt; from tit.sim import SimulationConfig, load_montages, run_simulation</span>
+<a id="__codelineno-0-953" name="__codelineno-0-953"></a><span class="sd">    &gt;&gt;&gt; montages = load_montages(["L_Insula"], eeg_net="GSN-HydroCel-185.csv")  # doctest: +SKIP</span>
+<a id="__codelineno-0-954" name="__codelineno-0-954"></a><span class="sd">    &gt;&gt;&gt; cfg = SimulationConfig(subject_id="ernie", montages=montages,</span>
+<a id="__codelineno-0-955" name="__codelineno-0-955"></a><span class="sd">    ...                        intensities=[1.0, 1.0], output_fields=["TI_max"])  # doctest: +SKIP</span>
+<a id="__codelineno-0-956" name="__codelineno-0-956"></a><span class="sd">    &gt;&gt;&gt; results = run_simulation(cfg)  # doctest: +SKIP</span>
+<a id="__codelineno-0-957" name="__codelineno-0-957"></a><span class="sd">    &gt;&gt;&gt; results[0]["status"], results[0]["output_mesh"]  # doctest: +SKIP</span>
+<a id="__codelineno-0-958" name="__codelineno-0-958"></a><span class="sd">    ('completed', '.../Simulations/L_Insula/TI/mesh/ernie_L_Insula_TI.msh')</span>
+<a id="__codelineno-0-959" name="__codelineno-0-959"></a>
+<a id="__codelineno-0-960" name="__codelineno-0-960"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-961" name="__codelineno-0-961"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-962" name="__codelineno-0-962"></a><span class="sd">    SimulationConfig : The configuration consumed by this function.</span>
+<a id="__codelineno-0-963" name="__codelineno-0-963"></a><span class="sd">    BaseSimulation.run : Per-montage pipeline called internally.</span>
+<a id="__codelineno-0-964" name="__codelineno-0-964"></a><span class="sd">    TISimulation : Concrete class for 2-pair simulations.</span>
+<a id="__codelineno-0-965" name="__codelineno-0-965"></a><span class="sd">    mTISimulation : Concrete class for N-pair simulations.</span>
+<a id="__codelineno-0-966" name="__codelineno-0-966"></a><span class="sd">    """</span>
+<a id="__codelineno-0-967" name="__codelineno-0-967"></a>    <span class="c1"># Determine dominant simulation type for telemetry</span>
+<a id="__codelineno-0-968" name="__codelineno-0-968"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-969" name="__codelineno-0-969"></a>
+<a id="__codelineno-0-970" name="__codelineno-0-970"></a>    <span class="n">_validate_simulation_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-971" name="__codelineno-0-971"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-972" name="__codelineno-0-972"></a>        <span class="c1"># Every montage before the first solve, not each one as its turn comes.</span>
+<a id="__codelineno-0-973" name="__codelineno-0-973"></a>        <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-974" name="__codelineno-0-974"></a>        <span class="k">for</span> <span class="n">montage</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">montages</span><span class="p">:</span>
+<a id="__codelineno-0-975" name="__codelineno-0-975"></a>            <span class="n">refuse_existing_result</span><span class="p">(</span>
+<a id="__codelineno-0-976" name="__codelineno-0-976"></a>                <span class="n">pm</span><span class="o">.</span><span class="n">simulation</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">montage</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-977" name="__codelineno-0-977"></a>            <span class="p">)</span>
+<a id="__codelineno-0-978" name="__codelineno-0-978"></a>    <span class="n">has_mti</span> <span class="o">=</span> <span class="nb">any</span><span class="p">(</span><span class="n">m</span><span class="o">.</span><span class="n">simulation_mode</span> <span class="o">==</span> <span class="n">SimulationMode</span><span class="o">.</span><span class="n">MTI</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">config</span><span class="o">.</span><span class="n">montages</span><span class="p">)</span>
+<a id="__codelineno-0-979" name="__codelineno-0-979"></a>    <span class="n">_tel_op</span> <span class="o">=</span> <span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_SIM_MTI</span> <span class="k">if</span> <span class="n">has_mti</span> <span class="k">else</span> <span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_SIM_TI</span>
+<a id="__codelineno-0-980" name="__codelineno-0-980"></a>
+<a id="__codelineno-0-981" name="__codelineno-0-981"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">_tel_op</span><span class="p">):</span>
+<a id="__codelineno-0-982" name="__codelineno-0-982"></a>        <span class="k">return</span> <span class="n">_run_simulation_inner</span><span class="p">(</span>
+<a id="__codelineno-0-983" name="__codelineno-0-983"></a>            <span class="n">config</span><span class="p">,</span> <span class="n">logger</span><span class="p">,</span> <span class="n">progress_callback</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span>
+<a id="__codelineno-0-984" name="__codelineno-0-984"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="tit.volume_fields.ensure_mesh_fields" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tit.volume_fields.ensure_mesh_fields</span>
+
+
+<a href="#tit.volume_fields.ensure_mesh_fields" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ensure_mesh_fields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">say</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.volume_fields._quiet">_quiet</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>Make the simulation's volume mesh carry every field of <em>fields</em>; the sentences said.</p>
+<p>A missing field is computed with :func:<code>compute_volume_fields</code> from the channel meshes,
+added to the volume mesh (written whole, then moved into place), and the mesh's
+<code>grey_</code>/<code>white_</code> copies and central surface are regenerated from it. Returns one
+sentence per production (empty when everything was saved), each handed to <em>say</em> before
+the work it announces starts.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>subject_id</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subject identifier (no <code>sub-</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>simulation</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Simulation (montage) folder name.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Logical or on-disk volume field names (<code>TI_max</code> and <code>mTI_max</code> alike).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>say</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>], None]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Called with each sentence first (a caller's <code>logger.info</code>).</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="tit.volume_fields._quiet">_quiet</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="tit.volume_fields.FieldUnavailableError" href="#tit.volume_fields.FieldUnavailableError">FieldUnavailableError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>a missing field cannot be produced (see the module docstring).</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#ValueError">ValueError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>a name is not a volume field (<code>TI_normal</code> is a surface field).</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/volume_fields.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-294">294</a></span>
+<span class="normal"><a href="#__codelineno-0-295">295</a></span>
+<span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
+<span class="normal"><a href="#__codelineno-0-299">299</a></span>
+<span class="normal"><a href="#__codelineno-0-300">300</a></span>
+<span class="normal"><a href="#__codelineno-0-301">301</a></span>
+<span class="normal"><a href="#__codelineno-0-302">302</a></span>
+<span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
+<span class="normal"><a href="#__codelineno-0-305">305</a></span>
+<span class="normal"><a href="#__codelineno-0-306">306</a></span>
+<span class="normal"><a href="#__codelineno-0-307">307</a></span>
+<span class="normal"><a href="#__codelineno-0-308">308</a></span>
+<span class="normal"><a href="#__codelineno-0-309">309</a></span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span>
+<span class="normal"><a href="#__codelineno-0-311">311</a></span>
+<span class="normal"><a href="#__codelineno-0-312">312</a></span>
+<span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
+<span class="normal"><a href="#__codelineno-0-316">316</a></span>
+<span class="normal"><a href="#__codelineno-0-317">317</a></span>
+<span class="normal"><a href="#__codelineno-0-318">318</a></span>
+<span class="normal"><a href="#__codelineno-0-319">319</a></span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span>
+<span class="normal"><a href="#__codelineno-0-321">321</a></span>
+<span class="normal"><a href="#__codelineno-0-322">322</a></span>
+<span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
+<span class="normal"><a href="#__codelineno-0-326">326</a></span>
+<span class="normal"><a href="#__codelineno-0-327">327</a></span>
+<span class="normal"><a href="#__codelineno-0-328">328</a></span>
+<span class="normal"><a href="#__codelineno-0-329">329</a></span>
+<span class="normal"><a href="#__codelineno-0-330">330</a></span>
+<span class="normal"><a href="#__codelineno-0-331">331</a></span>
+<span class="normal"><a href="#__codelineno-0-332">332</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="k">def</span><span class="w"> </span><span class="nf">ensure_mesh_fields</span><span class="p">(</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">say</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">_quiet</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="w">    </span><span class="sd">"""Make the simulation's volume mesh carry every field of *fields*; the sentences said.</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    A missing field is computed with :func:`compute_volume_fields` from the channel meshes,</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    added to the volume mesh (written whole, then moved into place), and the mesh's</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    ``grey_``/``white_`` copies and central surface are regenerated from it. Returns one</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    sentence per production (empty when everything was saved), each handed to *say* before</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    the work it announces starts.</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">        subject_id: Subject identifier (no ``sub-``).</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">        simulation: Simulation (montage) folder name.</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        fields: Logical or on-disk volume field names (``TI_max`` and ``mTI_max`` alike).</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        say: Called with each sentence first (a caller's ``logger.info``).</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        FieldUnavailableError: a missing field cannot be produced (see the module docstring).</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">        ValueError: a name is not a volume field (``TI_normal`` is a surface field).</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">    """</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">sim</span> <span class="o">=</span> <span class="n">_simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="p">)</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">names</span> <span class="o">=</span> <span class="n">_validated</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">_missing</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">names</span><span class="p">):</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="k">with</span> <span class="n">_producing</span><span class="p">(</span><span class="n">sim</span><span class="p">):</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>        <span class="n">missing</span> <span class="o">=</span> <span class="n">_missing</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">names</span><span class="p">)</span>  <span class="c1"># another producer may have finished meanwhile</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">missing</span><span class="p">:</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>            <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>        <span class="n">config</span> <span class="o">=</span> <span class="n">_check_producible</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">missing</span><span class="p">)</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>        <span class="n">names</span> <span class="o">=</span> <span class="p">[</span><span class="n">_on_disk</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">missing</span><span class="p">]</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>        <span class="n">was</span><span class="p">,</span> <span class="n">it</span> <span class="o">=</span> <span class="n">_was</span><span class="p">(</span><span class="n">names</span><span class="p">)</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="n">notice</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_listed</span><span class="p">(</span><span class="n">names</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">was</span><span class="si">}</span><span class="s2"> not saved for </span><span class="si">{</span><span class="n">sim</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; computing </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2"> from the "</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>            <span class="sa">f</span><span class="s2">"channel fields and saving </span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2"> to </span><span class="si">{</span><span class="n">sim</span><span class="o">.</span><span class="n">volume_mesh</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>        <span class="p">)</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="n">say</span><span class="p">(</span><span class="n">notice</span><span class="p">)</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>        <span class="n">_produce_mesh_fields</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">missing</span><span class="p">)</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">notice</span><span class="p">]</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
+<h2 id="tit.volume_fields.ensure_niftis" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">tit.volume_fields.ensure_niftis</span>
+
+
+<a href="#tit.volume_fields.ensure_niftis" class="headerlink" title="Permanent link">&para;</a></h2>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">ensure_niftis</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">simulation</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">tissue</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">space</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'subject'</span><span class="p">,</span> <span class="n">say</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a></span><span class="p">[[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n"><span title="tit.volume_fields._quiet">_quiet</span></span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]]</span>
+</code></pre></div>
+
+    <div class="doc doc-contents first">
+
+        <p>The NIfTI of each field of <em>fields</em> for one tissue and space, produced if not saved.</p>
+
+
+<p><span class="doc-section-title">Parameters:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Description</th>
+          <th>Default</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                <code>subject_id</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Subject identifier (no <code>sub-</code>).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>simulation</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Simulation (montage) folder name.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>fields</code>
+            </td>
+            <td>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>Volume field names, as for :func:<code>ensure_mesh_fields</code>.</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>tissue</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a> | None</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"grey"</code>, <code>"white"</code> or <code>None</code> (the whole brain-tissue mesh).</p>
+              </div>
+            </td>
+            <td>
+                <em>required</em>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>space</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>"subject"</code> or <code>"mni"</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code>&#39;subject&#39;</code>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                <code>say</code>
+            </td>
+            <td>
+                  <code><a class="autorefs autorefs-external" title="collections.abc.Callable" href="https://docs.python.org/3/library/collections.abc.html#collections.abc.Callable">Callable</a>[[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>], None]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>As for :func:<code>ensure_mesh_fields</code>.</p>
+              </div>
+            </td>
+            <td>
+                  <code><span title="tit.volume_fields._quiet">_quiet</span></code>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+    <p><span class="doc-section-title">Returns:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>, <a class="autorefs autorefs-external" title="pathlib.Path" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path">Path</a>], <a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a>[<a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a>]]</code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p><code>{on-disk field name: path}</code> and the sentences said while producing them.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+<p><span class="doc-section-title">Raises:</span></p>
+    <table>
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-internal" title="tit.volume_fields.FieldUnavailableError" href="#tit.volume_fields.FieldUnavailableError">FieldUnavailableError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>a missing field cannot be produced.</p>
+              </div>
+            </td>
+          </tr>
+          <tr class="doc-section-item">
+            <td>
+                  <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#RuntimeError">RuntimeError</a></code>
+            </td>
+            <td>
+              <div class="doc-md-description">
+                <p>the conversion ran but did not write a requested file.</p>
+              </div>
+            </td>
+          </tr>
+      </tbody>
+    </table>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/volume_fields.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-384">384</a></span>
+<span class="normal"><a href="#__codelineno-0-385">385</a></span>
+<span class="normal"><a href="#__codelineno-0-386">386</a></span>
+<span class="normal"><a href="#__codelineno-0-387">387</a></span>
+<span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span>
+<span class="normal"><a href="#__codelineno-0-395">395</a></span>
+<span class="normal"><a href="#__codelineno-0-396">396</a></span>
+<span class="normal"><a href="#__codelineno-0-397">397</a></span>
+<span class="normal"><a href="#__codelineno-0-398">398</a></span>
+<span class="normal"><a href="#__codelineno-0-399">399</a></span>
+<span class="normal"><a href="#__codelineno-0-400">400</a></span>
+<span class="normal"><a href="#__codelineno-0-401">401</a></span>
+<span class="normal"><a href="#__codelineno-0-402">402</a></span>
+<span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
+<span class="normal"><a href="#__codelineno-0-405">405</a></span>
+<span class="normal"><a href="#__codelineno-0-406">406</a></span>
+<span class="normal"><a href="#__codelineno-0-407">407</a></span>
+<span class="normal"><a href="#__codelineno-0-408">408</a></span>
+<span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
+<span class="normal"><a href="#__codelineno-0-412">412</a></span>
+<span class="normal"><a href="#__codelineno-0-413">413</a></span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span>
+<span class="normal"><a href="#__codelineno-0-415">415</a></span>
+<span class="normal"><a href="#__codelineno-0-416">416</a></span>
+<span class="normal"><a href="#__codelineno-0-417">417</a></span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span>
+<span class="normal"><a href="#__codelineno-0-419">419</a></span>
+<span class="normal"><a href="#__codelineno-0-420">420</a></span>
+<span class="normal"><a href="#__codelineno-0-421">421</a></span>
+<span class="normal"><a href="#__codelineno-0-422">422</a></span>
+<span class="normal"><a href="#__codelineno-0-423">423</a></span>
+<span class="normal"><a href="#__codelineno-0-424">424</a></span>
+<span class="normal"><a href="#__codelineno-0-425">425</a></span>
+<span class="normal"><a href="#__codelineno-0-426">426</a></span>
+<span class="normal"><a href="#__codelineno-0-427">427</a></span>
+<span class="normal"><a href="#__codelineno-0-428">428</a></span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span>
+<span class="normal"><a href="#__codelineno-0-438">438</a></span>
+<span class="normal"><a href="#__codelineno-0-439">439</a></span>
+<span class="normal"><a href="#__codelineno-0-440">440</a></span>
+<span class="normal"><a href="#__codelineno-0-441">441</a></span>
+<span class="normal"><a href="#__codelineno-0-442">442</a></span>
+<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+<span class="normal"><a href="#__codelineno-0-444">444</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="k">def</span><span class="w"> </span><span class="nf">ensure_niftis</span><span class="p">(</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>    <span class="n">fields</span><span class="p">,</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>    <span class="n">tissue</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"subject"</span><span class="p">,</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>    <span class="n">say</span><span class="p">:</span> <span class="n">Callable</span><span class="p">[[</span><span class="nb">str</span><span class="p">],</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="n">_quiet</span><span class="p">,</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="w">    </span><span class="sd">"""The NIfTI of each field of *fields* for one tissue and space, produced if not saved.</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    Args:</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">        subject_id: Subject identifier (no ``sub-``).</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">        simulation: Simulation (montage) folder name.</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">        fields: Volume field names, as for :func:`ensure_mesh_fields`.</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a><span class="sd">        tissue: ``"grey"``, ``"white"`` or ``None`` (the whole brain-tissue mesh).</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a><span class="sd">        space: ``"subject"`` or ``"mni"``.</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a><span class="sd">        say: As for :func:`ensure_mesh_fields`.</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a><span class="sd">    Returns:</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="sd">        ``{on-disk field name: path}`` and the sentences said while producing them.</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a><span class="sd">        FieldUnavailableError: a missing field cannot be produced.</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">        RuntimeError: the conversion ran but did not write a requested file.</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">    """</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="k">if</span> <span class="n">tissue</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"grey"</span><span class="p">,</span> <span class="s2">"white"</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="n">space</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"subject"</span><span class="p">,</span> <span class="s2">"mni"</span><span class="p">):</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>            <span class="sa">f</span><span class="s2">"tissue </span><span class="si">{</span><span class="n">tissue</span><span class="si">!r}</span><span class="s2"> / space </span><span class="si">{</span><span class="n">space</span><span class="si">!r}</span><span class="s2"> is not one a simulation writes"</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>        <span class="p">)</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>    <span class="n">sim</span> <span class="o">=</span> <span class="n">_simulation</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="p">)</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="n">names</span> <span class="o">=</span> <span class="n">_validated</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="n">base</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">tissue</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="s1">'_'</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="n">tissue</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">''</span><span class="si">}{</span><span class="n">sim</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">sim</span><span class="o">.</span><span class="n">mode</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="n">paths</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>        <span class="n">_on_disk</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span> <span class="n">sim</span><span class="o">.</span><span class="n">niftis_dir</span> <span class="o">/</span> <span class="n">_nifti_name</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">_on_disk</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">n</span><span class="p">))</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>        <span class="k">for</span> <span class="n">n</span> <span class="ow">in</span> <span class="n">names</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>    <span class="p">}</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="k">if</span> <span class="nb">all</span><span class="p">(</span><span class="n">_saved</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>        <span class="k">return</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="n">_saved</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span> <span class="p">[]</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>    <span class="n">notices</span> <span class="o">=</span> <span class="n">ensure_mesh_fields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">names</span><span class="p">,</span> <span class="n">say</span><span class="o">=</span><span class="n">say</span><span class="p">)</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="k">with</span> <span class="n">_producing</span><span class="p">(</span><span class="n">sim</span><span class="p">):</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>        <span class="n">absent</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">_saved</span><span class="p">(</span><span class="n">p</span><span class="p">)]</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>        <span class="k">if</span> <span class="n">absent</span><span class="p">:</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>            <span class="n">mesh</span> <span class="o">=</span> <span class="n">sim</span><span class="o">.</span><span class="n">mesh_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">base</span><span class="si">}</span><span class="s2">.msh"</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>            <span class="n">was</span><span class="p">,</span> <span class="n">it</span> <span class="o">=</span> <span class="n">_was</span><span class="p">(</span><span class="n">absent</span><span class="p">)</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>            <span class="n">kind</span> <span class="o">=</span> <span class="s2">"an MNI-space NIfTI"</span> <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">"mni"</span> <span class="k">else</span> <span class="s2">"a NIfTI"</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">absent</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>                <span class="n">kind</span> <span class="o">=</span> <span class="s2">"MNI-space NIfTIs"</span> <span class="k">if</span> <span class="n">space</span> <span class="o">==</span> <span class="s2">"mni"</span> <span class="k">else</span> <span class="s2">"NIfTIs"</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>            <span class="n">notice</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_listed</span><span class="p">(</span><span class="n">absent</span><span class="p">)</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">was</span><span class="si">}</span><span class="s2"> not saved as </span><span class="si">{</span><span class="n">kind</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">sim</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">; writing "</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">it</span><span class="si">}</span><span class="s2"> from </span><span class="si">{</span><span class="n">mesh</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">."</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>            <span class="p">)</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>            <span class="n">say</span><span class="p">(</span><span class="n">notice</span><span class="p">)</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>            <span class="n">notices</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">notice</span><span class="p">)</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>            <span class="n">_write_niftis</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">mesh</span><span class="p">,</span> <span class="n">base</span><span class="p">,</span> <span class="n">space</span><span class="p">,</span> <span class="n">absent</span><span class="p">)</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>            <span class="n">unwritten</span> <span class="o">=</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="n">f</span><span class="p">])</span> <span class="k">for</span> <span class="n">f</span> <span class="ow">in</span> <span class="n">absent</span> <span class="k">if</span> <span class="ow">not</span> <span class="n">_saved</span><span class="p">(</span><span class="n">paths</span><span class="p">[</span><span class="n">f</span><span class="p">])]</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>            <span class="k">if</span> <span class="n">unwritten</span><span class="p">:</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>                <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>                    <span class="sa">f</span><span class="s2">"The NIfTI conversion of </span><span class="si">{</span><span class="n">mesh</span><span class="si">}</span><span class="s2"> did not write </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">unwritten</span><span class="p">)</span><span class="si">}</span><span class="s2">."</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>                <span class="p">)</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="k">return</span> <span class="p">{</span><span class="n">f</span><span class="p">:</span> <span class="n">_saved</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="ow">or</span> <span class="n">p</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="o">.</span><span class="n">items</span><span class="p">()},</span> <span class="n">notices</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-class">
+
+
+
+<h2 id="tit.volume_fields.FieldUnavailableError" class="doc doc-heading">
+            <span class="doc doc-object-name doc-class-name">tit.volume_fields.FieldUnavailableError</span>
+
+
+<a href="#tit.volume_fields.FieldUnavailableError" class="headerlink" title="Permanent link">&para;</a></h2>
+
+
+    <div class="doc doc-contents first">
+            <p class="doc doc-class-bases">
+              Bases: <code><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/exceptions.html#FileNotFoundError">FileNotFoundError</a></code></p>
+
+
+        <p>A field a step needs was not saved and cannot be produced from what the simulation kept.</p>
+
+
+
+
+
+
+
+
     </div>
 
 </div>

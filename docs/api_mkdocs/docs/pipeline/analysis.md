@@ -133,7 +133,8 @@ Each analysis returns an `AnalysisResult` dataclass with these fields:
 | `rms_roi_mean`, `rms_gm_mean`, `rms_focality` | The same on the RMS carrier field `sqrt(hf_sar / 2)` (V/m) |
 | `ti_selectivity` | `roi_focality / hf_focality`; above 1 the modulation is more focal than its carriers |
 | `hf_focality_50_area` ... `hf_focality_95_area` | `focality_*_area` computed on `hf_peak` |
-| `carrier_note` | Why a carrier metric is `None` (the simulation did not write `hf_peak` / `hf_sar`, or the analysed field is a carrier field) |
+| `carrier_note` | Why a carrier metric is `None` (a carrier field has no usable values on the analysed elements, or the analysed field is a carrier field) |
+| `on_demand_note` | What the analysis computed or wrote because the simulation had not saved it (`None` when everything was saved) |
 
 ## Group Analysis
 
