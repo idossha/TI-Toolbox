@@ -294,24 +294,29 @@ def _hf_layers(sim_dir: str, space: str) -> list[dict[str, Any]]:
 
 
 def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
-    """The grey-matter TI_max surface mesh, hidden by default (bugs of scale, W3a).
+    """The simulation's grey-matter field mesh, coloured by its envelope.
 
-    Subject space only -- SimNIBS writes no MNI-space mesh at all -- and
-    always the default ``TI_max`` field, never the high-frequency envelope
-    (there is no ``grey_<sim>_magnE.msh``). ``kind="label"`` matches the
-    ``ViewLayer`` contract's ``Literal["volume", "label"]`` (a mesh has no
-    kind of its own there; ``build_view``'s ``custom`` branch uses the same
-    convention). Hidden (``visible=False``) because these files run
-    24-420 MB (``docs/dev/DECISIONS.md § 2026-09-03 (Native desktop research)``) --
-    the dataset is declared lazy in the scene and fetched only if the user
-    makes the layer visible.
+    ``<TI|mTI>/mesh/grey_<sim>_<TI|mTI>.msh`` carries every field the run saved, so the
+    layer names the one it opens on (``mesh_field``: ``TI_max``, ``mTI_max`` for mTI, or a
+    carrier-only run's first carrier field, read from the mesh's section headers) and the
+    others are a field switch away in TetraVox. It is the simulation's own view of its
+    result: field NIfTIs are opt-in (``map_to_vol``), the mesh always exists. Subject space
+    only -- SimNIBS writes no MNI-space mesh. ``kind="label"`` matches the ``ViewLayer``
+    contract's ``Literal["volume", "label"]`` (a mesh has no kind of its own there).
     """
+    from tit.tools.msh_fields import msh_field_names
+
     for mode in _MODE_DIRS:
-        mesh = resolve_under(sim_dir, mode, "mesh", f"grey_{sim}_TI.msh")
-        if os.path.isfile(mesh):
-            return _layer(
-                mesh, kind="label", colormap="jet", opacity=1.0, visible=False
-            )
+        mesh = resolve_under(sim_dir, mode, "mesh", f"grey_{sim}_{mode}.msh")
+        if not os.path.isfile(mesh):
+            continue
+        carried = msh_field_names(mesh) or set()
+        preferred = ("mTI_max" if mode == "mTI" else "TI_max", "hf_peak", "hf_sar")
+        field = next((f for f in preferred if f in carried), None)
+        layer = _layer(mesh, kind="label", colormap="jet", opacity=1.0)
+        if field is not None:
+            layer["mesh_field"] = {"source": "elm", "name": field}
+        return layer
     return None
 
 
@@ -1538,6 +1543,7 @@ def clear_percentile_cache() -> None:
         _PERCENTILE_CACHE.clear()
     _stats_cache.clear()
     _bounds_cache.clear()
+    _mesh_bounds_cache.clear()
 
 
 #: Which :func:`_volume_stats` key answers which percentile, for the windows this module actually
@@ -2515,6 +2521,42 @@ def _bounds_for_mesh(
     return window(field_volumes[0])
 
 
+# path -> (mtime, size, field, bounds). Same lifetime as `_stats_cache`.
+_mesh_bounds_cache: dict[str, tuple[float, int, str, tuple[float, float] | None]] = {}
+
+
+def _mesh_field_bounds(path: str, field: str) -> tuple[float, float] | None:
+    """``(p95, p99.9)`` of element field *field*'s non-zero values in the mesh at *path*.
+
+    The field rule of :func:`_volume_window`, on the mesh's own elements, for a simulation that
+    wrote no NIfTI to borrow a window from. Only that field's block is read
+    (:func:`tit.tools.msh_fields.msh_element_field`). ``None`` when it cannot be read.
+    """
+    from tit.tools.msh_fields import msh_element_field
+
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    cached = _mesh_bounds_cache.get(path)
+    if cached is not None and cached[:3] == (st.st_mtime, st.st_size, field):
+        return cached[3]
+    import numpy as np
+
+    values = msh_element_field(path, field)
+    bounds = None
+    if values is not None:
+        values = values if values.ndim == 1 else np.linalg.norm(values, axis=1)
+        values = values[np.isfinite(values) & (values != 0)]
+        if values.size:
+            lo, hi = (float(v) for v in np.percentile(values, [95, 99.9]))
+            if not hi > lo:
+                lo, hi = float(values.min()), float(values.max())
+            bounds = (lo, hi) if hi > lo else None
+    _mesh_bounds_cache[path] = (st.st_mtime, st.st_size, field, bounds)
+    return bounds
+
+
 def _mesh_scale_and_threshold(
     field_bounds: tuple[float, float] | None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -2808,15 +2850,19 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
         if is_surface:
             layers.append({**base_fields, **_surface_layer(name, attachments, index)})
         elif is_mesh:
-            scale, threshold = _mesh_scale_and_threshold(
-                _bounds_for_mesh(name, field_volumes)
-            )
             mesh_field = layer.get("mesh_field")
             if mesh_field:
-                # The layer named its own node/element field (an analysis overlay's
-                # `<field>_ROI`): colour by it from 0 to the value the analysis
-                # reported, and hide the exact zeros outside the ROI.
                 field_name = str(mesh_field["name"])
+            if not mesh_field or mesh_field["source"] == "elm":
+                # A field mesh: the window of its field's sibling NIfTI when the run wrote
+                # one, else (NIfTIs are opt-in) the named field's own element values.
+                bounds = _bounds_for_mesh(name, field_volumes)
+                if bounds is None and mesh_field:
+                    bounds = _mesh_field_bounds(path, field_name)
+                scale, threshold = _mesh_scale_and_threshold(bounds)
+            else:
+                # An analysis overlay's `<field>_ROI` node data: colour by it from 0 to the
+                # value the analysis reported, and hide the exact zeros outside the ROI.
                 scale = {
                     "kind": "linear",
                     "lo": 0.0,
