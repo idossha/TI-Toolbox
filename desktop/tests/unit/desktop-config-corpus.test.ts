@@ -277,7 +277,7 @@ function simulatorCases(): CorpusCase[] {
     simCase("conductivity-dir", "Anisotropic direct conductivity", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), settings: s({ conductivity: "dir" }) }), { mode: "net" }),
     simCase("conductivity-mc", "Anisotropic mean conductivity", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), settings: s({ conductivity: "mc" }) }), { mode: "net" }),
     simCase("tissue-overrides", "Two tissue conductivity overrides", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), settings: s({ customConductivities: { "1": 0.14, "2": 0.33 } }) }), { mode: "net" }),
-    simCase("all-output-fields", "Every selectable output field, MNI and fsaverage", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), settings: s({ outputFields: ["TI_max", "TI_avg", "hf_peak", "hf_sar", "hf_power_density"], mapToMni: true, mapToFsavg: true }) }), { mode: "net" }),
+    simCase("all-output-fields", "Every selectable output field, NIfTIs in subject and MNI space, and fsaverage", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), settings: s({ outputFields: ["TI_max", "TI_avg", "hf_peak", "hf_sar", "hf_power_density"], writeNiftis: true, mapToMni: true, mapToFsavg: true }) }), { mode: "net" }),
     simCase("plan-step-no-intensities", "A plan step row whose step names no intensities (currents '')", step, { mode: "net" }),
     simCase("currents-zero-one", "Channel currents typed as 0 and 1 mA", simRow({ kind: "uni_polar", eegNet: NET, pairs: labelPairs(2), currents: "0,1" }), { mode: "net" }),
     simCase("no-montage-picked", "A row with a subject but no montage yet", simRow({ name: "", kind: "uni_polar", eegNet: NET, pairs: [] }), { mode: "net" }),

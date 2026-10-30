@@ -13,7 +13,7 @@ const poses = [11, 21, 31, 41].map((x) => [[0, -1, 0, x], [1, 0, 0, x + 2], [0, 
 const config = {
   subject_id: "ernie",
   montages: [{ _type: "Montage", name: "picked", mode: "flex_free", electrode_pairs: [[[11, 13, 14], [21, 23, 24]], [[31, 33, 34], [41, 43, 44]]], eeg_net: null, electrode_poses: poses, provenance: { run: "test-run", candidate_id: "trial-8" } }],
-  conductivity: "vn", aniso_maxratio: 8, aniso_maxcond: 1.5, intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], gel_thickness: 3, rubber_thickness: 1, output_fields: ["TI_max"], map_to_fsavg: false, map_to_mni: false,
+  conductivity: "vn", aniso_maxratio: 8, aniso_maxcond: 1.5, intensities: [0.7, -1.3], electrode_shape: "rect", electrode_dimensions: [9, 17], gel_thickness: 3, rubber_thickness: 1, output_fields: ["TI_max"], map_to_fsavg: false, map_to_vol: false, map_to_mni: false,
 };
 const handoff = { id: "trial-8", subject: "ernie", kind: "flex", run: "test-run", config };
 

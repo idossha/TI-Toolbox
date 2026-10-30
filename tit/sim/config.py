@@ -411,13 +411,18 @@ class SimulationConfig:
         (default) because the ``TI_normal`` calculation requires surface
         overlays.
     map_to_vol : bool
-        Not used.  Subject-space NIfTIs are always written after the run
-        by ``tit.tools.mesh2nii``; SimNIBS is never asked for them.  The
-        value is only recorded in the run's ``config.json``, and the field
-        is still accepted so older configs load.  Default ``False``.
+        Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
+        name; ``tit.tools.mesh2nii`` does the conversion after the run): one
+        3-D ``<mesh>_subject_<field>.nii.gz`` per field of each field mesh --
+        the brain-tissue mesh and its grey- and white-matter copies -- so the
+        NIfTI set is the mesh field set, name for name, plus each channel's
+        ``magnE``.  Default ``False``: the field meshes are the output, and a
+        step that needs a NIfTI (a voxel analysis, the group tools) writes the
+        one it reads on demand (:mod:`tit.volume_fields`).
     map_to_mni : bool
-        Generate MNI-space field and T1 NIfTI outputs after simulation.
-        Default ``False``; subject-space NIfTI outputs are always generated.
+        With *map_to_vol*, also write each field NIfTI in MNI space
+        (``<mesh>_MNI_MNI_<field>.nii.gz``) and the T1 in MNI space.  Requires
+        *map_to_vol*.  Default ``False``.
     map_to_fsavg : bool
         After each TI montage finishes, project its surface fields
         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_sar``) onto fsaverage5
@@ -441,9 +446,14 @@ class SimulationConfig:
         Which volume-mesh fields to compute and write. Logical names from
         :data:`tit.constants.SELECTABLE_OUTPUT_FIELDS`: ``"TI_max"``,
         ``"TI_avg"``, ``"hf_peak"``, ``"hf_sar"``, ``"hf_power_density"``.
-        ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. Defaults to
-        ``["TI_max"]`` only -- ``TI_avg`` and the safety fields
-        (``hf_peak``, ``hf_sar``, ``hf_power_density``) must be opted into.
+        ``"TI_max"`` maps to ``mTI_max`` on disk for mTI meshes. ``None``
+        (the default) is :data:`tit.constants.DEFAULT_OUTPUT_FIELDS` --
+        ``["TI_max", "hf_peak", "hf_sar"]``, the envelope and the carrier
+        fields an analysis's carrier metrics read -- or, for a *carrier_only*
+        run, which has no envelope, ``["hf_peak", "hf_sar"]``.  ``TI_avg`` and
+        ``hf_power_density`` are opt-in; a field not saved here is computed
+        later, from the kept channel meshes, by the step that needs it
+        (``hf_power_density`` excepted: its conductivity is not kept).
         ``hf_power_density`` (W/m^3) uses the conductivity of this run's own
         solve, the full tensor under the anisotropic models.
     tissue_conductivities : dict[int, float] or None
@@ -466,8 +476,8 @@ class SimulationConfig:
         ``hf_sar`` and ``hf_power_density`` then add the two channel fields
         coherently (``|E1+E2|``, see :func:`tit.calc.hf_peak`) and no envelope
         field (``TI_max``, ``TI_avg``, ``TI_normal``) is computed.  Requires a
-        two-channel TI montage and ``output_fields`` from those carrier fields.
-        Default ``False``.
+        two-channel TI montage; an explicit ``output_fields`` must be drawn
+        from those carrier fields (the default already is).  Default ``False``.
 
     Raises
     ------
@@ -477,8 +487,9 @@ class SimulationConfig:
         montage has a channel that is not exactly two electrodes, if
         *intensities* is shorter than a montage needs (2 for TI, one per
         channel for mTI), if *tissue_conductivities* contains a
-        non-positive value, or if *carrier_only* is set with an envelope
-        output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
+        non-positive value, if *carrier_only* is set with an envelope
+        output field or a montage that is not two-channel TI, or if
+        *map_to_mni* is set without *map_to_vol*.  Filesystem checks (the m2m directory, the
         EEG-net CSV) happen later, in :func:`run_simulation`.
 
     Examples
@@ -506,10 +517,10 @@ class SimulationConfig:
 
     >>> sham = SimulationConfig(
     ...     subject_id="ernie", montages=[montage], intensities=[1.0, 1.0],
-    ...     carrier_only=True, output_fields=["hf_peak", "hf_sar"],
+    ...     carrier_only=True,
     ... )
-    >>> sham.carrier_only
-    True
+    >>> sham.output_fields
+    ['hf_peak', 'hf_sar']
 
     Then ``run_simulation(cfg)`` (needs SimNIBS and the subject's m2m
     directory).
@@ -532,8 +543,8 @@ class SimulationConfig:
     # map_to_surf must be True — TI_normal calculation requires surface overlays.
     map_to_surf: bool = True
     # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).
-    # map_to_vol and tissues_in_niftis change nothing; they stay so an older
-    # config.json or job spec that carries them still deserialises.
+    # tissues_in_niftis changes nothing; it stays so an older config.json or job spec
+    # that carries it still deserialises.
     map_to_vol: bool = False
     map_to_mni: bool = False
     map_to_fsavg: bool = True
@@ -541,7 +552,7 @@ class SimulationConfig:
     tissues_in_niftis: str = "all"
     aniso_maxratio: float = 10.0
     aniso_maxcond: float = 2.0
-    output_fields: list[str] = field(default_factory=lambda: [const.FIELD_TI_MAX])
+    output_fields: list[str] | None = None
     tissue_conductivities: dict[int, float] | None = None
     carrier_only: bool = False
 
@@ -550,6 +561,18 @@ class SimulationConfig:
             raise ValueError(
                 f"Invalid conductivity {self.conductivity!r}, "
                 f"must be one of {_VALID_CONDUCTIVITIES}"
+            )
+        if self.output_fields is None:
+            # One rule for both modes: every default field the run defines.
+            self.output_fields = [
+                name
+                for name in const.DEFAULT_OUTPUT_FIELDS
+                if not self.carrier_only or name in const.CARRIER_OUTPUT_FIELDS
+            ]
+        if self.map_to_mni and not self.map_to_vol:
+            raise ValueError(
+                "map_to_mni writes the field NIfTIs in MNI space, so it needs map_to_vol "
+                "(write NIfTI volumes) as well."
             )
         invalid = sorted(set(self.output_fields) - set(const.SELECTABLE_OUTPUT_FIELDS))
         if invalid:

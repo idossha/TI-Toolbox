@@ -20,7 +20,6 @@ tit.analyzer.field_selector : Automatic field file resolution.
 import hashlib
 import logging
 import re
-import struct
 import tempfile
 import time
 from dataclasses import asdict, dataclass
@@ -142,73 +141,6 @@ CARRIER_RESULT_KEYS = (
 )
 
 
-#: Nodes per element for the Gmsh element types a SimNIBS mesh holds (line, triangle,
-#: quadrangle, tetrahedron, hexahedron, prism, pyramid, point).
-_GMSH_NODES_PER_ELEMENT = {1: 2, 2: 3, 3: 4, 4: 4, 5: 8, 6: 6, 7: 5, 15: 1}
-
-
-def msh_field_names(path) -> set[str] | None:
-    """Names of the node/element data fields in a Gmsh 2.2 ``.msh`` file, or ``None``.
-
-    Walks the section headers and seeks over every payload (nodes, elements, field values),
-    so a 40 MB central surface costs a few kilobytes of reading, not a mesh load, and
-    nothing here needs SimNIBS. The field name is the first string tag of each
-    ``$NodeData`` / ``$ElementData`` block. ``None`` means "could not tell" (not a Gmsh 2.2
-    file, empty, truncated, an element type this table lacks) -- callers then skip the
-    check rather than report a field as missing.
-    """
-    try:
-        with open(path, "rb") as fh:
-            if fh.readline().strip() != b"$MeshFormat":
-                return None
-            version, file_type, size = fh.readline().split()[:3]
-            if not version.startswith(b"2"):
-                return None
-            binary, size = file_type == b"1", int(size)
-            names: set[str] = set()
-            for line in iter(fh.readline, b""):
-                tag = line.strip()
-                if tag == b"$Nodes":
-                    count = int(fh.readline())
-                    if binary:
-                        fh.seek(count * (4 + 3 * size), 1)
-                    else:
-                        for _ in range(count):
-                            fh.readline()
-                elif tag == b"$Elements":
-                    count = int(fh.readline())
-                    while binary and count > 0:  # blocks of one element type each
-                        etype, block, ntags = struct.unpack("<3i", fh.read(12))
-                        nodes = _GMSH_NODES_PER_ELEMENT[etype]
-                        fh.seek(block * 4 * (1 + ntags + nodes), 1)
-                        count -= block
-                    for _ in range(0 if binary else count):
-                        fh.readline()
-                elif tag in (b"$NodeData", b"$ElementData"):
-                    strings = [fh.readline() for _ in range(int(fh.readline()))]
-                    if strings:
-                        names.add(strings[0].strip().strip(b'"').decode())
-                    for _ in range(int(fh.readline())):  # real tags (time)
-                        fh.readline()
-                    ints = [int(fh.readline()) for _ in range(int(fh.readline()))]
-                    components, count = ints[1], ints[2]
-                    if binary:
-                        fh.seek(count * (4 + components * size), 1)
-                    else:
-                        for _ in range(count):
-                            fh.readline()
-            return names
-    except (
-        OSError,
-        ValueError,
-        IndexError,
-        KeyError,
-        struct.error,
-        UnicodeDecodeError,
-    ):
-        return None
-
-
 # ---------------------------------------------------------------------------
 # Result dataclass
 # ---------------------------------------------------------------------------
@@ -293,8 +225,13 @@ class AnalysisResult:
         99.9th-percentile convention, same GM elements).
     carrier_note : str or None
         Why a carrier metric is ``None``: the analysed field is itself a
-        carrier field, or the simulation did not write ``hf_peak`` /
-        ``hf_sar``. ``None`` when every carrier metric is present.
+        carrier field, or a carrier field has no usable values on the
+        analysed elements. ``None`` when every carrier metric is present.
+    on_demand_note : str or None
+        What this analysis produced because the simulation had not saved it
+        (a field computed from the channel meshes, a NIfTI written from the
+        field mesh), in the words it logged; ``None`` when everything was
+        saved. What it produced stays in the simulation's outputs.
 
     See Also
     --------
@@ -336,6 +273,7 @@ class AnalysisResult:
     hf_focality_90_area: float | None = None
     hf_focality_95_area: float | None = None
     carrier_note: str | None = None
+    on_demand_note: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -365,7 +303,12 @@ class Analyzer:
     field : str or None, optional
         Field to analyze, from ``constants.FIELD_REGISTRY`` (e.g.
         ``"hf_peak"``, ``"TI_normal"``). Default ``None`` resolves the
-        TI_max/mTI_max envelope. See :func:`select_field_file`.
+        TI_max/mTI_max envelope. See :func:`select_field_file`. A volume
+        field the simulation did not save -- the analysed field, or the
+        ``hf_peak`` / ``hf_sar`` a modulation field's carrier metrics read --
+        is produced first, from the simulation's channel meshes, and saved
+        into its outputs (:mod:`tit.volume_fields`); so is the NIfTI a voxel
+        analysis reads. ``on_demand_note`` on the result says what was.
 
     Attributes
     ----------
@@ -390,7 +333,9 @@ class Analyzer:
     ------
     FileNotFoundError
         If no field file exists for *subject_id*/*simulation* in *space*
-        (run the simulation first).
+        (run the simulation first), or a field it needs was not saved and
+        cannot be produced (:class:`tit.volume_fields.FieldUnavailableError`,
+        naming what is missing).
     ValueError
         If *space* is not ``"mesh"``/``"voxel"`` or *field* is not a known
         field name.
@@ -415,6 +360,11 @@ class Analyzer:
     run_group_analysis : Multi-subject group analysis.
     """
 
+    #: What :meth:`_produce_missing_fields` produced (its notices); none until it runs.
+    _on_demand: tuple[str, ...] = ()
+    #: The central surface :meth:`_load_surface_mesh` read; ``None`` until it has.
+    _surface_mesh_path: Path | None = None
+
     def __init__(
         self,
         subject_id: str,
@@ -431,29 +381,36 @@ class Analyzer:
         if self.space == "mesh":
             self.tissue_type = "GM"
 
-        field_path, field_name = select_field_file(
-            subject_id,
-            simulation,
-            space,
-            tissue_type=self.tissue_type,
-            field=field,
-        )
-        self.field_path = field_path
-        self.field_name = field_name
-        # mTI outputs live under <simulation>/mTI/; TI outputs under <simulation>/TI/.
-        self._is_mti = "mTI" in Path(field_path).parts
-
         pm = get_path_manager()
         self.m2m_path = pm.m2m(subject_id)
         self.output_dir = output_dir
         self._pm = pm
 
-        # Attach a file handler so every log message is persisted to disk
+        # Attach a file handler so every log message is persisted to disk, the notices of
+        # what is produced on demand below included.
         logs_dir = pm.logs(subject_id)
         pm.ensure(logs_dir)
         timestamp = time.strftime("%Y%m%d_%H%M%S")
         log_file = Path(logs_dir) / f"analyzer_{simulation}_{timestamp}.log"
         self._log_handler = add_file_handler(log_file)
+
+        try:
+            self._on_demand = tuple(self._produce_missing_fields(field))
+            field_path, field_name = select_field_file(
+                subject_id,
+                simulation,
+                space,
+                tissue_type=self.tissue_type,
+                field=field,
+            )
+        except BaseException:
+            logging.getLogger("tit").removeHandler(self._log_handler)
+            self._log_handler.close()
+            raise
+        self.field_path = field_path
+        self.field_name = field_name
+        # mTI outputs live under <simulation>/mTI/; TI outputs under <simulation>/TI/.
+        self._is_mti = "mTI" in Path(field_path).parts
 
         logger.info(
             "Analyzer initialised: subject=%s sim=%s space=%s tissue=%s field=%s",
@@ -467,6 +424,45 @@ class Analyzer:
         # Cached lazily
         self._surface_mesh = None
         self._surface_mesh_path: Path | None = None
+
+    @staticmethod
+    def volume_fields_read(space: str, field: str | None) -> list[str]:
+        """The volume fields an analysis of *field* in *space* reads (job preflight asks too).
+
+        The analysed field itself (not ``TI_normal``, a surface field) and, for a modulation
+        field, the ``hf_peak`` / ``hf_sar`` its carrier metrics read. A request
+        :func:`select_field_file` will refuse (unknown field or space, ``TI_normal`` in voxel
+        space) reads none.
+        """
+        name = field or const.FIELD_TI_MAX
+        if space not in ("mesh", "voxel") or name not in const.get_field_names():
+            return []
+        if space == "voxel" and name == const.FIELD_TI_NORMAL:
+            return []
+        needed = [] if name == const.FIELD_TI_NORMAL else [name]
+        if name in MODULATION_FIELDS:
+            needed += [const.FIELD_HF_PEAK, const.FIELD_HF_SAR]
+        return needed
+
+    def _produce_missing_fields(self, field: str | None) -> list[str]:
+        """Produce what this analysis reads and the simulation did not save; the notices said.
+
+        :meth:`volume_fields_read`, into the field mesh and central surface (mesh space), or as
+        the tissue's subject-space NIfTIs (voxel space).
+        """
+        from tit.volume_fields import ensure_mesh_fields, ensure_niftis
+
+        needed = self.volume_fields_read(self.space, field)
+        if not needed:
+            return []
+        if self.space == "mesh":
+            return ensure_mesh_fields(
+                self.subject_id, self.simulation, needed, say=logger.info
+            )
+        tissue = {"GM": "grey", "WM": "white", "BOTH": None}[self.tissue_type]
+        return ensure_niftis(
+            self.subject_id, self.simulation, needed, tissue=tissue, say=logger.info
+        )[1]
 
     # ------------------------------------------------------------------
     # Public API
@@ -1140,6 +1136,7 @@ class Analyzer:
             total_area_or_volume=float(np.sum(roi_areas)),
             **focality,
             **carrier,
+            on_demand_note=" ".join(self._on_demand) or None,
         )
 
         if visualize:
@@ -1234,6 +1231,7 @@ class Analyzer:
             total_area_or_volume=float(np.sum(roi_mask)) * voxel_vol,
             **focality,
             **carrier,
+            on_demand_note=" ".join(self._on_demand) or None,
         )
 
         if visualize:
@@ -1420,12 +1418,12 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _mesh_carriers(self, surface) -> dict | None:
-        """``hf_peak`` / ``hf_sar`` node values on the central surface (``None``: not written).
+        """``hf_peak`` / ``hf_sar`` node values on the central surface, or why there are none.
 
         Read from the surface the analysed field is on: ``msh2cortex`` maps every field of
         the TI/mTI mesh onto it, so the carrier fields went through the same interpolation as
-        the modulation field. Returns ``None`` when the analysed field is not a modulation
-        field.
+        the modulation field. Both are there once :meth:`_produce_missing_fields` ran. Returns
+        ``None`` when the analysed field is not a modulation field.
         """
         if self.field_name not in MODULATION_FIELDS:
             return None
@@ -1433,14 +1431,14 @@ class Analyzer:
             name: (
                 np.asarray(surface.field[name].value, dtype=np.float64)
                 if name in surface.field
-                else None
+                else f"the central surface {self._surface_mesh_path} carries no {name}"
             )
             for name in (const.FIELD_HF_PEAK, const.FIELD_HF_SAR)
         }
 
     def _voxel_carriers(self, shape: tuple, affine: np.ndarray) -> dict | None:
-        """``hf_peak`` / ``hf_sar`` on the analysed field's grid: an array, ``None`` (not
-        written) or the reason it cannot be used.
+        """``hf_peak`` / ``hf_sar`` on the analysed field's grid: an array, or the reason it
+        cannot be used (both are written once :meth:`_produce_missing_fields` ran).
 
         mesh2nii names every field of one mesh ``<mesh stem>_<field>.nii.gz`` in one folder,
         so the carrier NIfTI of the same tissue is the analysed file with its field suffix
@@ -1472,7 +1470,7 @@ class Analyzer:
             ext = suffix[len(self.field_name) + 1 :]
             path = self.field_path.with_name(f"{name[: -len(suffix)]}_{carrier}{ext}")
             if not path.is_file():
-                out[carrier] = None
+                out[carrier] = f"{path.name} is not in {path.parent}"
                 continue
             img = nib.load(str(path))
             arr = self._squeeze_4d(np.asarray(img.get_fdata()))
@@ -1504,13 +1502,12 @@ class Analyzer:
         *roi_weights* / *gm_weights*, so each carrier ratio is taken over exactly the
         elements of ``roi_focality``. ``E_rms`` is used for the RMS ratio, not ``hf_power``:
         a ratio of mean squares would be a ratio of squared fields, not comparable with the
-        linear ``roi_focality``. *carriers* maps ``hf_peak`` / ``hf_sar`` to their values,
-        ``None`` (not written) or the reason they cannot be used (:meth:`_mesh_carriers`,
-        :meth:`_voxel_carriers`); *carriers* ``None`` means the analysed field is a carrier
-        field itself. A carrier with non-finite values on those elements, or a reference mean
-        <= 0, has no focality. Every metric that cannot be computed is ``None``,
-        ``carrier_note`` says why, and one warning per analysis says what to tick; the
-        modulation statistics are never affected.
+        linear ``roi_focality``. *carriers* maps ``hf_peak`` / ``hf_sar`` to their values or
+        the reason they cannot be used (:meth:`_mesh_carriers`, :meth:`_voxel_carriers`);
+        *carriers* ``None`` means the analysed field is a carrier field itself. A carrier with
+        non-finite values on those elements, or a reference mean <= 0, has no focality. Every
+        metric that cannot be computed is ``None``, ``carrier_note`` says why, and one warning
+        per analysis says so; the modulation statistics are never affected.
         """
         out: dict = dict.fromkeys(CARRIER_RESULT_KEYS)
         if carriers is None:
@@ -1539,13 +1536,8 @@ class Analyzer:
             roi = float(np.average(roi_values, weights=roi_weights))
             return roi, gm, roi / gm
 
-        absent = []
         peak = carriers[const.FIELD_HF_PEAK]
-        if peak is None:
-            absent.append(
-                "hf_peak (for hf_focality, ti_selectivity and the carrier hot spot)"
-            )
-        elif isinstance(peak, str):
+        if isinstance(peak, str):
             problems.append(peak)
         elif (stats := means(const.FIELD_HF_PEAK, peak)) is not None:
             roi, gm, hf_focality = stats
@@ -1568,21 +1560,11 @@ class Analyzer:
                 },
             )
         sar = carriers[const.FIELD_HF_SAR]
-        if sar is None:
-            absent.append("hf_sar (for the rms_* statistics)")
-        elif isinstance(sar, str):
+        if isinstance(sar, str):
             problems.append(sar)
         elif (stats := means("E_rms from hf_sar", rms_from_hf_sar(sar))) is not None:
             roi, gm, rms_focality = stats
             out.update(rms_roi_mean=roi, rms_gm_mean=gm, rms_focality=rms_focality)
-        if absent:
-            problems.append(
-                "this simulation did not write "
-                + " or ".join(a.split(" ")[0] for a in absent)
-                + ": tick "
-                + " and ".join(absent)
-                + " among its Output fields and re-run it"
-            )
         if problems:
             out["carrier_note"] = "; ".join(problems) + "."
             logger.warning("Carrier metrics incomplete: %s", out["carrier_note"])

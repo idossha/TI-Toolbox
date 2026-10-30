@@ -64,6 +64,10 @@ export interface JobSettings {
   dimensions: [number, number];
   gelThickness: number;
   outputFields: string[];
+  /** Write one NIfTI per output field (`SimulationConfig.map_to_vol`). Off by default: the field
+   *  mesh is the output, and a step that needs a NIfTI writes the one it reads. */
+  writeNiftis?: boolean;
+  /** With `writeNiftis`, also write them in MNI space (`map_to_mni`, which needs `map_to_vol`). */
   mapToMni?: boolean;
   mapToFsavg?: boolean;
   /** ΔF = 0 carrier-only control: both pairs at one frequency, in phase — no envelope; only the
@@ -83,6 +87,7 @@ export function defaultJobSettings(): JobSettings {
     dimensions: d.electrode_dimensions as [number, number],
     gelThickness: d.gel_thickness as number,
     outputFields: d.output_fields as string[],
+    writeNiftis: d.map_to_vol as boolean,
     mapToMni: d.map_to_mni as boolean,
     mapToFsavg: d.map_to_fsavg as boolean,
     carrierOnly: d.carrier_only as boolean,
@@ -305,8 +310,12 @@ export const OUTPUT_FIELDS: OutputFieldSpec[] = [
 /** The only fields defined without an envelope — what a carrier-only (ΔF = 0) job may compute. */
 export const CARRIER_FIELDS = ["hf_peak", "hf_sar", "hf_power_density"];
 
-/** What switching carrier-only on ticks when no carrier field is ticked: the two fields that need no conductivity. */
+/** What switching carrier-only on ticks when no carrier field is ticked: the two fields that need no conductivity
+ *  (and what `SimulationConfig`'s default is for a carrier-only run). */
 export const DEFAULT_CARRIER_FIELDS = ["hf_peak", "hf_sar"];
+
+export const WRITE_NIFTIS_HELP =
+  "Also save every output field as a 3-D NIfTI, one file per field. Off, the field mesh is the output: a voxel analysis or a group tool writes the NIfTI it reads when it needs one.";
 
 export const CARRIER_ONLY_HELP =
   "A control with no temporal interference: both channels run at the same carrier frequency (ΔF = 0) and in phase, " +

@@ -1273,3 +1273,18 @@ is what the server sends and the desktop already reads (`schema.d.ts` is unchang
 candidates also carry two more metrics keys, `hf_focality` and `ti_selectivity` (null for flex
 and for a `final_output.csv` without the columns); `metrics` is an open map, so no schema changes
 for them. Regenerated `contracts/generated/openapi.json`.
+
+## 2026-10-30 — field meshes by default; NIfTIs opt-in; `ViewLayer.mesh_field` declared
+
+Config schema, regenerated from the dataclasses: `SimulationConfig.output_fields` is
+`array | null` with default `null`, which the dataclass resolves to `["TI_max", "hf_peak",
+"hf_sar"]` (`["hf_peak", "hf_sar"]` for `carrier_only`); `x-app-defaults.sim.output_fields`
+is that list for the Simulator page (an agent config with `carrier_only` and no `output_fields`
+is left to the dataclass). `map_to_vol`'s and `map_to_mni`'s descriptions now say what they do:
+write one NIfTI per field, and its MNI copies (which need `map_to_vol`; a config with
+`map_to_mni` and without `map_to_vol` is refused). A config without these keys still loads.
+`openapi.yaml`: `SimulationDetail.fields` is described (mesh fields plus NIfTI fields) and
+`ViewLayer.mesh_field` — already sent for analysis overlays — is declared, optional, for the
+simulation field mesh too. Regenerated `contracts/generated/config.schema.json`,
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+

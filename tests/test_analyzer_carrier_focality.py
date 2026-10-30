@@ -6,11 +6,12 @@ What this pins
     ``hf_focality`` = mean_ROI(hf_peak) / mean_GM(hf_peak), ``rms_focality`` on
     E_rms = sqrt(hf_sar / 2), ``ti_selectivity`` = roi_focality / hf_focality and the
     ``hf_focality_*_area`` hot-spot extents on hf_peak. A carrier field the simulation did
-    not write leaves its metrics ``None`` with ``carrier_note`` naming what to tick, in one
-    warning per analysis; a carrier with NaN/inf on the analysed elements, a reference mean of
-    0, or a voxel carrier on another grid (shape or affine) leaves its metrics ``None`` with the
-    reason, and never touches the modulation statistics; an analysis of a carrier field reports
-    none of them, with a note saying why.
+    not save is produced before the analysis reads anything (tests/test_analyzer_on_demand.py);
+    one still absent when the metrics are taken, a carrier with NaN/inf on the analysed
+    elements, a reference mean of 0, or a voxel carrier on another grid (shape or affine) leaves
+    its metrics ``None`` with the reason in ``carrier_note`` and one warning per analysis, and
+    never touches the modulation statistics; an analysis of a carrier field reports none of
+    them, with a note saying why.
 
 Where the expectations come from
     Hand arithmetic on authored fields, written out beside each assertion: piecewise-constant
@@ -155,22 +156,21 @@ def test_a_missing_hf_sar_leaves_only_the_rms_metrics_out(tmp_path: Path) -> Non
     assert r.hf_focality == pytest.approx(57 / 39)
     assert r.rms_roi_mean is r.rms_gm_mean is r.rms_focality is None
     assert r.carrier_note == (
-        "this simulation did not write hf_sar: tick hf_sar (for the rms_* statistics) "
-        "among its Output fields and re-run it."
+        f"the central surface {tmp_path / 'sim_TI_central.msh'} carries no hf_sar."
     )
     assert _csv(tmp_path)["carrier_note"] == r.carrier_note
 
 
-def test_no_carrier_fields_is_one_warning_naming_both_fields_to_tick(
+def test_no_carrier_fields_is_one_warning_naming_both(
     tmp_path: Path, caplog
 ) -> None:
     with caplog.at_level("WARNING", logger="tit.analyzer.analyzer"):
         r = _sphere(_mesh(tmp_path, TI_max=TI))
     assert all(getattr(r, k) is None for k in CARRIER_RESULT_KEYS[:-1])
+    surface = tmp_path / "sim_TI_central.msh"
     assert r.carrier_note == (
-        "this simulation did not write hf_peak or hf_sar: tick hf_peak (for hf_focality, "
-        "ti_selectivity and the carrier hot spot) and hf_sar (for the rms_* statistics) "
-        "among its Output fields and re-run it."
+        f"the central surface {surface} carries no hf_peak; "
+        f"the central surface {surface} carries no hf_sar."
     )
     warnings = [rec for rec in caplog.records if rec.levelname == "WARNING"]
     assert len(warnings) == 1 and r.carrier_note in warnings[0].getMessage()
@@ -265,10 +265,10 @@ def test_voxel_path_uses_the_same_voxels_and_volumes(tmp_path: Path) -> None:
     assert r.carrier_note is None
 
 
-def test_voxel_missing_carrier_nifti_names_what_to_tick(tmp_path: Path) -> None:
+def test_voxel_missing_carrier_nifti_names_the_file(tmp_path: Path) -> None:
     r = _voxel_sphere(*_voxel(tmp_path, written=("hf_peak",)))
     assert r.hf_focality is not None and r.rms_focality is None
-    assert "did not write hf_sar: tick hf_sar" in r.carrier_note
+    assert r.carrier_note == f"grey_sim_TI_subject_hf_sar.nii.gz is not in {tmp_path}."
 
 
 def test_voxel_carrier_of_another_shape_is_refused_by_name(tmp_path: Path) -> None:

@@ -326,6 +326,13 @@ CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
 )
 
 
+#: What a simulation writes when ``SimulationConfig.output_fields`` is not given: the
+#: envelope and the two carrier fields an analysis's carrier metrics read. ``TI_avg`` and
+#: ``hf_power_density`` are opt-in. A carrier-only run has no envelope, so its default is the
+#: carrier fields among these (``SimulationConfig.__post_init__``).
+DEFAULT_OUTPUT_FIELDS: tuple[str, ...] = (FIELD_TI_MAX, FIELD_HF_PEAK, FIELD_HF_SAR)
+
+
 #: Field names valid on the fsaverage surface: every registered field except
 #: ``FIELD_MTI_MAX`` ("mTI_max"), ``FIELD_TI_AVG`` ("TI_avg") and
 #: ``FIELD_HF_POWER_DENSITY`` ("hf_power_density"). The

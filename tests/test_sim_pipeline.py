@@ -26,6 +26,7 @@ from tit.sim.config import (
 
 # Force submodule imports so they are in sys.modules (needed for patch.object)
 import tit.sim.base as _base_mod
+import tit.volume_fields as _fields_mod
 import tit.sim.TI as _ti_mod
 import tit.sim.mTI as _mti_mod
 import tit.sim.utils as _utils_mod
@@ -122,14 +123,14 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_ti_mod, "extract_fields"),
-            patch.object(_ti_mod, "transform_dirs_to_nifti"),
-            patch.object(_ti_mod, "start_t1_to_mni"),
-            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_base_mod, "transform_dirs_to_nifti"),
+            patch.object(_base_mod, "start_t1_to_mni"),
+            patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_base_mod, "envelope_max"),
+            patch.object(_fields_mod, "envelope_max"),
             patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
@@ -174,14 +175,14 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_ti_mod, "extract_fields"),
-            patch.object(_ti_mod, "transform_dirs_to_nifti"),
-            patch.object(_ti_mod, "start_t1_to_mni"),
-            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_base_mod, "transform_dirs_to_nifti"),
+            patch.object(_base_mod, "start_t1_to_mni"),
+            patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_base_mod, "envelope_max"),
+            patch.object(_fields_mod, "envelope_max"),
             patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_base_mod, "deepcopy") as mock_deepcopy,
@@ -229,6 +230,43 @@ class TestTISimulation:
             ]
             assert const.FIELD_TI_AVG in written_field_names
 
+    def test_niftis_are_opt_in(self):
+        """By default a run writes its field meshes and no NIfTI (map_to_vol off)."""
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "setup_montage_directories") as mock_setup_dirs,
+            patch.object(_base_mod, "create_simulation_config_file"),
+            patch.object(_base_mod, "run_montage_visualization"),
+            patch.object(_base_mod, "run_simnibs"),
+            patch.object(_base_mod, "generate_central_surface") as mock_surface,
+            patch.object(_ti_mod, "extract_fields") as mock_extract,
+            patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
+            patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
+            patch.object(_base_mod, "start_t1_to_mni") as mock_start,
+            patch.object(_ti_mod, "safe_move"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(_base_mod, "envelope"),
+            patch.object(_ti_mod, "glob"),
+        ):
+            mock_pm.return_value.m2m.return_value = "/fake/m2m"
+            mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
+            mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
+            mock_setup_dirs.return_value = {k: f"/fake/{k}" for k in (
+                "montage_dir", "hf_dir", "hf_mesh", "hf_niftis", "hf_analysis", "ti_mesh",
+                "ti_niftis", "ti_surfaces", "ti_surface_overlays", "ti_montage_imgs",
+                "documentation",
+            )}
+            config = _make_sim_config()
+            assert (config.map_to_vol, config.map_to_mni) == (False, False)
+            _ti_mod.TISimulation(config, _make_ti_montage(), MagicMock()).run("/fake/sim_dir")
+
+            mock_extract.assert_called_once()  # the grey/white field meshes
+            mock_surface.assert_called_once()  # the central surface
+            mock_transform.assert_not_called()
+            mock_check.assert_not_called()
+            mock_start.assert_not_called()
+
     @pytest.mark.parametrize("map_to_mni", [False, True])
     def test_run_calls_setup_and_simnibs(self, map_to_mni):
         with (
@@ -237,14 +275,15 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file") as mock_create,
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_ti_mod, "extract_fields"),
-            patch.object(_ti_mod, "transform_dirs_to_nifti") as mock_transform,
-            patch.object(_ti_mod, "start_t1_to_mni") as mock_start,
-            patch.object(_ti_mod, "finish_t1_to_mni") as mock_finish,
+            patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
+            patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
+            patch.object(_base_mod, "start_t1_to_mni") as mock_start,
+            patch.object(_base_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_base_mod, "envelope_max"),
+            patch.object(_fields_mod, "envelope_max"),
             patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
@@ -267,7 +306,7 @@ class TestTISimulation:
             }
 
             sim = _ti_mod.TISimulation(
-                _make_sim_config(map_to_mni=map_to_mni), _make_ti_montage(), MagicMock()
+                _make_sim_config(map_to_vol=True, map_to_mni=map_to_mni), _make_ti_montage(), MagicMock()
             )
             sim.run("/fake/sim_dir")
 
@@ -276,6 +315,7 @@ class TestTISimulation:
             )
             mock_run_simnibs.assert_called_once()
             assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
+            assert mock_check.call_args.kwargs["mni"] is map_to_mni
             assert mock_start.call_count == int(map_to_mni)
             assert mock_finish.call_count == int(map_to_mni)
             mock_create.assert_called_once()
@@ -313,15 +353,16 @@ class TestMTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_mti_mod, "extract_fields"),
-            patch.object(_mti_mod, "transform_dirs_to_nifti") as mock_transform,
-            patch.object(_mti_mod, "start_t1_to_mni") as mock_start,
-            patch.object(_mti_mod, "finish_t1_to_mni") as mock_finish,
+            patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
+            patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
+            patch.object(_base_mod, "start_t1_to_mni") as mock_start,
+            patch.object(_base_mod, "finish_t1_to_mni") as mock_finish,
             patch.object(_mti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(
-                _base_mod, "envelope_max", wraps=_base_mod.envelope_max
+                _fields_mod, "envelope_max", wraps=_fields_mod.envelope_max
             ) as mock_get_ti,
             patch.object(_mti_mod, "envelope_max", wraps=_mti_mod.envelope_max),
             patch.object(_base_mod, "envelope"),
@@ -358,6 +399,7 @@ class TestMTISimulation:
             mock_setup_dirs.return_value = dirs
 
             config = _make_sim_config(
+                map_to_vol=True,
                 map_to_mni=map_to_mni,
                 intensities=[1.0, 1.0, 1.0, 1.0],
                 output_fields=[
@@ -383,6 +425,7 @@ class TestMTISimulation:
             )
             mock_run_simnibs.assert_called_once()
             assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
+            assert mock_check.call_args.kwargs["mni"] is map_to_mni
             assert mock_start.call_count == int(map_to_mni)
             assert mock_finish.call_count == int(map_to_mni)
 
@@ -413,21 +456,21 @@ class TestMTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_mti_mod, "extract_fields"),
-            patch.object(_mti_mod, "transform_dirs_to_nifti"),
-            patch.object(_mti_mod, "start_t1_to_mni"),
-            patch.object(_mti_mod, "finish_t1_to_mni"),
+            patch.object(_base_mod, "transform_dirs_to_nifti"),
+            patch.object(_base_mod, "start_t1_to_mni"),
+            patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_mti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(
-                _base_mod, "envelope_max", wraps=_base_mod.envelope_max
+                _fields_mod, "envelope_max", wraps=_fields_mod.envelope_max
             ) as mock_get_ti,
             patch.object(
                 _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
             ) as mock_pair_ti,
             patch.object(_base_mod, "envelope"),
-            patch.object(_base_mod, "envelope_mean") as mock_get_avg,
+            patch.object(_fields_mod, "envelope_mean") as mock_get_avg,
             patch.object(_mti_mod, "glob"),
             patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
             patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
@@ -709,20 +752,20 @@ class TestOutputFieldSelection:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "subprocess"),
+            patch.object(_base_mod, "generate_central_surface"),
             patch.object(_ti_mod, "extract_fields"),
-            patch.object(_ti_mod, "transform_dirs_to_nifti"),
-            patch.object(_ti_mod, "start_t1_to_mni"),
-            patch.object(_ti_mod, "finish_t1_to_mni"),
+            patch.object(_base_mod, "transform_dirs_to_nifti"),
+            patch.object(_base_mod, "start_t1_to_mni"),
+            patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_base_mod, "envelope_max"),
+            patch.object(_fields_mod, "envelope_max"),
             patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_base_mod, "deepcopy") as mock_deepcopy,
-            patch.object(_base_mod, "envelope_mean") as mock_ti_avg,
-            patch.object(_base_mod, "hf_peak") as mock_hf_peak,
-            patch.object(_base_mod, "hf_power") as mock_hf_sar,
+            patch.object(_fields_mod, "envelope_mean") as mock_ti_avg,
+            patch.object(_fields_mod, "hf_peak") as mock_hf_peak,
+            patch.object(_fields_mod, "hf_power") as mock_hf_sar,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
@@ -755,8 +798,13 @@ class TestOutputFieldSelection:
             written = [c.args[1] for c in mout.add_element_field.call_args_list]
             return written, mock_ti_avg, mock_hf_peak, mock_hf_sar
 
-    def test_default_writes_only_ti_max(self):
-        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti([const.FIELD_TI_MAX])
+    def test_default_writes_ti_max_hf_peak_and_hf_sar(self):
+        written, ti_avg, hf_peak_m, hf_sar_m = self._run_ti(None)
+        assert written == [const.FIELD_TI_MAX, const.FIELD_HF_PEAK, const.FIELD_HF_SAR]
+        ti_avg.assert_not_called()
+
+    def test_selecting_ti_max_alone_writes_only_it(self):
+        written, *_ = self._run_ti([const.FIELD_TI_MAX])
         assert written == [const.FIELD_TI_MAX]
 
     def test_unselected_fields_are_not_computed(self):
@@ -804,7 +852,7 @@ class TestOutputFieldsSurviveDeserialization:
         back = self._rebuild(output_fields=[const.FIELD_TI_MAX, const.FIELD_HF_SAR])
         assert back.output_fields == [const.FIELD_TI_MAX, const.FIELD_HF_SAR]
 
-    def test_absent_key_defaults_to_ti_max(self):
+    def test_absent_key_defaults_to_ti_max_hf_peak_and_hf_sar(self):
         import json as _json
         from tit.config_io import deserialize_config, serialize_config
         from tit.sim.config import SimulationConfig
@@ -817,5 +865,7 @@ class TestOutputFieldsSurviveDeserialization:
         data.pop("output_fields", None)
         data.pop("project_dir", None)
         assert deserialize_config(SimulationConfig, data).output_fields == [
-            const.FIELD_TI_MAX
+            const.FIELD_TI_MAX,
+            const.FIELD_HF_PEAK,
+            const.FIELD_HF_SAR,
         ]

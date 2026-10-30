@@ -35,10 +35,7 @@ from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
 from tit.sim.utils import (
     extract_fields,
-    finish_t1_to_mni,
     safe_move,
-    start_t1_to_mni,
-    transform_dirs_to_nifti,
 )
 
 
@@ -53,7 +50,8 @@ class TISimulation(BaseSimulation):
     4. Compute ``TI_max``/``TI_avg``/``hf_peak``/``hf_sar``/
        ``hf_power_density`` (volume) and
        ``TI_normal`` (surface).
-    5. Extract GM/WM meshes, convert to NIfTI, organize outputs.
+    5. Extract GM/WM meshes and organize outputs; with ``map_to_vol``, write
+       one NIfTI per field.
 
     See Also
     --------
@@ -115,7 +113,7 @@ class TISimulation(BaseSimulation):
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
-        """Compute TI fields, extract meshes, convert to NIfTI.
+        """Compute TI fields and extract meshes; NIfTIs only with ``map_to_vol``.
 
         Parameters
         ----------
@@ -151,28 +149,8 @@ class TISimulation(BaseSimulation):
 
         self._generate_central_surface(ti_path, dirs["ti_surfaces"])
 
-        # T1->MNI is independent of the field meshes; start it in the
-        # background so it overlaps the mesh-to-NIfTI conversions.
-        t1_proc = start_t1_to_mni(self.m2m_dir, sid) if self.config.map_to_mni else None
-
-        self.logger.info("NIfTI transformation: Started")
-        transform_dirs_to_nifti(
-            [
-                {"mesh_dir": dirs["ti_mesh"], "output_dir": dirs["ti_niftis"]},
-                {
-                    "mesh_dir": dirs["hf_mesh"],
-                    "output_dir": dirs["hf_niftis"],
-                    "fields": ["magnE"],
-                },
-            ],
-            self.m2m_dir,
-            self.logger,
-            map_to_mni=self.config.map_to_mni,
-        )
-        self.logger.info("NIfTI transformation: \u2713 Complete")
-
-        if t1_proc is not None:
-            finish_t1_to_mni(t1_proc, self.logger)
+        if self.config.map_to_vol:
+            self._write_niftis(dirs, "ti_mesh", "ti_niftis")
 
         return ti_path
 

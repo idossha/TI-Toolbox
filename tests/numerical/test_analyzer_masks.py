@@ -123,7 +123,8 @@ def test_mesh_mask_samples_subject_nodes_and_retains_surface_area(
     surface = SimpleNamespace(
         nodes=SimpleNamespace(
             node_coord=np.array([[12, 26, 42], [10, 20, 30], [100, 200, 300]])
-        )
+        ),
+        field={},  # no carrier fields: their metrics are left out, with the reason
     )
     monkeypatch.setattr(analyzer, "_load_surface_mesh", lambda: surface)
     monkeypatch.setattr(

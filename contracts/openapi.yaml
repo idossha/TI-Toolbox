@@ -4579,6 +4579,12 @@ components:
             fields:
               type: array
               items: { type: string }
+              description: >-
+                The fields the simulation saved: those its field mesh
+                (<TI|mTI>/mesh/<sim>_<TI|mTI>.msh) carries and those of its NIfTIs (with the
+                carriers' magnE), sorted. NIfTIs are opt-in, so a default run lists its mesh
+                fields (TI_max or mTI_max, hf_peak, hf_sar) with no NIfTI; an analysis of a
+                field not listed computes it first.
             space:
               type: array
               items: { type: string, enum: [subject, mni] }
@@ -5672,6 +5678,18 @@ components:
         cal_min: { type: [number, "null"] }
         cal_max: { type: [number, "null"] }
         lut: { type: [string, "null"] }
+        mesh_field:
+          type: object
+          required: [source, name]
+          description: >-
+            Optional, for a .msh layer: the field it is coloured by. A simulation's field mesh
+            names an element field ("elm": TI_max, mTI_max for mTI, hf_peak for a carrier-only
+            run) and is windowed from that field's values when no NIfTI of it exists; an
+            analysis overlay names its "<field>_ROI" node data. Absent: the field is guessed from
+            the file name, as before.
+          properties:
+            source: { type: string, enum: [elm, node] }
+            name: { type: string }
         percentile:
           oneOf:
             - type: object

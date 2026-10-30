@@ -79,10 +79,13 @@ def _voxel_project(tmp_path: Path) -> tuple[Path, np.ndarray]:
     field[2:8, 2:8, 2:8] = np.linspace(0.1, 1.0, 216).reshape(6, 6, 6)
     field[4, 4, 4] = 0.0  # inside the sphere below, not positive: not counted
     affine = np.diag([2.0, 2.0, 2.0, 1.0])  # 2 mm voxels, origin at voxel (0, 0, 0)
-    nib.save(
-        nib.Nifti1Image(field, affine),
-        str(niftis / f"grey_{SIM}_TI_subject_TI_max.nii"),
-    )
+    # A finished default run: the envelope and the carriers its metrics read, so the
+    # analysis has nothing to produce on demand (tests/test_analyzer_on_demand.py).
+    for name in ("TI_max", "hf_peak", "hf_sar"):
+        nib.save(
+            nib.Nifti1Image(field, affine),
+            str(niftis / f"grey_{SIM}_TI_subject_{name}.nii"),
+        )
     return project, field
 
 
@@ -253,7 +256,7 @@ def test_ti_normal_mesh_analysis_on_a_simnibs_surface(tmp_path):
 
 def test_msh_field_names_reads_simnibs_written_meshes(tmp_path):
     _require("simnibs.mesh_tools.mesh_io")
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     spec = {**_surface_spec(), "mode": "headers"}
     spec_path = tmp_path / "spec.json"
@@ -310,7 +313,7 @@ def _tree_state(root: Path) -> dict[str, tuple[int, int]]:
 
 @needs_dataset
 def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     central = _THALAMUS / "TI" / "mesh" / "surfaces" / "Thalamus_example_TI_central.msh"
     normal = _THALAMUS / "TI" / "mesh" / "Thalamus_example_normal.msh"

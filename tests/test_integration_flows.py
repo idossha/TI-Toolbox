@@ -16,6 +16,15 @@ import numpy as np
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _saved_fields_only(monkeypatch):
+    """These simulations are stand-ins with only the files this module reads; producing a field
+    a simulation did not save is ``tests/test_analyzer_on_demand.py``."""
+    from tit.analyzer.analyzer import Analyzer
+
+    monkeypatch.setattr(Analyzer, "_produce_missing_fields", lambda self, field: ())
+
+
 @pytest.mark.integration
 def test_dicom_archive_to_nifti_flow(tmp_project, monkeypatch):
     """run_dicom_to_nifti extracts an archive and invokes dcm2niix end-to-end."""

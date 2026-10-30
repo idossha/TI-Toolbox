@@ -370,7 +370,11 @@ def test_deleting_a_file_breaks_exactly_the_readers_that_need_it(project, sim, m
         try:
             for reader_id, (read, expected) in readers.items():
                 got = _resolve(read)
-                if expected == victim:
+                # A group tool's NIfTI that is gone is written again from the field mesh,
+                # which is still there (tests/test_sim_fields_on_demand.py): nothing breaks.
+                if expected == victim and reader_id.startswith("group "):
+                    assert got == expected, f"{reader_id}: {victim.name} is producible"
+                elif expected == victim:
                     assert (
                         got is None
                     ), f"{reader_id} still resolved {got} without {victim.name}"
@@ -390,14 +394,11 @@ def test_preflight_names_the_missing_central_surface_only_for_mesh(project, mode
 
 
 @pytest.mark.parametrize("mode", ["TI", "mTI"])
-def test_without_mni_export_only_the_mni_readers_report_missing(project, mode):
+def test_without_mni_export_the_mni_readers_find_them_producible(project, mode):
+    # The group tools write an MNI NIfTI the run did not save from its field mesh.
     write_simulation(project, "101", "L_Insula", mode, map_to_mni=False)
     for reader_id, (read, expected) in _readers("101", "L_Insula", mode).items():
-        got = _resolve(read)
-        if "_MNI_MNI_" in expected.name:
-            assert got is None, reader_id
-        else:
-            assert got == expected, reader_id
+        assert _resolve(read) == expected, reader_id
 
 
 def test_default_voxel_field_never_falls_back_to_another_field(project):

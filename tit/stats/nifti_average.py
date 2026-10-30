@@ -52,6 +52,9 @@ def main() -> None:
 
     setup_logging()
     add_stream_handler("tit.stats.nifti_average")
+    add_stream_handler(
+        "tit.stats.nifti"
+    )  # says when a subject's NIfTI is produced on demand
     logger = logging.getLogger("tit.stats.nifti_average")
 
     from tit.jobs import events

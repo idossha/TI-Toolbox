@@ -1,7 +1,7 @@
 """``hf_power_density``: time-averaged carrier power per volume, and the simulators that write it.
 
 Pins (2026-10-26):
-* ``tit.sim.base.hf_power_density(fields, sigma)`` is the time average of ``E(t)^T sigma E(t)``
+* ``tit.volume_fields.hf_power_density(fields, sigma)`` is the time average of ``E(t)^T sigma E(t)``
   for ``E(t) = sum_c E_c cos(2 pi f_c t + phi_c)`` at incommensurate carrier frequencies -- for a
   scalar conductivity and for a full (symmetric, anisotropic) tensor -- and, with ``coherent``,
   of one sinusoid of amplitude ``sum_c E_c``. Expected values come from that time signal sampled
@@ -25,7 +25,7 @@ import numpy as np
 import pytest
 
 from tit import constants as const
-from tit.sim.base import hf_power_density
+from tit.volume_fields import hf_power_density
 
 # incommensurate carrier frequencies (Hz-free units): no common period
 _FREQS = np.array([1.0, np.sqrt(2.0), (1 + np.sqrt(5.0)) / 2, np.sqrt(7.0)])

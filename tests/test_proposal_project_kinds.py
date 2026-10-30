@@ -106,9 +106,6 @@ def project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def manager(project: Path, monkeypatch):
-    # A mesh analysis's preflight opens the central surface to find its field; the seeded
-    # surface is an empty file, so that one content check is skipped here.
-    monkeypatch.setattr("tit.jobs.preflight._surface_field", lambda *a: [])
     monkeypatch.setattr("tit.surfer_settings.available_threads", lambda: 8)
     monkeypatch.setattr(
         "tit.surfer_settings.settings_path", lambda: project / "preferences.json"

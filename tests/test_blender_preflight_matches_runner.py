@@ -159,6 +159,14 @@ def project(init_pm, tmp_project):
 
 def _patch_heavy_io(monkeypatch) -> None:
     """Replace what reads mesh/volume CONTENT or starts Blender; path logic stays real."""
+    import tit.volume_fields
+
+    def convert(sim, mesh, base, space, fields):  # the on-demand NIfTI, as SimNIBS names it
+        token = "MNI_MNI" if space == "mni" else "subject"
+        for f in fields:
+            _touch(sim.niftis_dir / f"{base}_{token}_{f}.nii.gz")
+
+    monkeypatch.setattr(tit.volume_fields, "_write_niftis", convert)
     surface = SimpleNamespace(field={"TI_max": None, "mTI_max": None})
     monkeypatch.setattr(region_exporter, "read_msh", lambda path: surface)
 

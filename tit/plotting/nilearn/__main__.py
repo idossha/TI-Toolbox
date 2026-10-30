@@ -44,9 +44,17 @@ _NIFTI_FILE_PATTERN = "grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz"
 
 def _average_fields(pairs) -> nib.Nifti1Image:
     """Voxelwise mean of each pair's MNI field NIfTI, on one checked common grid."""
+    from tit.volume_fields import ensure_nifti_file
+
     total = ref_img = ref_path = None
     for pair in pairs:
         path = field_nifti(pair.subject_id, pair.simulation_name)
+        ensure_nifti_file(
+            pair.subject_id,
+            pair.simulation_name,
+            path,
+            say=logging.getLogger("tit.plotting.nilearn").info,
+        )
         if not os.path.isfile(path):
             raise FileNotFoundError(
                 f"MNI field NIfTI not found for sub-{pair.subject_id} / "

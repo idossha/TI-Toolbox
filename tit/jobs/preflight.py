@@ -174,25 +174,26 @@ def _sim_nifti(pm: PathManager, sid: str, sim: str, pattern: str) -> list[Missin
     Resolved as the tools resolve it (``TI/niftis/``, or ``mTI/niftis/`` with mTI names).
     """
     from tit.analyzer.field_selector import simulation_nifti_path
+    from tit.volume_fields import FieldUnavailableError, check_nifti_producible
 
     path = simulation_nifti_path(sid, sim, pattern)
     if path.is_file():
         return []
-    is_mni = "_MNI" in path.name
+    what = (
+        f"{'MNI field' if '_MNI' in path.name else 'field'} NIfTI for sub-{sid} / {sim}"
+    )
     if not Path(pm.simulation(sid, sim)).is_dir():
-        fix = _simulation_fix(sid, sim)
-    elif is_mni:
-        fix = (
-            f"Re-run the {sim} simulation for sub-{sid} with 'Generate MNI NIfTI "
-            "outputs' ticked (Simulator, Job settings, Standard-space outputs); this "
-            "file is the MNI-space field it writes."
-        )
-    else:
-        fix = (
-            f"The {sim} simulation for sub-{sid} wrote no {path.name}; check the NIfTI "
-            f"file pattern against the files in {path.parent}."
-        )
-    what = f"{'MNI field' if is_mni else 'field'} NIfTI for sub-{sid} / {sim}"
+        return [MissingInput(what, str(path), _simulation_fix(sid, sim))]
+    # A simulator NIfTI the run did not save is written by the job, from the field mesh.
+    try:
+        if check_nifti_producible(sid, sim, path):
+            return []
+    except FieldUnavailableError as exc:
+        return [MissingInput(what, str(path), str(exc))]
+    fix = (
+        f"{path.name} is not a NIfTI the {sim} simulation for sub-{sid} writes; check the "
+        f"NIfTI file pattern against the simulator's names in {path.parent}."
+    )
     return [MissingInput(what, str(path), fix)]
 
 
@@ -512,8 +513,15 @@ def _check_analyzer(pm: PathManager, config: dict[str, Any]) -> list[MissingInpu
 def _analyzer_field(
     pm: PathManager, sid: str, sim: str, space: str, config: dict[str, Any]
 ) -> list[MissingInput]:
-    """The field file the analyzer would open, resolved by the analyzer's own selector."""
+    """The field file the analyzer would open, resolved by the analyzer's own selector.
+
+    A volume field (or its NIfTI) the simulation did not save is not missing when the job can
+    produce it from the channel meshes (:meth:`Analyzer.volume_fields_read`,
+    :func:`tit.volume_fields.check_producible`); when it cannot, that is the finding.
+    """
+    from tit.analyzer.analyzer import Analyzer
     from tit.analyzer.field_selector import is_mti_simulation, select_field_file
+    from tit.volume_fields import FieldUnavailableError, check_producible
 
     sim_dir = Path(pm.simulation(sid, sim))
     if not sim_dir.is_dir():
@@ -525,34 +533,45 @@ def _analyzer_field(
             )
         ]
     is_mti = is_mti_simulation(sid, sim)
+    volume_mesh = (
+        pm.ti_mesh(sid, sim)
+        if not is_mti
+        else str(Path(pm.mti_mesh_dir(sid, sim)) / f"{sim}_mTI.msh")
+    )
+    produced = Analyzer.volume_fields_read(space, config.get("field"))
+    if produced:
+        try:
+            check_producible(sid, sim, produced)
+        except FieldUnavailableError as exc:
+            return [
+                MissingInput(
+                    f"field(s) {', '.join(produced)} for sub-{sid} / {sim}",
+                    volume_mesh,
+                    str(exc),
+                )
+            ]
+        except ValueError:
+            return []  # an invalid field is a config error, not a missing input
+        if space == "voxel":
+            return []  # each NIfTI it reads is saved or written from the field mesh
     try:
-        _, field_name = select_field_file(
+        select_field_file(
             sid,
             sim,
             space,
             tissue_type=config.get("tissue_type") or "GM",
             field=config.get("field"),
         )
-    except FileNotFoundError:
-        if space == "voxel":
-            expected = str(sim_dir / ("mTI" if is_mti else "TI") / "niftis")
-            what = f"{'GM/WM' if config.get('tissue_type') else 'GM'} field NIfTI"
-            fix = (
-                f"Re-run the {sim} simulation for sub-{sid} with volume export enabled, "
-                "or analyze in mesh space instead."
+    except (
+        FileNotFoundError
+    ) as exc:  # TI_normal: its normal mesh is written by the run only
+        return [
+            MissingInput(
+                f"field mesh for sub-{sid} / {sim}",
+                volume_mesh,
+                f"{exc} Re-run the {sim} simulation for sub-{sid}.",
             )
-        else:
-            expected = (
-                pm.ti_mesh(sid, sim)
-                if not is_mti
-                else str(Path(pm.mti_mesh_dir(sid, sim)) / f"{sim}_mTI.msh")
-            )
-            what = "TI field mesh"
-            fix = (
-                f"The simulation folder exists but has no field mesh; re-run the {sim} "
-                f"simulation for sub-{sid}."
-            )
-        return [MissingInput(f"{what} for sub-{sid} / {sim}", expected, fix)]
+        ]
     except (ValueError, KeyError):
         return []  # an invalid field/space is a config error, not a missing input
     if space == "mesh":
@@ -570,35 +589,7 @@ def _analyzer_field(
                     "mesh analyses are measured on this surface.",
                 )
             ]
-        return _surface_field(sid, sim, surface, field_name)
     return []
-
-
-def _surface_field(
-    sid: str, sim: str, surface: Path, field_name: str
-) -> list[MissingInput]:
-    """The field on the central surface, read from its section headers (not loaded).
-
-    ``TI_normal`` is the exception: the analyzer reads it from the normal mesh
-    :func:`select_field_file` already found.
-    """
-    from tit import constants as const
-    from tit.analyzer.analyzer import msh_field_names
-
-    if field_name == const.FIELD_TI_NORMAL:
-        return []
-    carried = msh_field_names(surface)
-    if carried is None or field_name in carried:
-        return []  # None: not a mesh we can read headers of; the runner will say
-    return [
-        MissingInput(
-            f"field {field_name!r} on the central surface for sub-{sid} / {sim}",
-            str(surface),
-            f"This simulation's surface carries {', '.join(sorted(carried)) or 'no fields'}; "
-            f"re-run the {sim} simulation for sub-{sid} with {field_name} among its output "
-            "fields, or analyze it in voxel space.",
-        )
-    ]
 
 
 def _analyzer_atlas(
@@ -973,7 +964,26 @@ def _check_blender(pm: PathManager, config: dict[str, Any]) -> list[MissingInput
         )
     if sim and mode in ("RegionConfig", "VectorConfig", "MontageConfig"):
         missing.extend(_blender_simulation_inputs(pm, sid, sim, mode))
+    if sim and mode == "SubcorticalConfig":
+        missing.extend(_blender_field_nifti(sid, sim, config.get("field_name")))
     return missing
+
+
+def _blender_field_nifti(sid: str, sim: str, field: Any) -> list[MissingInput]:
+    """The whole-head field NIfTI that colours a sub-cortical PLY: saved, or producible."""
+    from tit.blender.subcortical_exporter import field_nifti_path
+    from tit.volume_fields import FieldUnavailableError, check_nifti_producible
+
+    path = field_nifti_path(
+        sid, sim, field if isinstance(field, str) and field else "TI_max"
+    )
+    if Path(path).is_file():
+        return []
+    try:
+        check_nifti_producible(sid, sim, path)
+    except FieldUnavailableError as exc:
+        return [MissingInput(f"field NIfTI for sub-{sid} / {sim}", path, str(exc))]
+    return []
 
 
 def _blender_simulation_inputs(

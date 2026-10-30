@@ -95,7 +95,9 @@
       "aniso_maxratio": 10.0,
       "aniso_maxcond": 2.0,
       "output_fields": [
-        "TI_max"
+        "TI_max",
+        "hf_peak",
+        "hf_sar"
       ],
       "tissue_conductivities": null,
       "carrier_only": false,

@@ -55,6 +55,7 @@ def _make_analyzer(space="mesh", output_dir=None, field_path=None, field_name="T
         ),
         patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
         patch("tit.analyzer.analyzer.add_file_handler"),
+        patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
     ):
         pm = MagicMock()
         mock_gpm.return_value = pm
@@ -1006,6 +1007,7 @@ class TestFieldPlumbing:
             ) as mock_select,
             patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
             patch("tit.analyzer.analyzer.add_file_handler"),
+            patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
         ):
             pm = mock_gpm.return_value
             pm.logs.return_value = "/tmp/logs"
@@ -1022,6 +1024,7 @@ class TestFieldPlumbing:
             ) as mock_select,
             patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
             patch("tit.analyzer.analyzer.add_file_handler"),
+            patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
         ):
             mock_gpm.return_value.logs.return_value = "/tmp/logs"
             Analyzer("001", "sim1", "mesh")

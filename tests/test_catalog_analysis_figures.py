@@ -32,6 +32,15 @@ import pytest
 from tit import catalog
 from tit.paths import PathManager, get_path_manager
 
+
+@pytest.fixture(autouse=True)
+def _saved_fields_only(monkeypatch):
+    """These simulations are stand-ins with only the files this module reads; producing a field
+    a simulation did not save is ``tests/test_analyzer_on_demand.py``."""
+    from tit.analyzer.analyzer import Analyzer
+
+    monkeypatch.setattr(Analyzer, "_produce_missing_fields", lambda self, field: ())
+
 SID = "101"
 SIM = "M1"
 #: The desktop's own suffix rule for the rendered scene (``roiPlates.ts`` SCENE_SUFFIX).

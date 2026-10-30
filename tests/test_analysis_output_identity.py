@@ -47,6 +47,15 @@ from tit.paths import get_path_manager  # noqa: E402
 from tit.server.app import create_app  # noqa: E402
 from tit.server.settings import ServerSettings  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _saved_fields_only(monkeypatch):
+    """These simulations are stand-ins with only the files this module reads; producing a field
+    a simulation did not save is ``tests/test_analyzer_on_demand.py``."""
+    from tit.analyzer.analyzer import Analyzer
+
+    monkeypatch.setattr(Analyzer, "_produce_missing_fields", lambda self, field: ())
+
 TOKEN = "test-token-identity"
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
 SID, SIM = "001", "M1"

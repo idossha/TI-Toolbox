@@ -193,7 +193,7 @@ def _binary_msh(
 
 
 def test_msh_field_names_seeks_over_payloads_and_element_blocks(tmp_path: Path) -> None:
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     assert len(POISON) == 24
     path = tmp_path / "volume.msh"
@@ -236,7 +236,7 @@ def _tail_poisoned_msh(rows: int = 6) -> bytes:
 
 
 def test_msh_field_names_seeks_the_full_row_of_every_payload(tmp_path: Path) -> None:
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     path = tmp_path / "tails.msh"
     data = _tail_poisoned_msh()
@@ -247,7 +247,7 @@ def test_msh_field_names_seeks_the_full_row_of_every_payload(tmp_path: Path) -> 
 
 @pytest.mark.parametrize("writer", [_ascii_msh, _binary_msh])
 def test_msh_field_names_reads_every_data_block(tmp_path: Path, writer) -> None:
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     path = tmp_path / "surface.msh"
     path.write_bytes(
@@ -259,7 +259,7 @@ def test_msh_field_names_reads_every_data_block(tmp_path: Path, writer) -> None:
 
 
 def test_msh_field_names_cannot_tell_for_a_non_mesh(tmp_path: Path) -> None:
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     empty = _touch(tmp_path / "empty.msh")
     other = tmp_path / "other.msh"
@@ -284,21 +284,33 @@ def _preflight(project: Path, **config):
     return preflight("analyzer", {**base, **config}, str(project))
 
 
-def test_preflight_reports_a_field_the_central_surface_does_not_carry(
+def test_preflight_reports_an_unsaved_field_only_when_it_cannot_be_produced(
     project: Path,
 ) -> None:
-    pm = get_path_manager(str(project))
-    surface = Path(pm.ti_central_surface(SID, SIM))
-    surface.write_bytes(_binary_msh([("NodeData", "TI_max")]))
+    import json
 
+    pm = get_path_manager(str(project))
+    sim_dir = Path(pm.simulation(SID, SIM))
+    volume = Path(pm.ti_mesh(SID, SIM))
+    volume.write_bytes(_binary_msh([("ElementData", "TI_max")]))
+    (sim_dir / "documentation").mkdir()
+    (sim_dir / "documentation" / "config.json").write_text(
+        json.dumps({"subject_id": SID, "conductivity": "scalar",
+                    "electrode_pairs": [["a", "b"], ["c", "d"]]})
+    )
+    hf = sim_dir / "high_Frequency" / "mesh"
+
+    # hf_peak was not saved and the channel meshes it is computed from are missing.
     found = _preflight(project, field="hf_peak")
-    assert [m.expected_path for m in found] == [str(surface)]
+    assert [m.expected_path for m in found] == [str(volume)]
     assert "hf_peak" in found[0].what
-    assert "TI_max" in found[0].how_to_fix  # what the surface does carry
-    # The default field and TI_normal (read from the normal mesh) pass.
-    assert _preflight(project) == []
-    assert _preflight(project, field="TI_max") == []
-    assert _preflight(project, field="TI_normal") == []
-    # Once the simulation carries the field, the check passes.
-    surface.write_bytes(_binary_msh([("NodeData", "TI_max"), ("NodeData", "hf_peak")]))
+    assert str(hf / f"{SID}_TDCS_1_scalar.msh") in found[0].how_to_fix
+    # TI_normal itself is read from the normal mesh; its carrier metrics need the carriers.
+    assert [m.what for m in _preflight(project, field="TI_normal")] == [
+        f"field(s) hf_peak, hf_sar for sub-{SID} / {SIM}"
+    ]
+    # With the channel meshes kept, the analysis produces hf_peak (and TI_max's carriers).
+    for label in ("1", "2"):
+        _touch(hf / f"{SID}_TDCS_{label}_scalar.msh")
     assert _preflight(project, field="hf_peak") == []
+    assert _preflight(project) == []

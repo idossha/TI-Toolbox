@@ -46,6 +46,30 @@ def project(tmp_path: Path) -> Path:
     return tmp_path
 
 
+def saved_run(sim_dir: Path, mode: str, channels: int, fields=("TI_max",)) -> list[Path]:
+    """What a finished run keeps for on-demand fields: its record, a field mesh carrying
+    *fields* (a Gmsh 2.2 ASCII mesh of no elements), and its channel meshes (returned)."""
+    import json
+
+    sim = sim_dir.name
+    touch(
+        sim_dir / "documentation" / "config.json",
+        json.dumps({"subject_id": SID, "conductivity": "scalar",
+                    "electrode_pairs": [["a", "b"]] * channels}),
+    )
+    lines = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "1", "1 0 0 0",
+             "$EndNodes", "$Elements", "0", "$EndElements"]
+    for field in fields:
+        lines += ["$ElementData", "1", f'"{field}"', "1", "0.0", "3", "0", "1", "0",
+                  "$EndElementData"]
+    touch(sim_dir / mode / "mesh" / f"{sim}_{mode}.msh", "\n".join(lines) + "\n")
+    labels = "ABCDEFGH"[:channels] if mode == "mTI" else "12"
+    return [
+        touch(sim_dir / "high_Frequency" / "mesh" / f"{SID}_TDCS_{label}_scalar.msh")
+        for label in labels
+    ]
+
+
 def missing_paths(found: list[MissingInput]) -> list[str]:
     return [m.expected_path for m in found]
 
@@ -117,16 +141,19 @@ def test_analyzer_mesh_needs_the_field_mesh_and_the_central_surface(
     assert missing_paths(found) == [pm.ti_mesh(SID, SIM)]
 
 
-def test_analyzer_voxel_needs_the_tissue_nifti(project: Path) -> None:
+def test_analyzer_voxel_needs_its_niftis_or_what_produces_them(project: Path) -> None:
     pm = get_path_manager()
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
-    (niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz").unlink()
-    found = preflight(
-        "analyzer",
-        analyzer_config("voxel", analysis_type="spherical", atlas=None),
-        str(project),
-    )
-    assert missing_paths(found) == [str(niftis)]
+    for nifti in niftis.iterdir():
+        nifti.unlink()  # NIfTIs are opt-in: the job writes the ones it reads
+    channels = saved_run(Path(pm.simulation(SID, SIM)), "TI", 2)
+    cfg = analyzer_config("voxel", analysis_type="spherical", atlas=None)
+    assert preflight("analyzer", cfg, str(project)) == []
+    channels[1].unlink()
+    found = preflight("analyzer", cfg, str(project))
+    assert missing_paths(found) == [pm.ti_mesh(SID, SIM)]
+    assert found[0].what == f"field(s) TI_max, hf_peak, hf_sar for sub-{SID} / {SIM}"
+    assert str(channels[1]) in found[0].how_to_fix
 
 
 def test_analyzer_mask_and_head_model(project: Path) -> None:
@@ -313,14 +340,21 @@ def test_group_tools_need_the_mni_nifti(project: Path) -> None:
         / f"grey_{SIM}_TI_MNI_MNI_TI_max.nii.gz"
     )
     mni.unlink()
-    for kind, cfg in (
+    channels = saved_run(Path(pm.simulation(SID, SIM)), "TI", 2)
+    cases = (
         ("stats", {"subjects": subjects}),
         ("nifti_average", {"subjects": subjects}),
         ("nilearn", {"subject_simulation_pairs": pairs}),
-    ):
+    )
+    for kind, cfg in cases:  # the job writes the MNI NIfTI from the saved field mesh
+        assert preflight(kind, cfg, str(project)) == [], kind
+    channels[0].unlink()  # TI_max is saved, so no channel mesh is needed
+    assert preflight("stats", {"subjects": subjects}, str(project)) == []
+    saved_run(Path(pm.simulation(SID, SIM)), "TI", 2, fields=())[0].unlink()
+    for kind, cfg in cases:  # not saved, and not producible: name what is missing
         found = preflight(kind, cfg, str(project))
         assert missing_paths(found) == [str(mni)], kind
-        assert "'Generate MNI NIfTI outputs' ticked" in found[0].how_to_fix
+        assert str(channels[0]) in found[0].how_to_fix
     # white matter is a different file, resolved through the stats config's own default.
     found = preflight(
         "stats", {"subjects": subjects, "tissue_type": "white"}, str(project)
@@ -328,16 +362,24 @@ def test_group_tools_need_the_mni_nifti(project: Path) -> None:
     assert missing_paths(found) == [
         str(mni.with_name(f"white_{SIM}_TI_MNI_MNI_TI_max.nii.gz"))
     ]
+    # A name the simulator does not write is reported as such, whatever is producible.
+    found = preflight(
+        "nifti_average",
+        {"subjects": subjects, "nifti_file_pattern": "{simulation_name}_mine.nii.gz"},
+        str(project),
+    )
+    assert "is not a NIfTI the L_Insula simulation" in found[0].how_to_fix
 
 
 def test_group_tools_read_an_mti_simulation_from_mti_niftis(project: Path) -> None:
     """The group tools only looked in TI/niftis/, so an mTI simulation was refused with
     "re-run with map_to_mni", which no re-run could satisfy. mTI writes mTI/niftis/ with
-    mTI names (grey_<sim>_mTI.msh's mTI_max field, mesh2nii's _MNI_MNI spelling)."""
+    mTI names (grey_<sim>_mTI.msh's mTI_max field, mesh2nii's _MNI_MNI spelling), and a
+    missing one is produced from its field mesh and lettered channel meshes."""
     pm = get_path_manager()
     mti = "Thalamus_mTI"
     sim_dir = Path(pm.simulation(SID, mti))
-    (sim_dir / "mTI" / "mesh").mkdir(parents=True)
+    channels = saved_run(sim_dir, "mTI", 4, fields=())
     mni = touch(sim_dir / "mTI" / "niftis" / f"grey_{mti}_mTI_MNI_MNI_mTI_max.nii.gz")
     subjects = [{"subject_id": SID, "simulation_name": mti, "response": 1}]
     pairs = [{"subject_id": SID, "simulation_name": mti}]
@@ -350,9 +392,12 @@ def test_group_tools_read_an_mti_simulation_from_mti_niftis(project: Path) -> No
         assert preflight(kind, cfg, str(project)) == [], kind
     mni.unlink()
     for kind, cfg in cases:
+        assert preflight(kind, cfg, str(project)) == [], kind
+    channels[3].unlink()
+    for kind, cfg in cases:
         found = preflight(kind, cfg, str(project))
         assert missing_paths(found) == [str(mni)], kind
-        assert "'Generate MNI NIfTI outputs' ticked" in found[0].how_to_fix
+        assert f"{SID}_TDCS_D_scalar.msh" in found[0].how_to_fix
 
 
 def test_nifti_average_subject_space_reads_the_subject_file(project: Path) -> None:

@@ -21,6 +21,7 @@
         ],
         "map_to_fsavg": false,
         "map_to_mni": false,
+        "map_to_vol": false,
         "montages": [
           {
             "_type": "Montage",

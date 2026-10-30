@@ -73,8 +73,11 @@ describe("Simulator page configs validate against contracts/generated/config.sch
 
   it("maps only the job that opts in, including older saved settings without the flag", () => {
     const row: SelectedRow = { id: "mapping", subjectId: "ernie", source: "montage", name: "F3_F4", currents: "1,1", pairs: [["E24", "E124"], ["E67", "E77"]] };
-    expect(buildSimulationConfig(row, baseParams).map_to_mni).toBe(false);
-    expect(buildSimulationConfig({ ...row, settings: { ...baseParams, mapToMni: true } }, baseParams).map_to_mni).toBe(true);
+    expect(buildSimulationConfig(row, baseParams)).toMatchObject({ map_to_vol: false, map_to_mni: false });
+    expect(buildSimulationConfig({ ...row, settings: { ...baseParams, writeNiftis: true } }, baseParams)).toMatchObject({ map_to_vol: true, map_to_mni: false });
+    expect(buildSimulationConfig({ ...row, settings: { ...baseParams, writeNiftis: true, mapToMni: true } }, baseParams)).toMatchObject({ map_to_vol: true, map_to_mni: true });
+    // MNI NIfTIs are NIfTIs: without the NIfTI opt-in an older saved MNI tick sends nothing.
+    expect(buildSimulationConfig({ ...row, settings: { ...baseParams, mapToMni: true } }, baseParams)).toMatchObject({ map_to_vol: false, map_to_mni: false });
     expect(buildSimulationConfig({ ...row, settings: baseParams }, baseParams).map_to_mni).toBe(false);
     expect(buildSimulationConfig(row, baseParams).map_to_fsavg).toBe(false);
     expect(buildSimulationConfig({ ...row, settings: { ...baseParams, mapToFsavg: true } }, baseParams).map_to_fsavg).toBe(true);

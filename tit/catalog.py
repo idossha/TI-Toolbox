@@ -37,6 +37,7 @@ from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
 from tit.constants import get_field_names
+from tit.tools.msh_fields import msh_field_names
 from tit.paths import (
     PathManager,
     is_valid_subject_id,
@@ -872,10 +873,15 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
 
     niftis: list[dict] = []
     meshes: list[dict] = []
+    saved: set[str] = set()
     for mode in _MODE_DIRS:
         mode_dir = os.path.join(sim_dir, mode)
         if not _project_isdir(pm, mode_dir):
             continue
+        # The field mesh's own fields: NIfTIs are opt-in, the mesh always holds what was saved.
+        volume = os.path.join(mode_dir, "mesh", f"{sim}_{mode}.msh")
+        if _project_paths_safe(pm, volume) and os.path.isfile(volume):
+            saved |= msh_field_names(volume) or set()
         niftis.extend(
             _mode_niftis(mode_dir, simulation=sim, project_root=pm.project_dir)
         )
@@ -912,7 +918,7 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
         )
     )
 
-    fields = sorted({n["field"] for n in niftis if n["field"]})
+    fields = sorted(saved | {n["field"] for n in niftis if n["field"]})
     spaces = sorted({n["space"] for n in niftis})
     all_reports = reports(pm, sid) or []
     return {

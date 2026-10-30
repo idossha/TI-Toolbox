@@ -778,6 +778,20 @@ def transform_dirs_to_nifti(
     convert_mesh_dirs(specs=specs, m2m_dir=m2m_dir, map_to_mni=map_to_mni)
 
 
+def generate_central_surface(mesh_path: str, m2m_dir: str, surfaces_dir: str) -> None:
+    """Map every field of the field mesh *mesh_path* onto the central cortical surface.
+
+    ``msh2cortex`` writes ``<surfaces_dir>/<mesh stem>_central.msh``, the surface a mesh-space
+    analysis reads; the simulator runs it once per montage, and :mod:`tit.volume_fields` again
+    after adding a field to the mesh.
+    """
+    subprocess.run(
+        ["msh2cortex", "-i", mesh_path, "-m", m2m_dir, "-o", surfaces_dir],
+        check=True,
+        capture_output=True,
+    )
+
+
 def start_t1_to_mni(m2m_dir: str, subject_id: str) -> subprocess.Popen:
     """Launch the subject T1-to-MNI warp and return the running process.
 
