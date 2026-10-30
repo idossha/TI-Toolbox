@@ -216,21 +216,19 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by
-    # BaseSimulation._write_ti_normal), not the main TI/mTI output mesh.
+    # TI_normal is a surface field: node data on the run's central surface, beside the
+    # volume fields mapped onto it (tit.volume_fields.central_surface).
     if field_name == const.FIELD_TI_NORMAL:
-        if is_mti:
-            normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"
-        else:
-            normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
-        if not normal_path.exists():
+        mode = "mTI" if is_mti else "TI"
+        surface = (
+            sim_dir / mode / "mesh" / "surfaces" / f"{simulation}_{mode}_central.msh"
+        )
+        if not surface.exists():
             raise FileNotFoundError(
-                f"TI_normal mesh not found: {normal_path}. This simulation "
-                "predates TI_normal support for its mode; re-run it to get "
-                "the normal-component mesh."
+                f"Central surface not found: {surface}. Run the simulation first."
             )
-        logger.debug("Selected mesh field file: %s (field=%s)", normal_path, field_name)
-        return normal_path, field_name
+        logger.debug("Selected mesh field file: %s (field=%s)", surface, field_name)
+        return surface, field_name
 
     if is_mti:
         mesh_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI.msh"

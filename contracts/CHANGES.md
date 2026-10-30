@@ -1302,3 +1302,14 @@ registered fields the mesh carries (`TI_{max}`, `HF_{rms}`, ...), which TetraVox
 type defines; a TetraVox that does not know the block ignores it. Regenerated
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-10-30 — one central surface per run; `ViewLayer.visible_tags`
+
+`ViewLayer` gains optional `visible_tags` (integer array): the tissue tags a `.msh` layer shows.
+A simulation's scene now shows its field mesh `<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` with
+`visible_tags: [2, 1002]` (grey matter) instead of the `grey_<sim>_<TI|mTI>.msh` copy, which runs no
+longer write; the TetraVox scene hides every other tissue with `tagStyle`. Absent shows every
+tissue, as before. Config schema, regenerated: `SimulationConfig.map_to_surf` is described as
+unused (the run always writes its central surface; still accepted so older configs load).
+Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.

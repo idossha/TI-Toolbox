@@ -31,8 +31,10 @@ _READ_ERRORS = (
 )
 
 
-def _walk(path, want: str | None):
-    """Every data field's name, and the ``(rows, components)`` values of element field *want*."""
+def _walk(path, want: str | None, *, tags: bool = False):
+    """Every data field's name, the ``(rows, components)`` values of element field *want*, and
+    with *tags* the first (physical) tag of each element of *want*'s rows, in row order.
+    """
     import numpy as np  # only for the one block read; the catalog imports this module
 
     with open(path, "rb") as fh:
@@ -44,6 +46,9 @@ def _walk(path, want: str | None):
         binary, size = file_type == b"1", int(size)
         names: set[str] = set()
         values = None
+        numbers = None  # element numbers of *want*'s rows
+        elm_numbers: list = []  # with *tags*: element numbers and their physical tags
+        elm_tags: list = []
         for line in iter(fh.readline, b""):
             tag = line.strip()
             if tag == b"$Nodes":
@@ -58,10 +63,21 @@ def _walk(path, want: str | None):
                 while binary and count > 0:  # blocks of one element type each
                     etype, block, ntags = struct.unpack("<3i", fh.read(12))
                     nodes = _GMSH_NODES_PER_ELEMENT[etype]
-                    fh.seek(block * 4 * (1 + ntags + nodes), 1)
+                    if tags:
+                        rows = np.frombuffer(
+                            fh.read(block * 4 * (1 + ntags + nodes)), dtype="<i4"
+                        ).reshape(block, 1 + ntags + nodes)
+                        elm_numbers.append(rows[:, 0])
+                        elm_tags.append(rows[:, 1])
+                    else:
+                        fh.seek(block * 4 * (1 + ntags + nodes), 1)
                     count -= block
                 for _ in range(0 if binary else count):
-                    fh.readline()
+                    line = fh.readline()
+                    if tags:
+                        parts = line.split()
+                        elm_numbers.append([int(parts[0])])
+                        elm_tags.append([int(parts[3])])
             elif tag in (b"$NodeData", b"$ElementData"):
                 strings = [fh.readline() for _ in range(int(fh.readline()))]
                 name = strings[0].strip().strip(b'"').decode() if strings else None
@@ -78,7 +94,8 @@ def _walk(path, want: str | None):
                             [("n", "<i4"), ("v", f"<f{size}", (components,))]
                         )
                         raw = fh.read(count * row.itemsize)
-                        values = np.frombuffer(raw, dtype=row, count=count)["v"].copy()
+                        block = np.frombuffer(raw, dtype=row, count=count)
+                        values, numbers = block["v"].copy(), block["n"].copy()
                     else:
                         fh.seek(count * (4 + components * size), 1)
                 else:
@@ -87,7 +104,13 @@ def _walk(path, want: str | None):
                         values = np.array(
                             [r.split()[1 : 1 + components] for r in rows], dtype=float
                         ).reshape(count, components)
-        return names, values
+                        numbers = np.array([int(r.split()[0]) for r in rows])
+        if tags and values is not None:
+            known = np.concatenate(elm_numbers)
+            lookup = np.zeros(int(known.max()) + 1, dtype=np.int64)
+            lookup[known] = np.concatenate(elm_tags)
+            return names, values, lookup[numbers]
+        return names, values, None
 
 
 def msh_field_names(path) -> set[str] | None:
@@ -106,16 +129,22 @@ def msh_field_names(path) -> set[str] | None:
         return None
 
 
-def msh_element_field(path, name: str):
+def msh_element_field(path, name: str, *, tags=None):
     """The values of element data field *name* in a Gmsh 2.2 ``.msh``: ``(N,)`` or ``(N, k)``.
 
-    Only that block's payload is read; everything else is seeked over as in
-    :func:`msh_field_names`. ``None`` when the mesh does not carry the field or cannot be read.
+    Only that block's payload is read (and, with *tags*, the element tags); everything else
+    is seeked over as in :func:`msh_field_names`. With *tags*, only the values of elements
+    whose physical tag is in *tags* (grey matter: ``[2]``). ``None`` when the mesh does not
+    carry the field or cannot be read.
     """
+    import numpy as np
+
     try:
-        values = _walk(path, name)[1]
+        _, values, elm_tags = _walk(path, name, tags=tags is not None)
     except _READ_ERRORS:
         return None
     if values is None:
         return None
+    if tags is not None:
+        values = values[np.isin(elm_tags, list(tags))]
     return values[:, 0] if values.shape[1] == 1 else values

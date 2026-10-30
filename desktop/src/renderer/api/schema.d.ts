@@ -6781,12 +6781,14 @@ export interface components {
             cal_min?: number | null;
             cal_max?: number | null;
             lut?: string | null;
-            /** @description Optional, for a .msh layer: the field it is coloured by. A simulation's field mesh names an element field ("elm": TI_max, mTI_max for mTI, hf_peak for a carrier-only run) and is windowed from that field's values when no NIfTI of it exists; an analysis overlay names its "<field>_ROI" node data. Absent: the field is guessed from the file name, as before. */
+            /** @description Optional, for a .msh layer: the field it is coloured by. A simulation's field mesh names an element field ("elm": TI_max, mTI_max for mTI, hf_peak for a carrier-only run) and is windowed from that field's grey-matter values when no NIfTI of it exists; an analysis overlay names its "<field>_ROI" node data. Absent: the field is guessed from the file name, as before. */
             mesh_field?: {
                 /** @enum {string} */
                 source: "elm" | "node";
                 name: string;
             };
+            /** @description Optional, for a .msh layer: the tissue tags it shows (a simulation's field mesh shows grey matter, [2, 1002]); the TetraVox scene hides every other tissue of the mesh and windows the field over these. Absent: every tissue is shown. */
+            visible_tags?: number[];
             /** @description Requested percentile window (e.g. {lo: 95, hi: 99.9}), alternative to explicit cal_min/cal_max. The server resolves this against the volume's actual voxel-intensity distribution when the spec is built (GET /api/view/{kind}), filling cal_min/cal_max with the resolved absolute values before responding -- a layer's cal_min/cal_max are always the final absolute thresholds a viewer applies, whether the caller supplied them directly or via percentile. */
             percentile?: {
                 lo: number;
@@ -6990,9 +6992,12 @@ export interface components {
          *     rubber_thickness : float
          *         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
          *     map_to_surf : bool
-         *         Map results onto the cortical surface.  Must stay ``True``
-         *         (default) because the ``TI_normal`` calculation requires surface
-         *         overlays.
+         *         Not used.  Every run writes one central cortical surface,
+         *         ``<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh``, with every
+         *         volume field and ``TI_normal`` on it; SimNIBS's per-channel surface
+         *         overlays are never written.  The value is only recorded in the run's
+         *         ``config.json``, and the field is still accepted so older configs and
+         *         job specs load.  Default ``True``.
          *     map_to_vol : bool
          *         Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
          *         name; ``tit.tools.mesh2nii`` does the conversion after the run): one

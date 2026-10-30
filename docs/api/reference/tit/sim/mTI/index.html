@@ -1069,21 +1069,17 @@ for multi-channel TI stimulation with an arbitrary even number of channels
 (4, 6, 8, ...):</p>
 <ul>
 <li>Each channel produces one HF E-field via SimNIBS TDCS.</li>
-<li>Each beating pair's two channels are combined into an intermediate TI
-  vector field, saved for inspection only.</li>
-<li>The final mTI envelope is the joint envelope maximum
+<li>The mTI envelope is the joint envelope maximum
   (:func:<code>tit.calc.envelope_max</code>) over all N channel fields
-  jointly -- <em>not</em> a recursive TI-of-TI combination of the intermediate
-  fields above (that approximation is physically invalid).</li>
+  jointly -- <em>not</em> a recursive TI-of-TI combination of per-pair envelopes
+  (that approximation is physically invalid).</li>
 <li>Channels are paired positionally: each two consecutive channels form a
   beating pair at a common difference frequency (channels 1 and 2 the first
   pair, 3 and 4 the second, and so on; on disk the channels are lettered
   <code>A</code>, <code>B</code>, <code>C</code>, <code>D</code> ...).</li>
 </ul>
 <p>Example with 4 channels (on disk A/B/C/D)::</p>
-<div class="highlight"><pre><span></span><code>TI_AB = _ti_vectors([E_A, E_B])            # intermediate, inspection only
-TI_CD = _ti_vectors([E_C, E_D])            # intermediate, inspection only
-mTI   = envelope_max([E_A, E_B, E_C, E_D])
+<div class="highlight"><pre><span></span><code>mTI = envelope_max([E_A, E_B, E_C, E_D])
 </code></pre></div>
 <h4 id="tit.sim.mTI--see-also">See Also<a class="headerlink" href="#tit.sim.mTI--see-also" title="Permanent link">&para;</a></h4>
 <p>BaseSimulation : Abstract base class providing the <code>run</code> template.
@@ -1131,15 +1127,13 @@ run_simulation : Top-level orchestration that dispatches to this class.</p>
 <li>Set up BIDS output directory structure.</li>
 <li>Visualize electrode placement.</li>
 <li>Build SimNIBS SESSION (N TDCS lists), run FEM.</li>
-<li>Compute each beating pair's intermediate TI vector field (adjacent
-   channels, saved for inspection only).</li>
-<li>Compute final <code>mTI_max</code> from the verified
-   modulation-depth envelope over all N channel fields jointly, plus
-   its orientation-averaged companion <code>TI_avg</code> and the <code>hf_peak</code>/
-   <code>hf_rms</code>/<code>hf_power_density</code> kHz-exposure safety maps (always over
-   all N fields).</li>
-<li>Extract GM/WM meshes and organize outputs; with <code>map_to_vol</code>, write
-   one NIfTI per field.</li>
+<li>Compute <code>mTI_max</code> from the modulation-depth envelope over all N
+   channel fields jointly, plus its orientation-averaged companion
+   <code>TI_avg</code> and the <code>hf_peak</code>/<code>hf_rms</code>/<code>hf_power_density</code>
+   kHz-exposure maps (always over all N fields), and the central surface
+   with them and <code>TI_normal</code>.</li>
+<li>Organize outputs; with <code>map_to_vol</code>, write one NIfTI per field (whole,
+   grey and white matter).</li>
 </ol>
 <h5 id="tit.sim.mTI.mTISimulation--see-also">See Also<a class="headerlink" href="#tit.sim.mTI.mTISimulation--see-also" title="Permanent link">&para;</a></h5>
 <p>BaseSimulation : Parent class with shared setup and template <code>run</code>.

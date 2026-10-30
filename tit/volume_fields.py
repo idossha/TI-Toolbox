@@ -9,11 +9,18 @@ channel meshes every run keeps in ``high_Frequency/mesh/`` (``<sid>_TDCS_<k>_<co
 What persists, so the next step finds the field saved:
 
 * :func:`ensure_mesh_fields` adds the field to the volume mesh
-  ``<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh``, re-cuts its ``grey_``/``white_`` copies from it and
-  regenerates its central surface (``msh2cortex``), which is what a mesh analysis reads;
+  ``<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh`` and rewrites its central surface
+  ``<sim>/<TI|mTI>/mesh/surfaces/<sim>_<TI|mTI>_central.msh`` (:func:`central_surface`: every
+  volume field and ``TI_normal`` as node data), which is what a mesh analysis reads. It also
+  builds that surface for a run that lacks it or whose surface lacks a field -- a run made before
+  the surface carried ``TI_normal`` -- taking ``TI_normal`` from the run's old
+  ``<sim>_normal.msh`` (``<sim>_mTI_normal.msh``) when it has one, else from the channel meshes.
+  It never deletes an old run's files; nothing reads them;
 * :func:`ensure_niftis` / :func:`ensure_nifti_file` also write the NIfTI a voxel step reads,
   under the simulator's own name (``<tissue_><sim>_<TI|mTI>_subject_<field>.nii.gz``, or
-  ``..._MNI_MNI_<field>.nii.gz`` in MNI space) in ``<sim>/<TI|mTI>/niftis/``.
+  ``..._MNI_MNI_<field>.nii.gz`` in MNI space) in ``<sim>/<TI|mTI>/niftis/``; a ``grey_`` or
+  ``white_`` NIfTI is converted from the volume mesh cropped to that tissue
+  (:data:`tit.tools.mesh2nii.TISSUE_TAGS`).
 
 NIfTIs and the mesh stay consistent. A run that wrote NIfTIs (``map_to_vol`` in its run record)
 has one per mesh field, so a field added to its mesh gets its NIfTIs too -- every converted
@@ -50,7 +57,7 @@ from pathlib import Path
 import numpy as np
 
 from tit import constants as const
-from tit.calc import envelope_max, envelope_mean, hf_peak, hf_power
+from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 from tit.tools.msh_fields import msh_field_names
 
 logger = logging.getLogger(__name__)
@@ -132,6 +139,74 @@ def compute_volume_fields(
     return out
 
 
+def central_surface(volume, m2m_dir, *, e_fields=None):
+    """The subject's central cortical surface (lh then rh) carrying *volume*'s fields as node data.
+
+    What SimNIBS's ``msh2cortex`` does, in process: the brain-tissue *volume* mesh is cropped to
+    white matter, grey matter and CSF, and its fields are interpolated onto the m2m central
+    surfaces inside the grey-matter tetrahedra (``ElementData.interpolate_to_surface``), all of
+    them in one stacked call per hemisphere; the hemispheres are joined as ``msh2cortex`` joins
+    them (tags ``LH_/RH_CENTRAL_SURFACE``). With *e_fields* -- the channels' ``E`` on
+    *volume*'s elements, in channel order -- their interpolated vectors give ``TI_normal``, the
+    envelope along the node normals (:func:`tit.calc.envelope`), as the old surface overlays'
+    ``E_normal`` gave it (tests/numerical/test_central_surface_real.py: both to 3e-14 V/m).
+
+    Raises:
+        ValueError: *volume* carries a field that is not a scalar.
+    """
+    from simnibs import mesh_io
+    from simnibs.mesh_tools.mesh_io import ElementTags
+    from simnibs.utils.file_finder import SubjectFiles
+
+    names = [d.field_name for d in volume.elmdata]
+    columns = []
+    for data in volume.elmdata:
+        if data.nr_comp != 1:
+            raise ValueError(
+                f"the field mesh carries {data.field_name!r} with {data.nr_comp} components; "
+                "a volume field is a scalar"
+            )
+        columns.append(np.asarray(data.value, dtype=np.float64).reshape(-1, 1))
+    columns += [np.asarray(e, dtype=np.float64).reshape(-1, 3) for e in e_fields or ()]
+    values = np.hstack(columns)
+    stacked = mesh_io.Msh(volume.nodes, volume.elm)
+    # SimNIBS interpolates an (N, 1) block wrongly; one column goes in as the scalar it is.
+    stacked.add_element_field(
+        values[:, 0] if values.shape[1] == 1 else values, "stacked"
+    )
+    stacked = stacked.crop_mesh(tags=[ElementTags.WM, ElementTags.GM, ElementTags.CSF])
+    gm = stacked.elm.get_tags(ElementTags.GM, return_element_numbers=True)
+
+    subject = SubjectFiles(subpath=str(m2m_dir))
+    surfaces = mesh_io.load_subject_surfaces(subject, "central")
+    values = np.vstack(
+        [
+            np.asarray(
+                stacked.field["stacked"]
+                .interpolate_to_surface(surfaces[hemi], th_indices=gm)
+                .value
+            ).reshape(surfaces[hemi].nodes.nr, -1)
+            for hemi in ("lh", "rh")
+        ]
+    )
+    for hemi, tag in (
+        ("lh", ElementTags.LH_CENTRAL_SURFACE),
+        ("rh", ElementTags.RH_CENTRAL_SURFACE),
+    ):
+        surfaces[hemi].elm.tag1 = tag * np.ones(surfaces[hemi].elm.nr, dtype=int)
+        surfaces[hemi].elm.tag2 = tag * np.ones(surfaces[hemi].elm.nr, dtype=int)
+    surface = surfaces["lh"].join_mesh(surfaces["rh"])
+    surface.nodedata, surface.elmdata = [], []
+    for i, name in enumerate(names):
+        surface.add_node_field(values[:, i], name)
+    if e_fields:
+        k = len(names)
+        vectors = [values[:, k + 3 * c : k + 3 * c + 3] for c in range(len(e_fields))]
+        normals = surface.nodes_normals().value
+        surface.add_node_field(envelope(vectors, normals), const.FIELD_TI_NORMAL)
+    return surface
+
+
 # ── where a simulation keeps what ────────────────────────────────────────────────────
 
 
@@ -153,6 +228,16 @@ class _Simulation:
     @property
     def niftis_dir(self) -> Path:
         return self.dir / self.mode / "niftis"
+
+    @property
+    def central(self) -> Path:
+        return self.mesh_dir / "surfaces" / f"{self.name}_{self.mode}_central.msh"
+
+    @property
+    def legacy_normal(self) -> Path:
+        """The ``TI_normal`` mesh runs wrote before the central surface carried it (read-only)."""
+        suffix = "_mTI_normal" if self.mode == "mTI" else "_normal"
+        return self.mesh_dir / f"{self.name}{suffix}.msh"
 
     @property
     def max_name(self) -> str:
@@ -237,6 +322,66 @@ def _missing(sim: _Simulation, names: list[str]) -> list[str]:
             "simulation."
         )
     return [n for n in names if _on_disk(sim, n) not in carried]
+
+
+def _surface_lacks(sim: _Simulation) -> list[str] | None:
+    """What the central surface lacks of the volume mesh's fields and ``TI_normal``.
+
+    ``None`` when the surface file is missing; empty when it is complete. A carrier-only run
+    has no envelope, so no ``TI_normal``: the run record is read only when the surface has none.
+    """
+    if not sim.central.is_file():
+        return None
+    carried = msh_field_names(sim.central) or set()
+    lacks = [
+        n for n in sorted(msh_field_names(sim.volume_mesh) or ()) if n not in carried
+    ]
+    if const.FIELD_TI_NORMAL not in carried and (
+        _recorded_config(sim).get("carrier_only") is not True
+    ):
+        lacks.append(const.FIELD_TI_NORMAL)
+    return lacks
+
+
+def _check_surface_producible(sim: _Simulation, config: dict) -> None:
+    """Raise unless the central surface can be built: m2m surfaces, and a ``TI_normal`` source."""
+    from tit.paths import get_path_manager
+
+    m2m = Path(get_path_manager().m2m(sim.subject_id))
+    absent = [
+        p
+        for p in (m2m / "surfaces" / f"{h}.central.gii" for h in ("lh", "rh"))
+        if not p.is_file()
+    ]
+    if absent:
+        raise FieldUnavailableError(
+            f"The central surface of {sim.name} cannot be built: the head model has no "
+            f"central surfaces ({', '.join(str(p) for p in absent)}). Re-run charm."
+        )
+    if config.get("carrier_only") is True or sim.legacy_normal.is_file():
+        return
+    channels = [p for p in _channel_meshes(sim, config) if not p.is_file()]
+    if channels or not config.get("electrode_pairs"):
+        raise FieldUnavailableError(
+            f"The central surface of {sim.name} cannot be built: TI_normal is computed from "
+            "the channel meshes, and they are missing: "
+            + (
+                ", ".join(str(p) for p in channels)
+                or "the run record names no channels"
+            )
+            + ". Re-run the simulation."
+        )
+
+
+def check_surface_producible(subject_id: str, simulation: str) -> None:
+    """Raise :class:`FieldUnavailableError` if the central surface is incomplete and cannot be built.
+
+    Filesystem checks only (headers and file existence), for a job's preflight.
+    """
+    sim = _simulation(subject_id, simulation)
+    _missing(sim, [])  # the volume mesh must be there and readable
+    if _surface_lacks(sim) != []:
+        _check_surface_producible(sim, _recorded_config(sim))
 
 
 def _check_producible(sim: _Simulation, missing: list[str]) -> dict:
@@ -339,48 +484,73 @@ def _move_all(src: Path, dst: Path) -> None:
 
 
 def ensure_mesh_fields(
-    subject_id: str, simulation: str, fields, *, say: Callable[[str], None] = _quiet
+    subject_id: str,
+    simulation: str,
+    fields,
+    *,
+    say: Callable[[str], None] = _quiet,
+    surface: bool = True,
 ) -> list[str]:
-    """Make the simulation's volume mesh carry every field of *fields*; the sentences said.
+    """Make the volume mesh carry every field of *fields*, and its central surface all of them.
 
-    A missing field is computed with :func:`compute_volume_fields` from the channel meshes,
-    added to the volume mesh (written whole, then moved into place), and the mesh's
-    ``grey_``/``white_`` copies and central surface are regenerated from it. Returns one
-    sentence per production (empty when everything was saved), each handed to *say* before
-    the work it announces starts.
+    A missing field is computed with :func:`compute_volume_fields` from the channel meshes and
+    added to the volume mesh, and the central surface is rewritten from it with every field.
+    A central surface that is missing or lacks a field of the volume mesh or ``TI_normal`` is
+    rebuilt even when *fields* is empty (an old run, :func:`_produce_surface`). Returns one
+    sentence per production (empty when nothing was needed), each handed to *say* before the
+    work it announces starts.
 
     Args:
         subject_id: Subject identifier (no ``sub-``).
         simulation: Simulation (montage) folder name.
-        fields: Logical or on-disk volume field names (``TI_max`` and ``mTI_max`` alike).
+        fields: Logical or on-disk volume field names (``TI_max`` and ``mTI_max`` alike); may be
+            empty, to make sure of the central surface only.
         say: Called with each sentence first (a caller's ``logger.info``).
+        surface: Also rebuild an incomplete central surface when no field is missing.
+            ``False`` for a step that reads only NIfTIs (:func:`ensure_niftis`).
 
     Raises:
-        FieldUnavailableError: a missing field cannot be produced (see the module docstring).
+        FieldUnavailableError: a missing field or the surface cannot be produced.
         ValueError: a name is not a volume field (``TI_normal`` is a surface field).
+        RuntimeError: the head model's central surface is not the one the run used.
     """
     sim = _simulation(subject_id, simulation)
     names = _validated(fields)
-    if not _missing(sim, names):
+    if not _missing(sim, names) and (not surface or _surface_lacks(sim) == []):
         return []
     with _producing(sim):
         missing = _missing(sim, names)  # another producer may have finished meanwhile
-        if not missing:
+        if missing:
+            config = _check_producible(sim, missing)
+            names = [_on_disk(sim, n) for n in missing]
+            was, it = _was(names)
+            spaces = _recorded_nifti_spaces(config)
+            also = ""
+            if spaces:
+                kind = "subject and MNI-space NIfTIs" if "mni" in spaces else "NIfTIs"
+                also = f", with the {kind} this run writes for every field"
+            notice = (
+                f"{_listed(names)} {was} not saved for {sim.name}; computing {it} from the "
+                f"channel fields and saving {it} to {sim.volume_mesh.name}{also}."
+            )
+            say(notice)
+            _produce_mesh_fields(sim, config, missing, names, spaces)
+            return [notice]
+        if not surface:
             return []
-        config = _check_producible(sim, missing)
-        names = [_on_disk(sim, n) for n in missing]
-        was, it = _was(names)
-        spaces = _recorded_nifti_spaces(config)
-        also = ""
-        if spaces:
-            kind = "subject and MNI-space NIfTIs" if "mni" in spaces else "NIfTIs"
-            also = f", with the {kind} this run writes for every field"
-        notice = (
-            f"{_listed(names)} {was} not saved for {sim.name}; computing {it} from the "
-            f"channel fields and saving {it} to {sim.volume_mesh.name}{also}."
+        lacks = _surface_lacks(sim)
+        if lacks == []:
+            return []
+        config = _recorded_config(sim)
+        _check_surface_producible(sim, config)
+        what = (
+            "has no central surface"
+            if lacks is None
+            else (f"has a central surface without {_listed(lacks)}")
         )
+        notice = f"{sim.name} {what}; writing {sim.central.name} from its field mesh."
         say(notice)
-        _produce_mesh_fields(sim, config, missing, names, spaces)
+        _produce_surface(sim, config)
     return [notice]
 
 
@@ -392,34 +562,99 @@ def _recorded_nifti_spaces(config: dict) -> tuple[str, ...]:
     return ("subject", "mni") if options.get("map_to_mni") is True else ("subject",)
 
 
-def _produce_mesh_fields(
-    sim: _Simulation, config: dict, missing: list[str], names: list[str], spaces
-) -> None:
-    """Compute *missing*, then write every output it changes, the volume mesh last.
-
-    All of it -- the volume mesh, its grey/white copies, the central surface and, for a run
-    that writes NIfTIs, the new fields' NIfTIs in its *spaces* -- is written into a staging
-    folder and moved into place once complete: the derived files first, the volume mesh
-    last. So "the volume mesh carries the field" (what :func:`_missing` reads) implies every
-    derived file is complete; a production killed earlier leaves the volume mesh without the
-    field and the next one redoes all of it.
-    """
+def _read_channels(sim: _Simulation, config: dict, volume) -> list:
+    """The channel meshes cropped to brain tissue as the simulator crops them, checked against
+    *volume*'s elements."""
     from simnibs import mesh_io
-
-    from tit.paths import get_path_manager
-    from tit.sim.utils import extract_fields, generate_central_surface
 
     channels = [
         mesh_io.read_msh(str(p)).crop_mesh(tags=BRAIN_TAGS)
         for p in _channel_meshes(sim, config)
     ]
-    volume = mesh_io.read_msh(str(sim.volume_mesh))
     if volume.elm.nr != channels[0].elm.nr:
         raise RuntimeError(
             f"{sim.volume_mesh} has {volume.elm.nr} elements but its brain-cropped channel "
             f"meshes have {channels[0].elm.nr}: they are not from the same run. Re-run the "
             "simulation."
         )
+    return channels
+
+
+def _surface(sim: _Simulation, config: dict, volume, channels=None):
+    """The central surface of *volume*'s fields, ``TI_normal`` included unless carrier-only.
+
+    ``TI_normal`` comes from *channels* when given, else from the run's old
+    ``<sim>_normal.msh`` (the same nodes: ``msh2cortex`` and the overlays used the m2m central
+    surfaces too), else from the channel meshes read here.
+
+    Raises:
+        RuntimeError: the m2m central surface has another node count than this run's own
+            surface (or its old ``TI_normal`` mesh): the subject was re-segmented since.
+    """
+    from simnibs import mesh_io
+
+    from tit.paths import get_path_manager
+
+    m2m = get_path_manager().m2m(sim.subject_id)
+    if config.get("carrier_only") is True:
+        surface = central_surface(volume, m2m)
+    elif channels is None and sim.legacy_normal.is_file():
+        surface = central_surface(volume, m2m)
+        old = mesh_io.read_msh(str(sim.legacy_normal))
+        _same_nodes(sim, surface, old, sim.legacy_normal)
+        surface.add_node_field(
+            np.asarray(old.field[const.FIELD_TI_NORMAL].value), const.FIELD_TI_NORMAL
+        )
+    else:
+        if channels is None:
+            channels = _read_channels(sim, config, volume)
+        surface = central_surface(
+            volume, m2m, e_fields=[m.field["E"].value for m in channels]
+        )
+    if sim.central.is_file():
+        _same_nodes(sim, surface, mesh_io.read_msh(str(sim.central)), sim.central)
+    return surface
+
+
+def _same_nodes(sim: _Simulation, surface, reference, path: Path) -> None:
+    if surface.nodes.nr != reference.nodes.nr:
+        raise RuntimeError(
+            f"The head model's central surface has {surface.nodes.nr} nodes but {path} has "
+            f"{reference.nodes.nr}: sub-{sim.subject_id} was segmented again after "
+            f"{sim.name} ran. Re-run the simulation."
+        )
+
+
+def _produce_surface(sim: _Simulation, config: dict) -> None:
+    """Write the central surface of the volume mesh as it is (staged, then moved into place)."""
+    from simnibs import mesh_io
+
+    surface = _surface(sim, config, mesh_io.read_msh(str(sim.volume_mesh)))
+    with _staging(sim) as stage:
+        staged = stage / sim.central.name
+        mesh_io.write_msh(surface, str(staged))
+        sim.central.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(staged, sim.central)
+
+
+def _produce_mesh_fields(
+    sim: _Simulation, config: dict, missing: list[str], names: list[str], spaces
+) -> None:
+    """Compute *missing*, then write every output it changes, the volume mesh last.
+
+    All of it -- the volume mesh, its central surface and, for a run that writes NIfTIs, the
+    new fields' NIfTIs in its *spaces* (whole, grey and white matter) -- is written into a
+    staging folder and moved into place once complete: the derived files first, the volume
+    mesh last. So "the volume mesh carries the field" (what :func:`_missing` reads) implies
+    every derived file is complete; a production killed earlier leaves the volume mesh without
+    the field and the next one redoes all of it.
+    """
+    from simnibs import mesh_io
+
+    from tit.paths import get_path_manager
+
+    volume = mesh_io.read_msh(str(sim.volume_mesh))
+    channels = _read_channels(sim, config, volume)
     for name, values in compute_volume_fields(
         [m.field["E"].value for m in channels],
         missing,
@@ -427,26 +662,21 @@ def _produce_mesh_fields(
         coherent=config.get("carrier_only") is True,
     ):
         volume.add_element_field(values, name)
+    surface = _surface(sim, config, volume, channels)
 
     m2m = get_path_manager().m2m(sim.subject_id)
     stem = sim.volume_mesh.stem
     with _staging(sim) as stage:
-        staged = stage / sim.volume_mesh.name  # same name: msh2cortex names by stem
+        staged = stage / sim.volume_mesh.name
         mesh_io.write_msh(volume, str(staged))
-        extract_fields(str(staged), str(stage), stem, m2m, sim.subject_id, logger)
-        generate_central_surface(str(staged), m2m, str(stage / "surfaces"))
+        mesh_io.write_msh(surface, str(stage / sim.central.name))
         # A run that writes NIfTIs keeps one per mesh field (check_niftis_match_meshes).
         for space in spaces:
             for tissue in (None, "grey", "white"):
                 base = f"{tissue + '_' if tissue else ''}{stem}"
-                _convert(
-                    stage / f"{base}.msh", m2m, stage / "niftis", base, space, names
-                )
-        _move_all(stage / "surfaces", sim.mesh_dir / "surfaces")
-        for tissue in ("grey", "white"):
-            os.replace(
-                stage / f"{tissue}_{stem}.msh", sim.mesh_dir / f"{tissue}_{stem}.msh"
-            )
+                _convert(staged, m2m, stage / "niftis", base, space, names, tissue)
+        sim.central.parent.mkdir(parents=True, exist_ok=True)
+        os.replace(stage / sim.central.name, sim.central)
         _move_all(stage / "niftis", sim.niftis_dir)
         os.replace(staged, sim.volume_mesh)
 
@@ -479,7 +709,8 @@ def ensure_niftis(
         subject_id: Subject identifier (no ``sub-``).
         simulation: Simulation (montage) folder name.
         fields: Volume field names, as for :func:`ensure_mesh_fields`.
-        tissue: ``"grey"``, ``"white"`` or ``None`` (the whole brain-tissue mesh).
+        tissue: ``"grey"``, ``"white"`` or ``None`` (the whole brain-tissue mesh); a tissue's
+            NIfTI is converted from the volume mesh cropped to it.
         space: ``"subject"`` or ``"mni"``.
         say: As for :func:`ensure_mesh_fields`.
 
@@ -503,18 +734,18 @@ def ensure_niftis(
     }
     if all(_saved(p) for p in paths.values()):
         return {f: _saved(p) for f, p in paths.items()}, []
-    notices = ensure_mesh_fields(subject_id, simulation, names, say=say)
+    notices = ensure_mesh_fields(subject_id, simulation, names, say=say, surface=False)
     with _producing(sim):
         absent = [f for f, p in paths.items() if not _saved(p)]
         if absent:
-            mesh = sim.mesh_dir / f"{base}.msh"
+            mesh = sim.volume_mesh
             was, it = _was(absent)
             kind = "an MNI-space NIfTI" if space == "mni" else "a NIfTI"
             if len(absent) > 1:
                 kind = "MNI-space NIfTIs" if space == "mni" else "NIfTIs"
             notice = (
                 f"{_listed(absent)} {was} not saved as {kind} for {sim.name}; writing "
-                f"{it} from {mesh.name}."
+                f"{it} from {mesh.name}{f' ({tissue} matter)' if tissue else ''}."
             )
             say(notice)
             notices.append(notice)
@@ -522,15 +753,21 @@ def ensure_niftis(
 
             m2m = get_path_manager().m2m(sim.subject_id)
             with _staging(sim) as stage:
-                _convert(mesh, m2m, stage, base, space, absent)
+                _convert(mesh, m2m, stage, base, space, absent, tissue)
                 _move_all(stage, sim.niftis_dir)
     return {f: _saved(p) or p for f, p in paths.items()}, notices
 
 
 def _convert(
-    mesh: Path, m2m, out_dir: Path, base: str, space: str, fields
+    mesh: Path,
+    m2m,
+    out_dir: Path,
+    base: str,
+    space: str,
+    fields,
+    tissue: str | None = None,
 ) -> list[Path]:
-    """The NIfTI of each of *fields* of *mesh* in *space*, written into *out_dir*.
+    """The NIfTI of each of *fields* of *mesh* (cropped to *tissue*) in *space*, into *out_dir*.
 
     The simulator's own conversion (:mod:`tit.tools.mesh2nii`) and names
     (``<base>_subject_<field>.nii.gz`` / ``<base>_MNI_MNI_<field>.nii.gz``).
@@ -538,17 +775,18 @@ def _convert(
     Raises:
         RuntimeError: the conversion did not write a requested file.
     """
-    from tit.tools.mesh2nii import msh_to_mni, msh_to_nifti
+    from tit.tools.mesh2nii import TISSUE_TAGS, msh_to_mni, msh_to_nifti
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    if space == "mni":
-        msh_to_mni(
-            str(mesh), str(m2m), str(out_dir / f"{base}_MNI"), fields=list(fields)
-        )
-    else:
-        msh_to_nifti(
-            str(mesh), str(m2m), str(out_dir / f"{base}_subject"), fields=list(fields)
-        )
+    convert = msh_to_mni if space == "mni" else msh_to_nifti
+    token = "MNI" if space == "mni" else "subject"
+    convert(
+        str(mesh),
+        str(m2m),
+        str(out_dir / f"{base}_{token}"),
+        fields=list(fields),
+        tags=TISSUE_TAGS[tissue] if tissue else None,
+    )
     written = [out_dir / _nifti_name(base, space, f) for f in fields]
     unwritten = [str(p) for p in written if not p.is_file()]
     if unwritten:
@@ -558,8 +796,10 @@ def _convert(
     return written
 
 
-def voxelise(mesh, m2m, out_dir, fields) -> dict[str, Path]:
-    """Subject-space NIfTIs of *fields* of the field mesh *mesh*, written into *out_dir*.
+def voxelise(mesh, m2m, out_dir, fields, *, tissue=None) -> dict[str, Path]:
+    """Subject-space NIfTIs of *fields* of the field mesh *mesh* (cropped to *tissue*).
+
+    Written into *out_dir* as ``<tissue_><mesh stem>_subject_<field>.nii.gz``.
 
     The conversion the on-demand path uses, for a caller that keeps the volumes elsewhere
     (the simulation report voxelises its envelope into a scratch folder). Keyed by field.
@@ -576,7 +816,8 @@ def voxelise(mesh, m2m, out_dir, fields) -> dict[str, Path]:
             f"{mesh} is missing or does not carry {_listed(absent)}, so it cannot be "
             "voxelised."
         )
-    written = _convert(mesh, m2m, Path(out_dir), mesh.stem, "subject", fields)
+    base = f"{tissue + '_' if tissue else ''}{mesh.stem}"
+    written = _convert(mesh, m2m, Path(out_dir), base, "subject", fields, tissue)
     return dict(zip(fields, written))
 
 
@@ -660,27 +901,27 @@ def ensure_nifti_file(
         )
 
 
-def check_niftis_match_meshes(mesh_dir, niftis_dir, *, mni: bool) -> None:
-    """Raise unless every volume mesh in *mesh_dir* has exactly one NIfTI per field, per space.
+def check_niftis_match_meshes(volume_mesh, niftis_dir, *, mni: bool) -> None:
+    """Raise unless *volume_mesh* has exactly one NIfTI per field, per tissue and space.
 
-    The simulator's NIfTI set is its mesh field set, name for name: ``<mesh>_subject_<field>``
-    (and ``<mesh>_MNI_MNI_<field>`` with *mni*) for each field of each converted mesh, and
-    nothing else under that mesh's name. The surface-only ``*_normal.msh`` is not converted.
+    The simulator's NIfTI set is its mesh field set, name for name: ``<base>_subject_<field>``
+    (and ``<base>_MNI_MNI_<field>`` with *mni*) for each field, where ``<base>`` is the volume
+    mesh's stem and its ``grey_`` / ``white_`` crops, and nothing else under those names.
 
     Raises:
-        RuntimeError: a mesh's fields cannot be read, or its NIfTIs differ from them.
+        RuntimeError: the mesh's fields cannot be read, or the NIfTIs differ from them.
     """
-    mesh_dir, niftis_dir = Path(mesh_dir), Path(niftis_dir)
+    volume_mesh, niftis_dir = Path(volume_mesh), Path(niftis_dir)
+    carried = msh_field_names(volume_mesh)
+    if carried is None:
+        raise RuntimeError(
+            f"Cannot read the fields of {volume_mesh} to check its NIfTIs."
+        )
     written = [p.name for p in niftis_dir.glob("*.nii*")]
     problems = []
-    for mesh in sorted(mesh_dir.glob("*.msh")):
-        if mesh.name.startswith("._") or mesh.stem.endswith("_normal"):
-            continue
-        carried = msh_field_names(mesh)
-        if carried is None:
-            raise RuntimeError(f"Cannot read the fields of {mesh} to check its NIfTIs.")
+    for base in (f"{t}{volume_mesh.stem}" for t in ("", "grey_", "white_")):
         for token in ("subject", "MNI_MNI") if mni else ("subject",):
-            prefix = f"{mesh.stem}_{token}_"
+            prefix = f"{base}_{token}_"
             have = {
                 n[len(prefix) :].split(".nii")[0]
                 for n in written
@@ -688,10 +929,10 @@ def check_niftis_match_meshes(mesh_dir, niftis_dir, *, mni: bool) -> None:
             }
             if have != carried:
                 problems.append(
-                    f"{mesh.name} carries {sorted(carried)} but its {token} NIfTIs are "
+                    f"{base} carries {sorted(carried)} but its {token} NIfTIs are "
                     f"{sorted(have)}"
                 )
     if problems:
         raise RuntimeError(
-            "The NIfTIs do not match the field meshes: " + "; ".join(problems) + "."
+            "The NIfTIs do not match the field mesh: " + "; ".join(problems) + "."
         )

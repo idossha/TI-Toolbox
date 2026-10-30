@@ -4003,3 +4003,45 @@ density, never SAR (no SAR limit below 100 kHz). Pinned by `tests/test_field_reg
 **Alternatives rejected.** Keeping `hf_sar` with a better description (the conversion stays in
 every reader); `hf_power` on disk ((V/m)², not comparable with a field ratio); aliases for the old
 metric names (the branch is unreleased; an alias is a second spelling to keep forever).
+
+## 2026-10-30 — One central surface mesh per run, written in process; no overlays, no tissue meshes
+
+**Decision.** A TI/mTI run writes `<m>/<TI|mTI>/mesh/<m>_<TI|mTI>.msh` (every volume field) and
+one `<m>/<TI|mTI>/mesh/surfaces/<m>_<TI|mTI>_central.msh` (every volume field and `TI_normal` as
+node data, lh then rh), made by `tit.volume_fields.central_surface` with SimNIBS's own
+`ElementData.interpolate_to_surface` inside the grey-matter tetrahedra, one stacked call per
+hemisphere. SimNIBS's `map_to_surf` overlays (`SimulationConfig.map_to_surf` is kept, unused, so
+older configs load), `msh2cortex`, the `surface_overlays/` folder, FreeSurfer `lh|rh.*` files,
+`<m>_normal.msh`, `grey_`/`white_` meshes, mTI `TI_AB`/`TI_CD` meshes and our `.opt` views are
+gone. Grey/white NIfTIs keep their names and are converted from the volume mesh cropped on the
+fly (`tit.tools.mesh2nii.TISSUE_TAGS`). The Viewer shows the volume mesh with every tissue but
+grey matter hidden (`tagStyle`, which TetraVox 0.6.3 honours) and windows it on grey-matter
+elements. Readers switched: field selector and analyzer (`TI_normal` and the normal statistics
+from the central surface), ROI overlay, fsaverage (`TI_normal` from the central surface; its
+other fields still from the channel meshes, so published fsaverage numbers do not move), job
+preflight (mesh analyses and the fsaverage projection ask `check_surface_producible`), report
+envelope voxelisation, viewspec. An old run is upgraded on demand: its central surface is rebuilt
+from its volume mesh when missing or lacking a field, `TI_normal` copied from its `_normal.msh`
+(same nodes) or else computed from the channel meshes, after a node-count check against the m2m
+surface; nothing is deleted. Pinned by `tests/numerical/test_central_surface_real.py` (Dataset 000
+ernie run of 2026-09-23: nodes identical, max |ΔTI_max| 3.05e-15 V/m against msh2cortex, max
+|ΔTI_normal| 2.78e-16 V/m against the old `_normal.msh` [measured, 2026-10-30, v3.1.2 image]),
+`tests/test_ti_normal_direction.py`, `tests/test_sim_fields_on_demand.py` and
+`tests/test_viewspec_field_mesh.py`.
+
+**Why.** On Ernie the overlays and `msh2cortex` took 291 s + 224 s of a 1011 s emulated run, and
+most of the 36 files the old layout wrote beyond the new one were read for `TI_normal` only; the
+grey/white meshes duplicated the volume mesh (132 MB) for the Viewer and NIfTIs, which a crop
+gives in ~0.3 s.
+
+**Measured** (sub-ernie, montage AF3-PO10 / AF4-Oz, 1 mA, scalar, defaults, image v3.1.2 emulated
+on the maintainer's Mac, 2026-10-30, logs in the run's `documentation/`): before -- surface
+overlays 291 s, `msh2cortex` 224 s, run 1011 s, 53 files, 1,519,895,618 bytes; after -- central
+surface 90.6 s, run 731 s, 17 files, 1,251,545,498 bytes; the fsaverage medians are equal
+(`TI_max` 0.176, `TI_normal` 0.060, `hf_peak` 0.193, `hf_rms` 0.103 V/m).
+
+**Alternatives rejected.** Keeping `msh2cortex` for the volume fields and computing only
+`TI_normal` in process (two interpolations of the same fields, and the subprocess); keeping
+`grey_` meshes for the Viewer (the scene format hides tissues itself); reading old runs'
+`_normal.msh` or `grey_` meshes in place (two layouts to read forever; the producer upgrades
+instead).

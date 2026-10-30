@@ -123,15 +123,13 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti"),
             patch.object(_base_mod, "start_t1_to_mni"),
             patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(_fields_mod, "envelope_max"),
-            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -148,7 +146,6 @@ class TestTISimulation:
                 "ti_mesh": "/fake/sim/test_ti/TI/mesh",
                 "ti_niftis": "/fake/sim/test_ti/TI/niftis",
                 "ti_surfaces": "/fake/sim/test_ti/TI/mesh/surfaces",
-                "ti_surface_overlays": "/fake/sim/test_ti/TI/surface_overlays",
                 "ti_montage_imgs": "/fake/sim/test_ti/TI/montage_imgs",
                 "documentation": "/fake/sim/test_ti/documentation",
             }
@@ -175,15 +172,13 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti"),
             patch.object(_base_mod, "start_t1_to_mni"),
             patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(_fields_mod, "envelope_max"),
-            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_base_mod, "deepcopy") as mock_deepcopy,
         ):
@@ -205,7 +200,6 @@ class TestTISimulation:
                 "ti_mesh": "/fake/sim/test_ti/TI/mesh",
                 "ti_niftis": "/fake/sim/test_ti/TI/niftis",
                 "ti_surfaces": "/fake/sim/test_ti/TI/mesh/surfaces",
-                "ti_surface_overlays": "/fake/sim/test_ti/TI/surface_overlays",
                 "ti_montage_imgs": "/fake/sim/test_ti/TI/montage_imgs",
                 "documentation": "/fake/sim/test_ti/documentation",
             }
@@ -238,14 +232,12 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "generate_central_surface") as mock_surface,
-            patch.object(_ti_mod, "extract_fields") as mock_extract,
+            patch.object(_base_mod, "central_surface") as mock_surface,
             patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
             patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
             patch.object(_base_mod, "start_t1_to_mni") as mock_start,
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
-            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -263,7 +255,6 @@ class TestTISimulation:
                     "ti_mesh",
                     "ti_niftis",
                     "ti_surfaces",
-                    "ti_surface_overlays",
                     "ti_montage_imgs",
                     "documentation",
                 )
@@ -274,8 +265,7 @@ class TestTISimulation:
                 "/fake/sim_dir"
             )
 
-            mock_extract.assert_called_once()  # the grey/white field meshes
-            mock_surface.assert_called_once()  # the central surface
+            mock_surface.assert_called_once()  # the central surface, with TI_normal
             mock_transform.assert_not_called()
             mock_check.assert_not_called()
             mock_start.assert_not_called()
@@ -288,8 +278,7 @@ class TestTISimulation:
             patch.object(_base_mod, "create_simulation_config_file") as mock_create,
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
             patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
             patch.object(_base_mod, "start_t1_to_mni") as mock_start,
@@ -297,7 +286,6 @@ class TestTISimulation:
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(_fields_mod, "envelope_max"),
-            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
@@ -313,7 +301,6 @@ class TestTISimulation:
                 "ti_mesh": "/fake/ti/mesh",
                 "ti_niftis": "/fake/ti/niftis",
                 "ti_surfaces": "/fake/ti/mesh/surfaces",
-                "ti_surface_overlays": "/fake/ti/surface_overlays",
                 "ti_montage_imgs": "/fake/ti/montage_imgs",
                 "documentation": "/fake/documentation",
             }
@@ -368,8 +355,7 @@ class TestMTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_mti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti") as mock_transform,
             patch.object(_base_mod, "check_niftis_match_meshes") as mock_check,
             patch.object(_base_mod, "start_t1_to_mni") as mock_start,
@@ -379,20 +365,13 @@ class TestMTISimulation:
             patch.object(
                 _fields_mod, "envelope_max", wraps=_fields_mod.envelope_max
             ) as mock_get_ti,
-            patch.object(_mti_mod, "envelope_max", wraps=_mti_mod.envelope_max),
-            patch.object(_base_mod, "envelope"),
             patch.object(_mti_mod, "glob"),
             patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
-            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
             _mock_mesh_efields(mock_mesh_io)
-            # Identity deepcopy so the mesh mocks written to (mout) are the
-            # same tracked objects read from mesh_io.read_msh, letting the
-            # add_element_field assertions below see every field written.
-            mock_deepcopy.side_effect = lambda obj: obj
 
             dirs = {
                 "montage_dir": "/fake/sim/test_mti",
@@ -403,7 +382,6 @@ class TestMTISimulation:
                 "ti_mesh": "/fake/sim/test_mti/TI/mesh",
                 "ti_niftis": "/fake/sim/test_mti/TI/niftis",
                 "ti_surfaces": "/fake/sim/test_mti/TI/mesh/surfaces",
-                "ti_surface_overlays": "/fake/sim/test_mti/TI/surface_overlays",
                 "ti_montage_imgs": "/fake/sim/test_mti/TI/montage_imgs",
                 "mti_mesh": "/fake/sim/test_mti/mTI/mesh",
                 "mti_surfaces": "/fake/sim/test_mti/mTI/mesh/surfaces",
@@ -471,8 +449,7 @@ class TestMTISimulation:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_mti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti"),
             patch.object(_base_mod, "start_t1_to_mni"),
             patch.object(_base_mod, "finish_t1_to_mni"),
@@ -481,20 +458,14 @@ class TestMTISimulation:
             patch.object(
                 _fields_mod, "envelope_max", wraps=_fields_mod.envelope_max
             ) as mock_get_ti,
-            patch.object(
-                _mti_mod, "envelope_max", wraps=_mti_mod.envelope_max
-            ) as mock_pair_ti,
-            patch.object(_base_mod, "envelope"),
             patch.object(_fields_mod, "envelope_mean") as mock_get_avg,
             patch.object(_mti_mod, "glob"),
             patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
-            patch.object(_mti_mod, "deepcopy") as mock_deepcopy,
         ):
             mock_pm.return_value.m2m.return_value = "/fake/m2m"
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_mti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
             e_field_value = _mock_mesh_efields(mock_mesh_io)
-            mock_deepcopy.side_effect = lambda obj: obj
 
             mock_setup_dirs.return_value = {
                 "montage_dir": "/fake/sim/test_mti",
@@ -505,7 +476,6 @@ class TestMTISimulation:
                 "ti_mesh": "/fake/sim/test_mti/TI/mesh",
                 "ti_niftis": "/fake/sim/test_mti/TI/niftis",
                 "ti_surfaces": "/fake/sim/test_mti/TI/mesh/surfaces",
-                "ti_surface_overlays": "/fake/sim/test_mti/TI/surface_overlays",
                 "ti_montage_imgs": "/fake/sim/test_mti/TI/montage_imgs",
                 "mti_mesh": "/fake/sim/test_mti/mTI/mesh",
                 "mti_surfaces": "/fake/sim/test_mti/mTI/mesh/surfaces",
@@ -526,9 +496,7 @@ class TestMTISimulation:
             sim = _mti_mod.mTISimulation(config, montage, MagicMock())
             sim.run("/fake/simulation_dir")
 
-            # Once per beating pair for the intermediate TI_AB/TI_CD meshes (two
-            # channel fields each) plus once for the final joint envelope.
-            assert [len(c.args[0]) for c in mock_pair_ti.call_args_list] == [2, 2]
+            # Once, for the joint envelope of all four channel fields (no per-pair meshes).
             assert [len(c.args[0]) for c in mock_get_ti.call_args_list] == [4]
             mock_get_avg.assert_called_once()
 
@@ -767,15 +735,13 @@ class TestOutputFieldSelection:
             patch.object(_base_mod, "create_simulation_config_file"),
             patch.object(_base_mod, "run_montage_visualization"),
             patch.object(_base_mod, "run_simnibs"),
-            patch.object(_base_mod, "generate_central_surface"),
-            patch.object(_ti_mod, "extract_fields"),
+            patch.object(_base_mod, "central_surface"),
             patch.object(_base_mod, "transform_dirs_to_nifti"),
             patch.object(_base_mod, "start_t1_to_mni"),
             patch.object(_base_mod, "finish_t1_to_mni"),
             patch.object(_ti_mod, "safe_move"),
             patch.object(_base_mod, "mesh_io") as mock_mesh_io,
             patch.object(_fields_mod, "envelope_max"),
-            patch.object(_base_mod, "envelope"),
             patch.object(_ti_mod, "glob"),
             patch.object(_base_mod, "deepcopy") as mock_deepcopy,
             patch.object(_fields_mod, "envelope_mean") as mock_ti_avg,
@@ -798,7 +764,6 @@ class TestOutputFieldSelection:
                     "ti_mesh",
                     "ti_niftis",
                     "ti_surfaces",
-                    "ti_surface_overlays",
                     "ti_montage_imgs",
                     "documentation",
                 )

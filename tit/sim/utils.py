@@ -348,10 +348,9 @@ def setup_montage_directories(
 ) -> dict[str, str]:
     """Create the BIDS-compliant output directory tree for one montage.
 
-    Creates sub-directories for high-frequency fields, TI fields,
-    meshes, NIfTIs, surface overlays, montage images, and
-    documentation.  For mTI mode, additional ``mTI/`` sub-directories
-    are created.
+    Creates sub-directories for the high-frequency (channel) fields, the
+    run's field mesh and its central surface, montage images and
+    documentation: under ``TI/`` for a TI run and ``mTI/`` for an mTI run.
 
     Parameters
     ----------
@@ -380,21 +379,13 @@ def setup_montage_directories(
         "hf_mesh": os.path.join(montage_dir, "high_Frequency", "mesh"),
         "hf_niftis": os.path.join(montage_dir, "high_Frequency", "niftis"),
         "hf_analysis": os.path.join(montage_dir, "high_Frequency", "analysis"),
-        "ti_mesh": os.path.join(montage_dir, "TI", "mesh"),
-        "ti_niftis": os.path.join(montage_dir, "TI", "niftis"),
-        "ti_surfaces": os.path.join(montage_dir, "TI", "mesh", "surfaces"),
-        "ti_surface_overlays": os.path.join(montage_dir, "TI", "surface_overlays"),
-        "ti_montage_imgs": os.path.join(montage_dir, "TI", "montage_imgs"),
         "documentation": os.path.join(montage_dir, "documentation"),
     }
-    if mode == SimulationMode.MTI:
-        dirs["mti_mesh"] = os.path.join(montage_dir, "mTI", "mesh")
-        dirs["mti_surfaces"] = os.path.join(montage_dir, "mTI", "mesh", "surfaces")
-        dirs["mti_niftis"] = os.path.join(montage_dir, "mTI", "niftis")
-        dirs["mti_montage_imgs"] = os.path.join(montage_dir, "mTI", "montage_imgs")
-        dirs["mti_surface_overlays"] = os.path.join(
-            montage_dir, "mTI", "surface_overlays"
-        )
+    key, folder = ("mti", "mTI") if mode == SimulationMode.MTI else ("ti", "TI")
+    dirs[f"{key}_mesh"] = os.path.join(montage_dir, folder, "mesh")
+    dirs[f"{key}_surfaces"] = os.path.join(montage_dir, folder, "mesh", "surfaces")
+    dirs[f"{key}_niftis"] = os.path.join(montage_dir, folder, "niftis")
+    dirs[f"{key}_montage_imgs"] = os.path.join(montage_dir, folder, "montage_imgs")
 
     for key, path in dirs.items():
         if niftis or not key.endswith("_niftis"):
@@ -716,49 +707,6 @@ def create_simulation_config_file(
 # ── Shared post-processing helpers ───────────────────────────────────────────────────────────
 
 
-def extract_fields(
-    input_mesh: str,
-    output_dir: str,
-    base_name: str,
-    m2m_dir: str,
-    subject_id: str,
-    logger,
-) -> None:
-    """Extract grey-matter and white-matter meshes from a full-head mesh.
-
-    Crops the input mesh by SimNIBS tissue tags (tag 2 = GM, tag 1 = WM)
-    and writes the results as separate ``.msh`` files.
-
-    Parameters
-    ----------
-    input_mesh : str
-        Path to the full-head ``.msh`` file.
-    output_dir : str
-        Directory to write the cropped meshes into.
-    base_name : str
-        Stem used for output filenames (e.g.
-        ``"grey_{base_name}.msh"``).
-    m2m_dir : str
-        Path to the subject's m2m directory (unused but kept for
-        interface consistency).
-    subject_id : str
-        Subject identifier (unused but kept for interface consistency).
-    logger : logging.Logger
-        Logger instance for status messages.
-
-    See Also
-    --------
-    transform_dirs_to_nifti : Convert the extracted meshes to NIfTI.
-    """
-    from simnibs import mesh_io
-
-    full_mesh = mesh_io.read_msh(input_mesh)
-    gm_out = os.path.join(output_dir, f"grey_{base_name}.msh")
-    wm_out = os.path.join(output_dir, f"white_{base_name}.msh")
-    mesh_io.write_msh(full_mesh.crop_mesh(tags=[2]), gm_out)
-    mesh_io.write_msh(full_mesh.crop_mesh(tags=[1]), wm_out)
-
-
 def transform_dirs_to_nifti(
     specs: list[dict], m2m_dir: str, logger, *, map_to_mni: bool = False
 ) -> None:
@@ -773,7 +721,7 @@ def transform_dirs_to_nifti(
     ----------
     specs : list[dict]
         One dict per directory with keys ``mesh_dir`` and ``output_dir``
-        (required) and optional ``fields`` / ``skip_patterns``.
+        (required) and optional ``fields`` / ``skip_patterns`` / ``tissues``.
     m2m_dir : str
         Path to the subject's m2m directory, used for coordinate transforms.
     logger : logging.Logger
@@ -782,20 +730,6 @@ def transform_dirs_to_nifti(
     from tit.tools.mesh2nii import convert_mesh_dirs
 
     convert_mesh_dirs(specs=specs, m2m_dir=m2m_dir, map_to_mni=map_to_mni)
-
-
-def generate_central_surface(mesh_path: str, m2m_dir: str, surfaces_dir: str) -> None:
-    """Map every field of the field mesh *mesh_path* onto the central cortical surface.
-
-    ``msh2cortex`` writes ``<surfaces_dir>/<mesh stem>_central.msh``, the surface a mesh-space
-    analysis reads; the simulator runs it once per montage, and :mod:`tit.volume_fields` again
-    after adding a field to the mesh.
-    """
-    subprocess.run(
-        ["msh2cortex", "-i", mesh_path, "-m", m2m_dir, "-o", surfaces_dir],
-        check=True,
-        capture_output=True,
-    )
 
 
 def start_t1_to_mni(m2m_dir: str, subject_id: str) -> subprocess.Popen:
@@ -905,7 +839,7 @@ def run_simulation(
     4. Computes temporal-interference envelope fields: ``TI_max``/``TI_avg``
        plus ``TI_normal`` (2-pair TI only), or the multi-channel
        superposition for mTI.
-    5. Writes output meshes, surface overlays, and NIfTIs to the
+    5. Writes the field mesh, its central surface and (opt-in) NIfTIs to the
        BIDS-compliant simulation directory.
 
     Montages are processed sequentially.  If no *logger* is provided,
@@ -1095,7 +1029,7 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
 
     Auxiliary step driven by ``config.map_to_fsavg``; runs in the same
     ``simnibs_python`` process right after the montage completes, so the central
-    overlays it reads are already on disk.
+    surface it reads is already on disk.
 
     Best-effort -- a projection failure logs a warning and never aborts
     the simulation. Covers both TI and mTI montages.
@@ -1104,9 +1038,9 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
     from tit.source.fsaverage import project_subject
 
     try:
-        # overwrite=True: this montage's overlays were just (re)written, so any
+        # overwrite=True: this montage's surface was just (re)written, so any
         # cached projection from a prior run of the same montage name is stale.
-        # A carrier-only run has no envelope overlays; its coherent carrier
+        # A carrier-only run has no envelope on its surface; its coherent carrier
         # sum is read back from the run's config.json by the projection.
         cfg = (
             FsavgMapConfig(overwrite=True, fields=("hf_peak", "hf_rms"))

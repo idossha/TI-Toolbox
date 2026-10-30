@@ -325,12 +325,13 @@ class TestSelectFieldFileExplicitField:
 
     @pytest.mark.unit
     def test_ti_normal_resolves_separate_mesh(self, tmp_path):
+        """TI_normal is node data on the central surface, not on the volume mesh."""
         sim_dir = tmp_path / "sim"
         mesh_dir = sim_dir / "TI" / "mesh"
-        mesh_dir.mkdir(parents=True)
+        (mesh_dir / "surfaces").mkdir(parents=True)
         main_mesh = mesh_dir / "montage1_TI.msh"
         main_mesh.touch()
-        normal_mesh = mesh_dir / "montage1_normal.msh"
+        normal_mesh = mesh_dir / "surfaces" / "montage1_TI_central.msh"
         normal_mesh.touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
@@ -345,13 +346,12 @@ class TestSelectFieldFileExplicitField:
 
     @pytest.mark.unit
     def test_mti_normal_resolves_mti_mesh(self, tmp_path):
-        """For an mTI simulation, TI_normal resolves to the mTI normal mesh
-        written by BaseSimulation._write_ti_normal."""
+        """For an mTI simulation, TI_normal resolves to the mTI central surface."""
         sim_dir = tmp_path / "Simulations" / "montage1"
         mti_mesh_dir = sim_dir / "mTI" / "mesh"
-        mti_mesh_dir.mkdir(parents=True)
+        (mti_mesh_dir / "surfaces").mkdir(parents=True)
         (mti_mesh_dir / "montage1_mTI.msh").touch()
-        normal_mesh = mti_mesh_dir / "montage1_mTI_normal.msh"
+        normal_mesh = mti_mesh_dir / "surfaces" / "montage1_mTI_central.msh"
         normal_mesh.touch()
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
@@ -369,12 +369,12 @@ class TestSelectFieldFileExplicitField:
         mesh_dir = sim_dir / "TI" / "mesh"
         mesh_dir.mkdir(parents=True)
         (mesh_dir / "montage1_TI.msh").touch()
-        # No {simulation}_normal.msh written (e.g. a run from before
-        # TI_normal support, or map_to_surf disabled).
+        # No central surface (the analysis builds it before selecting; a bare selector call
+        # names the file).
 
         with patch("tit.analyzer.field_selector.get_path_manager") as mock_gpm:
             mock_gpm.return_value.simulation.return_value = str(sim_dir)
-            with pytest.raises(FileNotFoundError, match="TI_normal"):
+            with pytest.raises(FileNotFoundError, match="montage1_TI_central.msh"):
                 select_field_file("001", "montage1", "mesh", field="TI_normal")
 
     @pytest.mark.unit
@@ -767,21 +767,15 @@ class TestSaveMeshRoiOverlay:
 
         import simnibs
 
-        # Primary mesh
+        # The central surface, carrying TI_normal beside the analysed field
         primary_mesh = MagicMock()
         primary_mesh.nodes.nr = 3
-
-        # Normal mesh with TI_normal field
-        normal_mesh = MagicMock()
         normal_field = MagicMock()
         normal_field.value = np.array([0.5, 1.5, 2.5])
-        normal_mesh.field.__contains__ = lambda self, k: k == "TI_normal"
-        normal_mesh.field.__getitem__ = lambda self, k: normal_field
+        primary_mesh.field.__contains__ = lambda self, k: k == "TI_normal"
+        primary_mesh.field.__getitem__ = lambda self, k: normal_field
 
-        simnibs.read_msh.side_effect = [primary_mesh, normal_mesh]
-
-        normal_path = tmp_path / "normal.msh"
-        normal_path.touch()
+        simnibs.read_msh.side_effect = [primary_mesh]
 
         field_values = np.array([1.0, 2.0, 3.0])
         roi_mask = np.array([True, True, False])
@@ -792,7 +786,6 @@ class TestSaveMeshRoiOverlay:
             roi_mask=roi_mask,
             field_name="TI_max",
             output_dir=tmp_path,
-            normal_mesh_path=normal_path,
         )
 
         # Should have added both the ROI field and the TI_normal_ROI field

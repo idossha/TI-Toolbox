@@ -10,7 +10,7 @@ What this pins (2026-10-22, package p04 "catalog-sim-field-names")
 
 Where the expected values come from
     The writer model in ``tests/test_sim_output_naming_contract.py`` (``TI.py``/``mTI.py``
-    field names, ``extract_fields``' tissue prefixes, mesh2nii's ``<base>_subject_<field>`` /
+    field names, mesh2nii's tissue prefixes and ``<base>_subject_<field>`` /
     ``<base>_MNI_MNI_<field>`` rule, the ``<sid>_TDCS_<i>_<cond>`` carrier names with ``A..Z``
     for mTI), checked against Dataset 000 there; the registry is ``tit.constants``. Real-data
     expectations below were read off the Dataset 000 listing (``ls .../niftis``).

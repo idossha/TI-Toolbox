@@ -1112,26 +1112,26 @@
 researcher reconstruct EEG sources <em>onto</em> fsaverage, this pipeline puts the
 <em>stimulation</em> fields on the same grid, so source activity and TI exposure can be
 compared vertexwise.</p>
-<p>For an already-completed TI simulation it reads the pipeline's own
-central-surface overlays and morphs the requested scalar fields to fsaverage:</p>
+<p>For an already-completed TI simulation it reads the run's own central surface
+(<code>&lt;TI|mTI&gt;/mesh/surfaces/&lt;sim&gt;_&lt;TI|mTI&gt;_central.msh</code>) and channel meshes and
+morphs the requested scalar fields to fsaverage:</p>
 <ul>
-<li><code>TI_max</code>    -- orientation-maximized TI envelope |E| (central overlay)</li>
-<li><code>TI_normal</code> -- directional TI envelope along the cortical normal</li>
+<li><code>TI_max</code>    -- orientation-maximized TI envelope |E| (central surface)</li>
+<li><code>TI_normal</code> -- directional TI envelope along the cortical normal (central surface)</li>
 <li><code>hf_peak</code>   -- peak carrier field, max over channel sign combinations (Cassarà 2025, safety)</li>
 <li><code>hf_rms</code>    -- RMS carrier field over time, <code>sqrt(tit.calc.hf_power)</code> (V/m)</li>
 </ul>
 <p>This path covers <strong>both</strong> standard TI and mTI. The two differ only in what the
 finished run is called on disk, and each resolver here takes either:
 :func:<code>_ti_max_overlay</code> reads <code>TI_max</code> from <code>TI/mesh/surfaces</code> or the same
-quantity spelled <code>mTI_max</code> under <code>mTI/mesh/surfaces</code>, :func:<code>_ti_normal_overlay</code>
-searches both mesh directories, and :func:<code>_carrier_volume_meshes</code> collects every
+quantity spelled <code>mTI_max</code> under <code>mTI/mesh/surfaces</code>, :func:<code>_ti_normal_surface</code>
+reads <code>TI_normal</code> from the same surface, and :func:<code>_carrier_volume_meshes</code> collects every
 carrier volume mesh under <code>high_Frequency/</code> -- <code>TDCS_1</code>/<code>TDCS_2</code> for TI, and
 <code>TDCS_A</code>..<code>TDCS_Z</code> for mTI's N channels. <code>hf_peak</code>/<code>hf_rms</code> are then computed
 over all N channel fields, not a hardcoded two.</p>
-<p><code>TI_max</code> / <code>TI_normal</code> are read from the pipeline's central-surface overlays;
-<code>hf_peak</code> / <code>hf_rms</code> are interpolated from the carrier <strong>volume</strong> meshes (the
-surface overlays only reliably carry <code>E_normal</code> on some SimNIBS builds) using
-the same formulas as the volume output (:func:<code>tit.calc.hf_peak</code>,
+<p><code>TI_max</code> / <code>TI_normal</code> are read from the run's central surface;
+<code>hf_peak</code> / <code>hf_rms</code> are interpolated from the carrier <strong>volume</strong> meshes
+using the same formulas as the volume output (:func:<code>tit.calc.hf_peak</code>,
 :func:<code>tit.calc.hf_power</code>).</p>
 <p>Unlike SimNIBS's native <code>map_to_fsavg</code> (which only runs at simulation time and
 only emits <code>TI_max</code>), this works <em>post-hoc</em> on any finished simulation and on
@@ -1191,7 +1191,9 @@ metadata, so <em>provenance</em> goes to a same-stem <code>.json</code> sidecar 
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-298">298</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-296">296</a></span>
+<span class="normal"><a href="#__codelineno-0-297">297</a></span>
+<span class="normal"><a href="#__codelineno-0-298">298</a></span>
 <span class="normal"><a href="#__codelineno-0-299">299</a></span>
 <span class="normal"><a href="#__codelineno-0-300">300</a></span>
 <span class="normal"><a href="#__codelineno-0-301">301</a></span>
@@ -1213,33 +1215,31 @@ metadata, so <em>provenance</em> goes to a same-stem <code>.json</code> sidecar 
 <span class="normal"><a href="#__codelineno-0-317">317</a></span>
 <span class="normal"><a href="#__codelineno-0-318">318</a></span>
 <span class="normal"><a href="#__codelineno-0-319">319</a></span>
-<span class="normal"><a href="#__codelineno-0-320">320</a></span>
-<span class="normal"><a href="#__codelineno-0-321">321</a></span>
-<span class="normal"><a href="#__codelineno-0-322">322</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_fsaverage_msh</span><span class="p">(</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>    <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">maps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">spacing</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">provenance</span><span class="p">:</span> <span class="nb">dict</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="w">    </span><span class="sd">"""Write ``[lh; rh]`` fsaverage values as a viewable SimNIBS surface mesh.</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    Follows SimNIBS's own ``fsavg_overlays/&lt;name&gt;_fsavg.msh`` (``join_and_write`` in</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    :func:`simnibs.utils.transformations.middle_gm_interpolation`): the template</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    central surfaces joined lh then rh, one node field per quantity, and the Gmsh</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    ``.opt`` view beside it.  The template shares its vertex numbering with the</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    sphere :func:`cross_subject_map` resamples onto, so value ``i`` lands on node</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    ``i`` (``tests/numerical/test_fsaverage_msh.py``).  ``.msh`` carries no free</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    metadata, so *provenance* goes to a same-stem ``.json`` sidecar (BIDS style).</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    """</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">simnibs.mesh_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh_io</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="n">surfs</span> <span class="o">=</span> <span class="n">mesh_io</span><span class="o">.</span><span class="n">load_fsaverage_template</span><span class="p">(</span><span class="s2">"central"</span><span class="p">,</span> <span class="n">spacing</span><span class="p">)</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="n">mesh</span> <span class="o">=</span> <span class="n">surfs</span><span class="p">[</span><span class="s2">"lh"</span><span class="p">]</span><span class="o">.</span><span class="n">join_mesh</span><span class="p">(</span><span class="n">surfs</span><span class="p">[</span><span class="s2">"rh"</span><span class="p">])</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>        <span class="n">mesh</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="n">mesh_io</span><span class="o">.</span><span class="n">write_msh</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="n">mesh</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">visible_fields</span><span class="o">=</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">maps</span><span class="p">)))</span><span class="o">.</span><span class="n">write_opt</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="n">path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="o">**</span><span class="n">provenance</span><span class="p">,</span> <span class="s2">"fields"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">maps</span><span class="p">)},</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-320">320</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="k">def</span><span class="w"> </span><span class="nf">write_fsaverage_msh</span><span class="p">(</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>    <span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">maps</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> <span class="n">spacing</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">provenance</span><span class="p">:</span> <span class="nb">dict</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="w">    </span><span class="sd">"""Write ``[lh; rh]`` fsaverage values as a viewable SimNIBS surface mesh.</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">    Follows SimNIBS's own ``fsavg_overlays/&lt;name&gt;_fsavg.msh`` (``join_and_write`` in</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    :func:`simnibs.utils.transformations.middle_gm_interpolation`): the template</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">    central surfaces joined lh then rh, one node field per quantity, and the Gmsh</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    ``.opt`` view beside it.  The template shares its vertex numbering with the</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">    sphere :func:`cross_subject_map` resamples onto, so value ``i`` lands on node</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    ``i`` (``tests/numerical/test_fsaverage_msh.py``).  ``.msh`` carries no free</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    metadata, so *provenance* goes to a same-stem ``.json`` sidecar (BIDS style).</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    """</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">simnibs.mesh_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh_io</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="n">surfs</span> <span class="o">=</span> <span class="n">mesh_io</span><span class="o">.</span><span class="n">load_fsaverage_template</span><span class="p">(</span><span class="s2">"central"</span><span class="p">,</span> <span class="n">spacing</span><span class="p">)</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="n">mesh</span> <span class="o">=</span> <span class="n">surfs</span><span class="p">[</span><span class="s2">"lh"</span><span class="p">]</span><span class="o">.</span><span class="n">join_mesh</span><span class="p">(</span><span class="n">surfs</span><span class="p">[</span><span class="s2">"rh"</span><span class="p">])</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">values</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>        <span class="n">mesh</span><span class="o">.</span><span class="n">add_node_field</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span> <span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="n">mesh_io</span><span class="o">.</span><span class="n">write_msh</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="n">mesh</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="n">visible_fields</span><span class="o">=</span><span class="nb">next</span><span class="p">(</span><span class="nb">iter</span><span class="p">(</span><span class="n">maps</span><span class="p">)))</span><span class="o">.</span><span class="n">write_opt</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a>    <span class="n">path</span><span class="o">.</span><span class="n">with_suffix</span><span class="p">(</span><span class="s2">".json"</span><span class="p">)</span><span class="o">.</span><span class="n">write_text</span><span class="p">(</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>        <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">({</span><span class="o">**</span><span class="n">provenance</span><span class="p">,</span> <span class="s2">"fields"</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">maps</span><span class="p">)},</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1266,7 +1266,9 @@ scripts) runs under <code>simnibs_python</code>, like the writer.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-325">325</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-323">323</a></span>
+<span class="normal"><a href="#__codelineno-0-324">324</a></span>
+<span class="normal"><a href="#__codelineno-0-325">325</a></span>
 <span class="normal"><a href="#__codelineno-0-326">326</a></span>
 <span class="normal"><a href="#__codelineno-0-327">327</a></span>
 <span class="normal"><a href="#__codelineno-0-328">328</a></span>
@@ -1276,21 +1278,19 @@ scripts) runs under <code>simnibs_python</code>, like the writer.</p>
 <span class="normal"><a href="#__codelineno-0-332">332</a></span>
 <span class="normal"><a href="#__codelineno-0-333">333</a></span>
 <span class="normal"><a href="#__codelineno-0-334">334</a></span>
-<span class="normal"><a href="#__codelineno-0-335">335</a></span>
-<span class="normal"><a href="#__codelineno-0-336">336</a></span>
-<span class="normal"><a href="#__codelineno-0-337">337</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_fsaverage_fields</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="w">    </span><span class="sd">"""Every node field of a mesh written by :func:`write_fsaverage_msh`.</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">    Uses SimNIBS's reader: every caller (``tit.stats``, ``tit.plotting``,</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">    scripts) runs under ``simnibs_python``, like the writer.</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">    """</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">simnibs.mesh_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh_io</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh_io</span><span class="o">.</span><span class="n">read_msh</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>        <span class="n">name</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">field</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-335">335</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_fsaverage_fields</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">]:</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="w">    </span><span class="sd">"""Every node field of a mesh written by :func:`write_fsaverage_msh`.</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">    Uses SimNIBS's reader: every caller (``tit.stats``, ``tit.plotting``,</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    scripts) runs under ``simnibs_python``, like the writer.</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">    """</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">simnibs.mesh_tools</span><span class="w"> </span><span class="kn">import</span> <span class="n">mesh_io</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="n">mesh</span> <span class="o">=</span> <span class="n">mesh_io</span><span class="o">.</span><span class="n">read_msh</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">))</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>        <span class="n">name</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">value</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">mesh</span><span class="o">.</span><span class="n">field</span><span class="o">.</span><span class="n">items</span><span class="p">()</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1315,21 +1315,21 @@ scripts) runs under <code>simnibs_python</code>, like the writer.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-340">340</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-338">338</a></span>
+<span class="normal"><a href="#__codelineno-0-339">339</a></span>
+<span class="normal"><a href="#__codelineno-0-340">340</a></span>
 <span class="normal"><a href="#__codelineno-0-341">341</a></span>
 <span class="normal"><a href="#__codelineno-0-342">342</a></span>
 <span class="normal"><a href="#__codelineno-0-343">343</a></span>
 <span class="normal"><a href="#__codelineno-0-344">344</a></span>
-<span class="normal"><a href="#__codelineno-0-345">345</a></span>
-<span class="normal"><a href="#__codelineno-0-346">346</a></span>
-<span class="normal"><a href="#__codelineno-0-347">347</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_fsaverage_field</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="w">    </span><span class="sd">"""One node field of a mesh written by :func:`write_fsaverage_msh`."""</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>    <span class="n">fields</span> <span class="o">=</span> <span class="n">read_fsaverage_fields</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>    <span class="k">if</span> <span class="n">field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has no field </span><span class="si">{</span><span class="n">field</span><span class="si">!r}</span><span class="s2">; available: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>        <span class="p">)</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="k">return</span> <span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-345">345</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="k">def</span><span class="w"> </span><span class="nf">read_fsaverage_field</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">field</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="w">    </span><span class="sd">"""One node field of a mesh written by :func:`write_fsaverage_msh`."""</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="n">fields</span> <span class="o">=</span> <span class="n">read_fsaverage_fields</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>    <span class="k">if</span> <span class="n">field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">:</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> has no field </span><span class="si">{</span><span class="n">field</span><span class="si">!r}</span><span class="s2">; available: </span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="p">)</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="k">return</span> <span class="n">fields</span><span class="p">[</span><span class="n">field</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1356,7 +1356,9 @@ scripts) runs under <code>simnibs_python</code>, like the writer.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-350">350</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-348">348</a></span>
+<span class="normal"><a href="#__codelineno-0-349">349</a></span>
+<span class="normal"><a href="#__codelineno-0-350">350</a></span>
 <span class="normal"><a href="#__codelineno-0-351">351</a></span>
 <span class="normal"><a href="#__codelineno-0-352">352</a></span>
 <span class="normal"><a href="#__codelineno-0-353">353</a></span>
@@ -1380,35 +1382,33 @@ scripts) runs under <code>simnibs_python</code>, like the writer.</p>
 <span class="normal"><a href="#__codelineno-0-371">371</a></span>
 <span class="normal"><a href="#__codelineno-0-372">372</a></span>
 <span class="normal"><a href="#__codelineno-0-373">373</a></span>
-<span class="normal"><a href="#__codelineno-0-374">374</a></span>
-<span class="normal"><a href="#__codelineno-0-375">375</a></span>
-<span class="normal"><a href="#__codelineno-0-376">376</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-350" name="__codelineno-0-350"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_subject</span><span class="p">(</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>    <span class="n">sim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="w">    </span><span class="sd">"""Project one (subject, simulation) and write it as an fsaverage ``.msh``.</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    Returns ``(subject_id, status, message)`` where status is one of</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a><span class="sd">    ``{"ok", "cached", "failed"}`` so batch runs can record and continue.</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a><span class="sd">    """</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>    <span class="n">out_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">sim_fsaverage_fields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">))</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="k">if</span> <span class="n">out_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span><span class="p">:</span>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"cached"</span><span class="p">,</span> <span class="n">out_path</span><span class="o">.</span><span class="n">name</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>        <span class="n">carrier_only</span> <span class="o">=</span> <span class="n">_recorded_carrier_only</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="n">maps</span> <span class="o">=</span> <span class="n">_compute_fields</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">)</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - record per-subject and continue</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"failed"</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="n">write_fsaverage_msh</span><span class="p">(</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="n">out_path</span><span class="p">,</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="n">maps</span><span class="p">,</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">,</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>        <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">:</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"simulation"</span><span class="p">:</span> <span class="n">sim</span><span class="p">,</span> <span class="s2">"carrier_only"</span><span class="p">:</span> <span class="n">carrier_only</span><span class="p">},</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="p">)</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>    <span class="n">medians</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> med=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a>    <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"ok"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">medians</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-348" name="__codelineno-0-348"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_subject</span><span class="p">(</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>    <span class="n">sim</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a><span class="w">    </span><span class="sd">"""Project one (subject, simulation) and write it as an fsaverage ``.msh``.</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a><span class="sd">    Returns ``(subject_id, status, message)`` where status is one of</span>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a><span class="sd">    ``{"ok", "cached", "failed"}`` so batch runs can record and continue.</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a><span class="sd">    """</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>    <span class="n">out_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">sim_fsaverage_fields</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">))</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>    <span class="k">if</span> <span class="n">out_path</span><span class="o">.</span><span class="n">exists</span><span class="p">()</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span><span class="p">:</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"cached"</span><span class="p">,</span> <span class="n">out_path</span><span class="o">.</span><span class="n">name</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>        <span class="n">carrier_only</span> <span class="o">=</span> <span class="n">_recorded_carrier_only</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>        <span class="n">maps</span> <span class="o">=</span> <span class="n">_compute_fields</span><span class="p">(</span><span class="n">pm</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">)</span>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># noqa: BLE001 - record per-subject and continue</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"failed"</span><span class="p">,</span> <span class="nb">repr</span><span class="p">(</span><span class="n">exc</span><span class="p">)</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="n">write_fsaverage_msh</span><span class="p">(</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="n">out_path</span><span class="p">,</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>        <span class="n">maps</span><span class="p">,</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">,</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>        <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">:</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"simulation"</span><span class="p">:</span> <span class="n">sim</span><span class="p">,</span> <span class="s2">"carrier_only"</span><span class="p">:</span> <span class="n">carrier_only</span><span class="p">},</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="p">)</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>    <span class="n">medians</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">k</span><span class="si">}</span><span class="s2"> med=</span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">v</span><span class="p">)</span><span class="si">:</span><span class="s2">.3f</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">maps</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="k">return</span> <span class="n">subject_id</span><span class="p">,</span> <span class="s2">"ok"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">medians</span><span class="si">}</span><span class="s2"> -&gt; </span><span class="si">{</span><span class="n">out_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1441,7 +1441,9 @@ cfg : FsavgMapConfig
 
             <details class="quote">
               <summary>Source code in <code>tit/source/fsaverage.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-379">379</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-377">377</a></span>
+<span class="normal"><a href="#__codelineno-0-378">378</a></span>
+<span class="normal"><a href="#__codelineno-0-379">379</a></span>
 <span class="normal"><a href="#__codelineno-0-380">380</a></span>
 <span class="normal"><a href="#__codelineno-0-381">381</a></span>
 <span class="normal"><a href="#__codelineno-0-382">382</a></span>
@@ -1476,46 +1478,44 @@ cfg : FsavgMapConfig
 <span class="normal"><a href="#__codelineno-0-411">411</a></span>
 <span class="normal"><a href="#__codelineno-0-412">412</a></span>
 <span class="normal"><a href="#__codelineno-0-413">413</a></span>
-<span class="normal"><a href="#__codelineno-0-414">414</a></span>
-<span class="normal"><a href="#__codelineno-0-415">415</a></span>
-<span class="normal"><a href="#__codelineno-0-416">416</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="w">    </span><span class="sd">"""Project field outputs to fsaverage for many (subject, simulation) pairs.</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="sd">    subjects : list of (str, str)</span>
-<a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="sd">        ``(subject_id, simulation_name)`` pairs to project.</span>
-<a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="sd">    cfg : FsavgMapConfig</span>
-<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="sd">        Field selection, fsaverage spacing, worker count, overwrite flag.</span>
-<a id="__codelineno-0-391" name="__codelineno-0-391"></a>
-<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">    list of (str, str, str)</span>
-<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">        Per-pair ``(subject_id, status, message)`` results.</span>
-<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">    """</span>
-<a id="__codelineno-0-397" name="__codelineno-0-397"></a>    <span class="n">workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">)))</span> <span class="k">if</span> <span class="n">subjects</span> <span class="k">else</span> <span class="mi">1</span>
-<a id="__codelineno-0-398" name="__codelineno-0-398"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Projecting </span><span class="si">%d</span><span class="s2"> simulation(s) with </span><span class="si">%d</span><span class="s2"> worker(s)"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">),</span> <span class="n">workers</span><span class="p">)</span>
-<a id="__codelineno-0-399" name="__codelineno-0-399"></a>
-<a id="__codelineno-0-400" name="__codelineno-0-400"></a>    <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-401" name="__codelineno-0-401"></a>    <span class="k">if</span> <span class="n">workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-402" name="__codelineno-0-402"></a>        <span class="k">for</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
-<a id="__codelineno-0-403" name="__codelineno-0-403"></a>            <span class="n">res</span> <span class="o">=</span> <span class="n">project_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
-<a id="__codelineno-0-404" name="__codelineno-0-404"></a>            <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a>            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a>        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a>            <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-409" name="__codelineno-0-409"></a>                <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">project_subject</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span> <span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
-<a id="__codelineno-0-410" name="__codelineno-0-410"></a>                <span class="k">for</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span>
-<a id="__codelineno-0-411" name="__codelineno-0-411"></a>            <span class="p">}</span>
-<a id="__codelineno-0-412" name="__codelineno-0-412"></a>            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a>                <span class="n">res</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a>                <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a>                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="k">return</span> <span class="n">results</span>
+<span class="normal"><a href="#__codelineno-0-414">414</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="k">def</span><span class="w"> </span><span class="nf">project_fields_to_fsaverage</span><span class="p">(</span>
+<a id="__codelineno-0-378" name="__codelineno-0-378"></a>    <span class="n">subjects</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]],</span>
+<a id="__codelineno-0-379" name="__codelineno-0-379"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">FsavgMapConfig</span><span class="p">,</span>
+<a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-0-381" name="__codelineno-0-381"></a><span class="w">    </span><span class="sd">"""Project field outputs to fsaverage for many (subject, simulation) pairs.</span>
+<a id="__codelineno-0-382" name="__codelineno-0-382"></a>
+<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    subjects : list of (str, str)</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a><span class="sd">        ``(subject_id, simulation_name)`` pairs to project.</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="sd">    cfg : FsavgMapConfig</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="sd">        Field selection, fsaverage spacing, worker count, overwrite flag.</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="sd">    list of (str, str, str)</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">        Per-pair ``(subject_id, status, message)`` results.</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">    """</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a>    <span class="n">workers</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">workers</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">)))</span> <span class="k">if</span> <span class="n">subjects</span> <span class="k">else</span> <span class="mi">1</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a>    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Projecting </span><span class="si">%d</span><span class="s2"> simulation(s) with </span><span class="si">%d</span><span class="s2"> worker(s)"</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">subjects</span><span class="p">),</span> <span class="n">workers</span><span class="p">)</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a>    <span class="n">results</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="k">if</span> <span class="n">workers</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a>        <span class="k">for</span> <span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span><span class="p">:</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a>            <span class="n">res</span> <span class="o">=</span> <span class="n">project_subject</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">)</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a>            <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a>            <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>        <span class="k">with</span> <span class="n">ProcessPoolExecutor</span><span class="p">(</span><span class="n">max_workers</span><span class="o">=</span><span class="n">workers</span><span class="p">)</span> <span class="k">as</span> <span class="n">pool</span><span class="p">:</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a>            <span class="n">futures</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a>                <span class="n">pool</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span><span class="n">project_subject</span><span class="p">,</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">,</span> <span class="n">cfg</span><span class="p">):</span> <span class="p">(</span><span class="n">sid</span><span class="p">,</span> <span class="n">sim</span><span class="p">)</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a>                <span class="k">for</span> <span class="n">sid</span><span class="p">,</span> <span class="n">sim</span> <span class="ow">in</span> <span class="n">subjects</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a>            <span class="p">}</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>            <span class="k">for</span> <span class="n">future</span> <span class="ow">in</span> <span class="n">as_completed</span><span class="p">(</span><span class="n">futures</span><span class="p">):</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>                <span class="n">res</span> <span class="o">=</span> <span class="n">future</span><span class="o">.</span><span class="n">result</span><span class="p">()</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>                <span class="n">_log_result</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a>                <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">res</span><span class="p">)</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a>    <span class="k">return</span> <span class="n">results</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

@@ -55,7 +55,9 @@ def _make_analyzer(space="mesh", output_dir=None, field_path=None, field_name="T
         ),
         patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
         patch("tit.analyzer.analyzer.add_file_handler"),
-        patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
+        patch.object(
+            Analyzer, "_produce_missing_fields", return_value=[]
+        ),  # no simulation on disk
     ):
         pm = MagicMock()
         mock_gpm.return_value = pm
@@ -101,9 +103,7 @@ class TestAnalyzeSphereDispatch:
         a = _make_analyzer(space="mesh")
         a._sphere_mesh = MagicMock(return_value="mesh_result")
         result = a.analyze_sphere((0, 0, 0), 10.0)
-        a._sphere_mesh.assert_called_once_with(
-            [(0, 0, 0, 10.0)], "subject", False
-        )
+        a._sphere_mesh.assert_called_once_with([(0, 0, 0, 10.0)], "subject", False)
         assert result == "mesh_result"
 
     def test_dispatch_voxel(self):
@@ -408,52 +408,31 @@ class TestLoadSurfaceMesh:
 
 
 class TestGetNormalStats:
-    """Lines 535-561: _get_normal_stats extracts normal field statistics."""
+    """_get_normal_stats reads TI_normal from the central surface the analysis loaded."""
 
-    def test_returns_none_when_no_normal_path(self):
-        a = _make_analyzer(space="mesh", field_path=Path("/fake/data.msh"))
-        a._normal_mesh_path = MagicMock(return_value=None)
-        result = a._get_normal_stats(np.array([True, False]), np.array([1.0, 1.0]))
-        assert result is None
-
-    def test_returns_none_when_path_missing(self, tmp_path):
-        a = _make_analyzer(space="mesh")
-        a._normal_mesh_path = MagicMock(return_value=tmp_path / "nonexistent.msh")
-        result = a._get_normal_stats(np.array([True]), np.array([1.0]))
-        assert result is None
-
-    def test_returns_none_when_field_missing(self, tmp_path):
-        normal_path = tmp_path / "normal.msh"
-        normal_path.touch()
-        a = _make_analyzer(space="mesh")
-        a._normal_mesh_path = MagicMock(return_value=normal_path)
-
-        mock_mesh = MagicMock()
-        mock_mesh.field.__contains__ = lambda self, k: False
-        with patch("simnibs.read_msh", return_value=mock_mesh):
-            result = a._get_normal_stats(np.array([True]), np.array([1.0]))
-        assert result is None
-
-    def test_computes_stats_correctly(self, tmp_path):
-        normal_path = tmp_path / "normal.msh"
-        normal_path.touch()
-        a = _make_analyzer(space="mesh")
-        a._normal_mesh_path = MagicMock(return_value=normal_path)
-
-        # Mock the normal mesh
-        mock_mesh = MagicMock()
-        mock_mesh.field.__contains__ = lambda self, k: k == "TI_normal"
+    @staticmethod
+    def _surface(values=None):
+        surface = MagicMock()
+        surface.field.__contains__ = (
+            lambda self, k: values is not None and k == "TI_normal"
+        )
         field_data = MagicMock()
-        field_data.value = np.array([2.0, 4.0, 6.0])
-        mock_mesh.field.__getitem__ = lambda self, k: field_data
-        mock_mesh.nodes_areas.return_value = np.array([1.0, 1.0, 1.0])
+        field_data.value = np.asarray(values if values is not None else [])
+        surface.field.__getitem__ = lambda self, k: field_data
+        surface.nodes_areas.return_value = np.ones(len(field_data.value))
+        return surface
 
-        roi_mask = np.array([True, True, False])
-        node_areas = np.array([1.0, 1.0, 1.0])
+    def test_returns_none_when_the_surface_has_no_ti_normal(self):
+        a = _make_analyzer(space="mesh")
+        a._surface_mesh = self._surface(None)  # a carrier-only run's surface
+        assert a._get_normal_stats(np.array([True]), np.array([1.0])) is None
 
-        with patch("simnibs.read_msh", return_value=mock_mesh):
-            result = a._get_normal_stats(roi_mask, node_areas)
-
+    def test_computes_stats_correctly(self):
+        a = _make_analyzer(space="mesh")
+        a._surface_mesh = self._surface([2.0, 4.0, 6.0])
+        result = a._get_normal_stats(
+            np.array([True, True, False]), np.array([1.0, 1.0, 1.0])
+        )
         assert result is not None
         # ROI normal values: [2.0, 4.0], both positive, equal weights
         assert result["mean"] == pytest.approx(3.0)
@@ -461,25 +440,11 @@ class TestGetNormalStats:
         # GM mean of all positive: [2,4,6] = 4.0
         assert result["focality"] == pytest.approx(3.0 / 4.0)
 
-    def test_returns_none_when_no_positive_roi_values(self, tmp_path):
-        normal_path = tmp_path / "normal.msh"
-        normal_path.touch()
+    def test_returns_none_when_no_positive_roi_values(self):
         a = _make_analyzer(space="mesh")
-        a._normal_mesh_path = MagicMock(return_value=normal_path)
-
-        mock_mesh = MagicMock()
-        mock_mesh.field.__contains__ = lambda self, k: k == "TI_normal"
-        field_data = MagicMock()
-        field_data.value = np.array([-1.0, -2.0, 3.0])
-        mock_mesh.field.__getitem__ = lambda self, k: field_data
-        mock_mesh.nodes_areas.return_value = np.array([1.0, 1.0, 1.0])
-
+        a._surface_mesh = self._surface([-1.0, -2.0, 3.0])
         roi_mask = np.array([True, True, False])  # ROI values: [-1, -2]
-        node_areas = np.array([1.0, 1.0, 1.0])
-
-        with patch("simnibs.read_msh", return_value=mock_mesh):
-            result = a._get_normal_stats(roi_mask, node_areas)
-        assert result is None
+        assert a._get_normal_stats(roi_mask, np.array([1.0, 1.0, 1.0])) is None
 
 
 class TestResolveOutputDir:
@@ -704,29 +669,43 @@ class TestFindVoxelRegionId:
         return stats
 
     def test_hemisphere_name_prefers_exact_ctx_label(self):
-        stats = self._stats([
-            (1035, "ctx-lh-insula"),
-            (2035, "ctx-rh-insula"),
-            (3035, "wm-lh-insula"),
-        ])
-        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
-             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+        stats = self._stats(
+            [
+                (1035, "ctx-lh-insula"),
+                (2035, "ctx-rh-insula"),
+                (3035, "wm-lh-insula"),
+            ]
+        )
+        with (
+            patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}),
+            patch("tit.analyzer.analyzer.compute_segstats", return_value=stats),
+        ):
             from tit.analyzer.analyzer import Analyzer
+
             assert Analyzer._find_voxel_region_id(Path("a.mgz"), "rh.insula") == 2035
             assert Analyzer._find_voxel_region_id(Path("a.mgz"), "lh.insula") == 1035
 
     def test_a2009s_underscore_spelling(self):
         stats = self._stats([(11118, "ctx_lh_G_insular_short")])
-        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
-             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+        with (
+            patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}),
+            patch("tit.analyzer.analyzer.compute_segstats", return_value=stats),
+        ):
             from tit.analyzer.analyzer import Analyzer
-            assert Analyzer._find_voxel_region_id(Path("a.mgz"), "lh.G_insular_short") == 11118
+
+            assert (
+                Analyzer._find_voxel_region_id(Path("a.mgz"), "lh.G_insular_short")
+                == 11118
+            )
 
     def test_substring_fallback_still_works(self):
         stats = self._stats([(17, "Left-Hippocampus")])
-        with patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}), \
-             patch("tit.analyzer.analyzer.compute_segstats", return_value=stats):
+        with (
+            patch("tit.analyzer.analyzer.resolve_lut_for_atlas", return_value={}),
+            patch("tit.analyzer.analyzer.compute_segstats", return_value=stats),
+        ):
             from tit.analyzer.analyzer import Analyzer
+
             assert Analyzer._find_voxel_region_id(Path("a.mgz"), "hippocampus") == 17
 
 
@@ -916,7 +895,10 @@ class TestVisualizeMesh:
     @patch("tit.analyzer.analyzer.save_histogram")
     @patch("tit.analyzer.scene.write_mesh_scene")
     @patch("tit.analyzer.analyzer.save_analysis_metadata")
-    @patch("tit.analyzer.analyzer.save_mesh_roi_overlay", return_value=Path("/tmp/out/roi_overlay.msh"))
+    @patch(
+        "tit.analyzer.analyzer.save_mesh_roi_overlay",
+        return_value=Path("/tmp/out/roi_overlay.msh"),
+    )
     def test_overlay_then_scene(self, mock_overlay, mock_meta, mock_scene, mock_hist):
         a = _make_analyzer(space="mesh")
         a._surface_mesh_path = Path("/fake/central.msh")
@@ -932,8 +914,16 @@ class TestVisualizeMesh:
         roi_values, roi_areas = np.array([1.0]), np.array([3.0])
 
         a._visualize_mesh(
-            surface, values, roi_mask, "/tmp/out", result,
-            gm_values, gm_areas, roi_values, roi_areas, analysis_type="cortical",
+            surface,
+            values,
+            roi_mask,
+            "/tmp/out",
+            result,
+            gm_values,
+            gm_areas,
+            roi_values,
+            roi_areas,
+            analysis_type="cortical",
         )
 
         mock_overlay.assert_called_once()
@@ -977,7 +967,13 @@ class TestVisualizeVoxel:
         result.roi_mean = 1.0
 
         a._visualize_voxel(
-            field_arr, roi_mask, analysis_mask, affine, "/tmp/out", result, analysis_type="cortical"
+            field_arr,
+            roi_mask,
+            analysis_mask,
+            affine,
+            "/tmp/out",
+            result,
+            analysis_type="cortical",
         )
 
         mock_overlay.assert_called_once()
@@ -1007,7 +1003,9 @@ class TestFieldPlumbing:
             ) as mock_select,
             patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
             patch("tit.analyzer.analyzer.add_file_handler"),
-            patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
+            patch.object(
+                Analyzer, "_produce_missing_fields", return_value=[]
+            ),  # no simulation on disk
         ):
             pm = mock_gpm.return_value
             pm.logs.return_value = "/tmp/logs"
@@ -1024,7 +1022,9 @@ class TestFieldPlumbing:
             ) as mock_select,
             patch("tit.analyzer.analyzer.get_path_manager") as mock_gpm,
             patch("tit.analyzer.analyzer.add_file_handler"),
-            patch.object(Analyzer, "_produce_missing_fields", return_value=[]),  # no simulation on disk
+            patch.object(
+                Analyzer, "_produce_missing_fields", return_value=[]
+            ),  # no simulation on disk
         ):
             mock_gpm.return_value.logs.return_value = "/tmp/logs"
             Analyzer("001", "sim1", "mesh")

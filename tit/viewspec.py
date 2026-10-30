@@ -293,29 +293,35 @@ def _hf_layers(sim_dir: str, space: str) -> list[dict[str, Any]]:
     return out
 
 
-def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
-    """The simulation's grey-matter field mesh, coloured by its envelope.
+#: Grey matter in a SimNIBS mesh: its tetrahedra and its surface triangles.
+_GM_TAGS = (2, 1002)
 
-    ``<TI|mTI>/mesh/grey_<sim>_<TI|mTI>.msh`` carries every field the run saved, so the
-    layer names the one it opens on (``mesh_field``: ``TI_max``, ``mTI_max`` for mTI, or a
-    carrier-only run's first carrier field, read from the mesh's section headers) and the
-    others are a field switch away in TetraVox. It is the simulation's own view of its
-    result: field NIfTIs are opt-in (``map_to_vol``), the mesh always exists. It is visible,
-    so it loads on open: 112 MB for Ernie with the three default fields (measured
-    2026-10-30), the smallest of a run's field meshes (the brain mesh is ~442 MB). Subject space
-    only -- SimNIBS writes no MNI-space mesh. ``kind="label"`` matches the ``ViewLayer``
-    contract's ``Literal["volume", "label"]`` (a mesh has no kind of its own there).
+
+def _grey_mesh_layer(sim_dir: str, sim: str) -> dict[str, Any] | None:
+    """The simulation's field mesh shown as grey matter only, coloured by its envelope.
+
+    ``<TI|mTI>/mesh/<sim>_<TI|mTI>.msh`` carries every field the run saved, so the layer names
+    the one it opens on (``mesh_field``: ``TI_max``, ``mTI_max`` for mTI, or a carrier-only
+    run's first carrier field, read from the mesh's section headers) and the others are a field
+    switch away in TetraVox. ``visible_tags`` keeps grey matter (:data:`_GM_TAGS`) and the
+    scene hides every other tissue (``tagStyle``); its window is taken from grey-matter values
+    only. It is the simulation's own view of its result: field NIfTIs are opt-in
+    (``map_to_vol``), the mesh always exists. It is visible, so it loads on open (the whole
+    brain-tissue mesh, ~240-440 MB for Ernie). Subject space only -- SimNIBS writes no
+    MNI-space mesh. ``kind="label"`` matches the ``ViewLayer`` contract's
+    ``Literal["volume", "label"]`` (a mesh has no kind of its own there).
     """
     from tit.tools.msh_fields import msh_field_names
 
     for mode in _MODE_DIRS:
-        mesh = resolve_under(sim_dir, mode, "mesh", f"grey_{sim}_{mode}.msh")
+        mesh = resolve_under(sim_dir, mode, "mesh", f"{sim}_{mode}.msh")
         if not os.path.isfile(mesh):
             continue
         carried = msh_field_names(mesh) or set()
         preferred = ("mTI_max" if mode == "mTI" else "TI_max", "hf_peak", "hf_rms")
         field = next((f for f in preferred if f in carried), None)
         layer = _layer(mesh, kind="label", colormap="jet", opacity=1.0)
+        layer["visible_tags"] = list(_GM_TAGS)
         if field is not None:
             layer["mesh_field"] = {"source": "elm", "name": field}
         return layer
@@ -2486,7 +2492,7 @@ def _tissue_prefix(name: str) -> str | None:
 
 
 def _bounds_for_mesh(
-    mesh_name: str, field_volumes: list[dict[str, Any]]
+    mesh_name: str, field_volumes: list[dict[str, Any]], prefix: str | None = None
 ) -> tuple[float, float] | None:
     """The window for a mesh layer: **its own tissue's** volume, not just the first field found.
 
@@ -2500,7 +2506,8 @@ def _bounds_for_mesh(
     every element under its threshold (screenshot, 2026-09-07).
 
     So: match the tissue prefix first (``grey_L_Insula_TI.msh`` -> ``grey_..._TI_max.nii.gz``),
-    fall back to the visible field layer, then to any field layer at all.
+    fall back to the visible field layer, then to any field layer at all. *prefix* names the
+    tissue a mesh layer that shows one tissue of a whole mesh stands for (``grey_``).
     """
     if not field_volumes:
         return None
@@ -2511,7 +2518,7 @@ def _bounds_for_mesh(
             return float(scale["min"]), float(scale["max"])
         return float(scale["lo"]), float(scale["hi"])
 
-    prefix = _tissue_prefix(mesh_name)
+    prefix = prefix or _tissue_prefix(mesh_name)
     if prefix is not None:
         for layer in field_volumes:
             if _tissue_prefix(os.path.basename(layer["path"])) == prefix:
@@ -2523,15 +2530,18 @@ def _bounds_for_mesh(
     return window(field_volumes[0])
 
 
-# path -> (mtime, size, field, bounds). Same lifetime as `_stats_cache`.
+# path -> (mtime, size, field and tags, bounds). Same lifetime as `_stats_cache`.
 _mesh_bounds_cache: dict[str, tuple[float, int, str, tuple[float, float] | None]] = {}
 
 
-def _mesh_field_bounds(path: str, field: str) -> tuple[float, float] | None:
+def _mesh_field_bounds(
+    path: str, field: str, tags: tuple[int, ...] | None = None
+) -> tuple[float, float] | None:
     """``(p95, p99.9)`` of element field *field*'s non-zero values in the mesh at *path*.
 
-    The field rule of :func:`_volume_window`, on the mesh's own elements, for a simulation that
-    wrote no NIfTI to borrow a window from. Only that field's block is read
+    The field rule of :func:`_volume_window`, on the mesh's own elements (those tagged *tags*
+    when given: the tissue the layer shows), for a simulation that wrote no NIfTI to borrow a
+    window from. Only that field's block and the element tags are read
     (:func:`tit.tools.msh_fields.msh_element_field`). ``None`` when it cannot be read.
     """
     from tit.tools.msh_fields import msh_element_field
@@ -2540,12 +2550,13 @@ def _mesh_field_bounds(path: str, field: str) -> tuple[float, float] | None:
         st = os.stat(path)
     except OSError:
         return None
+    key = f"{field}{list(tags) if tags else ''}"
     cached = _mesh_bounds_cache.get(path)
-    if cached is not None and cached[:3] == (st.st_mtime, st.st_size, field):
+    if cached is not None and cached[:3] == (st.st_mtime, st.st_size, key):
         return cached[3]
     import numpy as np
 
-    values = msh_element_field(path, field)
+    values = msh_element_field(path, field, tags=tags)
     bounds = None
     if values is not None:
         values = values if values.ndim == 1 else np.linalg.norm(values, axis=1)
@@ -2555,7 +2566,7 @@ def _mesh_field_bounds(path: str, field: str) -> tuple[float, float] | None:
             if not hi > lo:
                 lo, hi = float(values.min()), float(values.max())
             bounds = (lo, hi) if hi > lo else None
-    _mesh_bounds_cache[path] = (st.st_mtime, st.st_size, field, bounds)
+    _mesh_bounds_cache[path] = (st.st_mtime, st.st_size, key, bounds)
     return bounds
 
 
@@ -2731,6 +2742,13 @@ def _sidecar_ref(path: str) -> dict[str, str]:
     return {"path": url, "absPath": url}
 
 
+def _brain_tags() -> list[int]:
+    """Every tissue tag a brain-cropped field mesh can hold (constants.BRAIN_TISSUE_TAG_RANGES)."""
+    from tit import constants as const
+
+    return [t for lo, hi in const.BRAIN_TISSUE_TAG_RANGES for t in range(lo, hi)]
+
+
 def _mesh_fields_display(path: str) -> dict[str, dict[str, str]]:
     """``MeshLayer.fields`` for the registered fields a field mesh carries: label and units.
 
@@ -2874,14 +2892,21 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
             layers.append({**base_fields, **_surface_layer(name, attachments, index)})
         elif is_mesh:
             mesh_field = layer.get("mesh_field")
+            shown = tuple(layer.get("visible_tags") or ())
+            grey = shown == _GM_TAGS
             if mesh_field:
                 field_name = str(mesh_field["name"])
             if not mesh_field or mesh_field["source"] == "elm":
                 # A field mesh: the window of its field's sibling NIfTI when the run wrote
-                # one, else (NIfTIs are opt-in) the named field's own element values.
-                bounds = _bounds_for_mesh(name, field_volumes)
+                # one, else (NIfTIs are opt-in) the named field's own element values, over
+                # the tissue the layer shows.
+                bounds = _bounds_for_mesh(
+                    name, field_volumes, prefix="grey_" if grey else None
+                )
                 if bounds is None and mesh_field:
-                    bounds = _mesh_field_bounds(path, field_name)
+                    bounds = _mesh_field_bounds(
+                        path, field_name, tags=(2,) if grey else None
+                    )
                 scale, threshold = _mesh_scale_and_threshold(bounds)
             else:
                 # An analysis overlay's `<field>_ROI` node data: colour by it from 0 to the
@@ -2920,7 +2945,16 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                     "colormap": "jet",
                     "scale": scale,
                     "threshold": threshold,
-                    "tagStyle": {},
+                    # A layer showing some tissues hides the rest (TetraVox's per-tag visibility).
+                    "tagStyle": (
+                        {
+                            str(tag): {"visible": False, "opacity": 1.0}
+                            for tag in _brain_tags()
+                            if tag not in shown
+                        }
+                        if shown
+                        else {}
+                    ),
                     "edges": {"surface": False, "caps": False},
                     "edgeColor": [0.0, 0.0, 0.0, 1.0],
                     "edgeWidthPx": 1.0,
@@ -2943,7 +2977,7 @@ def to_tetravox_viewspec(spec: dict[str, Any]) -> dict[str, Any]:
                         "capColorMode": "inherit",
                     },
                     # Grey-matter surfaces read best as an outline over the slices.
-                    "contoursIn2D": name.lower().startswith("grey_"),
+                    "contoursIn2D": grey or name.lower().startswith("grey_"),
                     "contourWidthPx": 1.0,
                     "fillIn2D": True,
                     **(

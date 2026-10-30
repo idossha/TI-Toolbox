@@ -78,6 +78,9 @@ def pm(tmp_path: Path, monkeypatch) -> PathManager:
 
     mesh_dir = os.path.join(sim_dir, "TI", "mesh")
     os.makedirs(mesh_dir)
+    # The run's field mesh (what the simulation scene shows, grey matter only), and a
+    # grey-matter mesh with a Gmsh .opt beside it as a person might open one by path.
+    Path(mesh_dir, "L_Insula_TI.msh").write_bytes(b"$MeshFormat")
     Path(mesh_dir, "grey_L_Insula_TI.msh").write_bytes(b"$MeshFormat")
     Path(mesh_dir, "grey_L_Insula_TI.msh.opt").write_text("// opts\n")
 
@@ -166,7 +169,9 @@ def test_scene_volume_and_mesh_colormaps(pm: PathManager) -> None:
     # `labeling.nii.gz` and not [Atlas]"). The curated labels these used to carry are still built,
     # but only where a human label for *choosing* is wanted -- the Menu's composition tree.
     field = next(v for v in volumes if v["name"] == "L_Insula_TI_subject_TI_max.nii.gz")
-    electrodes = next(v for v in volumes if v["name"] == "electrode_overlay_subject.nii.gz")
+    electrodes = next(
+        v for v in volumes if v["name"] == "electrode_overlay_subject.nii.gz"
+    )
 
     assert base["colormap"] == "gray"
     assert base["scale"]["kind"] == "linear"
@@ -175,7 +180,7 @@ def test_scene_volume_and_mesh_colormaps(pm: PathManager) -> None:
     assert electrodes["interpolation"] == "nearest"  # a LUT-coloured label volume
     assert base["interpolation"] == "linear"
 
-    assert meshes  # the grey-matter TI mesh, from _grey_mesh_layer
+    assert meshes  # the TI field mesh shown as grey matter, from _grey_mesh_layer
     mesh = meshes[0]
     assert mesh["colormap"] == "jet"
     assert mesh["colorMode"] == "field"
@@ -209,7 +214,9 @@ def test_scene_field_scale_falls_back_when_the_volume_cannot_be_read(
     placeholder heat scale rather than crashing the whole scene."""
     scene = scene_for("simulation", subject="ernie", simulation="L_Insula")
     field = next(
-        v for v in layers_by_kind(scene, "volume") if v["name"] == "L_Insula_TI_subject_TI_max.nii.gz"
+        v
+        for v in layers_by_kind(scene, "volume")
+        if v["name"] == "L_Insula_TI_subject_TI_max.nii.gz"
     )
     assert field["scale"] == {
         "kind": "heat",
@@ -241,7 +248,7 @@ def test_scene_mesh_is_visible_because_the_layout_gives_it_a_pane(
     assert visible["grey_L_Insula_TI_subject_TI_max.nii.gz"] is True
     assert visible["L_Insula_TI_subject_TI_max.nii.gz"] is False
     assert visible["white_L_Insula_TI_subject_TI_max.nii.gz"] is False
-    assert visible["grey_L_Insula_TI.msh"] is True
+    assert visible["L_Insula_TI.msh"] is True
     assert scene["layout"]["kind"] == "3d+1"
     assert "view3d" in scene["layout"]["cells"]
 
@@ -272,7 +279,6 @@ def test_scene_msh_gets_the_opt_sidecar_and_field_and_clip(pm: PathManager) -> N
     assert layer["contoursIn2D"] is True  # grey matter reads best as an outline
     assert scene["layout"]["kind"] == "3d+1"
     assert scene["layout"]["cells"] == ["view3d", "axial"]
-
 
 
 def test_solid_roi_mesh_omits_absent_field(pm: PathManager) -> None:
@@ -353,7 +359,10 @@ def test_scene_cursor_comes_from_the_analysis_scene_for_any_analysis_type(
     import json as _json
 
     analysis_dir = os.path.join(
-        pm.simulation("ernie", "L_Insula"), "Analyses", "Voxel", "cortical_lh.insula_DK40"
+        pm.simulation("ernie", "L_Insula"),
+        "Analyses",
+        "Voxel",
+        "cortical_lh.insula_DK40",
     )
     os.makedirs(analysis_dir)
     Path(analysis_dir, "roi_overlay.nii.gz").write_bytes(b"roi")
@@ -364,7 +373,10 @@ def test_scene_cursor_comes_from_the_analysis_scene_for_any_analysis_type(
         _json.dumps({"version": 2, "cursor": [-33.8, 24.86, 18.16]})
     )
     scene = scene_for(
-        "analysis", subject="ernie", simulation="L_Insula", analysis="cortical_lh.insula_DK40"
+        "analysis",
+        subject="ernie",
+        simulation="L_Insula",
+        analysis="cortical_lh.insula_DK40",
     )
     assert scene["cursor"] == [-33.8, 24.86, 18.16]
 
@@ -374,7 +386,10 @@ def test_analysis_view_of_a_mesh_analysis_colours_the_overlay_by_its_roi_field(
 ) -> None:
     """`roi_overlay.msh` names no field in its basename; results.csv says which it holds."""
     analysis_dir = os.path.join(
-        pm.simulation("ernie", "L_Insula"), "Analyses", "Mesh", "cortical_lh.insula_DK40"
+        pm.simulation("ernie", "L_Insula"),
+        "Analyses",
+        "Mesh",
+        "cortical_lh.insula_DK40",
     )
     os.makedirs(analysis_dir)
     mesh = Path(analysis_dir, "roi_overlay.msh")
@@ -386,12 +401,19 @@ def test_analysis_view_of_a_mesh_analysis_colours_the_overlay_by_its_roi_field(
     Path(analysis_dir, "analysis.json").write_text('{"analysis_type": "cortical"}')
 
     scene = scene_for(
-        "analysis", subject="ernie", simulation="L_Insula", analysis="cortical_lh.insula_DK40"
+        "analysis",
+        subject="ernie",
+        simulation="L_Insula",
+        analysis="cortical_lh.insula_DK40",
     )
     layer = layers_by_kind(scene, "mesh")[0]
     assert layer["name"] == "roi_overlay.msh"
     assert layer["colorMode"] == "field"
-    assert layer["field"] == {"source": "node", "name": "TI_max_ROI", "component": "mag"}
+    assert layer["field"] == {
+        "source": "node",
+        "name": "TI_max_ROI",
+        "component": "mag",
+    }
     assert layer["scale"] == {"kind": "linear", "lo": 0.0, "hi": 0.1279}
     assert layer["threshold"]["mode"] == "hide"
     assert layer["threshold"]["lo"] > 0
@@ -497,12 +519,16 @@ def test_every_layer_is_named_by_its_file_for_every_view_kind(pm: PathManager) -
     checked = 0
     for kind, kwargs in cases:
         spec = viewspec.build_view(kind, **kwargs)
-        if spec is None:  # a kind this fixture cannot produce is not a failure of this rule
+        if (
+            spec is None
+        ):  # a kind this fixture cannot produce is not a failure of this rule
             continue
         scene = spec["scene"]
         by_id = {d["id"]: d for d in scene["datasets"]}
         for layer, source in zip(scene["layers"], spec["layers"]):
-            assert layer["name"] == os.path.basename(source["path"]), f"{kind}: {layer['name']}"
+            assert layer["name"] == os.path.basename(
+                source["path"]
+            ), f"{kind}: {layer['name']}"
             # The dataset's own `name` was always the real basename; the two now agree, which is
             # what makes the panel and the file list one vocabulary.
             assert by_id[layer["datasetId"]]["name"] == layer["name"]
@@ -517,7 +543,9 @@ def test_a_custom_file_list_is_named_by_its_files_too(pm: PathManager) -> None:
         os.path.join(pm.m2m("ernie"), "T1.nii.gz"),
         os.path.join(niftis, "grey_L_Insula_TI_subject_TI_max.nii.gz"),
     ]
-    spec = viewspec.build_view("simulation", subject="ernie", simulation="L_Insula", files=chosen)
+    spec = viewspec.build_view(
+        "simulation", subject="ernie", simulation="L_Insula", files=chosen
+    )
     assert spec is not None
     names = [layer["name"] for layer in spec["scene"]["layers"]]
     assert names == ["T1.nii.gz", "grey_L_Insula_TI_subject_TI_max.nii.gz"]

@@ -8,13 +8,13 @@ official SimNIBS TI example:
 * SESSION with two TDCS lists (one per channel)
 * ``deepcopy`` pattern for the second channel
 * ``TI_max`` computed with :func:`tit.calc.envelope_max` on cropped meshes
-* ``TI_normal`` computed with :func:`tit.calc.envelope` along the normals of
-  the cortical surface overlays
+* one central cortical surface mesh with every volume field and ``TI_normal``
+  (:func:`tit.calc.envelope` along its node normals)
 
-Output mesh includes the selected ``TI_max``, ``TI_avg``, ``hf_peak``,
-``hf_rms`` and ``hf_power_density``.
-Per-channel E-field magnitudes are not retained on it; those live on the
-``high_Frequency/`` carrier meshes.
+Outputs: ``TI/mesh/<montage>_TI.msh`` with the selected ``TI_max``, ``TI_avg``,
+``hf_peak``, ``hf_rms`` and ``hf_power_density``, and
+``TI/mesh/surfaces/<montage>_TI_central.msh``. Per-channel E-fields are not
+retained on them; those live on the ``high_Frequency/`` carrier meshes.
 
 See Also
 --------
@@ -33,10 +33,7 @@ from simnibs import sim_struct
 from tit import constants as const
 from tit.sim.base import BaseSimulation
 from tit.sim.config import SimulationMode
-from tit.sim.utils import (
-    extract_fields,
-    safe_move,
-)
+from tit.sim.utils import safe_move
 
 
 class TISimulation(BaseSimulation):
@@ -48,10 +45,10 @@ class TISimulation(BaseSimulation):
     2. Visualize electrode placement.
     3. Build SimNIBS SESSION, run FEM.
     4. Compute ``TI_max``/``TI_avg``/``hf_peak``/``hf_rms``/
-       ``hf_power_density`` (volume) and
-       ``TI_normal`` (surface).
-    5. Extract GM/WM meshes and organize outputs; with ``map_to_vol``, write
-       one NIfTI per field.
+       ``hf_power_density`` (volume mesh) and the central surface with them and
+       ``TI_normal``.
+    5. Organize outputs; with ``map_to_vol``, write one NIfTI per field (whole,
+       grey and white matter).
 
     See Also
     --------
@@ -113,7 +110,7 @@ class TISimulation(BaseSimulation):
     # ── Post-processing ────────────────────────────────────────────────────────────────
 
     def _post_process(self, dirs: dict) -> str:
-        """Compute TI fields and extract meshes; NIfTIs only with ``map_to_vol``.
+        """Write the field mesh and its central surface; NIfTIs only with ``map_to_vol``.
 
         Parameters
         ----------
@@ -125,40 +122,24 @@ class TISimulation(BaseSimulation):
         str
             Path to the output TI mesh file.
         """
-        sid = self.config.subject_id
         name = self.montage.name
-
         meshes = self._cropped_carriers(dirs["hf_dir"], 2)
         ti_path = os.path.join(dirs["ti_mesh"], f"{name}_TI.msh")
-        self._write_volume_mesh(meshes, const.FIELD_TI_MAX, ti_path)
-
-        if not self.config.carrier_only:  # ΔF = 0: no envelope to project
-            self._write_ti_normal(
-                dirs["hf_dir"], 2, os.path.join(dirs["ti_mesh"], f"{name}_normal.msh")
-            )
-
-        self.logger.info("Field extraction: Started")
-        extract_fields(
-            ti_path, dirs["ti_mesh"], f"{name}_TI", self.m2m_dir, sid, self.logger
+        volume = self._write_volume_mesh(meshes, const.FIELD_TI_MAX, ti_path)
+        self._write_central_surface(
+            volume, meshes, os.path.join(dirs["ti_surfaces"], f"{name}_TI_central.msh")
         )
-        self.logger.info("Field extraction: \u2713 Complete")
-
-        # Organize files before NIfTI conversion so meshes are in their
-        # final directories (hf_mesh/, ti_surface_overlays/, etc.)
+        del meshes, volume  # free the channel meshes before the NIfTI pool forks
         self._organize_files(dirs)
-
-        self._generate_central_surface(ti_path, dirs["ti_surfaces"])
-
         if self.config.map_to_vol:
-            self._write_niftis(dirs, "ti_mesh", "ti_niftis")
-
+            self._write_niftis(dirs, ti_path, "ti_niftis")
         return ti_path
 
     def _organize_files(self, dirs: dict) -> None:
         """Move SimNIBS output files into the BIDS directory structure."""
         hf = dirs["hf_dir"]
 
-        # Move HF mesh files (.msh, .geo, .opt) into hf_mesh/
+        # Move SimNIBS's HF mesh files (.msh, .geo, .opt) into hf_mesh/
         cond = self.config.conductivity
         for pattern in ("TDCS_1", "TDCS_2"):
             for ext in (".geo", f"{cond}.msh", f"{cond}.msh.opt"):
@@ -167,16 +148,6 @@ class TISimulation(BaseSimulation):
                         f,
                         os.path.join(dirs["hf_mesh"], os.path.basename(f)),
                     )
-
-        # Move surface overlays (needed for TI_normal)
-        overlays = os.path.join(hf, "subject_overlays")
-        if os.path.isdir(overlays):
-            for fname in os.listdir(overlays):
-                safe_move(
-                    os.path.join(overlays, fname),
-                    os.path.join(dirs["ti_surface_overlays"], fname),
-                )
-            os.rmdir(overlays)
 
         safe_move(
             os.path.join(hf, "fields_summary.txt"),

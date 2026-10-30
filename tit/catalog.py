@@ -715,7 +715,7 @@ def classify_sim_nifti(basename: str, simulation: str | None = None) -> dict | N
     The simulator names every volume ``<base>_subject_<field>.nii.gz`` or
     ``<base>_MNI_MNI_<field>.nii.gz`` (``tit.tools.mesh2nii``), where ``<base>`` is
     the mesh it came from: ``<tissue_><sim>_<TI|mTI>`` for the envelope fields
-    (``extract_fields`` adds ``grey_``/``white_``) and ``<sid>_TDCS_<i>_<cond>`` for a
+    (``grey_``/``white_`` for the volume mesh's tissue crops, ``tit.tools.mesh2nii``) and ``<sid>_TDCS_<i>_<cond>`` for a
     carrier's ``magnE``. Space and field are read from the tokens at the end and the
     tissue from the prefix before the simulation's own name, so a simulation called
     ``MNI_target``, ``grey_matter`` or ``TDCS_vs_TI`` is classified like any other.

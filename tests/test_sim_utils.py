@@ -226,7 +226,6 @@ class TestSetupMontageDirectories:
             "ti_mesh",
             "ti_niftis",
             "ti_surfaces",
-            "ti_surface_overlays",
             "ti_montage_imgs",
             "documentation",
         }
@@ -236,7 +235,9 @@ class TestSetupMontageDirectories:
         montage_dir = str(tmp_path / "test_montage")
         dirs = setup_montage_directories(montage_dir, SimulationMode.MTI, niftis=True)
 
-        # Should have all TI keys plus mti_* keys
+        # The mode's own keys only: an mTI run writes nothing under TI/.
+        assert not any(key.startswith("ti_") for key in dirs)
+        assert not os.path.exists(os.path.join(montage_dir, "TI"))
         assert "mti_mesh" in dirs
         assert "mti_surfaces" in dirs
         assert "mti_niftis" in dirs

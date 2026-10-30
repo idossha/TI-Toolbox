@@ -195,11 +195,11 @@ def test_a_constant_t1_gets_a_finite_background(tmp_path, drawn):
 
 
 def test_a_run_without_niftis_or_field_meshes_says_why_it_has_no_figure(tmp_path):
-    # NIfTIs are opt-in; the report voxelises the grey/white field meshes instead. With those
-    # gone too, the page says what is missing rather than a generic "could not be read".
+    # NIfTIs are opt-in; the report voxelises the field mesh's grey/white matter instead. With
+    # the mesh gone too, the page says what is missing rather than a generic "could not be read".
     d = write_run(tmp_path, _ti())
     rec = sim.collect(d, m2m=tmp_path, scratch=tmp_path / "scratch")
     assert rec["envelope"] is None
-    assert "grey_M_TI.msh is missing or does not carry TI_max" in rec["figure_note"]
+    assert "M_TI.msh is missing or does not carry TI_max" in rec["figure_note"]
     html = sim.build_html(rec, None, "X")
-    assert "No envelope figure:" in html and "grey_M_TI.msh" in html
+    assert "No envelope figure:" in html and "M_TI.msh" in html

@@ -121,7 +121,6 @@ cfg = SimulationConfig(
     intensities=[1.0, 1.0],             # mA per channel
     electrode_shape="ellipse", electrode_dimensions=[8.0, 8.0],
     gel_thickness=1.0, rubber_thickness=2.0,
-    map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
     # output_fields=None (default) -> ["TI_max", "hf_peak", "hf_rms"]; add "TI_avg",
     # "hf_power_density" by listing them. map_to_vol=True writes one NIfTI per field
@@ -133,12 +132,13 @@ run_simulation(cfg)
 # (hf_power_density is a carrier field too and may be listed)
 ```
 2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs: the field mesh
-`Simulations/<name>/TI/mesh/<name>_TI.msh` (every saved field) with its grey/white copies and
-central surface; `TI/niftis/` only with `map_to_vol`. A field or NIfTI an analysis or group
+`Simulations/<name>/TI/mesh/<name>_TI.msh` (every saved field) and its central surface
+`TI/mesh/surfaces/<name>_TI_central.msh` (those fields + `TI_normal`, lh then rh);
+`TI/niftis/` only with `map_to_vol` (whole, `grey_` and `white_` NIfTIs per field). A field or NIfTI an analysis or group
 tool needs and the run did not save is computed then from `high_Frequency/mesh/` and saved
-(`tit.volume_fields`; `AnalysisResult.on_demand_note` says what), except `hf_power_density`. `TI_normal` is written
-to `<montage>_mTI_normal.msh` for mTI runs (via `envelope` along the cortical
-normals) and is **mesh-only** — asking for it in voxel space is an error by design.
+(`tit.volume_fields`; `AnalysisResult.on_demand_note` says what), except `hf_power_density`. `TI_normal` (via `envelope` along
+the cortical normals) is on the central surface for TI and mTI runs and is **mesh-only** —
+asking for it in voxel space is an error by design.
 
 Free-hand montages come from `m2m_<id>/stim_configs/*.json`
 (`{"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}}`, subject-RAS

@@ -275,7 +275,7 @@ class TestFsavgHelpers:
             fsaverage, "_read_surface_scalar", lambda path, name: np.array([0.5])
         )
         monkeypatch.setattr(fsaverage, "_ti_max_overlay", lambda *a: "ti")
-        monkeypatch.setattr(fsaverage, "_ti_normal_overlay", lambda *a: "tn")
+        monkeypatch.setattr(fsaverage, "_ti_normal_surface", lambda *a: "tn")
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
@@ -301,7 +301,7 @@ class TestFsavgHelpers:
             fsaverage, "_read_surface_scalar", lambda path, name: np.array([0.5])
         )
         monkeypatch.setattr(fsaverage, "_ti_max_overlay", lambda *a: "ti")
-        monkeypatch.setattr(fsaverage, "_ti_normal_overlay", lambda *a: "tn")
+        monkeypatch.setattr(fsaverage, "_ti_normal_surface", lambda *a: "tn")
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 

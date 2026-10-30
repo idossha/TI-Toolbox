@@ -528,7 +528,11 @@ def _analyzer_field(
         is_mti_simulation,
         select_field_file,
     )
-    from tit.volume_fields import FieldUnavailableError, check_producible
+    from tit.volume_fields import (
+        FieldUnavailableError,
+        check_producible,
+        check_surface_producible,
+    )
 
     sim_dir = Path(pm.simulation(sid, sim))
     if not sim_dir.is_dir():
@@ -578,6 +582,25 @@ def _analyzer_field(
             return []  # an invalid field is a config error, not a missing input
         if space == "voxel":
             return []  # its NIfTI is written from the field mesh
+    if space == "mesh":
+        # Mesh analyses are measured on the central surface; the analysis writes it (or an old
+        # run's TI_normal) from the field mesh when it is missing or incomplete.
+        try:
+            check_surface_producible(sid, sim)
+        except FieldUnavailableError as exc:
+            surface = (
+                pm.mti_central_surface(sid, sim)
+                if is_mti
+                else pm.ti_central_surface(sid, sim)
+            )
+            return [
+                MissingInput(
+                    f"central (grey-matter) surface for sub-{sid} / {sim}",
+                    surface,
+                    str(exc),
+                )
+            ]
+        return []
     try:
         select_field_file(
             sid,
@@ -586,9 +609,7 @@ def _analyzer_field(
             tissue_type=config.get("tissue_type") or "GM",
             field=field,
         )
-    except (
-        FileNotFoundError
-    ) as exc:  # TI_normal's normal mesh is written by the run only
+    except FileNotFoundError as exc:
         return [
             MissingInput(
                 f"field mesh for sub-{sid} / {sim}",
@@ -598,21 +619,6 @@ def _analyzer_field(
         ]
     except (ValueError, KeyError):
         return []  # an invalid field/space is a config error, not a missing input
-    if space == "mesh":
-        surface = Path(
-            pm.mti_central_surface(sid, sim)
-            if is_mti
-            else pm.ti_central_surface(sid, sim)
-        )
-        if not surface.is_file():
-            return [
-                MissingInput(
-                    f"central (grey-matter) surface for sub-{sid} / {sim}",
-                    str(surface),
-                    f"Re-run the {sim} simulation for sub-{sid} with map_to_surf enabled; "
-                    "mesh analyses are measured on this surface.",
-                )
-            ]
     return []
 
 
@@ -783,6 +789,8 @@ def _analyzer_mni_atlas(config: dict[str, Any]) -> list[MissingInput]:
 
 
 def _check_source(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
+    from tit.volume_fields import FieldUnavailableError, check_surface_producible
+
     missing: list[MissingInput] = []
     if config.get("mode", "forward") == "forward":
         forward = config.get("forward") or {}
@@ -812,18 +820,23 @@ def _check_source(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]
         if head:
             missing.extend(head)
             continue
-        ti = Path(pm.ti_central_surface(sid, sim))
-        mti = Path(pm.mti_central_surface(sid, sim))
-        if not ti.is_file() and not mti.is_file():
+        if not Path(pm.simulation(sid, sim)).is_dir():
             missing.append(
                 MissingInput(
-                    f"central-surface overlay for sub-{sid} / {sim}",
-                    str(ti),
-                    (
-                        _simulation_fix(sid, sim)
-                        if not Path(pm.simulation(sid, sim)).is_dir()
-                        else f"Re-run the {sim} simulation for sub-{sid} with map_to_surf enabled."
-                    ),
+                    f"central surface for sub-{sid} / {sim}",
+                    pm.ti_central_surface(sid, sim),
+                    _simulation_fix(sid, sim),
+                )
+            )
+            continue
+        try:  # the projection writes an incomplete surface (an old run's) from the field mesh
+            check_surface_producible(sid, sim)
+        except FieldUnavailableError as exc:
+            missing.append(
+                MissingInput(
+                    f"central surface for sub-{sid} / {sim}",
+                    pm.ti_central_surface(sid, sim),
+                    str(exc),
                 )
             )
     return missing

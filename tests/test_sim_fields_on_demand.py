@@ -4,23 +4,28 @@ What this pins (``tit/volume_fields.py``; docs/dev/DECISIONS.md 2026-10-30, fiel
     * ``ensure_mesh_fields`` computes a missing volume field from the channel meshes kept in
       ``high_Frequency/mesh/`` (``<sid>_TDCS_1|2_<cond>.msh``; ``A..Z`` for mTI), cropped to brain
       tissue, adds it to ``<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh`` (the header then lists it),
-      re-cuts the grey/white copies and regenerates the central surface, and says so in one
+      rewrites the central surface with every field and ``TI_normal``, and says so in one
       sentence; a second call finds it saved and reads nothing;
+    * an old run's central surface (no ``TI_normal``) is rebuilt from its volume mesh, with
+      ``TI_normal`` copied from its ``<sim>_normal.msh`` or else computed from the channel
+      meshes; a head model whose central surface has another node count is refused;
     * no fallback: a missing channel mesh, a missing run record, an envelope of a carrier-only run
       and an unsaved ``hf_power_density`` are a ``FieldUnavailableError`` naming what is missing,
       and the volume mesh is left as it was; a volume mesh from another run is refused;
     * a carrier-only run's carriers are produced coherently, as the simulator adds them;
     * ``ensure_niftis`` writes exactly the NIfTI a voxel step reads, under the simulator's own name
       (``<tissue_><sim>_<TI|mTI>_subject_<field>.nii.gz``; ``..._MNI_MNI_...`` in MNI space), from
-      that tissue's field mesh; ``ensure_nifti_file`` does it for a resolved group-tool path and
-      leaves any other name alone;
+      the volume mesh cropped to that tissue; ``ensure_nifti_file`` does it for a resolved
+      group-tool path and leaves any other name alone;
     * ``check_niftis_match_meshes``: the simulator's NIfTI set is its mesh field set, name for name.
 
 Where the expected numbers come from
     Hand formulas on authored channel fields: for two channels ``hf_peak = max(|E1 + E2|,
     |E1 - E2|)`` and ``hf_rms = sqrt((|E1|^2 + |E2|^2) / 2)`` (Cassarà 2025), and the coherent carrier-only
     ``hf_rms = |E1 + E2| / sqrt(2)``. Meshes are real Gmsh 2.2 ASCII files (their headers are what is
-    checked); SimNIBS is mocked on the host, so ``mesh_io`` here reads and writes those files.
+    checked); SimNIBS is mocked on the host, so ``mesh_io`` here reads and writes those files,
+    and :func:`tit.volume_fields.central_surface` is replaced by a recorder (its numbers are
+    tests/numerical/test_central_surface_real.py's).
 
 Reproduce: ``.venv/bin/python -m pytest tests/test_sim_fields_on_demand.py -q -p no:cacheprovider``
 The same path on real SimNIBS meshes is tests/numerical/test_sim_fields_on_demand_real.py.
@@ -29,7 +34,6 @@ The same path on real SimNIBS meshes is tests/numerical/test_sim_fields_on_deman
 from __future__ import annotations
 
 import json
-import shutil
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -38,7 +42,6 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-import tit.sim.utils
 from tit import volume_fields as fields
 from tit.volume_fields import FieldUnavailableError
 from tit.tools.msh_fields import msh_element_field, msh_field_names
@@ -51,10 +54,10 @@ E1 = np.array([[1.0, 0, 0], [0, 2, 0], [9, 9, 9], [3, 4, 0], [0, 0, 1]])
 E2 = np.array([[0.0, 1, 0], [0, -1, 0], [9, 9, 9], [3, 4, 0], [0, 0, -2]])
 
 
-def write_msh(path: Path, n: int, data: dict[str, np.ndarray]) -> None:
+def write_msh(path: Path, n: int, data: dict[str, np.ndarray], nodes: int = 4) -> None:
     """A Gmsh 2.2 ASCII mesh of *n* tetrahedra carrying *data* as element fields."""
-    out = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "4"]
-    out += [f"{i} {x} {y} {z}" for i, (x, y, z) in enumerate(np.eye(4)[:, :3], 1)]
+    out = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", str(nodes)]
+    out += [f"{i} {i} 0 0" for i in range(1, nodes + 1)]
     out += ["$EndNodes", "$Elements", str(n)]
     out += [f"{i} 4 2 2 2 1 2 3 4" for i in range(1, n + 1)]
     out += ["$EndElements"]
@@ -82,8 +85,9 @@ def write_msh(path: Path, n: int, data: dict[str, np.ndarray]) -> None:
 class FakeMesh:
     """The slice of ``simnibs.mesh_io.Msh`` the producer touches."""
 
-    def __init__(self, tags, data):
+    def __init__(self, tags, data, nodes=4):
         self.elm = SimpleNamespace(tag1=np.asarray(tags), nr=len(tags))
+        self.nodes = SimpleNamespace(nr=nodes)
         self.elmdata = [
             SimpleNamespace(field_name=k, value=np.asarray(v)) for k, v in data.items()
         ]
@@ -94,6 +98,8 @@ class FakeMesh:
 
     def add_element_field(self, value, name):
         self.elmdata.append(SimpleNamespace(field_name=name, value=np.asarray(value)))
+
+    add_node_field = add_element_field  # the fake keeps every field per element
 
     def crop_mesh(self, tags):
         keep = np.isin(self.elm.tag1, tags)
@@ -117,22 +123,40 @@ class FakeMeshIO:
                 return FakeMesh(TAGS, {"E": e})
         names = sorted(msh_field_names(path))
         n = len(msh_element_field(path, names[0])) if names else int(BRAIN.sum())
-        return FakeMesh(np.full(n, 2), {k: msh_element_field(path, k) for k in names})
+        lines = Path(path).read_text().splitlines()
+        nodes = int(lines[lines.index("$Nodes") + 1])
+        return FakeMesh(
+            np.full(n, 2), {k: msh_element_field(path, k) for k in names}, nodes
+        )
 
     def write_msh(self, mesh, path):
         self.written[Path(path).name] = mesh
         write_msh(
-            Path(path), mesh.elm.nr, {d.field_name: d.value for d in mesh.elmdata}
+            Path(path),
+            mesh.elm.nr,
+            {d.field_name: d.value for d in mesh.elmdata},
+            mesh.nodes.nr,
         )
 
 
 def make_simulation(
-    pm, *, mode="TI", channels=2, carrier_only=False, saved=("TI_max",), niftis=()
+    pm,
+    *,
+    mode="TI",
+    channels=2,
+    carrier_only=False,
+    saved=("TI_max",),
+    niftis=(),
+    surface=True,
+    legacy_normal=None,
 ):
-    """A finished run on disk: run record, volume mesh with *saved*, kept channel meshes.
+    """A finished run on disk: run record, volume mesh with *saved*, its central surface, kept
+    channel meshes, and the head model's central surfaces.
 
-    *niftis* (``"subject"``, ``"mni"``) is a run that wrote NIfTIs: its record says so, its
-    grey/white meshes exist, and every mesh has one NIfTI per saved field in those spaces.
+    *niftis* (``"subject"``, ``"mni"``) is a run that wrote NIfTIs: its record says so, and the
+    volume mesh and its grey/white crops have one NIfTI per saved field in those spaces.
+    *surface* ``"old"`` is a central surface written before it carried ``TI_normal``, ``False``
+    none; *legacy_normal* (values) adds the old ``<sim>_normal.msh``.
     """
     sim_dir = Path(pm.simulation(SID, SIM))
     (sim_dir / mode / "mesh" / "surfaces").mkdir(parents=True)
@@ -155,10 +179,27 @@ def make_simulation(
     write_msh(
         sim_dir / mode / "mesh" / f"{SIM}_{mode}.msh", n, {f: np.ones(n) for f in saved}
     )
-    for stem in (f"grey_{SIM}_{mode}", f"white_{SIM}_{mode}") if niftis else ():
+    if surface:
+        on_surface = {f: np.ones(n) for f in saved}
+        if surface != "old" and not carrier_only:
+            on_surface["TI_normal"] = np.ones(n)
         write_msh(
-            sim_dir / mode / "mesh" / f"{stem}.msh", n, {f: np.ones(n) for f in saved}
+            sim_dir / mode / "mesh" / "surfaces" / f"{SIM}_{mode}_central.msh",
+            n,
+            on_surface,
         )
+    if legacy_normal is not None:
+        suffix = "_mTI_normal" if mode == "mTI" else "_normal"
+        write_msh(
+            sim_dir / mode / "mesh" / f"{SIM}{suffix}.msh",
+            len(legacy_normal),
+            {"TI_normal": np.asarray(legacy_normal, dtype=float)},
+            nodes=4 if len(legacy_normal) == n else 5,
+        )
+    m2m_surfaces = Path(pm.m2m(SID)) / "surfaces"
+    m2m_surfaces.mkdir(parents=True, exist_ok=True)
+    for hemi in ("lh", "rh"):
+        (m2m_surfaces / f"{hemi}.central.gii").write_text("gifti")
     for space in niftis:
         token = "MNI_MNI" if space == "mni" else "subject"
         for stem in (f"{SIM}_{mode}", f"grey_{SIM}_{mode}", f"white_{SIM}_{mode}"):
@@ -174,41 +215,32 @@ def make_simulation(
     return sim_dir
 
 
-def cut_tissues(calls: list):
-    """``extract_fields``: the grey/white copies of the volume mesh, where it is asked to write."""
+def fake_central(calls: list, fail: list | None = None):
+    """``central_surface``: the volume's fields per element, ``TI_normal`` (= 7) with channels.
 
-    def cut(volume, out_dir, stem, *rest):
-        calls.append((volume, out_dir, stem))
-        for tissue in ("grey", "white"):
-            shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
+    Records ``(volume field names, e_fields given)``; raises while *fail* is set.
+    """
 
-    return cut
-
-
-def map_surface(calls: list, fail: list | None = None):
-    """``generate_central_surface``: writes ``<stem>_central.msh``; raises while *fail* is set."""
-
-    def surface(mesh, m2m, out_dir):
-        calls.append((mesh, m2m, out_dir))
+    def central(volume, m2m, *, e_fields=None):
+        calls.append(([d.field_name for d in volume.elmdata], e_fields is not None))
         if fail:
             raise RuntimeError(fail.pop())
-        Path(out_dir).mkdir(parents=True, exist_ok=True)
-        shutil.copy(mesh, Path(out_dir) / f"{Path(mesh).stem}_central.msh")
+        data = {d.field_name: d.value for d in volume.elmdata}
+        if e_fields is not None:
+            data["TI_normal"] = np.full(volume.elm.nr, 7.0)
+        return FakeMesh(np.full(volume.elm.nr, 1002), data)
 
-    return surface
+    return central
 
 
 @pytest.fixture()
 def producer(init_pm):
-    """Mocked SimNIBS reading TI channel fields E1/E2; grey/white cut and msh2cortex recorded."""
+    """Mocked SimNIBS reading TI channel fields E1/E2; the central surface recorded."""
     io = FakeMeshIO({f"{SID}_TDCS_1_scalar.msh": E1, f"{SID}_TDCS_2_scalar.msh": E2})
-    calls = SimpleNamespace(extract=[], surface=[])
+    calls = SimpleNamespace(surface=[])
     with (
         patch.object(sys.modules["simnibs"], "mesh_io", io),
-        patch.object(tit.sim.utils, "extract_fields", cut_tissues(calls.extract)),
-        patch.object(
-            tit.sim.utils, "generate_central_surface", map_surface(calls.surface)
-        ),
+        patch.object(fields, "central_surface", fake_central(calls.surface)),
     ):
         yield SimpleNamespace(io=io, calls=calls, pm=init_pm)
 
@@ -234,16 +266,16 @@ def test_a_missing_field_is_computed_from_the_channel_meshes_and_saved(
     np.testing.assert_allclose(
         msh_element_field(volume, "TI_max"), 1.0
     )  # kept as saved
-    # The grey/white copies and the central surface are regenerated from the new mesh, in a
-    # staging folder, and moved into place: they carry the new fields, and no stage is left.
-    assert [Path(a[0]).name for a in producer.calls.extract] == [volume.name]
-    assert [a[2] for a in producer.calls.extract] == [f"{SIM}_TI"]
-    for derived in ("grey_M_TI.msh", "white_M_TI.msh", "surfaces/M_TI_central.msh"):
-        assert msh_field_names(volume.parent / derived) == {
-            "TI_max",
-            "hf_peak",
-            "hf_rms",
-        }
+    # The central surface is rewritten from the new mesh with the channel fields (TI_normal),
+    # in a staging folder, and moved into place; no grey/white mesh and no stage is left.
+    assert producer.calls.surface == [(["TI_max", "hf_peak", "hf_rms"], True)]
+    assert msh_field_names(volume.parent / "surfaces" / "M_TI_central.msh") == {
+        "TI_max",
+        "hf_peak",
+        "hf_rms",
+        "TI_normal",
+    }
+    assert sorted(p.name for p in volume.parent.iterdir()) == ["M_TI.msh", "surfaces"]
     assert not list((volume.parents[1]).glob(".on-demand-*"))
 
 
@@ -252,27 +284,21 @@ def test_a_production_killed_midway_leaves_nothing_half_written_and_a_rerun_comp
 ) -> None:
     sim_dir = make_simulation(producer.pm)
     volume = sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh"
-    before = volume.read_bytes()
-    fail = ["msh2cortex died"]
-    with patch.object(tit.sim.utils, "generate_central_surface", map_surface([], fail)):
-        with pytest.raises(RuntimeError, match="msh2cortex died"):
+    central = sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
+    before, surface_before = volume.read_bytes(), central.read_bytes()
+    fail = ["interpolation died"]
+    with patch.object(fields, "central_surface", fake_central([], fail)):
+        with pytest.raises(RuntimeError, match="interpolation died"):
             fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
-        # Nothing moved: the volume mesh is as it was, no grey/white/surface appeared, and
-        # the staging folder is gone, so the field still reads as not saved.
-        assert volume.read_bytes() == before
-        assert not (sim_dir / "TI" / "mesh" / "grey_M_TI.msh").exists()
-        assert not list((sim_dir / "TI" / "mesh" / "surfaces").iterdir())
+        # Nothing moved: the volume mesh and its surface are as they were, and the staging
+        # folder is gone, so the field still reads as not saved.
+        assert volume.read_bytes() == before and central.read_bytes() == surface_before
         assert not list((sim_dir / "TI").glob(".on-demand-*"))
         # A stage left by a producer that was killed outright is cleared by the next one.
         (sim_dir / "TI" / ".on-demand-killed").mkdir()
         assert fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
     assert msh_field_names(volume) == {"TI_max", "hf_peak"}
-    assert msh_field_names(
-        sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
-    ) == {
-        "TI_max",
-        "hf_peak",
-    }
+    assert msh_field_names(central) == {"TI_max", "hf_peak", "TI_normal"}
     assert not list((sim_dir / "TI").glob(".on-demand-*"))
 
 
@@ -361,15 +387,16 @@ def test_an_mti_run_reads_its_lettered_channels_in_order(init_pm) -> None:
     make_simulation(init_pm, mode="mTI", channels=4, saved=("mTI_max",))
     with (
         patch.object(sys.modules["simnibs"], "mesh_io", io),
-        patch.object(tit.sim.utils, "extract_fields", cut_tissues([])),
-        patch.object(tit.sim.utils, "generate_central_surface", map_surface([])),
+        patch.object(fields, "central_surface", fake_central([])),
     ):
         notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max", "hf_rms"])
     assert notices == [
         "hf_rms was not saved for M; computing it from the channel fields and saving it "
         "to M_mTI.msh."
     ]
-    assert io.reads[:4] == [f"{SID}_TDCS_{c}_scalar.msh" for c in "ABCD"]
+    assert io.reads[1:5] == [
+        f"{SID}_TDCS_{c}_scalar.msh" for c in "ABCD"
+    ]  # after the volume
     rms = np.sqrt(sum((v[BRAIN] ** 2).sum(axis=1) for v in e) / 2)
     volume = Path(init_pm.simulation(SID, SIM)) / "mTI" / "mesh" / "M_mTI.msh"
     np.testing.assert_allclose(msh_element_field(volume, "hf_rms"), rms)
@@ -382,13 +409,15 @@ def converter(producer):
 
     calls = []
 
-    def subject(mesh, m2m, prefix, fields=None):
-        calls.append(("subject", Path(mesh).name, Path(prefix).name, list(fields)))
+    def subject(mesh, m2m, prefix, fields=None, tags=None):
+        calls.append(
+            ("subject", Path(mesh).name, Path(prefix).name, list(fields), tags)
+        )
         for f in fields:
             Path(f"{prefix}_{f}.nii.gz").write_bytes(b"nii")
 
-    def mni(mesh, m2m, prefix, fields=None):
-        calls.append(("mni", Path(mesh).name, Path(prefix).name, list(fields)))
+    def mni(mesh, m2m, prefix, fields=None, tags=None):
+        calls.append(("mni", Path(mesh).name, Path(prefix).name, list(fields), tags))
         for f in fields:
             Path(f"{prefix}_MNI_{f}.nii.gz").write_bytes(b"nii")
 
@@ -416,9 +445,15 @@ def test_a_run_that_writes_niftis_still_has_one_per_mesh_field_after_on_demand(
         ["subject"] * 3 + ["mni"] * 3 * ("mni" in spaces)
     )
     assert all(c[3] == ["hf_peak"] for c in converter.calls)
+    # Whole brain tissue and its grey/white crops, all converted from the volume mesh.
+    assert sorted(str(c[4]) for c in converter.calls if c[0] == "subject") == [
+        "None",
+        "[1]",
+        "[2]",
+    ]
     # The simulator's own invariant, checked the way the simulator checks it.
     fields.check_niftis_match_meshes(
-        mesh_dir, sim_dir / "TI" / "niftis", mni="mni" in spaces
+        mesh_dir / "M_TI.msh", sim_dir / "TI" / "niftis", mni="mni" in spaces
     )
 
 
@@ -440,12 +475,13 @@ def test_a_voxel_step_writes_the_tissue_niftis_it_reads(converter) -> None:
     }
     assert all(p.is_file() for p in paths.values())
     assert converter.calls == [
-        ("subject", "grey_M_TI.msh", "grey_M_TI_subject", ["TI_max", "hf_peak"])
+        ("subject", "M_TI.msh", "grey_M_TI_subject", ["TI_max", "hf_peak"], [2])
     ]
     assert notices == [
         "hf_peak was not saved for M; computing it from the channel fields and saving it "
         "to M_TI.msh.",
-        "TI_max and hf_peak were not saved as NIfTIs for M; writing them from grey_M_TI.msh.",
+        "TI_max and hf_peak were not saved as NIfTIs for M; writing them from M_TI.msh "
+        "(grey matter).",
     ]
     assert fields.ensure_niftis(SID, SIM, ["TI_max", "hf_peak"], tissue="grey")[1] == []
 
@@ -458,7 +494,7 @@ def test_an_mni_nifti_is_warped_from_the_tissue_mesh(converter) -> None:
         SID, SIM, ["TI_max"], tissue=None, space="mni"
     )
     assert paths == {"TI_max": sim_dir / "TI" / "niftis" / "M_TI_MNI_MNI_TI_max.nii.gz"}
-    assert converter.calls == [("mni", "M_TI.msh", "M_TI_MNI", ["TI_max"])]
+    assert converter.calls == [("mni", "M_TI.msh", "M_TI_MNI", ["TI_max"], None)]
     assert notices == [
         "TI_max was not saved as an MNI-space NIfTI for M; writing it from M_TI.msh."
     ]
@@ -471,7 +507,8 @@ def test_a_group_tool_path_is_produced_and_any_other_name_left_alone(converter) 
     niftis = sim_dir / "TI" / "niftis"
     wanted = niftis / "white_M_TI_MNI_MNI_hf_rms.nii.gz"
     assert fields.ensure_nifti_file(SID, SIM, wanted) == [
-        "hf_rms was not saved as an MNI-space NIfTI for M; writing it from white_M_TI.msh."
+        "hf_rms was not saved as an MNI-space NIfTI for M; writing it from M_TI.msh "
+        "(white matter)."
     ]
     assert wanted.is_file()
     assert fields.ensure_nifti_file(SID, SIM, niftis / "my_own_average.nii.gz") == []
@@ -517,19 +554,15 @@ def _meshes_and_niftis(tmp_path: Path, written: list[str]) -> tuple[Path, Path]:
     mesh_dir, nifti_dir = tmp_path / "mesh", tmp_path / "niftis"
     mesh_dir.mkdir(parents=True)
     nifti_dir.mkdir(parents=True)
-    for stem in ("M_TI", "grey_M_TI"):
-        write_msh(mesh_dir / f"{stem}.msh", 1, {"TI_max": [1.0], "hf_peak": [2.0]})
-    write_msh(
-        mesh_dir / "M_normal.msh", 1, {"TI_normal": [1.0]}
-    )  # surface-only: not converted
+    write_msh(mesh_dir / "M_TI.msh", 1, {"TI_max": [1.0], "hf_peak": [2.0]})
     for name in written:
         (nifti_dir / name).write_bytes(b"nii")
-    return mesh_dir, nifti_dir
+    return mesh_dir / "M_TI.msh", nifti_dir
 
 
 ALL_SUBJECT = [
     f"{stem}_subject_{f}.nii.gz"
-    for stem in ("M_TI", "grey_M_TI")
+    for stem in ("M_TI", "grey_M_TI", "white_M_TI")
     for f in ("TI_max", "hf_peak")
 ]
 
@@ -549,15 +582,19 @@ def test_one_nifti_per_mesh_field_passes(tmp_path: Path) -> None:
     [
         (
             ALL_SUBJECT[1:],
-            "M_TI.msh carries ['TI_max', 'hf_peak'] but its subject NIfTIs are ['hf_peak']",
+            "M_TI carries ['TI_max', 'hf_peak'] but its subject NIfTIs are ['hf_peak']",
         ),
         (ALL_SUBJECT + ["M_TI_subject_magnE.nii.gz"], "['TI_max', 'hf_peak', 'magnE']"),
+        (
+            [n for n in ALL_SUBJECT if not n.startswith("white_")],
+            "white_M_TI carries ['TI_max', 'hf_peak'] but its subject NIfTIs are []",
+        ),
     ],
 )
 def test_a_missing_or_extra_nifti_fails_the_run_naming_it(
     tmp_path, written, named
 ) -> None:
-    with pytest.raises(RuntimeError, match="do not match the field meshes") as err:
+    with pytest.raises(RuntimeError, match="do not match the field mesh") as err:
         fields.check_niftis_match_meshes(
             *_meshes_and_niftis(tmp_path, written), mni=False
         )
@@ -569,3 +606,80 @@ def test_mni_niftis_are_checked_too(tmp_path: Path) -> None:
         fields.check_niftis_match_meshes(
             *_meshes_and_niftis(tmp_path, ALL_SUBJECT), mni=True
         )
+
+
+# ── an old run's central surface ─────────────────────────────────────────────────────
+
+
+def test_an_old_surface_gains_ti_normal_from_its_old_normal_mesh(producer) -> None:
+    sim_dir = make_simulation(
+        producer.pm,
+        saved=("TI_max", "hf_peak", "hf_rms"),
+        surface="old",
+        legacy_normal=[5.0, 6.0, 7.0, 8.0],
+    )
+    central = sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
+    notices = fields.ensure_mesh_fields(SID, SIM, [])
+    assert notices == [
+        "M has a central surface without TI_normal; writing M_TI_central.msh from its "
+        "field mesh."
+    ]
+    # The volume fields are interpolated again (no channel fields), TI_normal is the old one.
+    assert producer.calls.surface == [(["TI_max", "hf_peak", "hf_rms"], False)]
+    assert msh_field_names(central) == {"TI_max", "hf_peak", "hf_rms", "TI_normal"}
+    np.testing.assert_array_equal(
+        msh_element_field(central, "TI_normal"), [5.0, 6.0, 7.0, 8.0]
+    )
+    assert not any("TDCS" in r for r in producer.io.reads)  # channel meshes not needed
+    assert (sim_dir / "TI" / "mesh" / "M_normal.msh").is_file()  # never deleted
+    assert fields.ensure_mesh_fields(SID, SIM, []) == []
+
+
+def test_without_an_old_normal_mesh_ti_normal_is_computed_from_the_channels(
+    producer,
+) -> None:
+    sim_dir = make_simulation(producer.pm, surface=False)
+    notices = fields.ensure_mesh_fields(SID, SIM, ["TI_max"])
+    assert notices == [
+        "M has no central surface; writing M_TI_central.msh from its field mesh."
+    ]
+    assert producer.calls.surface == [(["TI_max"], True)]
+    central = sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
+    np.testing.assert_array_equal(msh_element_field(central, "TI_normal"), 7.0)
+
+
+def test_a_re_segmented_head_model_is_refused(producer) -> None:
+    make_simulation(producer.pm, surface="old", legacy_normal=[1.0] * 5)
+    with pytest.raises(RuntimeError, match="segmented again"):
+        fields.ensure_mesh_fields(SID, SIM, [])
+
+
+def test_a_carrier_only_surface_needs_no_ti_normal(producer) -> None:
+    make_simulation(producer.pm, carrier_only=True, saved=("hf_peak", "hf_rms"))
+    assert fields.ensure_mesh_fields(SID, SIM, []) == []
+    fields.check_surface_producible(SID, SIM)
+
+
+def test_a_surface_that_cannot_be_built_is_refused_before_anything_runs(
+    producer,
+) -> None:
+    sim_dir = make_simulation(producer.pm, surface="old")
+    fields.check_surface_producible(SID, SIM)  # the channel meshes are kept
+    for p in (sim_dir / "high_Frequency" / "mesh").iterdir():
+        p.unlink()
+    with pytest.raises(FieldUnavailableError, match="TI_normal is computed from"):
+        fields.check_surface_producible(SID, SIM)
+    with pytest.raises(FieldUnavailableError, match="TI_normal is computed from"):
+        fields.ensure_mesh_fields(SID, SIM, [])
+    assert producer.calls.surface == []
+
+
+def test_a_voxel_step_never_needs_the_surface(converter) -> None:
+    # An old run whose surface lacks TI_normal and cannot be rebuilt (no channel meshes):
+    # a NIfTI of a saved field is still written from the volume mesh.
+    sim_dir = make_simulation(converter.producer.pm, surface="old")
+    for p in (sim_dir / "high_Frequency" / "mesh").iterdir():
+        p.unlink()
+    paths, _ = fields.ensure_niftis(SID, SIM, ["TI_max"], tissue="grey")
+    assert paths["TI_max"].is_file()
+    assert converter.producer.calls.surface == []

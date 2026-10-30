@@ -2774,67 +2774,67 @@ cannot disagree about where a subject's volume atlas lives.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/analyzer/analyzer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1981">1981</a></span>
-<span class="normal"><a href="#__codelineno-0-1982">1982</a></span>
-<span class="normal"><a href="#__codelineno-0-1983">1983</a></span>
-<span class="normal"><a href="#__codelineno-0-1984">1984</a></span>
-<span class="normal"><a href="#__codelineno-0-1985">1985</a></span>
-<span class="normal"><a href="#__codelineno-0-1986">1986</a></span>
-<span class="normal"><a href="#__codelineno-0-1987">1987</a></span>
-<span class="normal"><a href="#__codelineno-0-1988">1988</a></span>
-<span class="normal"><a href="#__codelineno-0-1989">1989</a></span>
-<span class="normal"><a href="#__codelineno-0-1990">1990</a></span>
-<span class="normal"><a href="#__codelineno-0-1991">1991</a></span>
-<span class="normal"><a href="#__codelineno-0-1992">1992</a></span>
-<span class="normal"><a href="#__codelineno-0-1993">1993</a></span>
-<span class="normal"><a href="#__codelineno-0-1994">1994</a></span>
-<span class="normal"><a href="#__codelineno-0-1995">1995</a></span>
-<span class="normal"><a href="#__codelineno-0-1996">1996</a></span>
-<span class="normal"><a href="#__codelineno-0-1997">1997</a></span>
-<span class="normal"><a href="#__codelineno-0-1998">1998</a></span>
-<span class="normal"><a href="#__codelineno-0-1999">1999</a></span>
-<span class="normal"><a href="#__codelineno-0-2000">2000</a></span>
-<span class="normal"><a href="#__codelineno-0-2001">2001</a></span>
-<span class="normal"><a href="#__codelineno-0-2002">2002</a></span>
-<span class="normal"><a href="#__codelineno-0-2003">2003</a></span>
-<span class="normal"><a href="#__codelineno-0-2004">2004</a></span>
-<span class="normal"><a href="#__codelineno-0-2005">2005</a></span>
-<span class="normal"><a href="#__codelineno-0-2006">2006</a></span>
-<span class="normal"><a href="#__codelineno-0-2007">2007</a></span>
-<span class="normal"><a href="#__codelineno-0-2008">2008</a></span>
-<span class="normal"><a href="#__codelineno-0-2009">2009</a></span>
-<span class="normal"><a href="#__codelineno-0-2010">2010</a></span>
-<span class="normal"><a href="#__codelineno-0-2011">2011</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1981" name="__codelineno-0-1981"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-1982" name="__codelineno-0-1982"></a><span class="k">def</span><span class="w"> </span><span class="nf">voxel_atlas_candidates</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">sid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
-<a id="__codelineno-0-1983" name="__codelineno-0-1983"></a><span class="w">    </span><span class="sd">"""Every path :meth:`_resolve_voxel_atlas` tries for *atlas* name, in search order.</span>
-<a id="__codelineno-0-1984" name="__codelineno-0-1984"></a>
-<a id="__codelineno-0-1985" name="__codelineno-0-1985"></a><span class="sd">    Shared with :mod:`tit.jobs.preflight`, so the submit-time check and the runner</span>
-<a id="__codelineno-0-1986" name="__codelineno-0-1986"></a><span class="sd">    cannot disagree about where a subject's volume atlas lives.</span>
-<a id="__codelineno-0-1987" name="__codelineno-0-1987"></a><span class="sd">    """</span>
-<a id="__codelineno-0-1988" name="__codelineno-0-1988"></a>    <span class="n">fs_mri</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">fastsurfer_mri</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
-<a id="__codelineno-0-1989" name="__codelineno-0-1989"></a>    <span class="n">legacy_mri</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">freesurfer_mri</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
-<a id="__codelineno-0-1990" name="__codelineno-0-1990"></a>    <span class="n">seg_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">segmentation</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
-<a id="__codelineno-0-1991" name="__codelineno-0-1991"></a>    <span class="k">if</span> <span class="n">atlas</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_SURFACE_ATLAS_VOLUMES</span><span class="p">:</span>
-<a id="__codelineno-0-1992" name="__codelineno-0-1992"></a>        <span class="k">return</span> <span class="p">[</span>
-<a id="__codelineno-0-1993" name="__codelineno-0-1993"></a>            <span class="n">mri</span> <span class="o">/</span> <span class="n">name</span>
-<a id="__codelineno-0-1994" name="__codelineno-0-1994"></a>            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_SURFACE_ATLAS_VOLUMES</span><span class="p">[</span><span class="n">atlas</span><span class="p">]</span>
-<a id="__codelineno-0-1995" name="__codelineno-0-1995"></a>            <span class="k">for</span> <span class="n">mri</span> <span class="ow">in</span> <span class="p">(</span><span class="n">fs_mri</span><span class="p">,</span> <span class="n">legacy_mri</span><span class="p">)</span>
-<a id="__codelineno-0-1996" name="__codelineno-0-1996"></a>        <span class="p">]</span>
-<a id="__codelineno-0-1997" name="__codelineno-0-1997"></a>    <span class="k">return</span> <span class="p">[</span>
-<a id="__codelineno-0-1998" name="__codelineno-0-1998"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
-<a id="__codelineno-0-1999" name="__codelineno-0-1999"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
-<a id="__codelineno-0-2000" name="__codelineno-0-2000"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
-<a id="__codelineno-0-2001" name="__codelineno-0-2001"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.mgz"</span><span class="p">,</span>
-<a id="__codelineno-0-2002" name="__codelineno-0-2002"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
-<a id="__codelineno-0-2003" name="__codelineno-0-2003"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
-<a id="__codelineno-0-2004" name="__codelineno-0-2004"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.mgz"</span><span class="p">,</span>
-<a id="__codelineno-0-2005" name="__codelineno-0-2005"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
-<a id="__codelineno-0-2006" name="__codelineno-0-2006"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
-<a id="__codelineno-0-2007" name="__codelineno-0-2007"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
-<a id="__codelineno-0-2008" name="__codelineno-0-2008"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
-<a id="__codelineno-0-2009" name="__codelineno-0-2009"></a>        <span class="c1"># The catalog lists a custom label volume as "masks/&lt;file&gt;" (VoxelAtlasManager).</span>
-<a id="__codelineno-0-2010" name="__codelineno-0-2010"></a>        <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">masks</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
-<a id="__codelineno-0-2011" name="__codelineno-0-2011"></a>    <span class="p">]</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1938">1938</a></span>
+<span class="normal"><a href="#__codelineno-0-1939">1939</a></span>
+<span class="normal"><a href="#__codelineno-0-1940">1940</a></span>
+<span class="normal"><a href="#__codelineno-0-1941">1941</a></span>
+<span class="normal"><a href="#__codelineno-0-1942">1942</a></span>
+<span class="normal"><a href="#__codelineno-0-1943">1943</a></span>
+<span class="normal"><a href="#__codelineno-0-1944">1944</a></span>
+<span class="normal"><a href="#__codelineno-0-1945">1945</a></span>
+<span class="normal"><a href="#__codelineno-0-1946">1946</a></span>
+<span class="normal"><a href="#__codelineno-0-1947">1947</a></span>
+<span class="normal"><a href="#__codelineno-0-1948">1948</a></span>
+<span class="normal"><a href="#__codelineno-0-1949">1949</a></span>
+<span class="normal"><a href="#__codelineno-0-1950">1950</a></span>
+<span class="normal"><a href="#__codelineno-0-1951">1951</a></span>
+<span class="normal"><a href="#__codelineno-0-1952">1952</a></span>
+<span class="normal"><a href="#__codelineno-0-1953">1953</a></span>
+<span class="normal"><a href="#__codelineno-0-1954">1954</a></span>
+<span class="normal"><a href="#__codelineno-0-1955">1955</a></span>
+<span class="normal"><a href="#__codelineno-0-1956">1956</a></span>
+<span class="normal"><a href="#__codelineno-0-1957">1957</a></span>
+<span class="normal"><a href="#__codelineno-0-1958">1958</a></span>
+<span class="normal"><a href="#__codelineno-0-1959">1959</a></span>
+<span class="normal"><a href="#__codelineno-0-1960">1960</a></span>
+<span class="normal"><a href="#__codelineno-0-1961">1961</a></span>
+<span class="normal"><a href="#__codelineno-0-1962">1962</a></span>
+<span class="normal"><a href="#__codelineno-0-1963">1963</a></span>
+<span class="normal"><a href="#__codelineno-0-1964">1964</a></span>
+<span class="normal"><a href="#__codelineno-0-1965">1965</a></span>
+<span class="normal"><a href="#__codelineno-0-1966">1966</a></span>
+<span class="normal"><a href="#__codelineno-0-1967">1967</a></span>
+<span class="normal"><a href="#__codelineno-0-1968">1968</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1938" name="__codelineno-0-1938"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-1939" name="__codelineno-0-1939"></a><span class="k">def</span><span class="w"> </span><span class="nf">voxel_atlas_candidates</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">pm</span><span class="p">,</span> <span class="n">sid</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="n">Path</span><span class="p">]:</span>
+<a id="__codelineno-0-1940" name="__codelineno-0-1940"></a><span class="w">    </span><span class="sd">"""Every path :meth:`_resolve_voxel_atlas` tries for *atlas* name, in search order.</span>
+<a id="__codelineno-0-1941" name="__codelineno-0-1941"></a>
+<a id="__codelineno-0-1942" name="__codelineno-0-1942"></a><span class="sd">    Shared with :mod:`tit.jobs.preflight`, so the submit-time check and the runner</span>
+<a id="__codelineno-0-1943" name="__codelineno-0-1943"></a><span class="sd">    cannot disagree about where a subject's volume atlas lives.</span>
+<a id="__codelineno-0-1944" name="__codelineno-0-1944"></a><span class="sd">    """</span>
+<a id="__codelineno-0-1945" name="__codelineno-0-1945"></a>    <span class="n">fs_mri</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">fastsurfer_mri</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
+<a id="__codelineno-0-1946" name="__codelineno-0-1946"></a>    <span class="n">legacy_mri</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">freesurfer_mri</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
+<a id="__codelineno-0-1947" name="__codelineno-0-1947"></a>    <span class="n">seg_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">segmentation</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span>
+<a id="__codelineno-0-1948" name="__codelineno-0-1948"></a>    <span class="k">if</span> <span class="n">atlas</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_SURFACE_ATLAS_VOLUMES</span><span class="p">:</span>
+<a id="__codelineno-0-1949" name="__codelineno-0-1949"></a>        <span class="k">return</span> <span class="p">[</span>
+<a id="__codelineno-0-1950" name="__codelineno-0-1950"></a>            <span class="n">mri</span> <span class="o">/</span> <span class="n">name</span>
+<a id="__codelineno-0-1951" name="__codelineno-0-1951"></a>            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_SURFACE_ATLAS_VOLUMES</span><span class="p">[</span><span class="n">atlas</span><span class="p">]</span>
+<a id="__codelineno-0-1952" name="__codelineno-0-1952"></a>            <span class="k">for</span> <span class="n">mri</span> <span class="ow">in</span> <span class="p">(</span><span class="n">fs_mri</span><span class="p">,</span> <span class="n">legacy_mri</span><span class="p">)</span>
+<a id="__codelineno-0-1953" name="__codelineno-0-1953"></a>        <span class="p">]</span>
+<a id="__codelineno-0-1954" name="__codelineno-0-1954"></a>    <span class="k">return</span> <span class="p">[</span>
+<a id="__codelineno-0-1955" name="__codelineno-0-1955"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
+<a id="__codelineno-0-1956" name="__codelineno-0-1956"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
+<a id="__codelineno-0-1957" name="__codelineno-0-1957"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
+<a id="__codelineno-0-1958" name="__codelineno-0-1958"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.mgz"</span><span class="p">,</span>
+<a id="__codelineno-0-1959" name="__codelineno-0-1959"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-1960" name="__codelineno-0-1960"></a>        <span class="n">fs_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
+<a id="__codelineno-0-1961" name="__codelineno-0-1961"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.mgz"</span><span class="p">,</span>
+<a id="__codelineno-0-1962" name="__codelineno-0-1962"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-1963" name="__codelineno-0-1963"></a>        <span class="n">legacy_mri</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
+<a id="__codelineno-0-1964" name="__codelineno-0-1964"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-1965" name="__codelineno-0-1965"></a>        <span class="n">seg_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">atlas</span><span class="si">}</span><span class="s2">.nii"</span><span class="p">,</span>
+<a id="__codelineno-0-1966" name="__codelineno-0-1966"></a>        <span class="c1"># The catalog lists a custom label volume as "masks/&lt;file&gt;" (VoxelAtlasManager).</span>
+<a id="__codelineno-0-1967" name="__codelineno-0-1967"></a>        <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">masks</span><span class="p">(</span><span class="n">sid</span><span class="p">))</span><span class="o">.</span><span class="n">parent</span> <span class="o">/</span> <span class="n">atlas</span><span class="p">,</span>
+<a id="__codelineno-0-1968" name="__codelineno-0-1968"></a>    <span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2865,35 +2865,35 @@ after the job started. Only <code>DK40</code> (read from the DKT volume) has any
 
             <details class="quote">
               <summary>Source code in <code>tit/analyzer/analyzer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-2230">2230</a></span>
-<span class="normal"><a href="#__codelineno-0-2231">2231</a></span>
-<span class="normal"><a href="#__codelineno-0-2232">2232</a></span>
-<span class="normal"><a href="#__codelineno-0-2233">2233</a></span>
-<span class="normal"><a href="#__codelineno-0-2234">2234</a></span>
-<span class="normal"><a href="#__codelineno-0-2235">2235</a></span>
-<span class="normal"><a href="#__codelineno-0-2236">2236</a></span>
-<span class="normal"><a href="#__codelineno-0-2237">2237</a></span>
-<span class="normal"><a href="#__codelineno-0-2238">2238</a></span>
-<span class="normal"><a href="#__codelineno-0-2239">2239</a></span>
-<span class="normal"><a href="#__codelineno-0-2240">2240</a></span>
-<span class="normal"><a href="#__codelineno-0-2241">2241</a></span>
-<span class="normal"><a href="#__codelineno-0-2242">2242</a></span>
-<span class="normal"><a href="#__codelineno-0-2243">2243</a></span>
-<span class="normal"><a href="#__codelineno-0-2244">2244</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-2230" name="__codelineno-0-2230"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-2231" name="__codelineno-0-2231"></a><span class="k">def</span><span class="w"> </span><span class="nf">surface_regions_without_volume</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">regions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-2232" name="__codelineno-0-2232"></a><span class="w">    </span><span class="sd">"""The names in *regions* a voxel analysis of surface atlas *atlas* cannot measure.</span>
-<a id="__codelineno-0-2233" name="__codelineno-0-2233"></a>
-<a id="__codelineno-0-2234" name="__codelineno-0-2234"></a><span class="sd">    Shared with :mod:`tit.jobs.preflight`, so such a region is refused at submit, not</span>
-<a id="__codelineno-0-2235" name="__codelineno-0-2235"></a><span class="sd">    after the job started. Only ``DK40`` (read from the DKT volume) has any.</span>
-<a id="__codelineno-0-2236" name="__codelineno-0-2236"></a><span class="sd">    """</span>
-<a id="__codelineno-0-2237" name="__codelineno-0-2237"></a>    <span class="k">if</span> <span class="n">atlas</span> <span class="o">!=</span> <span class="s2">"DK40"</span><span class="p">:</span>
-<a id="__codelineno-0-2238" name="__codelineno-0-2238"></a>        <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-2239" name="__codelineno-0-2239"></a>    <span class="k">return</span> <span class="p">[</span>
-<a id="__codelineno-0-2240" name="__codelineno-0-2240"></a>        <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
-<a id="__codelineno-0-2241" name="__codelineno-0-2241"></a>        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">regions</span>
-<a id="__codelineno-0-2242" name="__codelineno-0-2242"></a>        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^(lh|rh)[._-]"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
-<a id="__codelineno-0-2243" name="__codelineno-0-2243"></a>        <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DKT_VOLUME_LACKS</span>
-<a id="__codelineno-0-2244" name="__codelineno-0-2244"></a>    <span class="p">]</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-2187">2187</a></span>
+<span class="normal"><a href="#__codelineno-0-2188">2188</a></span>
+<span class="normal"><a href="#__codelineno-0-2189">2189</a></span>
+<span class="normal"><a href="#__codelineno-0-2190">2190</a></span>
+<span class="normal"><a href="#__codelineno-0-2191">2191</a></span>
+<span class="normal"><a href="#__codelineno-0-2192">2192</a></span>
+<span class="normal"><a href="#__codelineno-0-2193">2193</a></span>
+<span class="normal"><a href="#__codelineno-0-2194">2194</a></span>
+<span class="normal"><a href="#__codelineno-0-2195">2195</a></span>
+<span class="normal"><a href="#__codelineno-0-2196">2196</a></span>
+<span class="normal"><a href="#__codelineno-0-2197">2197</a></span>
+<span class="normal"><a href="#__codelineno-0-2198">2198</a></span>
+<span class="normal"><a href="#__codelineno-0-2199">2199</a></span>
+<span class="normal"><a href="#__codelineno-0-2200">2200</a></span>
+<span class="normal"><a href="#__codelineno-0-2201">2201</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-2187" name="__codelineno-0-2187"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-2188" name="__codelineno-0-2188"></a><span class="k">def</span><span class="w"> </span><span class="nf">surface_regions_without_volume</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">regions</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-2189" name="__codelineno-0-2189"></a><span class="w">    </span><span class="sd">"""The names in *regions* a voxel analysis of surface atlas *atlas* cannot measure.</span>
+<a id="__codelineno-0-2190" name="__codelineno-0-2190"></a>
+<a id="__codelineno-0-2191" name="__codelineno-0-2191"></a><span class="sd">    Shared with :mod:`tit.jobs.preflight`, so such a region is refused at submit, not</span>
+<a id="__codelineno-0-2192" name="__codelineno-0-2192"></a><span class="sd">    after the job started. Only ``DK40`` (read from the DKT volume) has any.</span>
+<a id="__codelineno-0-2193" name="__codelineno-0-2193"></a><span class="sd">    """</span>
+<a id="__codelineno-0-2194" name="__codelineno-0-2194"></a>    <span class="k">if</span> <span class="n">atlas</span> <span class="o">!=</span> <span class="s2">"DK40"</span><span class="p">:</span>
+<a id="__codelineno-0-2195" name="__codelineno-0-2195"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-2196" name="__codelineno-0-2196"></a>    <span class="k">return</span> <span class="p">[</span>
+<a id="__codelineno-0-2197" name="__codelineno-0-2197"></a>        <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span>
+<a id="__codelineno-0-2198" name="__codelineno-0-2198"></a>        <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">regions</span>
+<a id="__codelineno-0-2199" name="__codelineno-0-2199"></a>        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">"^(lh|rh)[._-]"</span><span class="p">,</span> <span class="s2">""</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">r</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span><span class="o">.</span><span class="n">lower</span><span class="p">())</span>
+<a id="__codelineno-0-2200" name="__codelineno-0-2200"></a>        <span class="ow">in</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DKT_VOLUME_LACKS</span>
+<a id="__codelineno-0-2201" name="__codelineno-0-2201"></a>    <span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2928,31 +2928,31 @@ asks whether <em>region</em> names anything; the runner
 
             <details class="quote">
               <summary>Source code in <code>tit/analyzer/analyzer.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-2318">2318</a></span>
-<span class="normal"><a href="#__codelineno-0-2319">2319</a></span>
-<span class="normal"><a href="#__codelineno-0-2320">2320</a></span>
-<span class="normal"><a href="#__codelineno-0-2321">2321</a></span>
-<span class="normal"><a href="#__codelineno-0-2322">2322</a></span>
-<span class="normal"><a href="#__codelineno-0-2323">2323</a></span>
-<span class="normal"><a href="#__codelineno-0-2324">2324</a></span>
-<span class="normal"><a href="#__codelineno-0-2325">2325</a></span>
-<span class="normal"><a href="#__codelineno-0-2326">2326</a></span>
-<span class="normal"><a href="#__codelineno-0-2327">2327</a></span>
-<span class="normal"><a href="#__codelineno-0-2328">2328</a></span>
-<span class="normal"><a href="#__codelineno-0-2329">2329</a></span>
-<span class="normal"><a href="#__codelineno-0-2330">2330</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-2318" name="__codelineno-0-2318"></a><span class="nd">@staticmethod</span>
-<a id="__codelineno-0-2319" name="__codelineno-0-2319"></a><span class="k">def</span><span class="w"> </span><span class="nf">match_region_label</span><span class="p">(</span><span class="n">region</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-2320" name="__codelineno-0-2320"></a><span class="w">    </span><span class="sd">"""The label id whose name *region* names, or ``None``.</span>
-<a id="__codelineno-0-2321" name="__codelineno-0-2321"></a>
-<a id="__codelineno-0-2322" name="__codelineno-0-2322"></a><span class="sd">    *labels* is ``(id, name)`` pairs in ascending id order. The exact name (any case)</span>
-<a id="__codelineno-0-2323" name="__codelineno-0-2323"></a><span class="sd">    wins, then a surface-style hemisphere name's volume spelling, then the first name</span>
-<a id="__codelineno-0-2324" name="__codelineno-0-2324"></a><span class="sd">    containing *region*. Shared with :mod:`tit.jobs.preflight`, which matches against</span>
-<a id="__codelineno-0-2325" name="__codelineno-0-2325"></a><span class="sd">    the atlas's whole lookup table -- names the volume may not carry -- so it only</span>
-<a id="__codelineno-0-2326" name="__codelineno-0-2326"></a><span class="sd">    asks whether *region* names anything; the runner</span>
-<a id="__codelineno-0-2327" name="__codelineno-0-2327"></a><span class="sd">    (:meth:`_find_voxel_region_id`) refuses a name several present labels contain.</span>
-<a id="__codelineno-0-2328" name="__codelineno-0-2328"></a><span class="sd">    """</span>
-<a id="__codelineno-0-2329" name="__codelineno-0-2329"></a>    <span class="n">hits</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="o">.</span><span class="n">_region_label_matches</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
-<a id="__codelineno-0-2330" name="__codelineno-0-2330"></a>    <span class="k">return</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">hits</span> <span class="k">else</span> <span class="kc">None</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-2275">2275</a></span>
+<span class="normal"><a href="#__codelineno-0-2276">2276</a></span>
+<span class="normal"><a href="#__codelineno-0-2277">2277</a></span>
+<span class="normal"><a href="#__codelineno-0-2278">2278</a></span>
+<span class="normal"><a href="#__codelineno-0-2279">2279</a></span>
+<span class="normal"><a href="#__codelineno-0-2280">2280</a></span>
+<span class="normal"><a href="#__codelineno-0-2281">2281</a></span>
+<span class="normal"><a href="#__codelineno-0-2282">2282</a></span>
+<span class="normal"><a href="#__codelineno-0-2283">2283</a></span>
+<span class="normal"><a href="#__codelineno-0-2284">2284</a></span>
+<span class="normal"><a href="#__codelineno-0-2285">2285</a></span>
+<span class="normal"><a href="#__codelineno-0-2286">2286</a></span>
+<span class="normal"><a href="#__codelineno-0-2287">2287</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-2275" name="__codelineno-0-2275"></a><span class="nd">@staticmethod</span>
+<a id="__codelineno-0-2276" name="__codelineno-0-2276"></a><span class="k">def</span><span class="w"> </span><span class="nf">match_region_label</span><span class="p">(</span><span class="n">region</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-2277" name="__codelineno-0-2277"></a><span class="w">    </span><span class="sd">"""The label id whose name *region* names, or ``None``.</span>
+<a id="__codelineno-0-2278" name="__codelineno-0-2278"></a>
+<a id="__codelineno-0-2279" name="__codelineno-0-2279"></a><span class="sd">    *labels* is ``(id, name)`` pairs in ascending id order. The exact name (any case)</span>
+<a id="__codelineno-0-2280" name="__codelineno-0-2280"></a><span class="sd">    wins, then a surface-style hemisphere name's volume spelling, then the first name</span>
+<a id="__codelineno-0-2281" name="__codelineno-0-2281"></a><span class="sd">    containing *region*. Shared with :mod:`tit.jobs.preflight`, which matches against</span>
+<a id="__codelineno-0-2282" name="__codelineno-0-2282"></a><span class="sd">    the atlas's whole lookup table -- names the volume may not carry -- so it only</span>
+<a id="__codelineno-0-2283" name="__codelineno-0-2283"></a><span class="sd">    asks whether *region* names anything; the runner</span>
+<a id="__codelineno-0-2284" name="__codelineno-0-2284"></a><span class="sd">    (:meth:`_find_voxel_region_id`) refuses a name several present labels contain.</span>
+<a id="__codelineno-0-2285" name="__codelineno-0-2285"></a><span class="sd">    """</span>
+<a id="__codelineno-0-2286" name="__codelineno-0-2286"></a>    <span class="n">hits</span> <span class="o">=</span> <span class="n">Analyzer</span><span class="o">.</span><span class="n">_region_label_matches</span><span class="p">(</span><span class="n">region</span><span class="p">,</span> <span class="n">labels</span><span class="p">)</span>
+<a id="__codelineno-0-2287" name="__codelineno-0-2287"></a>    <span class="k">return</span> <span class="n">hits</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">hits</span> <span class="k">else</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

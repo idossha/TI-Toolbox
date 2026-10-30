@@ -171,7 +171,7 @@ image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "
 pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
 `channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
 read as the two channels of one beating pair. The rule is display text only — `electrode_pairs`, API fields
-and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
+and on-disk names (mTI's lettered `TDCS_A…` files) are unchanged. Tests:
 `desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
 `tests/test_overlay_colour_legend.py`.
 
@@ -680,15 +680,30 @@ Run names and output folders identify real destinations, so replacement rules ap
 **A simulation's output is its field mesh; NIfTIs are opt-in and everything not saved is produced
 on demand.** A run writes the selected fields into one volume mesh,
 `<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` (default `TI_max`/`mTI_max`, `hf_peak`, `hf_rms`:
-`tit.constants.DEFAULT_OUTPUT_FIELDS`, or its carrier fields for a carrier-only run), its
-grey/white copies and its central surface, and keeps the channel meshes in
-`high_Frequency/mesh/`. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
-per mesh field, and `map_to_mni` (which requires it) their MNI copies and the MNI T1; the NIfTI set
-must equal the mesh field set or the run fails (`check_niftis_match_meshes`). A field or NIfTI a
+`tit.constants.DEFAULT_OUTPUT_FIELDS`, or its carrier fields for a carrier-only run) and one
+central surface mesh, `<sim>/<TI|mTI>/mesh/surfaces/<sim>_<TI|mTI>_central.msh`, and keeps the
+channel meshes in `high_Frequency/mesh/`. The surface is written in process by
+`tit.volume_fields.central_surface`: the volume fields and each channel's `E` interpolated onto the
+m2m central surfaces (lh then rh) in one stacked `interpolate_to_surface` per hemisphere inside
+the grey-matter tetrahedra -- what `msh2cortex` does -- with `TI_normal`, the envelope of the
+channel fields along the node normals, beside them (none for a carrier-only run). SimNIBS's
+surface overlays (`map_to_surf`, now unused), `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
+`_normal.msh`, `grey_`/`white_` meshes, mTI per-pair `TI_AB`… meshes and Gmsh `.opt` views of our
+meshes are not written. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
+per mesh field for the whole brain tissue and its grey- and white-matter crops (`grey_`/`white_`
+names, cropped on the fly, `tit.tools.mesh2nii.TISSUE_TAGS`), and `map_to_mni` (which requires
+it) their MNI copies and the MNI T1; the NIfTI set must equal the mesh field set or the run fails
+(`check_niftis_match_meshes`). The Viewer shows the volume mesh as grey matter only (the scene's
+per-tag `tagStyle` hides every other tissue; `ViewLayer.visible_tags`), windowed on grey-matter
+element values. A field or NIfTI a
 step needs and the run did not save is produced by [`tit/volume_fields.py`](../../tit/volume_fields.py)
 with the simulator's own `compute_volume_fields` on the kept channel meshes, persisted into the
-simulation (volume mesh, grey/white, central surface; or `<mode>/niftis/`) and announced in one
-sentence before the work; the analyzer records it as `on_demand_note`. Writes are staged in a
+simulation (volume mesh and central surface; or `<mode>/niftis/`) and announced in one
+sentence before the work; a run whose central surface is missing or lacks a volume field or
+`TI_normal` (one made before the surface carried it) gets it rebuilt from the volume mesh, with
+`TI_normal` copied from its old `_normal.msh` when present, else computed from the channel meshes,
+after checking that the m2m central surface has the run's node count (a re-segmented subject is
+an error); old files are never deleted and nothing reads them; the analyzer records it as `on_demand_note`. Writes are staged in a
 hidden `<sim>/<mode>/.on-demand-*` folder and renamed into place, the volume mesh last, so "the
 volume mesh carries the field" implies its derived files are complete. A voxel analysis asks the
 field selector first and produces only what it does not find. A run whose record has

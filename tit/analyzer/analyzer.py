@@ -474,8 +474,8 @@ class Analyzer:
         carriers = needed[len(analysed) :]
         notices: list[str] = []
         if self.space == "mesh":
-            if analysed:
-                notices += ensure_mesh_fields(sid, sim, analysed, say=logger.info)
+            # Even with nothing to compute (TI_normal), an old run's surface gains TI_normal.
+            notices += ensure_mesh_fields(sid, sim, analysed, say=logger.info)
 
             def produce_carriers():
                 return ensure_mesh_fields(sid, sim, carriers, say=logger.info)
@@ -1337,9 +1337,8 @@ class Analyzer:
 
         import simnibs
 
-        # mTI runs write their central surface under mTI/mesh/surfaces/; only
-        # 2-pair TI runs populate TI/mesh/surfaces/ (an mTI run's TI/mesh/
-        # holds the intermediate per-dyad envelopes, with no surface).
+        # mTI runs write their central surface under mTI/mesh/surfaces/, 2-pair TI runs
+        # under TI/mesh/surfaces/.
         if self._is_mti:
             surface_path = Path(
                 self._pm.mti_central_surface(self.subject_id, self.simulation)
@@ -1366,19 +1365,13 @@ class Analyzer:
         roi_mask: np.ndarray,
         node_areas: np.ndarray,
     ) -> dict | None:
-        """Load the normal mesh and compute weighted ROI stats."""
-        normal_path = self._normal_mesh_path()
-        if normal_path is None or not normal_path.exists():
-            logger.debug("Normal mesh not found, skipping normal stats")
+        """Weighted ROI stats of the central surface's ``TI_normal`` (none on a carrier-only run)."""
+        surface = self._load_surface_mesh()
+        if const.FIELD_TI_NORMAL not in surface.field:
+            logger.debug("The central surface has no TI_normal; skipping normal stats")
             return None
 
-        import simnibs
-
-        normal_mesh = simnibs.read_msh(str(normal_path))
-        if "TI_normal" not in normal_mesh.field:
-            return None
-
-        nf = normal_mesh.field["TI_normal"].value
+        nf = surface.field[const.FIELD_TI_NORMAL].value
         roi_nf = nf[roi_mask]
         pos = roi_nf > 0
         if not np.any(pos):
@@ -1389,23 +1382,11 @@ class Analyzer:
         mx = float(np.max(roi_nf[pos]))
 
         gm_pos = nf > 0
-        gm_areas_raw = self._node_areas(normal_mesh)
+        gm_areas_raw = self._node_areas(surface)
         gm_mean = float(np.average(nf[gm_pos], weights=gm_areas_raw[gm_pos]))
         focality = mean / gm_mean
 
         return {"mean": mean, "max": mx, "focality": focality}
-
-    def _normal_mesh_path(self) -> Path | None:
-        """Derive the normal mesh path from the field mesh path."""
-        name = self.field_path.name
-        replacements = {
-            "_mTI.msh": "_mTI_normal.msh",
-            "_TI.msh": "_normal.msh",
-        }
-        for suffix, replacement in replacements.items():
-            if name.endswith(suffix):
-                return self.field_path.parent / name.replace(suffix, replacement)
-        return None
 
     # ------------------------------------------------------------------
     # Focality metrics
@@ -1467,9 +1448,9 @@ class Analyzer:
     def _mesh_carriers(self, surface) -> dict | None:
         """``hf_peak`` / ``hf_rms`` node values on the central surface, or why there are none.
 
-        Read from the surface the analysed field is on: ``msh2cortex`` maps every field of
-        the TI/mTI mesh onto it, so the carrier fields went through the same interpolation as
-        the modulation field. Both are there once :meth:`_produce_missing_fields` ran. Returns
+        Read from the surface the analysed field is on, which carries every field of the
+        TI/mTI mesh (:func:`tit.volume_fields.central_surface`), so the carrier fields went
+        through the same interpolation as the modulation field. Both are there once :meth:`_produce_missing_fields` ran. Returns
         ``None`` when the analysed field is not a modulation field.
         """
         if self.field_name not in MODULATION_FIELDS:
@@ -1640,7 +1621,6 @@ class Analyzer:
             roi_mask=roi_mask,
             field_name=self.field_name,
             output_dir=out,
-            normal_mesh_path=self._normal_mesh_path(),
         )
         write_mesh_scene(
             out_dir=str(out),
@@ -1824,53 +1804,30 @@ class Analyzer:
     # ------------------------------------------------------------------
 
     def _field_values(self, surface) -> np.ndarray:
-        """Extract the named field from the surface mesh.
+        """Extract the named field from the central surface mesh.
 
-        If the field is a vector (N x 3), the magnitude is returned. ``TI_normal`` is not on
-        the central surface (``msh2cortex`` maps the TI mesh's fields only); it is read from
-        the normal mesh :func:`select_field_file` resolved, which is node data on the same
-        central-surface nodes.
+        Every volume field of the run and ``TI_normal`` are node data there
+        (:func:`tit.volume_fields.central_surface`). If the field is a vector (N x 3), the
+        magnitude is returned.
 
         Raises
         ------
         ValueError
-            If the field is on neither, naming the fields the surface does carry.
+            If the surface does not carry it, naming the fields it does carry.
         """
         try:
             v = surface.field[self.field_name].value
         except KeyError:
-            if self.field_name != const.FIELD_TI_NORMAL:
-                carried = ", ".join(sorted(surface.field)) or "no fields"
-                raise ValueError(
-                    f"Field {self.field_name!r} is not on the central surface "
-                    f"{self._surface_mesh_path} (it carries: {carried}). Re-run the "
-                    f"simulation with {self.field_name} among its output fields, or "
-                    "analyze it in voxel space."
-                ) from None
-            v = self._normal_mesh_values(surface)
+            carried = ", ".join(sorted(surface.field)) or "no fields"
+            raise ValueError(
+                f"Field {self.field_name!r} is not on the central surface "
+                f"{self._surface_mesh_path} (it carries: {carried}). Re-run the "
+                f"simulation with {self.field_name} among its output fields, or "
+                "analyze it in voxel space."
+            ) from None
         if v.ndim == 2:
             return np.linalg.norm(v, axis=1)
         return v
-
-    def _normal_mesh_values(self, surface) -> np.ndarray:
-        """``TI_normal`` node data from the normal mesh, checked against *surface*'s nodes."""
-        import simnibs
-
-        normal_mesh = simnibs.read_msh(str(self.field_path))
-        try:
-            values = np.asarray(normal_mesh.field[const.FIELD_TI_NORMAL].value)
-        except KeyError:
-            raise ValueError(
-                f"{self.field_path} carries no {const.FIELD_TI_NORMAL} field"
-            ) from None
-        n_nodes = len(surface.nodes.node_coord)
-        if len(values) != n_nodes:
-            raise ValueError(
-                f"{self.field_path} has {len(values)} {const.FIELD_TI_NORMAL} values but "
-                f"the central surface {self._surface_mesh_path} has {n_nodes} nodes; "
-                "re-run the simulation so both come from the same surface."
-            )
-        return values
 
     @staticmethod
     def _node_areas(surface) -> np.ndarray:

@@ -51,7 +51,6 @@ def save_mesh_roi_overlay(
     roi_mask: np.ndarray,
     field_name: str,
     output_dir: Path,
-    normal_mesh_path: Path | None = None,
 ) -> Path:
     """Write .msh + .msh.opt overlay with ROI field highlighted.
 
@@ -59,8 +58,8 @@ def save_mesh_roi_overlay(
     field is the simulation's file, not this analysis's), adds ``<field>_ROI``
     -- the field at the ROI's nodes and exactly ``0`` everywhere else -- and
     writes both the mesh and a Gmsh options file for colour-map / range.
-    When *normal_mesh_path* is given ``TI_normal_ROI`` is added as a second
-    (initially hidden) view.
+    When the surface carries ``TI_normal`` (every run with an envelope does),
+    ``TI_normal_ROI`` is added as a second (initially hidden) view.
 
     Parameters
     ----------
@@ -74,9 +73,6 @@ def save_mesh_roi_overlay(
         Name of the primary field (used in the mesh view label).
     output_dir : pathlib.Path
         Directory where the overlay files are written.
-    normal_mesh_path : pathlib.Path or None, optional
-        Path to the TI_normal mesh file. When provided, the normal field
-        is added as an additional (hidden) view.
 
     Returns
     -------
@@ -88,6 +84,11 @@ def save_mesh_roi_overlay(
     output_dir = Path(get_path_manager().ensure(str(output_dir)))
 
     region_mesh = simnibs.read_msh(str(surface_mesh_path))
+    normal = (
+        np.asarray(region_mesh.field["TI_normal"].value)
+        if "TI_normal" in region_mesh.field
+        else None
+    )
     region_mesh.elmdata = []
     region_mesh.nodedata = []
 
@@ -98,18 +99,13 @@ def save_mesh_roi_overlay(
     max_value = float(np.max(roi_data[roi_mask])) if np.any(roi_mask) else 0.0
 
     normal_max_value = max_value
-    if normal_mesh_path is not None and Path(normal_mesh_path).exists():
-        logger.info("Adding TI_normal field from: %s", normal_mesh_path)
-        normal_mesh = simnibs.read_msh(str(normal_mesh_path))
-        if "TI_normal" in normal_mesh.field:
-            nf_values = normal_mesh.field["TI_normal"].value
-            masked_normal = np.zeros(region_mesh.nodes.nr)
-            masked_normal[roi_mask] = nf_values[roi_mask]
-            region_mesh.add_node_field(masked_normal, "TI_normal_ROI")
-            positive_normal = nf_values[roi_mask][nf_values[roi_mask] > 0]
-            if positive_normal.size > 0:
-                normal_max_value = float(np.max(positive_normal))
-            del normal_mesh
+    if normal is not None:
+        masked_normal = np.zeros(region_mesh.nodes.nr)
+        masked_normal[roi_mask] = normal[roi_mask]
+        region_mesh.add_node_field(masked_normal, "TI_normal_ROI")
+        positive_normal = normal[roi_mask][normal[roi_mask] > 0]
+        if positive_normal.size > 0:
+            normal_max_value = float(np.max(positive_normal))
 
     out_msh = output_dir / "roi_overlay.msh"
     region_mesh.write(str(out_msh))

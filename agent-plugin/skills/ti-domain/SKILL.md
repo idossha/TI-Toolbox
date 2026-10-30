@@ -43,7 +43,7 @@ Understanding these field quantities is critical because they are the primary ou
 
 - **TI_normal field**: The envelope component projected along a specific direction vector — typically the cortical surface normal. It answers: "How strongly would TI stimulate neurons oriented perpendicular to the cortical surface at this point?" This is more physiologically relevant for cortical targets because pyramidal neurons are approximately normal to the cortical sheet. It is always ≤ `TI_max`.
 
-  **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs: both go through `tit/sim/base.py::BaseSimulation._write_ti_normal`, which reads the per-channel central-surface overlays, takes the node normals, and evaluates `tit.calc.envelope(e_fields, normals)` over every channel, writing `<montage>_normal.msh` (TI) or `<montage>_mTI_normal.msh` (mTI); a carrier-only run writes none. An mTI simulation run *before* that support existed has no normal mesh: requesting `TI_normal` raises `FileNotFoundError` and the `normal_*` statistics are `None` — the fix is to re-run the simulation.
+  **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs onto the run's central surface `<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh` (`tit.volume_fields.central_surface`: every volume field and each channel's `E` interpolated onto the m2m central surfaces, then `tit.calc.envelope(e_fields, normals)` over every channel); a carrier-only run has none. A run made before the surface carried it gets it on demand (from its old `<montage>_normal.msh`, else the channel meshes) when an analysis or the fsaverage projection needs it.
 
 - **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_rms` (not `TI_avg` or `hf_power_density`), and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh` (fsaverage central surfaces, lh then rh, one node field per quantity; opens in the Viewer and Gmsh). This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact. Confirm mTI coverage against the module before promising it — the source and `docs/wiki/simulator.md` disagree today.
 
@@ -833,7 +833,7 @@ project_root/
 │   │   │   └── ...                      # Tissue maps, transforms
 │   │   ├── Simulations/                 # TI simulation outputs
 │   │   │   └── {montage_name}/          # Per-montage results
-│   │   │       ├── TI/{mesh,niftis}/    # field mesh (TI_max, hf_peak, hf_rms by default) + NIfTIs (opt-in / on demand)
+│   │   │       ├── TI/{mesh,niftis}/    # field mesh (TI_max, hf_peak, hf_rms by default), mesh/surfaces/ central surface (+ TI_normal), NIfTIs (opt-in / on demand)
 │   │   │       ├── mTI/{mesh,niftis}/   # mTI only: {montage}_mTI.msh + its NIfTIs
 │   │   │       ├── high_Frequency/      # per-channel meshes: what an unsaved field is computed from
 │   │   │       └── Analyses/{Mesh,Voxel}/   # ROI analyses of this simulation

@@ -2386,7 +2386,7 @@ it is returned rather than dropped.</p>
 <p>The simulator names every volume <code>&lt;base&gt;_subject_&lt;field&gt;.nii.gz</code> or
 <code>&lt;base&gt;_MNI_MNI_&lt;field&gt;.nii.gz</code> (<code>tit.tools.mesh2nii</code>), where <code>&lt;base&gt;</code> is
 the mesh it came from: <code>&lt;tissue_&gt;&lt;sim&gt;_&lt;TI|mTI&gt;</code> for the envelope fields
-(<code>extract_fields</code> adds <code>grey_</code>/<code>white_</code>) and <code>&lt;sid&gt;_TDCS_&lt;i&gt;_&lt;cond&gt;</code> for a
+(<code>grey_</code>/<code>white_</code> for the volume mesh's tissue crops, <code>tit.tools.mesh2nii</code>) and <code>&lt;sid&gt;_TDCS_&lt;i&gt;_&lt;cond&gt;</code> for a
 carrier's <code>magnE</code>. Space and field are read from the tokens at the end and the
 tissue from the prefix before the simulation's own name, so a simulation called
 <code>MNI_target</code>, <code>grey_matter</code> or <code>TDCS_vs_TI</code> is classified like any other.</p>
@@ -2460,7 +2460,7 @@ simulation : str or None, optional
 <a id="__codelineno-0-715" name="__codelineno-0-715"></a><span class="sd">    The simulator names every volume ``&lt;base&gt;_subject_&lt;field&gt;.nii.gz`` or</span>
 <a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="sd">    ``&lt;base&gt;_MNI_MNI_&lt;field&gt;.nii.gz`` (``tit.tools.mesh2nii``), where ``&lt;base&gt;`` is</span>
 <a id="__codelineno-0-717" name="__codelineno-0-717"></a><span class="sd">    the mesh it came from: ``&lt;tissue_&gt;&lt;sim&gt;_&lt;TI|mTI&gt;`` for the envelope fields</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    (``extract_fields`` adds ``grey_``/``white_``) and ``&lt;sid&gt;_TDCS_&lt;i&gt;_&lt;cond&gt;`` for a</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    (``grey_``/``white_`` for the volume mesh's tissue crops, ``tit.tools.mesh2nii``) and ``&lt;sid&gt;_TDCS_&lt;i&gt;_&lt;cond&gt;`` for a</span>
 <a id="__codelineno-0-719" name="__codelineno-0-719"></a><span class="sd">    carrier's ``magnE``. Space and field are read from the tokens at the end and the</span>
 <a id="__codelineno-0-720" name="__codelineno-0-720"></a><span class="sd">    tissue from the prefix before the simulation's own name, so a simulation called</span>
 <a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">    ``MNI_target``, ``grey_matter`` or ``TDCS_vs_TI`` is classified like any other.</span>

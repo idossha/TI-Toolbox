@@ -10,10 +10,11 @@ keeps them in ``high_Frequency/mesh/``):
 * ``hf_peak`` equals ``max(|E1 + E2|, |E1 - E2|)`` and ``hf_rms`` ``sqrt((|E1|^2 + |E2|^2) / 2)`` on the
   brain-cropped elements, computed here with numpy from the channel meshes read back by SimNIBS;
 * the header reader ``tit.tools.msh_fields`` (no SimNIBS) reads SimNIBS's binary output: the field
-  list, and ``TI_max``'s values equal to what ``mesh_io.read_msh`` reads.
+  list, ``TI_max``'s values equal to what ``mesh_io.read_msh`` reads, and with ``tags`` the values of
+  the elements of one tissue tag only.
 
-The grey/white cut (sphere3 has no GM/WM tags) and ``msh2cortex`` (needs an m2m) are stubbed; the image run in the
-change's report covers them on Ernie.
+The central surface (needs an m2m's central surfaces) is stubbed; it is
+tests/numerical/test_central_surface_real.py.
 
 Reproduce in the image: ``simnibs_python -m pytest tests/numerical/test_sim_fields_on_demand_real.py -q``
 (the subprocess avoids the host conftest's SimNIBS mocks). Wiring, failures and NIfTI naming are
@@ -35,12 +36,8 @@ import numpy as np
 import simnibs
 from simnibs.mesh_tools import mesh_io
 
-import tit.sim.utils
 from tit.paths import get_path_manager
 
-# sphere3 has no GM/scalp triangles for the Gmsh view's percentile window; the view is not
-# what this pins, so the .opt beside the mesh is skipped.
-mesh_io.Msh.view = lambda self, **kw: SimpleNamespace(write_opt=lambda path: None)
 from tit import volume_fields as fields
 from tit.sim.base import BaseSimulation
 from tit.tools.msh_fields import msh_element_field, msh_field_names
@@ -78,17 +75,17 @@ def written_by_the_simulator(output_fields, path):
 volume = sim / "TI" / "mesh" / "M_TI.msh"
 written_by_the_simulator(["TI_max"], volume)
 assert msh_field_names(volume) == {"TI_max"}
-assert np.array_equal(msh_element_field(volume, "TI_max"),
-                      mesh_io.read_msh(str(volume)).field["TI_max"].value)
+read_back = mesh_io.read_msh(str(volume))
+assert np.array_equal(msh_element_field(volume, "TI_max"), read_back.field["TI_max"].value)
+# The binary element-tag read (the Viewer's tissue window): one tag's values, as SimNIBS tags them.
+tag = int(read_back.elm.tag1[0])
+assert np.array_equal(msh_element_field(volume, "TI_max", tags=[tag]),
+                      read_back.field["TI_max"].value[read_back.elm.tag1 == tag])
+assert 0 < (read_back.elm.tag1 == tag).sum() < read_back.elm.nr
 
-import shutil
-
-def cut(volume, out_dir, stem, *rest):  # sphere3 has no GM/WM tags: copy, as a cut would
-    for tissue in ("grey", "white"):
-        shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
-
-with patch.object(tit.sim.utils, "extract_fields", cut), \
-     patch.object(tit.sim.utils, "generate_central_surface", lambda *a: None):
+# sphere3 has no m2m central surfaces: the surface is the volume itself here (its own numbers
+# are tests/numerical/test_central_surface_real.py's).
+with patch.object(fields, "central_surface", lambda volume, m2m, e_fields=None: volume):
     notices = fields.ensure_mesh_fields("s", "M", ["TI_max", "hf_peak", "hf_rms"])
 assert notices == ["hf_peak and hf_rms were not saved for M; computing them from the channel "
                    "fields and saving them to M_TI.msh."], notices

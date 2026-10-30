@@ -5689,12 +5689,19 @@ components:
           description: >-
             Optional, for a .msh layer: the field it is coloured by. A simulation's field mesh
             names an element field ("elm": TI_max, mTI_max for mTI, hf_peak for a carrier-only
-            run) and is windowed from that field's values when no NIfTI of it exists; an
+            run) and is windowed from that field's grey-matter values when no NIfTI of it exists; an
             analysis overlay names its "<field>_ROI" node data. Absent: the field is guessed from
             the file name, as before.
           properties:
             source: { type: string, enum: [elm, node] }
             name: { type: string }
+        visible_tags:
+          type: array
+          items: { type: integer }
+          description: >-
+            Optional, for a .msh layer: the tissue tags it shows (a simulation's field mesh shows
+            grey matter, [2, 1002]); the TetraVox scene hides every other tissue of the mesh and
+            windows the field over these. Absent: every tissue is shown.
         percentile:
           oneOf:
             - type: object

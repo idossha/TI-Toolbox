@@ -121,7 +121,7 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 #### Channels and beating pairs
 
-The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels form a beating pair. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) are the first beating pair and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …) and the first pair's field is `TI_AB`.
+The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels form a beating pair. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) are the first beating pair and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …).
 
 The kHz-exposure safety metrics `hf_peak`/`hf_rms`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Safety Metrics on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
 
@@ -135,7 +135,7 @@ The **Output fields** in a job's settings choose which volume-mesh fields are co
 
 ### Fields computed on demand
 
-A field left unticked is not lost: when an analysis needs it (the **Field** you pick, or `hf_peak` and `hf_rms` for the carrier metrics), or a voxel analysis or group tool needs a NIfTI the simulation did not write, the job computes it from the simulation's channel meshes in `high_Frequency/mesh/`, with the same calculation the Simulator uses, saves it into the simulation (the field mesh, its grey/white copies and central surface, or the NIfTI in `TI/niftis/`), and says so in one line in the job's output, for example:
+A field left unticked is not lost: when an analysis needs it (the **Field** you pick, or `hf_peak` and `hf_rms` for the carrier metrics), or a voxel analysis or group tool needs a NIfTI the simulation did not write, the job computes it from the simulation's channel meshes in `high_Frequency/mesh/`, with the same calculation the Simulator uses, saves it into the simulation (the field mesh and its central surface, or the NIfTI in `TI/niftis/`), and says so in one line in the job's output, for example:
 
 ```
 hf_peak and hf_rms were not saved for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh.
@@ -215,21 +215,25 @@ For complete DTI processing instructions, see the [Diffusion Processing]({{ site
 ```
 derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
 ├── documentation/config.json            # provenance snapshot used by the report
-├── high_Frequency/{mesh,niftis,analysis} # per-channel SimNIBS outputs
+├── high_Frequency/
+│   ├── mesh/{sid}_TDCS_{k}_{cond}.msh, *_el_currents.geo   # each channel's SimNIBS field
+│   ├── analysis/fields_summary.txt
+│   └── niftis/                           # only with Write NIfTI volumes
 ├── TI/                                   # standard TI (2 channels)
-│   ├── mesh/{montage}_TI.msh, grey_*.msh, white_*.msh
+│   ├── mesh/{montage}_TI.msh             # TI_max / TI_avg / hf_peak / hf_rms / hf_power_density (selected)
+│   ├── mesh/surfaces/{montage}_TI_central.msh   # cortical surface: every field above + TI_normal
 │   ├── niftis/                           # only with Write NIfTI volumes, or written on demand
-│   ├── montage_imgs/{montage}_highlighted_visualization.png
-│   └── surface_overlays/
-└── mTI/                                  # multipolar TI (4+ channels)
-    ├── mesh/{montage}_mTI.msh            # mTI_max / TI_avg / hf_peak / hf_rms / hf_power_density (selected)
-    ├── mesh/grey_{montage}_mTI.msh, white_{montage}_mTI.msh
-    ├── mesh/surfaces/                    # central cortical surface (msh2cortex)
-    ├── niftis/                           # as TI/niftis/
-    └── montage_imgs/                     # combined_montage_visualization.png
+│   └── montage_imgs/{montage}_highlighted_visualization.png
+├── mTI/                                  # multipolar TI (4+ channels), instead of TI/
+│   ├── mesh/{montage}_mTI.msh            # mTI_max in place of TI_max
+│   ├── mesh/surfaces/{montage}_mTI_central.msh
+│   ├── niftis/                           # as TI/niftis/
+│   └── montage_imgs/                     # combined_montage_visualization.png
+├── fsaverage/                            # only with Map fields to fsaverage
+└── Analyses/                             # what the Analyzer writes
 ```
 
-The field mesh `{montage}_TI.msh` (`{montage}_mTI.msh`) holds every saved field; its grey/white copies and central surface carry the same fields. With **Write NIfTI volumes (one per field)** (`map_to_vol`), every field of the field mesh and of its grey/white copies is also written as one 3-D NIfTI, `{mesh}_subject_{field}.nii.gz` (for example `grey_{montage}_TI_subject_hf_peak.nii.gz`), and each channel's `magnE` to `high_Frequency/niftis/`; the run fails if the NIfTIs are not exactly the mesh's fields. **Also in MNI space** (`map_to_mni`, which turns `map_to_vol` on) adds `{mesh}_MNI_MNI_{field}.nii.gz` and the T1 in MNI space. ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
+The field mesh `{montage}_TI.msh` (`{montage}_mTI.msh`) holds every saved field over the brain tissue. Its central surface `surfaces/{montage}_TI_central.msh` is the subject's cortical (central) surface, left then right hemisphere, with every saved field and `TI_normal` as node data; mesh analyses read it. With **Write NIfTI volumes (one per field)** (`map_to_vol`), every field of the field mesh is also written as one 3-D NIfTI for the whole brain tissue and for its grey- and white-matter parts, `{mesh}_subject_{field}.nii.gz` (for example `grey_{montage}_TI_subject_hf_peak.nii.gz`), and each channel's `magnE` to `high_Frequency/niftis/`; the run fails if the NIfTIs are not exactly the mesh's fields. **Also in MNI space** (`map_to_mni`, which turns `map_to_vol` on) adds `{mesh}_MNI_MNI_{field}.nii.gz` and the T1 in MNI space. ROI inputs elsewhere in the toolbox accept either space, with automatic transformation between them.
 
 The app runs each job as `simnibs_python -m tit.sim config.json` in the container; the same command works from a shell (see [Scripting]({{ site.baseurl }}/wiki/scripting/) for the `SimulationConfig` fields).
 

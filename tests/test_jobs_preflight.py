@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.field_mesh import write_field_mesh
+from tests.field_mesh import write_central_surface, write_field_mesh
 from tit.jobs.preflight import MissingInput, preflight
 from tit.paths import get_path_manager
 
@@ -39,7 +39,7 @@ def project(tmp_path: Path) -> Path:
         "Electrode,10,0,0,E1\nElectrode,20,0,0,E2\nElectrode,30,0,0,E3\nElectrode,40,0,0,E4\n",
     )
     write_field_mesh(pm.ti_mesh(SID, SIM))
-    touch(pm.ti_central_surface(SID, SIM))
+    write_central_surface(pm.ti_central_surface(SID, SIM))
     # The names v3.1.1 writes (Dataset 000, sub-LA/Simulations/L_Insula/TI/niftis/).
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
     touch(niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz")
@@ -47,22 +47,50 @@ def project(tmp_path: Path) -> Path:
     return tmp_path
 
 
-def saved_run(sim_dir: Path, mode: str, channels: int, fields=("TI_max",)) -> list[Path]:
+def saved_run(
+    sim_dir: Path, mode: str, channels: int, fields=("TI_max",)
+) -> list[Path]:
     """What a finished run keeps for on-demand fields: its record, a field mesh carrying
-    *fields* (a Gmsh 2.2 ASCII mesh of no elements), and its channel meshes (returned)."""
+    *fields* (a Gmsh 2.2 ASCII mesh of no elements), and its channel meshes (returned).
+    """
     import json
 
     sim = sim_dir.name
     touch(
         sim_dir / "documentation" / "config.json",
-        json.dumps({"subject_id": SID, "conductivity": "scalar",
-                    "electrode_pairs": [["a", "b"]] * channels}),
+        json.dumps(
+            {
+                "subject_id": SID,
+                "conductivity": "scalar",
+                "electrode_pairs": [["a", "b"]] * channels,
+            }
+        ),
     )
-    lines = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "1", "1 0 0 0",
-             "$EndNodes", "$Elements", "0", "$EndElements"]
+    lines = [
+        "$MeshFormat",
+        "2.2 0 8",
+        "$EndMeshFormat",
+        "$Nodes",
+        "1",
+        "1 0 0 0",
+        "$EndNodes",
+        "$Elements",
+        "0",
+        "$EndElements",
+    ]
     for field in fields:
-        lines += ["$ElementData", "1", f'"{field}"', "1", "0.0", "3", "0", "1", "0",
-                  "$EndElementData"]
+        lines += [
+            "$ElementData",
+            "1",
+            f'"{field}"',
+            "1",
+            "0.0",
+            "3",
+            "0",
+            "1",
+            "0",
+            "$EndElementData",
+        ]
     touch(sim_dir / mode / "mesh" / f"{sim}_{mode}.msh", "\n".join(lines) + "\n")
     labels = "ABCDEFGH"[:channels] if mode == "mTI" else "12"
     return [
@@ -157,7 +185,9 @@ def test_analyzer_voxel_needs_its_niftis_or_what_produces_them(project: Path) ->
     assert str(channels[1]) in found[0].how_to_fix
 
 
-def test_analyzer_voxel_reads_a_nifti_only_archive_and_an_older_name(project: Path) -> None:
+def test_analyzer_voxel_reads_a_nifti_only_archive_and_an_older_name(
+    project: Path,
+) -> None:
     # The selector first: the field mesh is gone, the NIfTI it needs is there.
     pm = get_path_manager()
     Path(pm.ti_mesh(SID, SIM)).unlink()
@@ -165,7 +195,9 @@ def test_analyzer_voxel_reads_a_nifti_only_archive_and_an_older_name(project: Pa
     assert preflight("analyzer", cfg, str(project)) == []
     # A renamed, unsuffixed NIfTI from an older release, found by the selector's scan.
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
-    (niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz").rename(niftis / "grey_old_field.nii.gz")
+    (niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz").rename(
+        niftis / "grey_old_field.nii.gz"
+    )
     assert preflight("analyzer", cfg, str(project)) == []
 
 
@@ -418,7 +450,9 @@ def test_nifti_average_subject_space_reads_the_subject_file(project: Path) -> No
     writes, so a Subject-space average never found its input."""
     subjects = [{"subject_id": SID, "simulation_name": SIM}]
     assert (
-        preflight("nifti_average", {"subjects": subjects, "space": "subject"}, str(project))
+        preflight(
+            "nifti_average", {"subjects": subjects, "space": "subject"}, str(project)
+        )
         == []
     )
 

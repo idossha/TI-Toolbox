@@ -1,15 +1,12 @@
-"""Mesh analysis of ``TI_normal`` reads the normal mesh; a field the surface lacks is refused (2026-10-22).
+"""Mesh analysis of ``TI_normal`` reads the central surface; a field the surface lacks is refused.
 
-What this pins
-    ``msh2cortex`` maps only the TI mesh's fields onto the central surface, so
-    ``<sim>_TI_central.msh`` carries ``TI_max`` but never ``TI_normal`` (Dataset 000:
-    ``sub-101/Simulations/Thalamus_example/TI/mesh/surfaces/Thalamus_example_TI_central.msh``
-    has one NodeData block, "TI_max", on 491524 nodes; ``Thalamus_example_normal.msh`` has one,
-    "TI_normal", on the same 491524 nodes). Before: ``field="TI_normal"`` in mesh space was
-    ``KeyError: 'TI_normal'`` every time. Now it is read from the normal mesh
-    ``select_field_file`` resolves. A field on neither (``hf_peak`` of an older simulation) is a
-    ``ValueError`` naming the field and the fields the surface does carry, and the submit-time
-    preflight reports it before a job starts.
+What this pins (2026-10-22; layout of 2026-10-30)
+    The run's central surface ``<sim>_TI_central.msh`` carries every volume field and
+    ``TI_normal`` (``tit.volume_fields.central_surface``), so ``field="TI_normal"`` in mesh space
+    is read from it, as the ``normal_*`` statistics of every other analysis are. A field it does
+    not carry (``hf_peak`` of an older simulation) is a ``ValueError`` naming the field and the
+    fields the surface does carry, and the submit-time preflight reports it before a job starts.
+    The header reader also reads one tissue's element values from a binary mesh (``tags``).
 
 Where the expectations come from
     Hand arithmetic on authored node values and areas (comments at each assertion), and an
@@ -33,7 +30,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from tests.field_mesh import write_field_mesh
+from tests.field_mesh import DEFAULT_FIELDS, write_central_surface, write_field_mesh
 from tit.paths import get_path_manager
 
 SID = "101"
@@ -68,18 +65,13 @@ def project(tmp_path: Path) -> Path:
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
     write_field_mesh(pm.ti_mesh(SID, SIM))
-    _touch(pm.ti_central_surface(SID, SIM))
-    _touch(Path(pm.ti_mesh_dir(SID, SIM)) / f"{SIM}_normal.msh")
+    write_central_surface(pm.ti_central_surface(SID, SIM), DEFAULT_FIELDS)
     return tmp_path
 
 
-def _read_msh(project: Path, normal):
+def _read_msh(project: Path, surface):
     pm = get_path_manager(str(project))
-    surface = _mesh({"TI_max": TI_MAX})
-    by_path = {
-        str(Path(pm.ti_central_surface(SID, SIM))): surface,
-        str(Path(pm.ti_mesh_dir(SID, SIM)) / f"{SIM}_normal.msh"): normal,
-    }
+    by_path = {str(Path(pm.ti_central_surface(SID, SIM))): surface}
     return lambda path: by_path[str(path)]
 
 
@@ -90,9 +82,9 @@ def _analyzer(field):
         return Analyzer(SID, SIM, space="mesh", field=field)
 
 
-def test_ti_normal_mesh_analysis_reads_the_normal_mesh(project: Path) -> None:
-    normal = _mesh({"TI_normal": TI_NORMAL})
-    with patch("simnibs.read_msh", _read_msh(project, normal)):
+def test_ti_normal_mesh_analysis_reads_the_central_surface(project: Path) -> None:
+    surface = _mesh({"TI_max": TI_MAX, "TI_normal": TI_NORMAL})
+    with patch("simnibs.read_msh", _read_msh(project, surface)):
         normal_run = _analyzer("TI_normal").analyze_sphere(CENTER, RADIUS)
         max_run = _analyzer(None).analyze_sphere(CENTER, RADIUS)
 
@@ -113,18 +105,11 @@ def test_ti_normal_mesh_analysis_reads_the_normal_mesh(project: Path) -> None:
     assert normal_run.roi_max <= max_run.roi_max
 
 
-def test_normal_mesh_on_other_nodes_is_refused(project: Path) -> None:
-    normal = _mesh({"TI_normal": TI_NORMAL[:5]}, n=5)
-    with patch("simnibs.read_msh", _read_msh(project, normal)):
-        with pytest.raises(ValueError, match=r"5 TI_normal values .* 6 nodes"):
-            _analyzer("TI_normal").analyze_sphere(CENTER, RADIUS)
-
-
 def test_field_absent_from_the_surface_names_it_and_the_fields_present(
     project: Path,
 ) -> None:
-    normal = _mesh({"TI_normal": TI_NORMAL})
-    with patch("simnibs.read_msh", _read_msh(project, normal)):
+    surface = _mesh({"TI_max": TI_MAX, "TI_normal": TI_NORMAL})
+    with patch("simnibs.read_msh", _read_msh(project, surface)):
         with pytest.raises(ValueError) as err:
             _analyzer("hf_peak").analyze_sphere(CENTER, RADIUS)
     message = str(err.value)
@@ -296,8 +281,13 @@ def test_preflight_reports_an_unsaved_field_only_when_it_cannot_be_produced(
     volume.write_bytes(_binary_msh([("ElementData", "TI_max")]))
     (sim_dir / "documentation").mkdir()
     (sim_dir / "documentation" / "config.json").write_text(
-        json.dumps({"subject_id": SID, "conductivity": "scalar",
-                    "electrode_pairs": [["a", "b"], ["c", "d"]]})
+        json.dumps(
+            {
+                "subject_id": SID,
+                "conductivity": "scalar",
+                "electrode_pairs": [["a", "b"], ["c", "d"]],
+            }
+        )
     )
     hf = sim_dir / "high_Frequency" / "mesh"
 
@@ -315,3 +305,31 @@ def test_preflight_reports_an_unsaved_field_only_when_it_cannot_be_produced(
         _touch(hf / f"{SID}_TDCS_{label}_scalar.msh")
     assert _preflight(project, field="hf_peak") == []
     assert _preflight(project) == []
+
+
+def test_msh_element_field_reads_one_tissue_of_a_binary_mesh(tmp_path: Path) -> None:
+    """``tags`` keeps the values of the elements with that physical tag, in element order."""
+    from tit.tools.msh_fields import msh_element_field
+
+    tetra = (4, [[2, 2, 2, 1, 2, 3, 4], [3, 5, 5, 4, 3, 2, 1], [4, 2, 2, 1, 3, 2, 4]])
+    out = b"$MeshFormat\n2.2 1 8\n" + struct.pack("<i", 1) + b"\n$EndMeshFormat\n"
+    out += b"$Nodes\n4\n"
+    for i, xyz in enumerate([(0, 0, 0), (1, 0, 0), (0, 1, 0), (0, 0, 1)], start=1):
+        out += struct.pack("<i3d", i, *xyz)
+    out += b"\n$EndNodes\n$Elements\n4\n"
+    for etype, rows in (
+        TRIANGLE,
+        tetra,
+    ):  # element 1: tag 1002; 2, 4: GM (2); 3: scalp (5)
+        out += struct.pack("<3i", etype, len(rows), 2)
+        for row in rows:
+            out += struct.pack(f"<{len(row)}i", *row)
+    out += b'\n$EndElements\n$ElementData\n1\n"TI_max"\n1\n0.0\n3\n0\n1\n4\n'
+    for number, value in ((1, 10.0), (2, 20.0), (3, 30.0), (4, 40.0)):
+        out += struct.pack("<id", number, value)
+    out += b"\n$EndElementData\n"
+    path = tmp_path / "volume.msh"
+    path.write_bytes(out)
+    assert list(msh_element_field(path, "TI_max")) == [10.0, 20.0, 30.0, 40.0]
+    assert list(msh_element_field(path, "TI_max", tags=[2])) == [20.0, 40.0]
+    assert list(msh_element_field(path, "TI_max", tags=[2, 1002])) == [10.0, 20.0, 40.0]

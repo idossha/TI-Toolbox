@@ -111,6 +111,12 @@ def test_a_mesh_analysis_produces_into_the_field_mesh_and_says_so_first(
     )
 
 
+def test_a_ti_normal_analysis_still_makes_sure_of_the_surface(init_pm) -> None:
+    # Nothing to compute for TI_normal itself, but an old run's surface gains it first.
+    _, calls = _construct("mesh", field="TI_normal")
+    assert calls == [("mesh", SID, SIM, [], "-"), ("mesh", SID, SIM, CARRIERS, "-")]
+
+
 @pytest.mark.parametrize(
     "tissue, expected", [("GM", "grey"), ("WM", "white"), ("both", None)]
 )
@@ -148,6 +154,11 @@ def _run_record(sim_dir: Path, *, fields=("TI_max",), carrier_only=False) -> Non
         )
     )
     write_field_mesh(sim_dir / "TI" / "mesh" / f"{SIM}_TI.msh", fields)
+    # The run's central surface, complete: every volume field and, with an envelope, TI_normal.
+    write_field_mesh(
+        sim_dir / "TI" / "mesh" / "surfaces" / f"{SIM}_TI_central.msh",
+        fields if carrier_only else (*fields, "TI_normal"),
+    )
 
 
 @pytest.mark.parametrize("space", ["mesh", "voxel"])
@@ -205,7 +216,7 @@ def test_auto_on_a_carrier_only_run_is_hf_peak(init_pm) -> None:
 
 
 def test_the_note_and_the_carrier_metrics_reach_results_csv(tmp_path: Path) -> None:
-    # The surface as the producer leaves it: hf_peak / hf_rms mapped onto it by msh2cortex.
+    # The surface as the producer leaves it: hf_peak / hf_rms on it beside TI_max.
     x = np.arange(10.0)
     roi = x <= 3.5
     ti = np.where(roi, 2.0, 1.0)

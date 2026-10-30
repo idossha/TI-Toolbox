@@ -115,7 +115,9 @@ def _field_mesh(path: Path, fields: tuple[str, ...]) -> None:
 
 def _mti_tree(sim: Path, *, surface: bool = True) -> None:
     name = sim.name
-    _field_mesh(sim / "mTI" / "mesh" / f"{name}_mTI.msh", ("mTI_max", "hf_peak", "hf_rms"))
+    _field_mesh(
+        sim / "mTI" / "mesh" / f"{name}_mTI.msh", ("mTI_max", "hf_peak", "hf_rms")
+    )
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
     if surface:
         _touch(sim / "mTI" / "mesh" / "surfaces" / f"{name}_mTI_central.msh")
@@ -172,7 +174,7 @@ def _patch_heavy_io(monkeypatch) -> None:
     """Replace what reads mesh/volume CONTENT or starts Blender; path logic stays real."""
     import tit.volume_fields
 
-    def convert(mesh, m2m, out_dir, base, space, fields):  # the on-demand NIfTI, as named
+    def convert(mesh, m2m, out_dir, base, space, fields, tissue=None):  # as named
         token = "MNI_MNI" if space == "mni" else "subject"
         written = [out_dir / f"{base}_{token}_{f}.nii.gz" for f in fields]
         for path in written:
@@ -329,7 +331,10 @@ SPEC = {
     ("j_ghost", "RegionConfig"): True,
     ("j_ghost", "VectorConfig"): True,
     ("j_ghost", "MontageConfig"): True,
-    ("j_ghost", "SubcorticalConfig"): True,  # named, so a field-coloured PLY was asked for
+    (
+        "j_ghost",
+        "SubcorticalConfig",
+    ): True,  # named, so a field-coloured PLY was asked for
     ("k_no_volume_mesh", "MontageConfig"): True,  # no tetrahedral mesh holds the scalp
     ("k_no_volume_mesh", "RegionConfig"): False,
     ("k_no_volume_mesh", "SubcorticalConfig"): False,
@@ -403,7 +408,9 @@ def test_montage_cuts_the_scalp_from_the_runs_own_volume_mesh(
     project, monkeypatch, tree, source
 ):
     sim = project / "derivatives" / "SimNIBS" / f"sub-{SID}" / "Simulations" / tree
-    TREES[tree](sim)  # a_labelled also holds TDCS_1/2, which a sorted search finds first
+    TREES[tree](
+        sim
+    )  # a_labelled also holds TDCS_1/2, which a sorted search finds first
     _patch_heavy_io(monkeypatch)
     cut: list[str] = []
 

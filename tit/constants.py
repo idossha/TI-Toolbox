@@ -102,9 +102,8 @@ FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
 FIELD_HF_RMS = "hf_rms"  # sqrt(calc.hf_power) = sqrt(1/2 sum_i |E_i|^2): RMS over time
-FIELD_HF_POWER_DENSITY = (
-    "hf_power_density"  # sigma * calc.hf_power, W/m^3 (one constant: rename here)
-)
+# sigma * calc.hf_power, W/m^3; the one constant to rename it by
+FIELD_HF_POWER_DENSITY = "hf_power_density"
 
 # Field "kind" classification used by FieldSpec below. This groups fields by
 # what they are computed from -- the low-frequency envelope versus the carrier
@@ -346,7 +345,7 @@ DEFAULT_OUTPUT_FIELDS: tuple[str, ...] = (FIELD_TI_MAX, FIELD_HF_PEAK, FIELD_HF_
 #: Why a volume field is not on the fsaverage surface (for the errors that refuse it).
 FSAVG_NOT_PROJECTED = (
     "TI_avg and hf_power_density are volume fields only and are never projected to "
-    "fsaverage (the projection maps the channel fields and the envelope overlays, not the "
+    "fsaverage (the projection maps the channel fields, TI_max and TI_normal, not the "
     "conductivity or the direction average); analyse them in mesh or voxel space."
 )
 

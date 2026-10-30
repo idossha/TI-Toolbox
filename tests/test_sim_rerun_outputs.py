@@ -153,12 +153,10 @@ def _fake_simnibs(sessions: list):
         patch.object(TISimulation, "_build_session", build),
         patch.object(base_mod, "run_simnibs", side_effect=lambda s: s.run()),
         patch.object(base_mod, "run_montage_visualization"),
-        patch.object(base_mod, "generate_central_surface"),
+        patch.object(base_mod, "central_surface"),
         patch.object(base_mod.BaseSimulation, "_write_report"),
         patch.object(base_mod, "mesh_io", mesh_io),
         patch.object(fields_mod, "envelope_max"),
-        patch.object(base_mod, "envelope"),
-        patch.object(ti_mod, "extract_fields"),
         patch.object(base_mod, "transform_dirs_to_nifti"),
     ):
         yield

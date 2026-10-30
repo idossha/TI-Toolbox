@@ -34,7 +34,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from tests.field_mesh import write_field_mesh
+from tests.field_mesh import write_central_surface, write_field_mesh
 from tit.paths import get_path_manager
 
 SID = "101"
@@ -64,7 +64,7 @@ def project(tmp_path: Path) -> Path:
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
     write_field_mesh(pm.ti_mesh(SID, SIM))
-    _touch(pm.ti_central_surface(SID, SIM))
+    write_central_surface(pm.ti_central_surface(SID, SIM))
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
     for tissue in ("grey", "white"):
         for field in ("TI_max", "hf_peak", "hf_rms"):

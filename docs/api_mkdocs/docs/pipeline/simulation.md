@@ -119,15 +119,15 @@ After simulation, TI-Toolbox produces several derived field types:
 | Field | Description |
 |-------|-------------|
 | **TI_max** | Maximum TI envelope over all directions — scalar field on volume elements (TI mode) |
-| **TI_normal** | TI envelope along the cortical surface normal — node field on surface overlay |
+| **TI_normal** | TI envelope along the cortical surface normal — node field on the central surface `mesh/surfaces/<montage>_<TI|mTI>_central.msh` |
 | **mTI_max** | Maximum joint envelope of all channels — scalar field on volume elements (mTI mode) |
 | **hf_peak**, **hf_rms** | Saved by default with `TI_max`/`mTI_max` (`output_fields=None`): peak carrier field (V/m, zero-to-peak; the one to compare with exposure limits), `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field (V/m; not a compliance metric) |
 | **TI_avg**, **hf_power_density** | Opt-in volume fields (`output_fields`): direction-averaged envelope, absorbed carrier power with the run's conductivity (W/m³) |
-| **TI_vectors** | Intermediate TI vector field of each beating pair's two channels, for inspection only (mTI mode, `TI_AB`, `TI_CD`, …) |
 
-The selected fields are written into one field mesh, `<montage>_TI.msh` (`<montage>_mTI.msh`), with its
-grey/white copies and central surface. NIfTI volumes are opt-in: `map_to_vol=True` writes one 3-D
-NIfTI per mesh field (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
+The selected fields are written into one field mesh, `<montage>_TI.msh` (`<montage>_mTI.msh`), and
+onto its central surface with `TI_normal` (`tit.volume_fields.central_surface`). NIfTI volumes are
+opt-in: `map_to_vol=True` writes one 3-D NIfTI per mesh field for the whole brain tissue and its
+grey- and white-matter parts (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
 analysis or group tool needs and the run did not save is computed from the kept channel meshes
 (`high_Frequency/mesh/`) and saved by `tit.volume_fields` (`ensure_mesh_fields`, `ensure_niftis`),
 except `hf_power_density`, whose conductivity is not kept.
@@ -137,20 +137,18 @@ except `hf_power_density`, whose conductivity is not kept.
 ```
 derivatives/SimNIBS/sub-001/Simulations/
 └── motor_cortex/
+    ├── documentation/        # config.json, SimNIBS session log
     ├── high_Frequency/
-    │   ├── mesh/             # Per-channel HF mesh files
-    │   ├── niftis/           # Per-channel HF NIfTI volumes (map_to_vol)
+    │   ├── mesh/             # Per-channel SimNIBS meshes and electrode-current .geo files
+    │   ├── niftis/           # Per-channel magnE NIfTI volumes (map_to_vol)
     │   └── analysis/         # fields_summary.txt
-    ├── TI/
-    │   ├── mesh/             # TI_max and GM/WM mesh files
-    │   ├── niftis/           # TI NIfTI volumes (map_to_vol, or written on demand)
-    │   ├── surface_overlays/ # Cortical surface overlays (for TI_normal)
+    ├── TI/                   # (mTI/ instead for an mTI run, mTI_max in place of TI_max)
+    │   ├── mesh/motor_cortex_TI.msh                    # every selected volume field
+    │   ├── mesh/surfaces/motor_cortex_TI_central.msh   # those fields + TI_normal, lh then rh
+    │   ├── niftis/           # NIfTI volumes (map_to_vol, or written on demand)
     │   └── montage_imgs/     # Electrode placement visualizations
-    ├── mTI/                  # (mTI mode only)
-    │   ├── mesh/             # mTI_max and intermediate TI meshes
-    │   ├── niftis/           # mTI NIfTI volumes (as TI/niftis/)
-    │   └── montage_imgs/     # Electrode placement visualizations
-    └── documentation/        # config.json, SimNIBS logs
+    ├── fsaverage/            # map_to_fsavg
+    └── Analyses/             # Analyzer outputs
 ```
 
 ## API Reference

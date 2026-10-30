@@ -407,9 +407,12 @@ class SimulationConfig:
     rubber_thickness : float
         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
     map_to_surf : bool
-        Map results onto the cortical surface.  Must stay ``True``
-        (default) because the ``TI_normal`` calculation requires surface
-        overlays.
+        Not used.  Every run writes one central cortical surface,
+        ``<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh``, with every
+        volume field and ``TI_normal`` on it; SimNIBS's per-channel surface
+        overlays are never written.  The value is only recorded in the run's
+        ``config.json``, and the field is still accepted so older configs and
+        job specs load.  Default ``True``.
     map_to_vol : bool
         Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
         name; ``tit.tools.mesh2nii`` does the conversion after the run): one
@@ -539,7 +542,7 @@ class SimulationConfig:
     electrode_dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
     gel_thickness: float = 1.0
     rubber_thickness: float = 2.0
-    # map_to_surf must be True — TI_normal calculation requires surface overlays.
+    # map_to_surf is unused (the central surface is always written); kept so older configs load.
     map_to_surf: bool = True
     # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).
     # tissues_in_niftis changes nothing; it stays so an older config.json or job spec

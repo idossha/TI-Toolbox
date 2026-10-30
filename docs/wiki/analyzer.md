@@ -241,7 +241,7 @@ The Scene pane follows the active job. Cortical atlas regions remain clickable. 
 
 Each row analyses its field in one of two spaces:
 
-- **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, which the simulation writes with SimNIBS `msh2cortex`. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
+- **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, `surfaces/{sim}_TI_central.msh`, which the simulation writes with every saved field and `TI_normal` interpolated onto it (as SimNIBS's `msh2cortex` does). A simulation whose surface lacks a field or `TI_normal` gets it written when an analysis needs it. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
 - **Voxel** (`space="voxel"`) reads the simulation's NIfTI on the subject grid and keeps the voxels of the selected tissue. Each voxel is weighted by its volume, so sizes come out in mm³ and cm³. Measure deep structures here. A simulation writes no NIfTIs unless asked to, so the first voxel analysis of a tissue writes the NIfTIs it reads from that tissue's field mesh and keeps them for the next one.
 
 The **Field** list offers every field the analysis can read, whether or not the simulation saved it. One it did not save is computed from the channel meshes when the analysis runs and saved into the simulation; the job output and the Results pane ("Produced for this analysis: …") say so. An unsaved `hf_power_density` is marked **(not saved)** and cannot be picked. For a carrier-only control the list holds only its carrier fields (`hf_peak`, `hf_rms`, `hf_power_density`): it has no envelope, so `TI_max`, `TI_avg` and `TI_normal` are not offered, and **Auto** is `hf_peak` ("Auto (hf_peak)").
@@ -372,13 +372,11 @@ The Analyzer handles multipolar (mTI) simulations with the same `Analyzer` class
 | Mesh  | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
 | Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue; written on demand when the run did not) | `TI/niftis/` (likewise) |
 
-An mTI run also writes each beating pair's own two-channel envelope (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. The Analyzer does not read them, and they are not the mTI result.
-
 ### Fields
 
 `TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak` and `hf_rms` can be selected whether or not the run saved them (an unsaved one is computed over every channel's carrier), `hf_power_density` only when it did.
 
-`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-pair envelope along the cortical surface normal (`envelope`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The Analyzer reads it when `TI_normal` is requested, and fills the `normal_*` statistics as for standard TI. mTI simulations run before this support have no normal mesh: requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`. Re-run the simulation to get them.
+`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-pair envelope along the cortical surface normal (`envelope`) and stores it on the central surface beside the other fields. The Analyzer reads it there when `TI_normal` is requested, and fills the `normal_*` statistics for every analysis of a run with an envelope (a carrier-only control has none).
 
 ---
 

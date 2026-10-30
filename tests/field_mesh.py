@@ -25,3 +25,8 @@ def write_field_mesh(path, fields=DEFAULT_FIELDS) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines) + "\n")
     return path
+
+
+def write_central_surface(path, fields=DEFAULT_FIELDS) -> Path:
+    """The run's central surface as the simulator writes it: *fields* and ``TI_normal``."""
+    return write_field_mesh(path, (*fields, "TI_normal"))

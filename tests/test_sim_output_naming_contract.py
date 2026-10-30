@@ -2,8 +2,8 @@
 
 What this pins (2026-10-22, package p04 "output-naming-contract")
     A simulation writes its outputs under names built in three places -- ``tit/sim/TI.py`` /
-    ``tit/sim/mTI.py`` (mesh names, the fields they add), ``tit/sim/utils.extract_fields``
-    (``grey_``/``white_`` copies) and ``tit/tools/mesh2nii._collect_tasks`` (the
+    ``tit/sim/mTI.py`` (the volume mesh and its central surface, the fields they carry),
+    ``tit/tools/mesh2nii._collect_tasks`` (``grey_``/``white_`` tissue crops and the
     ``<base>_subject`` / ``<base>_MNI`` output prefixes, to which SimNIBS appends
     ``_<field>`` and ``_MNI_<field>``). Every reader then rebuilds one of those names on its
     own: the simulation report, the analyzer's field selector, the group tools'
@@ -51,7 +51,7 @@ VOLUME_FIELDS = {
     "TI": ("TI_max", "TI_avg", "hf_peak", "hf_rms"),
     "mTI": ("mTI_max", "TI_avg", "hf_peak", "hf_rms"),
 }
-#: ``extract_fields`` writes ``grey_<base>.msh`` and ``white_<base>.msh`` beside ``<base>.msh``.
+#: ``mesh2nii`` names the grey/white crops of ``<base>.msh`` ``grey_<base>`` / ``white_<base>``.
 TISSUE_PREFIX = {None: "", "grey": "grey_", "white": "white_"}
 #: The conductivity token SimNIBS puts in a carrier's file name (``SimulationConfig.conductivity``).
 CONDUCTIVITIES = ("scalar", "vn", "dir", "mc")
@@ -102,7 +102,7 @@ def write_simulation(
     """Touch every file a finished TI/mTI run leaves, named as the writer names them.
 
     Returns ``{"sim_dir", "envelope": {(tissue, space, field): path}, "hf": {(label, space):
-    path}, "mesh": path, "normal": path, "central": path}``. *fields* is the subset of
+    path}, "mesh": path, "central": path}``. *fields* is the subset of
     :data:`VOLUME_FIELDS` written (``SimulationConfig.output_fields``, in the mode's
     spelling); ``None`` writes all of them.
     """
@@ -113,18 +113,15 @@ def write_simulation(
     n_pairs = n_pairs or (2 if mode == "TI" else 4)
     fields = VOLUME_FIELDS[mode] if fields is None else fields
     sim_dir = Path(pm.simulation(sid, sim))
-    # setup_montage_directories creates the TI tree for every run, mTI adds its own.
+    # setup_montage_directories creates the run's own mode tree only.
     for sub in (
         "documentation",
         "high_Frequency/mesh",
         "high_Frequency/niftis",
-        "TI/mesh/surfaces",
-        "TI/niftis",
+        f"{mode}/mesh/surfaces",
+        f"{mode}/niftis",
     ):
         (sim_dir / sub).mkdir(parents=True, exist_ok=True)
-    if mode == "mTI":
-        for sub in ("mTI/mesh/surfaces", "mTI/niftis"):
-            (sim_dir / sub).mkdir(parents=True, exist_ok=True)
     (sim_dir / "documentation" / "config.json").write_text(
         json.dumps(
             {
@@ -139,23 +136,11 @@ def write_simulation(
 
     mesh_dir = sim_dir / mode / "mesh"
     mesh = mesh_dir / f"{envelope_base(sim, mode, None)}.msh"
-    # TI.py writes <name>_normal.msh, mTI.py <name>_mTI_normal.msh, beside the volume mesh.
-    normal = mesh_dir / (
-        f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"
-    )
-    # msh2cortex -o surfaces/ names its output <mesh stem>_central.msh.
+    # TI.py/mTI.py write the central surface as surfaces/<sim>_<mode>_central.msh, with every
+    # volume field and TI_normal.
     central = mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh"
-    for tissue in TISSUE_PREFIX:
-        write_field_mesh(mesh_dir / f"{envelope_base(sim, mode, tissue)}.msh", fields)
-    normal.write_bytes(b"msh")
-    central.write_bytes(b"msh")
-    if mode == "mTI":
-        # The intermediate pairwise TI vector meshes land in TI/mesh, never converted.
-        for i in range(0, n_pairs, 2):
-            pair = (
-                f"{sim}_TI_{string.ascii_uppercase[i]}{string.ascii_uppercase[i + 1]}"
-            )
-            (sim_dir / "TI" / "mesh" / f"{pair}.msh").write_bytes(b"msh")
+    write_field_mesh(mesh, fields)
+    write_field_mesh(central, (*fields, "TI_normal"))
 
     spaces = ("subject", "mni") if map_to_mni else ("subject",)
     envelope = {}
@@ -186,7 +171,6 @@ def write_simulation(
         "envelope": envelope,
         "hf": hf,
         "mesh": mesh,
-        "normal": normal,
         "central": central,
     }
 
@@ -207,7 +191,7 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
     from tit.analyzer.field_selector import select_field_file, simulation_nifti_path
     from tit.jobs import preflight
     from tit.reporting.generators.simulation import _envelope_niftis
-    from tit.source.fsaverage import _ti_max_overlay, _ti_normal_overlay
+    from tit.source.fsaverage import _ti_max_overlay, _ti_normal_surface
 
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(sid, sim))
@@ -259,8 +243,7 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
         ),
         "mesh TI_normal": (
             lambda: select_field_file(sid, sim, "mesh", field="TI_normal")[0],
-            mesh_dir
-            / (f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"),
+            mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
         # Group tools take a 2-pair spelling and resolve it for mTI themselves.
         "group grey MNI TI_max": (
@@ -283,10 +266,9 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
             lambda: _ti_max_overlay(pm, sid, sim)[0],
             mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
-        "fsaverage TI_normal overlay": (
-            lambda: _ti_normal_overlay(pm, sid, sim),
-            mesh_dir
-            / (f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"),
+        "fsaverage TI_normal surface": (
+            lambda: _ti_normal_surface(pm, sid, sim),
+            mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
     }
 

@@ -110,11 +110,11 @@ def _envelope_niftis(sim_dir: Path, name: str, mode: str) -> dict[str, Path]:
 def _voxelised_envelope(
     sim_dir: Path, name: str, mode: str, m2m: Path, scratch: Path
 ) -> dict[str, Path]:
-    """``{"grey": …, "white": …}`` envelope NIfTIs voxelised from the field meshes into *scratch*.
+    """``{"grey": …, "white": …}`` envelope NIfTIs voxelised from the field mesh into *scratch*.
 
     The on-demand path's conversion (:func:`tit.volume_fields.voxelise`, onto the T1 grid) of
-    ``<mode>/mesh/<tissue>_<name>_<mode>.msh``'s envelope only; nothing is written into the
-    simulation.
+    ``<mode>/mesh/<name>_<mode>.msh``'s envelope, cropped to each tissue; nothing is written
+    into the simulation.
 
     Raises:
         FieldUnavailableError: a tissue's field mesh is missing or carries no envelope.
@@ -125,10 +125,11 @@ def _voxelised_envelope(
     field = "mTI_max" if mode == "mTI" else "TI_max"
     return {
         tissue: voxelise(
-            sim_dir / mode / "mesh" / f"{tissue}_{name}_{mode}.msh",
+            sim_dir / mode / "mesh" / f"{name}_{mode}.msh",
             m2m,
             scratch,
             [field],
+            tissue=tissue,
         )[field]
         for tissue in ("grey", "white")
     }
