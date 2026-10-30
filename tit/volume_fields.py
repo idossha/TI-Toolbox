@@ -15,6 +15,12 @@ What persists, so the next step finds the field saved:
   under the simulator's own name (``<tissue_><sim>_<TI|mTI>_subject_<field>.nii.gz``, or
   ``..._MNI_MNI_<field>.nii.gz`` in MNI space) in ``<sim>/<TI|mTI>/niftis/``.
 
+NIfTIs and the mesh stay consistent. A run that wrote NIfTIs (``map_to_vol`` in its run record)
+has one per mesh field, so a field added to its mesh gets its NIfTIs too -- every converted
+mesh, subject space and, with ``map_to_mni``, MNI space -- and the set still equals the mesh field
+set. A run with NIfTIs off has no such set: its ``niftis/`` holds only what voxel steps asked for,
+each a NIfTI of a field its mesh carries, never one the mesh lacks.
+
 Each says one plain sentence per production before doing it ("hf_peak and hf_sar were not saved
 for L_Insula; computing them from the channel fields and saving them to L_Insula_TI.msh."),
 through the caller's ``say`` (its own ``logger.info``, so it reaches that job's output), and
@@ -317,13 +323,31 @@ def ensure_mesh_fields(
         config = _check_producible(sim, missing)
         names = [_on_disk(sim, n) for n in missing]
         was, it = _was(names)
+        spaces = _recorded_nifti_spaces(config)
+        also = ""
+        if spaces:
+            kind = "subject and MNI-space NIfTIs" if "mni" in spaces else "NIfTIs"
+            also = f", with the {kind} this run writes for every field"
         notice = (
             f"{_listed(names)} {was} not saved for {sim.name}; computing {it} from the "
-            f"channel fields and saving {it} to {sim.volume_mesh.name}."
+            f"channel fields and saving {it} to {sim.volume_mesh.name}{also}."
         )
         say(notice)
         _produce_mesh_fields(sim, config, missing)
+        # A run that writes NIfTIs keeps one per mesh field (check_niftis_match_meshes).
+        for space in spaces:
+            for tissue in (None, "grey", "white"):
+                base = f"{tissue + '_' if tissue else ''}{sim.name}_{sim.mode}"
+                _write_niftis(sim, sim.mesh_dir / f"{base}.msh", base, space, names)
     return [notice]
+
+
+def _recorded_nifti_spaces(config: dict) -> tuple[str, ...]:
+    """The NIfTI spaces the run itself writes: none, subject, or subject and MNI."""
+    options = config.get("mapping_options") or {}
+    if options.get("map_to_vol") is not True:
+        return ()
+    return ("subject", "mni") if options.get("map_to_mni") is True else ("subject",)
 
 
 def _produce_mesh_fields(sim: _Simulation, config: dict, missing: list[str]) -> None:

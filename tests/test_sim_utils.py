@@ -210,7 +210,7 @@ class TestSetupMontageDirectories:
 
     def test_ti_mode_creates_correct_dirs(self, tmp_path):
         montage_dir = str(tmp_path / "test_montage")
-        dirs = setup_montage_directories(montage_dir, SimulationMode.TI)
+        dirs = setup_montage_directories(montage_dir, SimulationMode.TI, niftis=True)
 
         # All values should be existing directories
         for key, path in dirs.items():
@@ -234,7 +234,7 @@ class TestSetupMontageDirectories:
 
     def test_mti_mode_creates_extra_dirs(self, tmp_path):
         montage_dir = str(tmp_path / "test_montage")
-        dirs = setup_montage_directories(montage_dir, SimulationMode.MTI)
+        dirs = setup_montage_directories(montage_dir, SimulationMode.MTI, niftis=True)
 
         # Should have all TI keys plus mti_* keys
         assert "mti_mesh" in dirs
@@ -247,7 +247,7 @@ class TestSetupMontageDirectories:
 
     def test_returns_correct_paths(self, tmp_path):
         montage_dir = str(tmp_path / "my_montage")
-        dirs = setup_montage_directories(montage_dir, SimulationMode.TI)
+        dirs = setup_montage_directories(montage_dir, SimulationMode.TI, niftis=True)
 
         assert dirs["montage_dir"] == montage_dir
         assert dirs["hf_dir"] == os.path.join(montage_dir, "high_Frequency")

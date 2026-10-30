@@ -126,9 +126,13 @@ class FakeMeshIO:
 
 
 def make_simulation(
-    pm, *, mode="TI", channels=2, carrier_only=False, saved=("TI_max",)
+    pm, *, mode="TI", channels=2, carrier_only=False, saved=("TI_max",), niftis=()
 ):
-    """A finished run on disk: run record, volume mesh with *saved*, kept channel meshes."""
+    """A finished run on disk: run record, volume mesh with *saved*, kept channel meshes.
+
+    *niftis* (``"subject"``, ``"mni"``) is a run that wrote NIfTIs: its record says so, its
+    grey/white meshes exist, and every mesh has one NIfTI per saved field in those spaces.
+    """
     sim_dir = Path(pm.simulation(SID, SIM))
     (sim_dir / mode / "mesh" / "surfaces").mkdir(parents=True)
     (sim_dir / "documentation").mkdir()
@@ -139,6 +143,10 @@ def make_simulation(
                 "conductivity": "scalar",
                 "electrode_pairs": [["a", "b"]] * channels,
                 "carrier_only": carrier_only,
+                "mapping_options": {
+                    "map_to_vol": bool(niftis),
+                    "map_to_mni": "mni" in niftis,
+                },
             }
         )
     )
@@ -146,6 +154,17 @@ def make_simulation(
     write_msh(
         sim_dir / mode / "mesh" / f"{SIM}_{mode}.msh", n, {f: np.ones(n) for f in saved}
     )
+    for stem in (f"grey_{SIM}_{mode}", f"white_{SIM}_{mode}") if niftis else ():
+        write_msh(
+            sim_dir / mode / "mesh" / f"{stem}.msh", n, {f: np.ones(n) for f in saved}
+        )
+    for space in niftis:
+        token = "MNI_MNI" if space == "mni" else "subject"
+        for stem in (f"{SIM}_{mode}", f"grey_{SIM}_{mode}", f"white_{SIM}_{mode}"):
+            for f in saved:
+                path = sim_dir / mode / "niftis" / f"{stem}_{token}_{f}.nii.gz"
+                path.parent.mkdir(exist_ok=True)
+                path.write_bytes(b"nii")
     hf = sim_dir / "high_Frequency" / "mesh"
     hf.mkdir(parents=True)
     labels = "ABCDEFGH"[:channels] if mode == "mTI" else "12"
@@ -322,6 +341,45 @@ def converter(producer):
         patch.object(mesh2nii, "msh_to_mni", mni),
     ):
         yield SimpleNamespace(calls=calls, producer=producer)
+
+
+@pytest.mark.parametrize("spaces", [("subject",), ("subject", "mni")])
+def test_a_run_that_writes_niftis_still_has_one_per_mesh_field_after_on_demand(
+    converter, spaces
+) -> None:
+    import shutil
+
+    sim_dir = make_simulation(converter.producer.pm, niftis=spaces)
+    mesh_dir = sim_dir / "TI" / "mesh"
+
+    def cut(
+        volume, out_dir, stem, *rest
+    ):  # extract_fields: grey/white copies of the mesh
+        for tissue in ("grey", "white"):
+            shutil.copy(volume, Path(out_dir) / f"{tissue}_{stem}.msh")
+
+    with patch.object(tit.sim.utils, "extract_fields", cut):
+        notices = fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
+
+    kind = "subject and MNI-space NIfTIs" if "mni" in spaces else "NIfTIs"
+    assert notices == [
+        "hf_peak was not saved for M; computing it from the channel fields and saving it "
+        f"to M_TI.msh, with the {kind} this run writes for every field."
+    ]
+    assert sorted(c[0] for c in converter.calls) == sorted(
+        ["subject"] * 3 + ["mni"] * 3 * ("mni" in spaces)
+    )
+    assert all(c[3] == ["hf_peak"] for c in converter.calls)
+    # The simulator's own invariant, checked the way the simulator checks it.
+    fields.check_niftis_match_meshes(
+        mesh_dir, sim_dir / "TI" / "niftis", mni="mni" in spaces
+    )
+
+
+def test_a_run_without_niftis_gets_none_from_a_mesh_analysis(converter) -> None:
+    sim_dir = make_simulation(converter.producer.pm)
+    assert fields.ensure_mesh_fields(SID, SIM, ["hf_peak"])
+    assert converter.calls == [] and not (sim_dir / "TI" / "niftis").exists()
 
 
 def test_a_voxel_step_writes_the_tissue_niftis_it_reads(converter) -> None:

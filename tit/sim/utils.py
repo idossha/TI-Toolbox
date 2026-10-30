@@ -343,7 +343,9 @@ def load_montages(
 # ── Directory setup ────────────────────────────────────────────────────────────────
 
 
-def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[str, str]:
+def setup_montage_directories(
+    montage_dir: str, mode: SimulationMode, *, niftis: bool = False
+) -> dict[str, str]:
     """Create the BIDS-compliant output directory tree for one montage.
 
     Creates sub-directories for high-frequency fields, TI fields,
@@ -357,6 +359,9 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[st
         Root output directory for this montage.
     mode : SimulationMode
         ``SimulationMode.TI`` or ``SimulationMode.MTI``.
+    niftis : bool
+        Also create the ``niftis/`` folders (the run writes NIfTIs, ``map_to_vol``). Their
+        paths are always in the mapping; a step that writes one later creates the folder.
 
     Returns
     -------
@@ -391,8 +396,9 @@ def setup_montage_directories(montage_dir: str, mode: SimulationMode) -> dict[st
             montage_dir, "mTI", "surface_overlays"
         )
 
-    for path in dirs.values():
-        os.makedirs(path, exist_ok=True)
+    for key, path in dirs.items():
+        if niftis or not key.endswith("_niftis"):
+            os.makedirs(path, exist_ok=True)
     return dirs
 
 

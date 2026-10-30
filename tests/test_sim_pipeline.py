@@ -252,14 +252,27 @@ class TestTISimulation:
             mock_pm.return_value.simulation.return_value = "/fake/sim/test_ti"
             mock_pm.return_value.eeg_positions.return_value = "/fake/eeg"
             _mock_mesh_efields(mock_mesh_io)
-            mock_setup_dirs.return_value = {k: f"/fake/{k}" for k in (
-                "montage_dir", "hf_dir", "hf_mesh", "hf_niftis", "hf_analysis", "ti_mesh",
-                "ti_niftis", "ti_surfaces", "ti_surface_overlays", "ti_montage_imgs",
-                "documentation",
-            )}
+            mock_setup_dirs.return_value = {
+                k: f"/fake/{k}"
+                for k in (
+                    "montage_dir",
+                    "hf_dir",
+                    "hf_mesh",
+                    "hf_niftis",
+                    "hf_analysis",
+                    "ti_mesh",
+                    "ti_niftis",
+                    "ti_surfaces",
+                    "ti_surface_overlays",
+                    "ti_montage_imgs",
+                    "documentation",
+                )
+            }
             config = _make_sim_config()
             assert (config.map_to_vol, config.map_to_mni) == (False, False)
-            _ti_mod.TISimulation(config, _make_ti_montage(), MagicMock()).run("/fake/sim_dir")
+            _ti_mod.TISimulation(config, _make_ti_montage(), MagicMock()).run(
+                "/fake/sim_dir"
+            )
 
             mock_extract.assert_called_once()  # the grey/white field meshes
             mock_surface.assert_called_once()  # the central surface
@@ -306,12 +319,14 @@ class TestTISimulation:
             }
 
             sim = _ti_mod.TISimulation(
-                _make_sim_config(map_to_vol=True, map_to_mni=map_to_mni), _make_ti_montage(), MagicMock()
+                _make_sim_config(map_to_vol=True, map_to_mni=map_to_mni),
+                _make_ti_montage(),
+                MagicMock(),
             )
             sim.run("/fake/sim_dir")
 
             mock_setup_dirs.assert_called_once_with(
-                "/fake/sim/test_ti", SimulationMode.TI
+                "/fake/sim/test_ti", SimulationMode.TI, niftis=True
             )
             mock_run_simnibs.assert_called_once()
             assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
@@ -421,7 +436,7 @@ class TestMTISimulation:
             assert "output_mesh" in result
 
             mock_setup_dirs.assert_called_once_with(
-                "/fake/sim/test_mti", SimulationMode.MTI
+                "/fake/sim/test_mti", SimulationMode.MTI, niftis=True
             )
             mock_run_simnibs.assert_called_once()
             assert mock_transform.call_args.kwargs["map_to_mni"] is map_to_mni
@@ -869,3 +884,16 @@ class TestOutputFieldsSurviveDeserialization:
             const.FIELD_HF_PEAK,
             const.FIELD_HF_SAR,
         ]
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("niftis", [False, True])
+def test_niftis_folders_exist_only_when_the_run_writes_niftis(tmp_path, niftis):
+    from tit.sim.utils import setup_montage_directories
+
+    dirs = setup_montage_directories(
+        str(tmp_path / "M"), SimulationMode.MTI, niftis=niftis
+    )
+    made = {k for k, path in dirs.items() if Path(path).is_dir()}
+    nifti_keys = {"hf_niftis", "ti_niftis", "mti_niftis"}
+    assert made == (set(dirs) if niftis else set(dirs) - nifti_keys)

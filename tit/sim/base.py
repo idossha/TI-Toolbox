@@ -173,7 +173,9 @@ class BaseSimulation(ABC):
             clear_previous_outputs(montage_dir)
         else:
             refuse_existing_result(montage_dir, self.montage.name)
-        dirs = setup_montage_directories(montage_dir, self._simulation_mode)
+        dirs = setup_montage_directories(
+            montage_dir, self._simulation_mode, niftis=self.config.map_to_vol
+        )
         create_simulation_config_file(
             self.config, self.montage, dirs["documentation"], self.logger
         )
