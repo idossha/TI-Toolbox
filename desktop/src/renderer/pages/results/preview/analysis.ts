@@ -29,9 +29,13 @@
  *
  * Carrier metrics. An analysis of a modulation field also reports the stimulation (carrier)
  * intensity's focality over the same elements: `hf_focality` (hf_peak), `rms_focality` (E_rms),
- * `ti_selectivity` = `roi_focality / hf_focality` and the `hf_focality_*_area` hot spot. When the
- * simulation did not write `hf_peak`/`hf_sar` those rows are absent and `carrier_note` says why and
- * what to tick; the pane shows it as one muted line (`carrierNote`).
+ * `ti_selectivity` = `roi_focality / hf_focality` and the `hf_focality_*_area` hot spot. When one
+ * cannot be computed its rows are absent and `carrier_note` says why; the pane shows it as one
+ * muted line (`carrierNote`).
+ *
+ * On demand. A field the simulation did not save (or the NIfTI a voxel analysis reads) is produced
+ * by the analysis from the channel meshes and kept; `on_demand_note` says what was, in the words
+ * the analysis logged, and the pane shows it as one muted line (`onDemandNote`).
  */
 import { fieldSpecForName } from "../../analyzer/fields";
 import { formatCount, formatMetric, type KeyNumber } from "./metrics";
@@ -58,6 +62,8 @@ export interface AnalysisView {
   space?: string;
   /** Why carrier metrics are missing (`carrier_note`), shown as one muted line; absent when none are. */
   carrierNote?: string;
+  /** What the analysis produced because the simulation had not saved it (`on_demand_note`). */
+  onDemandNote?: string;
 }
 
 /** `Metric,Value` rows → a lookup. A table with other columns yields an empty map. */
@@ -148,6 +154,7 @@ const NAMED = new Set([
   "hf_focality_90_area",
   "hf_focality_95_area",
   "carrier_note",
+  "on_demand_note",
 ]);
 
 function keep(metrics: (KeyNumber | undefined)[]): KeyNumber[] {
@@ -269,5 +276,6 @@ export function analysisView(
   }
 
   const carrierNote = map.get("carrier_note")?.trim() || undefined;
-  return { header, groups, extras, space, carrierNote };
+  const onDemandNote = map.get("on_demand_note")?.trim() || undefined;
+  return { header, groups, extras, space, carrierNote, onDemandNote };
 }

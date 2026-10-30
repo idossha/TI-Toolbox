@@ -498,6 +498,11 @@ function Preview({
         message: "Could not load this analysis's summary table.",
       },
       { kind: "metrics", groups: analysisSummaryView?.groups ?? [] },
+      !!analysisSummaryView?.onDemandNote && {
+        kind: "custom" as const,
+        testid: "results-on-demand-note",
+        content: <p className="results-carrier-note">Produced for this analysis: {analysisSummaryView.onDemandNote}</p>,
+      },
       !!analysisSummaryView?.carrierNote && {
         kind: "custom" as const,
         testid: "results-carrier-note",

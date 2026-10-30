@@ -804,7 +804,7 @@
   object-fit: contain;
 }
 
-/* An analysis's carrier_note: why the carrier metrics are missing and what to tick. */
+/* An analysis's carrier_note (why a carrier metric is missing) and on_demand_note (what it produced). */
 .results-carrier-note {
   margin: 0;
   font-size: 12px;
