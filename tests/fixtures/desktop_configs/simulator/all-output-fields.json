@@ -1,7 +1,7 @@
 {
   "id": "simulator/all-output-fields",
   "page": "simulator",
-  "title": "Every selectable output field, MNI and fsaverage",
+  "title": "Every selectable output field, NIfTIs in subject and MNI space, and fsaverage",
   "jobs": [
     {
       "config": {
@@ -20,6 +20,7 @@
         ],
         "map_to_fsavg": true,
         "map_to_mni": true,
+        "map_to_vol": true,
         "montages": [
           {
             "_type": "Montage",
@@ -42,7 +43,7 @@
           "TI_max",
           "TI_avg",
           "hf_peak",
-          "hf_sar",
+          "hf_rms",
           "hf_power_density"
         ],
         "subject_id": "001"

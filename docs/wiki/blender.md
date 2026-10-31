@@ -200,7 +200,7 @@ This mode extracts sub-cortical structures from NIfTI segmentation files and con
 **What is produced** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical/`):
 - **STL files**: Binary STL format geometry files suitable for CAD software and 3D printing
 - **MSH files**: SimNIBS mesh format for compatibility with simulation workflows
-- **PLY files**: the same mesh coloured by a simulation field (`TI_max` by default), written when a simulation is selected and its subject-space field volume exists
+- **PLY files**: the same mesh coloured by a simulation field (`TI_max` by default), written when a simulation is selected; its subject-space field volume is written from the simulation's field mesh first if the simulation did not save it
 - **NIfTI files**: Copied segmentation files for reference
 
 **Segmentation options:**

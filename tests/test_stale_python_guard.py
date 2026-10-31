@@ -152,7 +152,7 @@ DELETED_DEFINITIONS: dict[str, tuple[str, ...]] = {
         "get_TI_vectors",
         "get_TI_avg",
         "get_TI_dir",
-        "hf_sar",
+        "hf_rms",
         "hf_peak_is_exact",
         "EXACT_SIGN_ENUM_MAX_FIELDS",
         "_mti_modulation_depth",

@@ -3317,7 +3317,7 @@ space : AnalysisSpace or str
 fsaverage_field : str
     Surface field for <code>space="fsaverage"</code>; one of
     :data:<code>tit.constants.FSAVG_FIELD_NAMES</code> (<code>"TI_max"</code>,
-    <code>"TI_normal"</code>, <code>"hf_peak"</code>, <code>"hf_sar"</code>).  Default
+    <code>"TI_normal"</code>, <code>"hf_peak"</code>, <code>"hf_rms"</code>).  Default
     <code>"TI_max"</code>.
 fsaverage_spacing : int
     fsaverage ico spacing for <code>space="fsaverage"</code>: <code>5</code> (default),
@@ -3587,8 +3587,7 @@ automatically.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-442">442</a></span>
-<span class="normal"><a href="#__codelineno-0-443">443</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-443">443</a></span>
 <span class="normal"><a href="#__codelineno-0-444">444</a></span>
 <span class="normal"><a href="#__codelineno-0-445">445</a></span>
 <span class="normal"><a href="#__codelineno-0-446">446</a></span>
@@ -3626,46 +3625,47 @@ automatically.</p>
 <span class="normal"><a href="#__codelineno-0-478">478</a></span>
 <span class="normal"><a href="#__codelineno-0-479">479</a></span>
 <span class="normal"><a href="#__codelineno-0-480">480</a></span>
-<span class="normal"><a href="#__codelineno-0-481">481</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-442" name="__codelineno-0-442"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"GroupComparisonConfig.Subject"</span><span class="p">]:</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="w">    </span><span class="sd">"""Load group comparison subjects from a CSV file.</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``, ``response``</span>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    (0 or 1).  The ``sub-`` prefix is stripped from subject IDs</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    automatically.</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    csv_path : str</span>
-<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">        Path to a CSV file with the required columns.</span>
-<a id="__codelineno-0-454" name="__codelineno-0-454"></a>
-<a id="__codelineno-0-455" name="__codelineno-0-455"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    list of Subject</span>
-<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">        Subject instances parsed from the CSV rows.</span>
-<a id="__codelineno-0-459" name="__codelineno-0-459"></a>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">        If required columns are missing, or a row lacks one of their values.</span>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">    """</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"response"</span><span class="p">}</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="p">):</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">]):</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a>                <span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: subject_id, simulation_name and response are "</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>                <span class="s2">"all required"</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>            <span class="p">)</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a>                <span class="n">response</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">])),</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a>            <span class="p">)</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="p">)</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="k">return</span> <span class="n">subjects</span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-443" name="__codelineno-0-443"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"GroupComparisonConfig.Subject"</span><span class="p">]:</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a><span class="w">    </span><span class="sd">"""Load group comparison subjects from a CSV file.</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``, ``response``</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a><span class="sd">    (0 or 1).  The ``sub-`` prefix is stripped from subject IDs</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a><span class="sd">    automatically.</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a><span class="sd">    csv_path : str</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a><span class="sd">        Path to a CSV file with the required columns.</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a><span class="sd">    list of Subject</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="sd">        Subject instances parsed from the CSV rows.</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="sd">        If required columns are missing, or a row lacks one of their values.</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="sd">    """</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"response"</span><span class="p">}</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="p">):</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>        <span class="k">if</span> <span class="kc">None</span> <span class="ow">in</span> <span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span> <span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">]):</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>                <span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: subject_id, simulation_name and response are "</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>                <span class="s2">"all required"</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>            <span class="p">)</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>                <span class="n">response</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"response"</span><span class="p">])),</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>            <span class="p">)</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>        <span class="p">)</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="k">return</span> <span class="n">subjects</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -3990,8 +3990,7 @@ prefix is stripped from subject IDs automatically.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-662">662</a></span>
 <span class="normal"><a href="#__codelineno-0-663">663</a></span>
 <span class="normal"><a href="#__codelineno-0-664">664</a></span>
 <span class="normal"><a href="#__codelineno-0-665">665</a></span>
@@ -4035,52 +4034,53 @@ prefix is stripped from subject IDs automatically.</p>
 <span class="normal"><a href="#__codelineno-0-703">703</a></span>
 <span class="normal"><a href="#__codelineno-0-704">704</a></span>
 <span class="normal"><a href="#__codelineno-0-705">705</a></span>
-<span class="normal"><a href="#__codelineno-0-706">706</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="nd">@classmethod</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"CorrelationConfig.Subject"</span><span class="p">]:</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="w">    </span><span class="sd">"""Load correlation subjects from a CSV file.</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``,</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">    ``effect_size``.  Optional column: ``weight``.  Rows with NaN</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    prefix is stripped from subject IDs automatically.</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    csv_path : str</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">        Path to a CSV file with the required columns.</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    list of Subject</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">        Subject instances parsed from valid CSV rows.</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">        If required columns are missing, a kept row has no simulation_name, or</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">        no valid subjects are found.</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    """</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"effect_size"</span><span class="p">}</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="p">):</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: simulation_name is required"</span><span class="p">)</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight"</span><span class="p">)</span>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>                <span class="n">effect_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]),</span>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>                <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
-<a id="__codelineno-0-701" name="__codelineno-0-701"></a>            <span class="p">)</span>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a>        <span class="p">)</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subjects</span><span class="p">:</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No valid subjects found in CSV"</span><span class="p">)</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="k">return</span> <span class="n">subjects</span>
+<span class="normal"><a href="#__codelineno-0-706">706</a></span>
+<span class="normal"><a href="#__codelineno-0-707">707</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="nd">@classmethod</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subjects</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">csv_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="s2">"CorrelationConfig.Subject"</span><span class="p">]:</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="w">    </span><span class="sd">"""Load correlation subjects from a CSV file.</span>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">    Expected columns: ``subject_id``, ``simulation_name``,</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    ``effect_size``.  Optional column: ``weight``.  Rows with NaN</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    ``subject_id`` or ``effect_size`` are silently skipped.  The ``sub-``</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">    prefix is stripped from subject IDs automatically.</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">    csv_path : str</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a><span class="sd">        Path to a CSV file with the required columns.</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">    list of Subject</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a><span class="sd">        Subject instances parsed from valid CSV rows.</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">        If required columns are missing, a kept row has no simulation_name, or</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">        no valid subjects are found.</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">    """</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="n">subjects</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="k">for</span> <span class="n">line</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">_read_participant_rows</span><span class="p">(</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>        <span class="n">csv_path</span><span class="p">,</span> <span class="p">{</span><span class="s2">"subject_id"</span><span class="p">,</span> <span class="s2">"simulation_name"</span><span class="p">,</span> <span class="s2">"effect_size"</span><span class="p">}</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="p">):</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>        <span class="k">if</span> <span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"CSV row </span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">: simulation_name is required"</span><span class="p">)</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>        <span class="n">weight</span> <span class="o">=</span> <span class="n">row</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"weight"</span><span class="p">)</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>        <span class="n">subjects</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>            <span class="bp">cls</span><span class="o">.</span><span class="n">Subject</span><span class="p">(</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>                <span class="n">subject_id</span><span class="o">=</span><span class="n">_participant_id</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]),</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>                <span class="n">simulation_name</span><span class="o">=</span><span class="n">row</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">],</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>                <span class="n">effect_size</span><span class="o">=</span><span class="nb">float</span><span class="p">(</span><span class="n">row</span><span class="p">[</span><span class="s2">"effect_size"</span><span class="p">]),</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>                <span class="n">weight</span><span class="o">=</span><span class="mf">1.0</span> <span class="k">if</span> <span class="n">weight</span> <span class="ow">is</span> <span class="kc">None</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="n">weight</span><span class="p">),</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>            <span class="p">)</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>        <span class="p">)</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">subjects</span><span class="p">:</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No valid subjects found in CSV"</span><span class="p">)</span>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="k">return</span> <span class="n">subjects</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5666,16 +5666,14 @@ filepath : str
     Absolute path of the loaded file.</p>
 <h4 id="tit.stats.nifti.load_subject_nifti_ti_toolbox--raises">Raises<a class="headerlink" href="#tit.stats.nifti.load_subject_nifti_ti_toolbox--raises" title="Permanent link">&para;</a></h4>
 <p>FileNotFoundError
-    If the resolved NIfTI path does not exist.</p>
+    If the resolved NIfTI path does not exist and is not one the simulation
+    can produce now; a simulator NIfTI it did not save is written first,
+    from the field mesh (:func:<code>tit.volume_fields.ensure_nifti_file</code>).</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/nifti.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-36"> 36</a></span>
-<span class="normal"><a href="#__codelineno-0-37"> 37</a></span>
-<span class="normal"><a href="#__codelineno-0-38"> 38</a></span>
-<span class="normal"><a href="#__codelineno-0-39"> 39</a></span>
-<span class="normal"><a href="#__codelineno-0-40"> 40</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-40"> 40</a></span>
 <span class="normal"><a href="#__codelineno-0-41"> 41</a></span>
 <span class="normal"><a href="#__codelineno-0-42"> 42</a></span>
 <span class="normal"><a href="#__codelineno-0-43"> 43</a></span>
@@ -5737,73 +5735,87 @@ filepath : str
 <span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
 <span class="normal"><a href="#__codelineno-0-100">100</a></span>
 <span class="normal"><a href="#__codelineno-0-101">101</a></span>
-<span class="normal"><a href="#__codelineno-0-102">102</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a><span class="w">    </span><span class="sd">"""Load a single subject's NIfTI file from TI-Toolbox BIDS structure.</span>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">        Subject identifier (e.g. ``'070'``).</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    simulation_name : str</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">        Simulation folder name (e.g. ``'ICP_RHIPPO'``).</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    nifti_file_pattern : str, optional</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">        Filename pattern with ``{subject_id}`` / ``{simulation_name}``</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">        placeholders, in the 2-pair spelling; an mTI simulation's file is read</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        from ``mTI/niftis/`` (see</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        :func:`tit.analyzer.field_selector.simulation_nifti_path`).</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    dtype : numpy dtype, optional</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        Data type for the returned array.  Default is ``np.float32``.</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    data : numpy.ndarray</span>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">        3-D array of voxel values.</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    img : nibabel.Nifti1Image</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        The loaded NIfTI image (useful for affine / header).</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    filepath : str</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        Absolute path of the loaded file.</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    FileNotFoundError</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">        If the resolved NIfTI path does not exist.</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    """</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="c1"># TI/niftis/ for a 2-pair run, mTI/niftis/ (mTI file names) for an mTI run.</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">simulation_nifti_path</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">)</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="n">nifti_dir</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="c1"># Load the file (inline basic loading)</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="c1"># Provide extra context to make debugging path/layout issues easier</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">):</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">))</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a>            <span class="n">preview</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[:</span><span class="mi">20</span><span class="p">]</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a>            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">""</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">):</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a>                <span class="n">suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" (showing first </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>                <span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">. "</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>                <span class="sa">f</span><span class="s2">"Directory exists: </span><span class="si">{</span><span class="n">nifti_dir</span><span class="si">}</span><span class="s2">. "</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a>                <span class="sa">f</span><span class="s2">"Files in directory: </span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a>            <span class="p">)</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a>    <span class="n">img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a>    <span class="c1"># Ensure 3D data (squeeze out extra dimensions if present)</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a>    <span class="k">while</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-40" name="__codelineno-0-40"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>    <span class="n">simulation_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a><span class="w">    </span><span class="sd">"""Load a single subject's NIfTI file from TI-Toolbox BIDS structure.</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">        Subject identifier (e.g. ``'070'``).</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    simulation_name : str</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">        Simulation folder name (e.g. ``'ICP_RHIPPO'``).</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">    nifti_file_pattern : str, optional</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        Filename pattern with ``{subject_id}`` / ``{simulation_name}``</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">        placeholders, in the 2-pair spelling; an mTI simulation's file is read</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        from ``mTI/niftis/`` (see</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        :func:`tit.analyzer.field_selector.simulation_nifti_path`).</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    dtype : numpy dtype, optional</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">        Data type for the returned array.  Default is ``np.float32``.</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    data : numpy.ndarray</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        3-D array of voxel values.</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">    img : nibabel.Nifti1Image</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">        The loaded NIfTI image (useful for affine / header).</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    filepath : str</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">        Absolute path of the loaded file.</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">    FileNotFoundError</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">        If the resolved NIfTI path does not exist and is not one the simulation</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">        can produce now; a simulator NIfTI it did not save is written first,</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">        from the field mesh (:func:`tit.volume_fields.ensure_nifti_file`).</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    """</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.volume_fields</span><span class="w"> </span><span class="kn">import</span> <span class="n">ensure_nifti_file</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="c1"># TI/niftis/ for a 2-pair run, mTI/niftis/ (mTI file names) for an mTI run.</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">simulation_nifti_path</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">)</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">nifti_dir</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="o">.</span><span class="n">parent</span><span class="p">),</span> <span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="n">ensure_nifti_file</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">say</span><span class="o">=</span><span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">)</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>    <span class="c1"># Load the file (inline basic loading)</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">filepath</span><span class="p">):</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>        <span class="c1"># Provide extra context to make debugging path/layout issues easier</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">):</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">listdir</span><span class="p">(</span><span class="n">nifti_dir</span><span class="p">))</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>            <span class="k">except</span> <span class="ne">OSError</span><span class="p">:</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>                <span class="n">existing</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>            <span class="n">preview</span> <span class="o">=</span> <span class="n">existing</span><span class="p">[:</span><span class="mi">20</span><span class="p">]</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>            <span class="n">suffix</span> <span class="o">=</span> <span class="s2">""</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span> <span class="o">&gt;</span> <span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">):</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>                <span class="n">suffix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">" (showing first </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">preview</span><span class="p">)</span><span class="si">}</span><span class="s2"> of </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">existing</span><span class="p">)</span><span class="si">}</span><span class="s2">)"</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>            <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>                <span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">. "</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>                <span class="sa">f</span><span class="s2">"Directory exists: </span><span class="si">{</span><span class="n">nifti_dir</span><span class="si">}</span><span class="s2">. "</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>                <span class="sa">f</span><span class="s2">"Files in directory: </span><span class="si">{</span><span class="n">preview</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>            <span class="p">)</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"NIfTI file not found: </span><span class="si">{</span><span class="n">filepath</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="n">img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">filepath</span><span class="p">)</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="n">data</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">get_fdata</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="c1"># Ensure 3D data (squeeze out extra dimensions if present)</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>    <span class="k">while</span> <span class="n">data</span><span class="o">.</span><span class="n">ndim</span> <span class="o">&gt;</span> <span class="mi">3</span><span class="p">:</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>    <span class="k">return</span> <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5851,16 +5863,7 @@ subject_ids : list of str
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/nifti.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-179">179</a></span>
-<span class="normal"><a href="#__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#__codelineno-0-182">182</a></span>
-<span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span>
-<span class="normal"><a href="#__codelineno-0-185">185</a></span>
-<span class="normal"><a href="#__codelineno-0-186">186</a></span>
-<span class="normal"><a href="#__codelineno-0-187">187</a></span>
-<span class="normal"><a href="#__codelineno-0-188">188</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
 <span class="normal"><a href="#__codelineno-0-190">190</a></span>
 <span class="normal"><a href="#__codelineno-0-191">191</a></span>
@@ -5938,94 +5941,103 @@ subject_ids : list of str
 <span class="normal"><a href="#__codelineno-0-263">263</a></span>
 <span class="normal"><a href="#__codelineno-0-264">264</a></span>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
-<span class="normal"><a href="#__codelineno-0-266">266</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-179" name="__codelineno-0-179"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">reference</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="w">    </span><span class="sd">"""Load and stack multiple subjects into a 4-D array.</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a><span class="sd">    subject_configs : list of dict</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a><span class="sd">        Each dict must contain ``'subject_id'`` and ``'simulation_name'``</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a><span class="sd">        keys (e.g. ``{'subject_id': '070', 'simulation_name': 'ICP_RHIPPO'}``).</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="sd">    nifti_file_pattern : str, optional</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="sd">        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="sd">    dtype : numpy dtype, optional</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        Data type for the returned arrays.  Default is ``np.float32``.</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    reference : tuple or None, optional</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        ``(shape, affine, where)`` of a grid every subject must be on -- another</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        group's, when two groups are compared voxel by voxel; *where* names it in</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        the error. ``None`` (default) makes the first subject the reference.</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    data_4d : numpy.ndarray</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        Shape ``(X, Y, Z, n_subjects)``.</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    template_img : nibabel.Nifti1Image</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">        Image from the first subject (affine / header reference).</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">    subject_ids : list of str</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">        Subject identifiers in the same order as the last axis of</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a><span class="sd">        *data_4d*.</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">        If no subjects could be loaded.</span>
-<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">    """</span>
-<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No subjects could be loaded successfully"</span><span class="p">)</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="n">data_4d</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="n">template_affine</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>    <span class="n">template_header</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="n">reference_path</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">):</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">subject_id</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="n">simulation_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>        <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="n">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>            <span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="p">)</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>            <span class="n">_check_same_grid</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="o">*</span><span class="n">reference</span><span class="p">)</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">if</span> <span class="n">data_4d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="n">template_affine</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>            <span class="n">template_header</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="n">reference_path</span> <span class="o">=</span> <span class="n">filepath</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="c1"># Preallocate: np.stack + astype on a list of N volumes peaks at</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="c1"># ~3x the final array; writing each subject straight into the</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>            <span class="c1"># output keeps it at 1x + one volume.</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="n">data_4d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">),),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>            <span class="n">_check_same_grid</span><span class="p">(</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>                <span class="n">subject_id</span><span class="p">,</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>                <span class="n">filepath</span><span class="p">,</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>                <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>                <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>                <span class="n">data_4d</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>                <span class="n">template_affine</span><span class="p">,</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>                <span class="n">reference_path</span><span class="p">,</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>            <span class="p">)</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>        <span class="n">data_4d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="n">subject_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="c1"># Clear the image object to free memory</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>        <span class="k">del</span> <span class="n">img</span><span class="p">,</span> <span class="n">data</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="c1"># Recreate minimal template image</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">template_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">data_4d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">template_affine</span><span class="p">,</span> <span class="n">template_header</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span>
+<span class="normal"><a href="#__codelineno-0-272">272</a></span>
+<span class="normal"><a href="#__codelineno-0-273">273</a></span>
+<span class="normal"><a href="#__codelineno-0-274">274</a></span>
+<span class="normal"><a href="#__codelineno-0-275">275</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="k">def</span><span class="w"> </span><span class="nf">load_group_data_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="n">subject_configs</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">dict</span><span class="p">],</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">nifti_file_pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"grey_</span><span class="si">{simulation_name}</span><span class="s2">_TI_MNI_MNI_TI_max.nii.gz"</span><span class="p">,</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">,</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="n">reference</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a><span class="w">    </span><span class="sd">"""Load and stack multiple subjects into a 4-D array.</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">    subject_configs : list of dict</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        Each dict must contain ``'subject_id'`` and ``'simulation_name'``</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        keys (e.g. ``{'subject_id': '070', 'simulation_name': 'ICP_RHIPPO'}``).</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">    nifti_file_pattern : str, optional</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">        Filename pattern forwarded to :func:`load_subject_nifti_ti_toolbox`.</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">    dtype : numpy dtype, optional</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="sd">        Data type for the returned arrays.  Default is ``np.float32``.</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="sd">    reference : tuple or None, optional</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a><span class="sd">        ``(shape, affine, where)`` of a grid every subject must be on -- another</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a><span class="sd">        group's, when two groups are compared voxel by voxel; *where* names it in</span>
+<a id="__codelineno-0-208" name="__codelineno-0-208"></a><span class="sd">        the error. ``None`` (default) makes the first subject the reference.</span>
+<a id="__codelineno-0-209" name="__codelineno-0-209"></a>
+<a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a><span class="sd">    data_4d : numpy.ndarray</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a><span class="sd">        Shape ``(X, Y, Z, n_subjects)``.</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a><span class="sd">    template_img : nibabel.Nifti1Image</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a><span class="sd">        Image from the first subject (affine / header reference).</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="sd">    subject_ids : list of str</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="sd">        Subject identifiers in the same order as the last axis of</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="sd">        *data_4d*.</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">        If no subjects could be loaded.</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    """</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"No subjects could be loaded successfully"</span><span class="p">)</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>    <span class="n">data_4d</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="n">template_affine</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="n">template_header</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="n">reference_path</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="k">for</span> <span class="n">index</span><span class="p">,</span> <span class="n">config</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">):</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>        <span class="n">subject_id</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"subject_id"</span><span class="p">]</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="n">simulation_name</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">"simulation_name"</span><span class="p">]</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="n">data</span><span class="p">,</span> <span class="n">img</span><span class="p">,</span> <span class="n">filepath</span> <span class="o">=</span> <span class="n">load_subject_nifti_ti_toolbox</span><span class="p">(</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>            <span class="n">subject_id</span><span class="p">,</span> <span class="n">simulation_name</span><span class="p">,</span> <span class="n">nifti_file_pattern</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="p">)</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">if</span> <span class="n">reference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="n">_check_same_grid</span><span class="p">(</span><span class="n">subject_id</span><span class="p">,</span> <span class="n">filepath</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span> <span class="o">*</span><span class="n">reference</span><span class="p">)</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="k">if</span> <span class="n">data_4d</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="n">template_affine</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>            <span class="n">template_header</span> <span class="o">=</span> <span class="n">img</span><span class="o">.</span><span class="n">header</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>            <span class="n">reference_path</span> <span class="o">=</span> <span class="n">filepath</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>            <span class="c1"># Preallocate: np.stack + astype on a list of N volumes peaks at</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="c1"># ~3x the final array; writing each subject straight into the</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>            <span class="c1"># output keeps it at 1x + one volume.</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a>            <span class="n">data_4d</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">empty</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span> <span class="o">+</span> <span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_configs</span><span class="p">),),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype</span><span class="p">)</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="n">_check_same_grid</span><span class="p">(</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>                <span class="n">subject_id</span><span class="p">,</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>                <span class="n">filepath</span><span class="p">,</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>                <span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="n">img</span><span class="o">.</span><span class="n">affine</span><span class="p">,</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>                <span class="n">data_4d</span><span class="o">.</span><span class="n">shape</span><span class="p">[:</span><span class="o">-</span><span class="mi">1</span><span class="p">],</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="n">template_affine</span><span class="p">,</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>                <span class="n">reference_path</span><span class="p">,</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>            <span class="p">)</span>
 <a id="__codelineno-0-263" name="__codelineno-0-263"></a>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="k">return</span> <span class="n">data_4d</span><span class="p">,</span> <span class="n">template_img</span><span class="p">,</span> <span class="n">subject_ids</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="n">data_4d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="n">index</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="n">subject_ids</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="c1"># Clear the image object to free memory</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="k">del</span> <span class="n">img</span><span class="p">,</span> <span class="n">data</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="c1"># Recreate minimal template image</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="n">template_img</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">Nifti1Image</span><span class="p">(</span><span class="n">data_4d</span><span class="p">[</span><span class="o">...</span><span class="p">,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">template_affine</span><span class="p">,</span> <span class="n">template_header</span><span class="p">)</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>    <span class="k">return</span> <span class="n">data_4d</span><span class="p">,</span> <span class="n">template_img</span><span class="p">,</span> <span class="n">subject_ids</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

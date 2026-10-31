@@ -165,6 +165,11 @@ def run_subcortical(
             field_nifti = field_nifti_path(
                 config.subject_id, config.simulation_name, field_name
             )
+            from tit.volume_fields import ensure_nifti_file
+
+            ensure_nifti_file(
+                config.subject_id, config.simulation_name, field_nifti, say=log.info
+            )
         if field_nifti and os.path.isfile(field_nifti):
             ply_output = os.path.join(output_dir, f"subcortical_{suffix}.ply")
             log.info(f"Generating field-coloured PLY from {field_name}...")
@@ -184,6 +189,7 @@ def run_subcortical(
                 f"{ply_result['field_min']:.3f}-{ply_result['field_max']:.3f})"
             )
         elif config.simulation_name:
+            # Nothing to write it from (no field mesh): the warning names the file.
             log.warning(
                 f"No '{field_name}' subject-space field volume at {field_nifti} "
                 f"for simulation '{config.simulation_name}'; skipping PLY export."

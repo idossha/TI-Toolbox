@@ -224,7 +224,7 @@ cfg = SimulationConfig(
     montages=montages,
     conductivity="scalar",
     intensities=[1.0, 1.0],
-    output_fields=["TI_max"],
+    # output_fields defaults to ["TI_max", "hf_peak", "hf_rms"]; map_to_vol=True adds NIfTIs
 )
 run_simulation(cfg)
 ```
@@ -239,10 +239,11 @@ run_simulation(cfg)
 | `electrode_dimensions` | **Electrodes ▸ Dimensions** (mm) | `[8.0, 8.0]` |
 | `gel_thickness` | **Electrodes ▸ Gel thickness** (mm) | `1.0` |
 | `rubber_thickness` | — | `2.0` |
-| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_sar`, `hf_power_density`) | `["TI_max"]` |
-| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_sar`/`hf_power_density`, no envelope fields; two-channel TI with `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
-| `map_to_surf` / `map_to_vol` | — | `True` / `False` |
-| `map_to_mni` | **Generate MNI NIfTI outputs** | `False` |
+| `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_rms`, `hf_power_density`) | `None`: `["TI_max", "hf_peak", "hf_rms"]`, or `["hf_peak", "hf_rms"]` with `carrier_only` |
+| `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_rms`/`hf_power_density`, no envelope fields; two-channel TI, `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
+| `map_to_surf` | — | `True` |
+| `map_to_vol` | **Write NIfTI volumes (one per field)** | `False` |
+| `map_to_mni` | **Also in MNI space** (turns `map_to_vol` on) | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |
 
 Two channels (electrode pairs) run a TI simulation, four or more run mTI — the API picks for you.
@@ -258,7 +259,7 @@ from tit.analyzer import Analyzer
 analyzer = Analyzer(subject_id="ernie", simulation="L_Insula", space="mesh")
 roi = analyzer.analyze_cortex(atlas="DK40", region="lh.insula")
 print(roi.roi_mean, roi.roi_max, roi.roi_focality)
-print(roi.hf_focality, roi.ti_selectivity)  # None unless the run wrote hf_peak
+print(roi.hf_peak_focality, roi.ti_selectivity)  # None unless the run wrote hf_peak
 ```
 
 | Field | App control | Default |
@@ -305,7 +306,7 @@ ti_max, direction = envelope_max([E1, E2], return_direction=True)  # + unit dire
 ti_z = envelope([E1, E2], [0.0, 0.0, 1.0])            # envelope along one direction
 ti_avg = envelope_mean([E1, E2])                      # TI_avg
 peak = hf_peak([E1, E2])                              # hf_peak, V/m (zero-to-peak)
-power = hf_power([E1, E2])                            # E_rms^2, (V/m)^2; hf_sar = 2 * power
+power = hf_power([E1, E2])                            # mean square, (V/m)^2; hf_rms = sqrt(power)
 ```
 
 `envelope(fields, normals)` with one unit normal per row is `TI_normal`, and

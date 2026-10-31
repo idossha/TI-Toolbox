@@ -30,6 +30,10 @@ from simnibs import mesh_io, transformations
 
 logger = logging.getLogger(__name__)
 
+#: The tissue crops a field mesh's NIfTIs are written for, as SimNIBS tissue tags: the
+#: ``grey_`` / ``white_`` NIfTIs are the volume mesh's grey- and white-matter tetrahedra.
+TISSUE_TAGS: dict[str, list[int]] = {"grey": [2], "white": [1]}
+
 
 def _resolve_workers(n_tasks: int, max_workers: int | None) -> int:
     """Decide how many worker processes to use for a batch of *n_tasks*.
@@ -73,6 +77,11 @@ def _write_temp_mesh(mesh) -> str:
     return path
 
 
+def _cropped(mesh, tags: list[int] | None):
+    """*mesh* cropped to the elements tagged *tags*; *mesh* itself when *tags* is ``None``."""
+    return mesh if tags is None else mesh.crop_mesh(tags=tags)
+
+
 def _filter_mesh_fields(mesh, fields: list[str]):
     """Return a shallow copy of *mesh* containing only the named fields.
 
@@ -90,6 +99,7 @@ def msh_to_nifti(
     m2m_dir: str,
     output_path: str,
     fields: list[str] | None = None,
+    tags: list[int] | None = None,
 ) -> None:
     """Convert a mesh file to subject-space NIfTI.
 
@@ -105,8 +115,11 @@ def msh_to_nifti(
     fields : list[str] | None
         If given, only these fields are written.  Otherwise all fields in the
         mesh are converted.
+    tags : list[int] | None
+        If given, the mesh is first cropped to the elements with these tissue tags
+        (:data:`TISSUE_TAGS`).
     """
-    mesh = mesh_io.read_msh(mesh_path)
+    mesh = _cropped(mesh_io.read_msh(mesh_path), tags)
     if fields:
         mesh = _filter_mesh_fields(mesh, fields)
     transformations.interpolate_to_volume(mesh, m2m_dir, output_path)
@@ -117,6 +130,7 @@ def msh_to_mni(
     m2m_dir: str,
     output_path: str,
     fields: list[str] | None = None,
+    tags: list[int] | None = None,
 ) -> None:
     """Convert a mesh file to MNI-space NIfTI.
 
@@ -131,12 +145,20 @@ def msh_to_mni(
         (e.g. ``prefix_magnE.nii.gz``).
     fields : list[str] | None
         If given, only these fields are written.
+    tags : list[int] | None
+        If given, the mesh is first cropped to the elements with these tissue tags.
     """
-    if fields:
-        mesh = mesh_io.read_msh(mesh_path)
-        mesh = _filter_mesh_fields(mesh, fields)
-        mesh_path = _write_temp_mesh(mesh)
-    transformations.warp_volume(mesh_path, m2m_dir, output_path)
+    temp = None
+    if fields or tags:
+        mesh = _cropped(mesh_io.read_msh(mesh_path), tags)
+        if fields:
+            mesh = _filter_mesh_fields(mesh, fields)
+        mesh_path = temp = _write_temp_mesh(mesh)
+    try:
+        transformations.warp_volume(mesh_path, m2m_dir, output_path)
+    finally:
+        if temp is not None:
+            os.unlink(temp)
 
 
 def convert_mesh_dir(
@@ -173,9 +195,9 @@ def convert_mesh_dir(
         If given, only these fields are converted.
     skip_patterns : list[str] | None
         Basenames containing any of these substrings are skipped. By default
-        only basenames ending in ``_normal`` are -- the surface-only
-        ``<name>_normal.msh`` / ``<name>_mTI_normal.msh`` meshes, which have no
-        volume elements -- so a montage or subject whose name merely contains
+        only basenames ending in ``_normal`` are -- the surface-only ``TI_normal``
+        meshes runs made before the central surface carried it left, which have
+        no volume elements -- so a montage or subject whose name merely contains
         "normal" is still converted.
     map_to_mni : bool
         Include MNI-space outputs (default True for standalone conversion).
@@ -219,7 +241,9 @@ def convert_mesh_dirs(
     specs : list[dict]
         One dict per directory with keys ``mesh_dir`` and ``output_dir``
         (required) and optional ``fields`` / ``skip_patterns`` (same meaning
-        as in :func:`convert_mesh_dir`).
+        as in :func:`convert_mesh_dir`) and ``tissues``: ``True`` also converts each
+        mesh's grey- and white-matter crops (:data:`TISSUE_TAGS`) as
+        ``grey_<base>`` / ``white_<base>``, the simulator's field-mesh NIfTIs.
     m2m_dir : str
         Path to the ``m2m_{subject}`` directory.
     map_to_mni : bool
@@ -240,6 +264,7 @@ def convert_mesh_dirs(
             spec.get("fields"),
             spec.get("skip_patterns"),
             map_to_mni,
+            tissues=spec.get("tissues", False),
         )
         all_tasks.extend(tasks)
         all_temp.extend(temp_paths)
@@ -259,13 +284,15 @@ def _collect_tasks(
     fields: list[str] | None,
     skip_patterns: list[str] | None,
     map_to_mni: bool = True,
+    *,
+    tissues: bool = False,
 ) -> tuple[list[tuple], list[str]]:
     """Build the (tasks, temp_paths) for one mesh directory.
 
     Each task is a ``(worker, source-mesh-path, output-prefix)`` triple.
-    When filtering fields, a filtered temp mesh is written once and shared
-    by both the subject- and MNI-space tasks (``warp_volume`` only accepts
-    file paths, not in-memory meshes).
+    When filtering fields or cropping to a tissue (*tissues*), the mesh is
+    written to a temp file once and shared by both the subject- and MNI-space
+    tasks (``warp_volume`` only accepts file paths, not in-memory meshes).
     """
 
     def skipped(base: str) -> bool:
@@ -295,19 +322,34 @@ def _collect_tasks(
             continue
 
         mesh_path = os.path.join(mesh_dir, fname)
-        src_path = mesh_path
-        if fields:
-            filtered = _filter_mesh_fields(mesh_io.read_msh(mesh_path), fields)
-            src_path = _write_temp_mesh(filtered)
-            temp_paths.append(src_path)
+        sources = [(base, mesh_path)]
+        if fields or tissues:
+            mesh = mesh_io.read_msh(mesh_path)
+            if fields:
+                mesh = _filter_mesh_fields(mesh, fields)
+            variants = [(base, mesh)]
+            if tissues:
+                variants += [
+                    (f"{tissue}_{base}", mesh.crop_mesh(tags=tags))
+                    for tissue, tags in TISSUE_TAGS.items()
+                ]
+            sources = []
+            for name, variant in variants:
+                if variant is mesh and not fields:
+                    sources.append((name, mesh_path))
+                    continue
+                temp = _write_temp_mesh(variant)
+                temp_paths.append(temp)
+                sources.append((name, temp))
 
-        tasks.append(
-            (_subject_worker, src_path, os.path.join(output_dir, f"{base}_subject"))
-        )
-        if map_to_mni:
+        for name, src_path in sources:
             tasks.append(
-                (_mni_worker, src_path, os.path.join(output_dir, f"{base}_MNI"))
+                (_subject_worker, src_path, os.path.join(output_dir, f"{name}_subject"))
             )
+            if map_to_mni:
+                tasks.append(
+                    (_mni_worker, src_path, os.path.join(output_dir, f"{name}_MNI"))
+                )
 
     return tasks, temp_paths
 

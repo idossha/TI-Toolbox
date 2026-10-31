@@ -49,7 +49,8 @@ def select_field_file(
         ``"GM"``, ``"WM"``, or ``"both"`` (voxel only). Default ``"GM"``.
     field : str or None, optional
         Field name from ``constants.FIELD_REGISTRY`` (e.g. ``"hf_peak"``).
-        Default ``None`` resolves ``TI_max`` (TI) or ``mTI_max`` (mTI).
+        Default ``None`` resolves :func:`default_field`: ``TI_max`` (TI), ``mTI_max``
+        (mTI), or ``hf_peak`` for a carrier-only control.
         ``"TI_max"``/``"mTI_max"`` are treated as aliases for the same
         quantity; the on-disk spelling is always chosen by the detected
         simulation type, regardless of which alias is passed.
@@ -85,12 +86,40 @@ def select_field_file(
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(subject_id, simulation))
     is_mti = is_mti_simulation(subject_id, simulation)
+    if field is None and sim_dir.is_dir():
+        # Only a carrier-only run changes the default; the envelope keeps None, whose voxel
+        # lookup still accepts an older run's unsuffixed NIfTI.
+        if default_field(subject_id, simulation) == const.FIELD_HF_PEAK:
+            field = const.FIELD_HF_PEAK
 
     if space == "mesh":
         return _select_mesh(sim_dir, simulation, is_mti, field)
     if space == "voxel":
         return _select_voxel(sim_dir, simulation, is_mti, tissue_type, field)
     raise ValueError(f"Unsupported space: {space!r} (expected 'mesh' or 'voxel')")
+
+
+def default_field(subject_id: str, simulation: str) -> str:
+    """The field an analysis with no field (the app's **Auto**) analyses.
+
+    The envelope -- ``TI_max``, or ``mTI_max`` for an mTI run -- except for a carrier-only
+    control (its run record's ``carrier_only``), which has no envelope: there it is
+    ``hf_peak``. A run without a record is not carrier-only.
+
+    Raises:
+        ValueError: the run record is not JSON.
+    """
+    import json
+
+    record = Path(get_path_manager().simulation(subject_id, simulation))
+    record = record / "documentation" / "config.json"
+    if record.is_file() and json.loads(record.read_text()).get("carrier_only") is True:
+        return const.FIELD_HF_PEAK
+    return (
+        const.FIELD_MTI_MAX
+        if is_mti_simulation(subject_id, simulation)
+        else (const.FIELD_TI_MAX)
+    )
 
 
 def is_mti_simulation(subject_id: str, simulation: str) -> bool:
@@ -123,7 +152,7 @@ def simulation_nifti_path(
     Patterns use the TI spelling (``grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz``,
     read from ``TI/niftis/``). An mTI run writes the same files from its ``<sim>_mTI.msh``
     into ``mTI/niftis/``, and of its fields only the envelope is spelled differently
-    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep their names). So for mTI the
+    (``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_rms`` keep their names). So for mTI the
     mesh token before the space (``_TI_subject_`` / ``_TI_MNI_``) becomes ``_mTI_`` and a
     trailing ``_TI_max`` becomes ``_mTI_max``: ``grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz``,
     ``grey_<sim>_mTI_MNI_MNI_TI_avg.nii.gz``. A pattern already spelled for mTI is unchanged.
@@ -187,21 +216,19 @@ def _select_mesh(
     )
     field_name = _canonical_field_name(field_name, is_mti)
 
-    # TI_normal lives in a separate mesh (written by
-    # BaseSimulation._write_ti_normal), not the main TI/mTI output mesh.
+    # TI_normal is a surface field: node data on the run's central surface, beside the
+    # volume fields mapped onto it (tit.volume_fields.central_surface).
     if field_name == const.FIELD_TI_NORMAL:
-        if is_mti:
-            normal_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI_normal.msh"
-        else:
-            normal_path = sim_dir / "TI" / "mesh" / f"{simulation}_normal.msh"
-        if not normal_path.exists():
+        mode = "mTI" if is_mti else "TI"
+        surface = (
+            sim_dir / mode / "mesh" / "surfaces" / f"{simulation}_{mode}_central.msh"
+        )
+        if not surface.exists():
             raise FileNotFoundError(
-                f"TI_normal mesh not found: {normal_path}. This simulation "
-                "predates TI_normal support for its mode; re-run it to get "
-                "the normal-component mesh."
+                f"Central surface not found: {surface}. Run the simulation first."
             )
-        logger.debug("Selected mesh field file: %s (field=%s)", normal_path, field_name)
-        return normal_path, field_name
+        logger.debug("Selected mesh field file: %s (field=%s)", surface, field_name)
+        return surface, field_name
 
     if is_mti:
         mesh_path = sim_dir / "mTI" / "mesh" / f"{simulation}_mTI.msh"

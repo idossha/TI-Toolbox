@@ -37,6 +37,7 @@ from tit.atlas.constants import VOXEL_ATLASES, mni_resources_dir
 from tit.atlas.mesh import MeshAtlasManager
 from tit.atlas.voxel import VoxelAtlasManager, parse_region_label
 from tit.constants import get_field_names
+from tit.tools.msh_fields import msh_field_names
 from tit.paths import (
     PathManager,
     is_valid_subject_id,
@@ -714,7 +715,7 @@ def classify_sim_nifti(basename: str, simulation: str | None = None) -> dict | N
     The simulator names every volume ``<base>_subject_<field>.nii.gz`` or
     ``<base>_MNI_MNI_<field>.nii.gz`` (``tit.tools.mesh2nii``), where ``<base>`` is
     the mesh it came from: ``<tissue_><sim>_<TI|mTI>`` for the envelope fields
-    (``extract_fields`` adds ``grey_``/``white_``) and ``<sid>_TDCS_<i>_<cond>`` for a
+    (``grey_``/``white_`` for the volume mesh's tissue crops, ``tit.tools.mesh2nii``) and ``<sid>_TDCS_<i>_<cond>`` for a
     carrier's ``magnE``. Space and field are read from the tokens at the end and the
     tissue from the prefix before the simulation's own name, so a simulation called
     ``MNI_target``, ``grey_matter`` or ``TDCS_vs_TI`` is classified like any other.
@@ -872,10 +873,15 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
 
     niftis: list[dict] = []
     meshes: list[dict] = []
+    saved: set[str] = set()
     for mode in _MODE_DIRS:
         mode_dir = os.path.join(sim_dir, mode)
         if not _project_isdir(pm, mode_dir):
             continue
+        # The field mesh's own fields: NIfTIs are opt-in, the mesh always holds what was saved.
+        volume = os.path.join(mode_dir, "mesh", f"{sim}_{mode}.msh")
+        if _project_paths_safe(pm, volume) and os.path.isfile(volume):
+            saved |= msh_field_names(volume) or set()
         niftis.extend(
             _mode_niftis(mode_dir, simulation=sim, project_root=pm.project_dir)
         )
@@ -912,7 +918,7 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
         )
     )
 
-    fields = sorted({n["field"] for n in niftis if n["field"]})
+    fields = sorted(saved | {n["field"] for n in niftis if n["field"]})
     spaces = sorted({n["space"] for n in niftis})
     all_reports = reports(pm, sid) or []
     return {
@@ -922,6 +928,8 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
         "has_mti": has_mti,
         "montages": [montage_name],
         "fields": fields,
+        # A carrier-only control (ΔF = 0) has no envelope to analyse or compute.
+        "carrier_only": config.get("carrier_only") is True,
         "space": spaces,
         "report_ids": _report_ids_for_simulation(all_reports, sim),
         "niftis": niftis,

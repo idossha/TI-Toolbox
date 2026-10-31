@@ -6,32 +6,32 @@ researcher reconstruct EEG sources *onto* fsaverage, this pipeline puts the
 *stimulation* fields on the same grid, so source activity and TI exposure can be
 compared vertexwise.
 
-For an already-completed TI simulation it reads the pipeline's own
-central-surface overlays and morphs the requested scalar fields to fsaverage:
+For an already-completed TI simulation it reads the run's own central surface
+(``<TI|mTI>/mesh/surfaces/<sim>_<TI|mTI>_central.msh``) and channel meshes and
+morphs the requested scalar fields to fsaverage:
 
-* ``TI_max``    -- orientation-maximized TI envelope |E| (central overlay)
-* ``TI_normal`` -- directional TI envelope along the cortical normal
+* ``TI_max``    -- orientation-maximized TI envelope |E| (central surface)
+* ``TI_normal`` -- directional TI envelope along the cortical normal (central surface)
 * ``hf_peak``   -- peak carrier field, max over channel sign combinations (Cassarà 2025, safety)
-* ``hf_sar``    -- sum |E_i|^2 = 2 * ``tit.calc.hf_power``, a heating proxy (proportional to SAR)
+* ``hf_rms``    -- RMS carrier field over time, ``sqrt(tit.calc.hf_power)`` (V/m)
 
 This path covers **both** standard TI and mTI. The two differ only in what the
 finished run is called on disk, and each resolver here takes either:
 :func:`_ti_max_overlay` reads ``TI_max`` from ``TI/mesh/surfaces`` or the same
-quantity spelled ``mTI_max`` under ``mTI/mesh/surfaces``, :func:`_ti_normal_overlay`
-searches both mesh directories, and :func:`_carrier_volume_meshes` collects every
+quantity spelled ``mTI_max`` under ``mTI/mesh/surfaces``, :func:`_ti_normal_surface`
+reads ``TI_normal`` from the same surface, and :func:`_carrier_volume_meshes` collects every
 carrier volume mesh under ``high_Frequency/`` -- ``TDCS_1``/``TDCS_2`` for TI, and
-``TDCS_A``..``TDCS_Z`` for mTI's N channels. ``hf_peak``/``hf_sar`` are then computed
+``TDCS_A``..``TDCS_Z`` for mTI's N channels. ``hf_peak``/``hf_rms`` are then computed
 over all N channel fields, not a hardcoded two.
 
-``TI_max`` / ``TI_normal`` are read from the pipeline's central-surface overlays;
-``hf_peak`` / ``hf_sar`` are interpolated from the carrier **volume** meshes (the
-surface overlays only reliably carry ``E_normal`` on some SimNIBS builds) using
-the same formulas as the volume output (:func:`tit.calc.hf_peak`,
+``TI_max`` / ``TI_normal`` are read from the run's central surface;
+``hf_peak`` / ``hf_rms`` are interpolated from the carrier **volume** meshes
+using the same formulas as the volume output (:func:`tit.calc.hf_peak`,
 :func:`tit.calc.hf_power`).
 
 Unlike SimNIBS's native ``map_to_fsavg`` (which only runs at simulation time and
 only emits ``TI_max``), this works *post-hoc* on any finished simulation and on
-the derived ``TI_normal`` / ``hf_peak`` / ``hf_sar`` quantities.
+the derived ``TI_normal`` / ``hf_peak`` / ``hf_rms`` quantities.
 
 Output, in ``<sim>/fsaverage/``: ``sub-<id>_sim-<sim>_space-fsaverage<N>_fields.msh``
 -- the fsaverage central surfaces (lh nodes, then rh) with each field as a node
@@ -79,15 +79,14 @@ def _read_surface_scalar(path: Path, field_name: str) -> np.ndarray:
 def _carrier_volume_meshes(pm, subject_id: str, sim: str) -> tuple[Path, ...]:
     """Locate the per-channel carrier VOLUME meshes for a simulation (N >= 2).
 
-    Unlike the central-surface overlays -- which some SimNIBS builds fill with
-    only ``E_normal`` -- the high-frequency volume meshes always carry the full
-    vector ``E``, so ``hf_peak`` / ``hf_sar`` can be derived reliably from them.
+    The high-frequency volume meshes carry the full vector ``E``, so ``hf_peak`` /
+    ``hf_rms`` are derived from them.
     """
     sim_dir = Path(pm.simulation(subject_id, sim))
 
     # The carrier volume meshes always live under high_Frequency/ (directly
     # before file organization, in mesh/ after); restrict to that subtree so
-    # no surface overlay elsewhere under the sim dir can be picked instead.
+    # no surface elsewhere under the sim dir can be picked instead.
     # TI runs name them TDCS_1/TDCS_2; mTI renames to TDCS_A..Z on organize.
     matches = sorted(
         p
@@ -170,19 +169,19 @@ def _ti_max_overlay(pm, subject_id: str, sim: str) -> tuple[Path, str]:
     )
 
 
-def _ti_normal_overlay(pm, subject_id: str, sim: str) -> Path:
-    for mesh_dir in (
-        Path(pm.ti_mesh_dir(subject_id, sim)),
-        Path(pm.mti_mesh_dir(subject_id, sim)),
-    ):
-        candidates = sorted(
-            p for p in mesh_dir.glob("*_normal.msh") if not p.name.startswith("._")
-        )
-        if candidates:
-            return candidates[0]
-    raise FileNotFoundError(
-        f"No TI_normal overlay (*_normal.msh) for {subject_id}/{sim}"
-    )
+def _ti_normal_surface(pm, subject_id: str, sim: str) -> Path:
+    """The run's central surface, which carries ``TI_normal``.
+
+    A run made before the surface carried it gains it first
+    (:func:`tit.volume_fields.ensure_mesh_fields`, which logs what it writes).
+    """
+    from tit.tools.msh_fields import msh_field_names
+    from tit.volume_fields import ensure_mesh_fields
+
+    path = _ti_max_overlay(pm, subject_id, sim)[0]
+    if "TI_normal" not in (msh_field_names(path) or ()):
+        ensure_mesh_fields(subject_id, sim, [], say=logger.info)
+    return path
 
 
 def _morph_split(
@@ -214,7 +213,7 @@ def _compute_fields(
     """Project the requested fields for one (subject, simulation) to fsaverage.
 
     *carrier_only* is the run's recorded mode (:func:`_recorded_carrier_only`): the
-    channel fields add coherently in ``hf_peak``/``hf_sar``.
+    channel fields add coherently in ``hf_peak``/``hf_rms``.
     """
     from simnibs.mesh_tools import mesh_io
     from simnibs.utils.file_finder import SubjectFiles
@@ -257,15 +256,14 @@ def _compute_fields(
     _project(
         "TI_normal",
         lambda: _read_surface_scalar(
-            _ti_normal_overlay(pm, subject_id, sim), "TI_normal"
+            _ti_normal_surface(pm, subject_id, sim), "TI_normal"
         ),
     )
-    if "hf_peak" in cfg.fields or "hf_sar" in cfg.fields:
+    if "hf_peak" in cfg.fields or "hf_rms" in cfg.fields:
         try:
             vols = _carrier_volume_meshes(pm, subject_id, sim)
-            # The full vector E is always present on the FEM volume mesh (unlike
-            # the surface overlays, which some builds fill with only E_normal), so
-            # every channel field derives from it -- interpolate once per channel.
+            # Every channel field derives from the full vector E of its FEM volume
+            # mesh -- interpolate once per channel.
             e_fields = []
             for vol in vols:
                 m, gm = _load_carrier_mesh(vol)
@@ -277,8 +275,9 @@ def _compute_fields(
         else:
             # Cassarà 2025 safety metrics (same formulas as the volume output).
             _project("hf_peak", lambda: hf_peak(e_fields, coherent=carrier_only))
-            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            _project("hf_sar", lambda: 2.0 * hf_power(e_fields, coherent=carrier_only))
+            _project(
+                "hf_rms", lambda: np.sqrt(hf_power(e_fields, coherent=carrier_only))
+            )
 
     if not out:
         raise ValueError(

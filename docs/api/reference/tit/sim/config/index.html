@@ -1785,7 +1785,7 @@ load_montages : Build <code>Montage</code> objects from <code>montage_list.json<
   </span>
 
 <a href="#tit.sim.config.SimulationConfig" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">],</span> <span class="n">conductivity</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'scalar'</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])(),</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'ellipse'</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span> <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">output_fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="n"><span title="tit.constants.FIELD_TI_MAX">FIELD_TI_MAX</span></span><span class="p">])(),</span> <span class="n">tissue_conductivities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">SimulationConfig</span><span class="p">(</span><span class="n">subject_id</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">montages</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-internal" title="tit.sim.config.Montage" href="../../../../pipeline/simulation/#tit.sim.config.Montage">Montage</a></span><span class="p">],</span> <span class="n">conductivity</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'scalar'</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">])(),</span> <span class="n">electrode_shape</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'ellipse'</span><span class="p">,</span> <span class="n">electrode_dimensions</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="p">[</span><span class="mf">8.0</span><span class="p">,</span> <span class="mf">8.0</span><span class="p">])(),</span> <span class="n">gel_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">rubber_thickness</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">map_to_surf</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">map_to_vol</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_mni</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">map_to_fsavg</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">open_in_gmsh</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">tissues_in_niftis</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span> <span class="o">=</span> <span class="s1">'all'</span><span class="p">,</span> <span class="n">aniso_maxratio</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">10.0</span><span class="p">,</span> <span class="n">aniso_maxcond</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span> <span class="o">=</span> <span class="mf">2.0</span><span class="p">,</span> <span class="n">output_fields</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">tissue_conductivities</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#int">int</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#float">float</a></span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span> <span class="n">carrier_only</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1831,20 +1831,28 @@ gel_thickness : float
 rubber_thickness : float
     Rubber (silicone) layer thickness in mm.  Default <code>2.0</code>.
 map_to_surf : bool
-    Map results onto the cortical surface.  Must stay <code>True</code>
-    (default) because the <code>TI_normal</code> calculation requires surface
-    overlays.
+    Not used.  Every run writes one central cortical surface,
+    <code>&lt;TI|mTI&gt;/mesh/surfaces/&lt;montage&gt;_&lt;TI|mTI&gt;_central.msh</code>, with every
+    volume field and <code>TI_normal</code> on it; SimNIBS's per-channel surface
+    overlays are never written.  The value is only recorded in the run's
+    <code>config.json</code>, and the field is still accepted so older configs and
+    job specs load.  Default <code>True</code>.
 map_to_vol : bool
-    Not used.  Subject-space NIfTIs are always written after the run
-    by <code>tit.tools.mesh2nii</code>; SimNIBS is never asked for them.  The
-    value is only recorded in the run's <code>config.json</code>, and the field
-    is still accepted so older configs load.  Default <code>False</code>.
+    Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
+    name; <code>tit.tools.mesh2nii</code> does the conversion after the run): one
+    3-D <code>&lt;mesh&gt;_subject_&lt;field&gt;.nii.gz</code> per field of each field mesh --
+    the brain-tissue mesh and its grey- and white-matter copies -- so the
+    NIfTI set is the mesh field set, name for name, plus each channel's
+    <code>magnE</code>.  Default <code>False</code>: the field meshes are the output, and a
+    step that needs a NIfTI (a voxel analysis, the group tools) writes the
+    one it reads on demand (:mod:<code>tit.volume_fields</code>).
 map_to_mni : bool
-    Generate MNI-space field and T1 NIfTI outputs after simulation.
-    Default <code>False</code>; subject-space NIfTI outputs are always generated.
+    Also write each field NIfTI in MNI space (<code>&lt;mesh&gt;_MNI_MNI_&lt;field&gt;.nii.gz</code>)
+    and the T1 in MNI space.  MNI output is itself a NIfTI, so <code>True</code> turns
+    <em>map_to_vol</em> on as well (subject and MNI NIfTIs).  Default <code>False</code>.
 map_to_fsavg : bool
     After each TI montage finishes, project its surface fields
-    (<code>TI_max</code>, <code>TI_normal</code>, <code>hf_peak</code>, <code>hf_sar</code>) onto fsaverage5
+    (<code>TI_max</code>, <code>TI_normal</code>, <code>hf_peak</code>, <code>hf_rms</code>) onto fsaverage5
     for group surface analysis.  Default <code>True</code>; set <code>False</code> to
     skip.  Failures are logged and never abort the simulation.
 open_in_gmsh : bool
@@ -1864,10 +1872,15 @@ aniso_maxcond : float
 output_fields : list[str]
     Which volume-mesh fields to compute and write. Logical names from
     :data:<code>tit.constants.SELECTABLE_OUTPUT_FIELDS</code>: <code>"TI_max"</code>,
-    <code>"TI_avg"</code>, <code>"hf_peak"</code>, <code>"hf_sar"</code>, <code>"hf_power_density"</code>.
-    <code>"TI_max"</code> maps to <code>mTI_max</code> on disk for mTI meshes. Defaults to
-    <code>["TI_max"]</code> only -- <code>TI_avg</code> and the safety fields
-    (<code>hf_peak</code>, <code>hf_sar</code>, <code>hf_power_density</code>) must be opted into.
+    <code>"TI_avg"</code>, <code>"hf_peak"</code>, <code>"hf_rms"</code>, <code>"hf_power_density"</code>.
+    <code>"TI_max"</code> maps to <code>mTI_max</code> on disk for mTI meshes. <code>None</code>
+    (the default) is :data:<code>tit.constants.DEFAULT_OUTPUT_FIELDS</code> --
+    <code>["TI_max", "hf_peak", "hf_rms"]</code>, the envelope and the carrier
+    fields an analysis's carrier metrics read -- or, for a <em>carrier_only</em>
+    run, which has no envelope, <code>["hf_peak", "hf_rms"]</code>.  <code>TI_avg</code> and
+    <code>hf_power_density</code> are opt-in; a field not saved here is computed
+    later, from the kept channel meshes, by the step that needs it
+    (<code>hf_power_density</code> excepted: its conductivity is not kept).
     <code>hf_power_density</code> (W/m^3) uses the conductivity of this run's own
     solve, the full tensor under the anisotropic models.
 tissue_conductivities : dict[int, float] or None
@@ -1887,11 +1900,11 @@ tissue_conductivities : dict[int, float] or None
 carrier_only : bool
     Carrier-only control: both channels run at the same frequency, in
     phase (ΔF = 0), so there is no beat.  The carrier fields <code>hf_peak</code>,
-    <code>hf_sar</code> and <code>hf_power_density</code> then add the two channel fields
+    <code>hf_rms</code> and <code>hf_power_density</code> then add the two channel fields
     coherently (<code>|E1+E2|</code>, see :func:<code>tit.calc.hf_peak</code>) and no envelope
     field (<code>TI_max</code>, <code>TI_avg</code>, <code>TI_normal</code>) is computed.  Requires a
-    two-channel TI montage and <code>output_fields</code> from those carrier fields.
-    Default <code>False</code>.</p>
+    two-channel TI montage; an explicit <code>output_fields</code> must be drawn
+    from those carrier fields (the default already is).  Default <code>False</code>.</p>
 <h5 id="tit.sim.config.SimulationConfig--raises">Raises<a class="headerlink" href="#tit.sim.config.SimulationConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
     If <em>conductivity</em> is not one of the valid model names, if
@@ -1899,7 +1912,7 @@ carrier_only : bool
     montage has a channel that is not exactly two electrodes, if
     <em>intensities</em> is shorter than a montage needs (2 for TI, one per
     channel for mTI), if <em>tissue_conductivities</em> contains a
-    non-positive value, or if <em>carrier_only</em> is set with an envelope
+    non-positive value, if <em>carrier_only</em> is set with an envelope
     output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
     EEG-net CSV) happen later, in :func:<code>run_simulation</code>.</p>
 <h5 id="tit.sim.config.SimulationConfig--examples">Examples<a class="headerlink" href="#tit.sim.config.SimulationConfig--examples" title="Permanent link">&para;</a></h5>
@@ -1933,10 +1946,10 @@ frequency, in phase; no envelope, so only carrier fields):</p>
 <blockquote>
 <p>sham = SimulationConfig(
 ...     subject_id="ernie", montages=[montage], intensities=[1.0, 1.0],
-...     carrier_only=True, output_fields=["hf_peak", "hf_sar"],
+...     carrier_only=True,
 ... )
-sham.carrier_only
-True</p>
+sham.output_fields
+['hf_peak', 'hf_rms']</p>
 </blockquote>
 </blockquote>
 </blockquote>
@@ -2188,30 +2201,7 @@ each electrode pair receives two intensities.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/sim/config.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-645">645</a></span>
-<span class="normal"><a href="#__codelineno-0-646">646</a></span>
-<span class="normal"><a href="#__codelineno-0-647">647</a></span>
-<span class="normal"><a href="#__codelineno-0-648">648</a></span>
-<span class="normal"><a href="#__codelineno-0-649">649</a></span>
-<span class="normal"><a href="#__codelineno-0-650">650</a></span>
-<span class="normal"><a href="#__codelineno-0-651">651</a></span>
-<span class="normal"><a href="#__codelineno-0-652">652</a></span>
-<span class="normal"><a href="#__codelineno-0-653">653</a></span>
-<span class="normal"><a href="#__codelineno-0-654">654</a></span>
-<span class="normal"><a href="#__codelineno-0-655">655</a></span>
-<span class="normal"><a href="#__codelineno-0-656">656</a></span>
-<span class="normal"><a href="#__codelineno-0-657">657</a></span>
-<span class="normal"><a href="#__codelineno-0-658">658</a></span>
-<span class="normal"><a href="#__codelineno-0-659">659</a></span>
-<span class="normal"><a href="#__codelineno-0-660">660</a></span>
-<span class="normal"><a href="#__codelineno-0-661">661</a></span>
-<span class="normal"><a href="#__codelineno-0-662">662</a></span>
-<span class="normal"><a href="#__codelineno-0-663">663</a></span>
-<span class="normal"><a href="#__codelineno-0-664">664</a></span>
-<span class="normal"><a href="#__codelineno-0-665">665</a></span>
-<span class="normal"><a href="#__codelineno-0-666">666</a></span>
-<span class="normal"><a href="#__codelineno-0-667">667</a></span>
-<span class="normal"><a href="#__codelineno-0-668">668</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-668">668</a></span>
 <span class="normal"><a href="#__codelineno-0-669">669</a></span>
 <span class="normal"><a href="#__codelineno-0-670">670</a></span>
 <span class="normal"><a href="#__codelineno-0-671">671</a></span>
@@ -2222,41 +2212,64 @@ each electrode pair receives two intensities.</p>
 <span class="normal"><a href="#__codelineno-0-676">676</a></span>
 <span class="normal"><a href="#__codelineno-0-677">677</a></span>
 <span class="normal"><a href="#__codelineno-0-678">678</a></span>
-<span class="normal"><a href="#__codelineno-0-679">679</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-645" name="__codelineno-0-645"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="w">    </span><span class="sd">"""Parse a comma-separated intensity string into a list of floats.</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    A single value is duplicated to form a pair (``"2.0"`` becomes</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">    ``[2.0, 2.0]``).  Otherwise the value count must be even so that</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    each electrode pair receives two intensities.</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">    s : str</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="sd">        Comma-separated intensity values (e.g. ``"1.0,2.0"``).</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">    list[float]</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">        List of floats with an even number of elements.</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">        If the number of values is odd and greater than 1.</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">    SimulationConfig.intensities : Field populated by this function.</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">    """</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a>    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)]</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a>        <span class="k">return</span> <span class="n">v</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a>        <span class="sa">f</span><span class="s2">"Invalid intensity format: expected 1 or an even number of values; got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">"</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-679">679</a></span>
+<span class="normal"><a href="#__codelineno-0-680">680</a></span>
+<span class="normal"><a href="#__codelineno-0-681">681</a></span>
+<span class="normal"><a href="#__codelineno-0-682">682</a></span>
+<span class="normal"><a href="#__codelineno-0-683">683</a></span>
+<span class="normal"><a href="#__codelineno-0-684">684</a></span>
+<span class="normal"><a href="#__codelineno-0-685">685</a></span>
+<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+<span class="normal"><a href="#__codelineno-0-687">687</a></span>
+<span class="normal"><a href="#__codelineno-0-688">688</a></span>
+<span class="normal"><a href="#__codelineno-0-689">689</a></span>
+<span class="normal"><a href="#__codelineno-0-690">690</a></span>
+<span class="normal"><a href="#__codelineno-0-691">691</a></span>
+<span class="normal"><a href="#__codelineno-0-692">692</a></span>
+<span class="normal"><a href="#__codelineno-0-693">693</a></span>
+<span class="normal"><a href="#__codelineno-0-694">694</a></span>
+<span class="normal"><a href="#__codelineno-0-695">695</a></span>
+<span class="normal"><a href="#__codelineno-0-696">696</a></span>
+<span class="normal"><a href="#__codelineno-0-697">697</a></span>
+<span class="normal"><a href="#__codelineno-0-698">698</a></span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="k">def</span><span class="w"> </span><span class="nf">parse_intensities</span><span class="p">(</span><span class="n">s</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="w">    </span><span class="sd">"""Parse a comma-separated intensity string into a list of floats.</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">    A single value is duplicated to form a pair (``"2.0"`` becomes</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">    ``[2.0, 2.0]``).  Otherwise the value count must be even so that</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">    each electrode pair receives two intensities.</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    s : str</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">        Comma-separated intensity values (e.g. ``"1.0,2.0"``).</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    list[float]</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">        List of floats with an even number of elements.</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">        If the number of values is odd and greater than 1.</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a><span class="sd">    SimulationConfig.intensities : Field populated by this function.</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a><span class="sd">    """</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">v</span> <span class="o">=</span> <span class="p">[</span><span class="nb">float</span><span class="p">(</span><span class="n">x</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">","</span><span class="p">)]</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">v</span><span class="p">)</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="k">return</span> <span class="p">[</span><span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">v</span><span class="p">[</span><span class="mi">0</span><span class="p">]]</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="k">if</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="mi">2</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>        <span class="k">return</span> <span class="n">v</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>        <span class="sa">f</span><span class="s2">"Invalid intensity format: expected 1 or an even number of values; got </span><span class="si">{</span><span class="n">n</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="si">!r}</span><span class="s2">"</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

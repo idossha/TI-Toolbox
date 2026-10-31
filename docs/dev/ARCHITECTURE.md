@@ -171,7 +171,7 @@ image and the docs: channel k (1-based) is electrodes **Ek+** and **Ek-**, and "
 pair (`electrodeSlotName` / `channelElectrodes` in `pages/_shared/scene/model.ts`,
 `channel_electrodes` in `tit/reporting/generators/common.py`). Never "Pair k" or "A"/"B": those
 read as the two channels of one beating pair. The rule is display text only — `electrode_pairs`, API fields
-and on-disk names (mTI's lettered `TDCS_A…` files and `TI_AB` fields) are unchanged. Tests:
+and on-disk names (mTI's lettered `TDCS_A…` files) are unchanged. Tests:
 `desktop/tests/unit/scene-pane-model.test.ts` ("channel k is electrodes Ek+ and Ek-"),
 `tests/test_overlay_colour_legend.py`.
 
@@ -265,6 +265,12 @@ from `x-app-defaults[kind]` over the class's schema `default`s. The server fills
 `POST /api/validate/{kind}`, `/api/plan/{kind}`, `/api/jobs/preflight`, `/api/jobs`,
 `/api/jobs/groups` including each `subject_configs` entry — and into every proposal step (a
 `sim_from_flex` step takes `sim`'s). The app's own requests are unchanged: they send whole configs.
+The Simulator puts the user's own defaults over that table: **Settings ▸ Simulator** renders the
+Job settings form (`SimulationSettings`) and stores only its changes from `defaultJobSettings()`
+in `localStorage` (`tit-simulator-defaults`, `pages/simulator/userDefaults.ts`, the way
+`app/executionPrefs.ts` keeps Execution's). A row without settings of its own runs with them and
+its dialog's **Reset to defaults** returns to them; a row's own settings never reach them or a new
+row. They are the desktop's only: an agent's or a script's omitted fields still get the table.
 The same document carries `x-kind-classes`, the job kind -> config class table the validate and
 plan routes use (`tit.server.routes.validate`), which the plugin's `get_config_schema` reads
 instead of keeping a copy.
@@ -671,9 +677,66 @@ Flex does not promise a global optimum; exhaustive search is exhaustive only wit
 discretization. Flex's CPU setting does not imply parallel differential-evolution candidates.
 Run names and output folders identify real destinations, so replacement rules apply to repeated names.
 
-New Simulator jobs opt into MNI NIfTI export separately from fsaverage mapping, with adjacent
-controls. The MNI flag gates both anatomical and field conversion to avoid unwanted registration
-work. Ex previews count the engine’s electrode arrangements and valid current splits separately;
+**A simulation's output is its field mesh; NIfTIs are opt-in and everything not saved is produced
+on demand.** A run writes the selected fields into one volume mesh,
+`<sim>/<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` (default `TI_max`/`mTI_max`, `hf_peak`, `hf_rms`:
+`tit.constants.DEFAULT_OUTPUT_FIELDS`, or its carrier fields for a carrier-only run) and one
+central surface mesh, `<sim>/<TI|mTI>/mesh/surfaces/<sim>_<TI|mTI>_central.msh`, and keeps the
+channel meshes in `high_Frequency/mesh/`. The surface is written in process by
+`tit.volume_fields.central_surface`: the volume fields and each channel's `E` interpolated onto the
+m2m central surfaces (lh then rh) in one stacked `interpolate_to_surface` per hemisphere inside
+the grey-matter tetrahedra -- what `msh2cortex` does -- with `TI_normal`, the envelope of the
+channel fields along the node normals, beside them (none for a carrier-only run). SimNIBS's
+surface overlays (`map_to_surf`, now unused), `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
+`_normal.msh`, `grey_`/`white_` meshes, mTI per-pair `TI_AB`… meshes and Gmsh `.opt` views of our
+meshes are not written. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
+per mesh field for the whole brain tissue and its grey- and white-matter crops (`grey_`/`white_`
+names, cropped on the fly, `tit.tools.mesh2nii.TISSUE_TAGS`), and `map_to_mni` (which requires
+it) their MNI copies and the MNI T1; the NIfTI set must equal the mesh field set or the run fails
+(`check_niftis_match_meshes`). The Viewer shows the volume mesh as grey matter only (the scene's
+per-tag `tagStyle` hides every other tissue; `ViewLayer.visible_tags`), windowed on grey-matter
+element values. A field or NIfTI a
+step needs and the run did not save is produced by [`tit/volume_fields.py`](../../tit/volume_fields.py)
+with the simulator's own `compute_volume_fields` on the kept channel meshes, persisted into the
+simulation (volume mesh and central surface; or `<mode>/niftis/`) and announced in one
+sentence before the work; a run whose central surface is missing or lacks a volume field or
+`TI_normal` (one made before the surface carried it) gets it rebuilt from the volume mesh, with
+`TI_normal` copied from its old `_normal.msh` when present, else computed from the channel meshes,
+after checking that the m2m central surface has the run's node count (a re-segmented subject is
+an error); old files are never deleted and nothing reads them; the analyzer records it as `on_demand_note`. Writes are staged in a
+hidden `<sim>/<mode>/.on-demand-*` folder and renamed into place, the volume mesh last, so "the
+volume mesh carries the field" implies its derived files are complete. A voxel analysis asks the
+field selector first and produces only what it does not find. A run whose record has
+`map_to_vol` also gets every produced field's NIfTIs (all converted meshes, its spaces), so its NIfTI
+set stays its mesh field set; a run without NIfTIs has no such set, and its `niftis/` (created only
+when something is written) holds just the NIfTIs voxel steps asked for. Missing channel meshes,
+an envelope of a carrier-only run and an unsaved `hf_power_density` are errors naming what is
+missing, never a fallback. Excluded: NIfTIs by default (most of a run's post-processing for files
+most analyses never read) and on-demand results that are not persisted (every later step would
+redo them).
+
+**A field has a saved name and a display label, both from `tit.constants.FIELD_REGISTRY`.** The
+saved name (`TI_max`, `mTI_max`, `TI_normal`, `TI_avg`, `hf_peak`, `hf_rms`, `hf_power_density`)
+is what files, configs, IDs and scripts use; the label (`TI_{max}`, `mTI_{max}`, `TI_{normal}`,
+`TI_{avg}`, `HF_{peak}`, `HF_{rms}`, `p_{HF}`) is what a person reads, with `X_{sub}` drawn as a
+subscript. The desktop mirrors the registry in `desktop/src/renderer/pages/analyzer/fields.ts`
+(`tests/test_field_registry.py` holds name, label and units equal) and renders labels with one
+helper, `fieldLabel()` + `<Subscripted>`; a place that holds no markup (a `title`) shows the
+saved spelling. The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
+layer from the same registry. `hf_peak` is zero-to-peak and is the field to compare with exposure
+limits (ICNIRP 2010 / IEEE C95.1-2019 peak limit = √2 × tabulated RMS, amplitudes summed across
+carriers, after the standards' spatial averaging); `hf_rms` = √`hf_power` is the RMS carrier field
+and not a compliance metric (it underestimates against RMS tables by up to √N for N carriers);
+`hf_power_density` is the absorbed (Joule) power density, never called SAR. The analyzer's carrier
+metrics are `hf_peak_*` / `hf_rms_*` (`hf_peak_focality`, `hf_rms_focality`,
+`hf_peak_focality_{50,75,90,95}_area`, their ROI/GM means) and `ti_selectivity`; Ex/mEx write
+`HFpeak_Focality` and `TI_Selectivity`, the group summary `HFpeak_Focality`, `HFrms_Focality` and
+`TI_Selectivity`. The retired spellings are kept out of everything but the history files by
+`tests/test_field_rename_guard.py`. Excluded: deriving labels from names in each consumer (three
+spellings drifted within a week), and reading an old run's retired field (its `hf_rms` is produced
+on demand from the channel meshes like any missing field).
+
+Ex previews count the engine’s electrode arrangements and valid current splits separately;
 total iterations are their product, including one split for fixed balanced currents.
 Ex runs one balanced split by default: `ExConfig.channel_limit=None` is `[(total/2, total/2)]`
 (`generate_current_ratios`), and the page and `APP_DEFAULTS["ex"]` start at a 1.0 mA limit for
@@ -877,7 +940,10 @@ disagree: the analyzer's `select_field_file` and `Analyzer._SURFACE_ATLAS_VOLUME
 analysis of the surface atlas id `DK40` needs FastSurfer's DKT volume; the mesh analysis needs no
 parcellation), the flex mapping-net rule, `ExConfig`'s `.csv` suffixing, the stats/nilearn MNI
 NIfTI patterns resolved by `simulation_nifti_path` (the loader's own rule: `TI/niftis/`, or
-`mTI/niftis/` with `_TI_` read as `_mTI_` for an mTI run), `tit.pre.preflight` for preprocessing. Each finding names the input, the exact
+`mTI/niftis/` with `_TI_` read as `_mTI_` for an mTI run), `tit.pre.preflight` for preprocessing.
+A field or simulator NIfTI the run did not save is not missing when the job can produce it
+(`tit.volume_fields.check_producible` / `check_nifti_producible`: the field mesh, the run record and
+the channel meshes are on disk); when it cannot, the finding is the producer's own error. Each finding names the input, the exact
 path it was expected at and what produces it ("run FastSurfer for sub-101", "run the L_Insula
 simulation first", "analyze in mesh space instead"). A `pre` group is checked with the whole
 group's flags, not per stage, because an early stage supplies what a later one needs. The

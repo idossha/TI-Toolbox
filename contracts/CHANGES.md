@@ -1273,3 +1273,43 @@ is what the server sends and the desktop already reads (`schema.d.ts` is unchang
 candidates also carry two more metrics keys, `hf_focality` and `ti_selectivity` (null for flex
 and for a `final_output.csv` without the columns); `metrics` is an open map, so no schema changes
 for them. Regenerated `contracts/generated/openapi.json`.
+
+## 2026-10-30 — field meshes by default; NIfTIs opt-in; `ViewLayer.mesh_field` declared
+
+Config schema, regenerated from the dataclasses: `SimulationConfig.output_fields` is
+`array | null` with default `null`, which the dataclass resolves to `["TI_max", "hf_peak",
+"hf_sar"]` (`["hf_peak", "hf_sar"]` for `carrier_only`); `x-app-defaults.sim.output_fields`
+is that list for the Simulator page (an agent config with `carrier_only` and no `output_fields`
+is left to the dataclass). `map_to_vol`'s and `map_to_mni`'s descriptions now say what they do:
+write one NIfTI per field, and its MNI copies (which need `map_to_vol`; a config with
+`map_to_mni` and without `map_to_vol` is refused). A config without these keys still loads.
+`openapi.yaml`: `SimulationDetail.fields` is described (mesh fields plus NIfTI fields) and
+`ViewLayer.mesh_field` — already sent for analysis overlays — is declared, optional, for the
+simulation field mesh too. Regenerated `contracts/generated/config.schema.json`,
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`. `SimulationDetail` gains `carrier_only` (boolean, the run record's; absent reads as false), which
+the Analyzer uses to offer a carrier-only control its carrier fields only.
+
+
+## 2026-10-30 — `hf_sar` is `hf_rms`; carrier metrics name their carrier field; mesh layers carry field labels
+
+The saved field `hf_sar` is replaced by `hf_rms` (`sqrt(hf_power)`, V/m) wherever a field name is a
+value: `SimulationConfig.output_fields` (default `["TI_max", "hf_peak", "hf_rms"]`,
+`["hf_peak", "hf_rms"]` for `carrier_only`), `x-app-defaults.sim.output_fields`,
+`SimulationDetail.fields`, `FsavgMapConfig.fields` and the analyzer/stats `field` strings. The
+`OptimizationCandidate.metrics` key `hf_focality` is `hf_peak_focality` (still an open map, so no
+schema change). The TetraVox scene's mesh layers gain `fields: {<name>: {label, units}}` for the
+registered fields the mesh carries (`TI_{max}`, `HF_{rms}`, ...), which TetraVox's own `MeshLayer`
+type defines; a TetraVox that does not know the block ignores it. Regenerated
+`contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-10-30 — one central surface per run; `ViewLayer.visible_tags`
+
+`ViewLayer` gains optional `visible_tags` (integer array): the tissue tags a `.msh` layer shows.
+A simulation's scene now shows its field mesh `<TI|mTI>/mesh/<sim>_<TI|mTI>.msh` with
+`visible_tags: [2, 1002]` (grey matter) instead of the `grey_<sim>_<TI|mTI>.msh` copy, which runs no
+longer write; the TetraVox scene hides every other tissue with `tagStyle`. Absent shows every
+tissue, as before. Config schema, regenerated: `SimulationConfig.map_to_surf` is described as
+unused (the run always writes its central surface; still accepted so older configs load).
+Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.

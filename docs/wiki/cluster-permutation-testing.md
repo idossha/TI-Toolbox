@@ -11,11 +11,12 @@ The Cluster-Based Permutation Testing extension performs non-parametric statisti
 - **Turn the panel on.** Enable **Cluster permutation** in **Settings ▸ Extensions** and reload
   the app; a panel toggle takes effect only after a reload. It then appears under **Extensions**
   in the navigation rail.
-- **Simulate with MNI outputs.** In the default **Space**, **MNI volume**, every subject's
-  simulation must have its MNI-space field NIfTI, and a simulation writes one only when
-  **Simulator ▸ Job settings ▸ Standard-space outputs ▸ Generate MNI NIfTI outputs** is ticked.
-  That option is **off by default**. When a file is missing the job is refused before it starts,
-  naming the simulation to re-run with the option ticked.
+- **MNI-space NIfTIs are written when needed.** In the default **Space**, **MNI volume**, every
+  subject's simulation is read as its MNI-space field NIfTI. A simulation writes one only when
+  **Simulator ▸ Job settings ▸ Output files ▸ Also in MNI space** is ticked; otherwise the job
+  writes it from the simulation's field mesh the first time it is needed, says so in its output,
+  and keeps it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)). A simulation that cannot provide it
+  (its channel meshes are gone) is refused before the job starts, naming what is missing.
 - **mTI simulations work too.** They are read from the simulation's `mTI/niftis/` folder
   (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI file pattern** typed in the TI spelling
   (`_TI_`) is read as `_mTI_`.
@@ -248,7 +249,7 @@ paint the effect and cluster maps on the inflated cortex as PDFs, run
 
 ### Data Requirements
 
-- **File Format**: NIfTI files in MNI space, written only when the simulation ran with **Generate MNI NIfTI outputs** ([Before you start](#before-you-start))
+- **File Format**: NIfTI files in MNI space, written by the simulation (**Also in MNI space**) or by the job itself when the simulation did not ([Before you start](#before-you-start))
 - **File Pattern**: Default `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz` (from **Tissue**), read from `TI/niftis/`, or as `grey_{simulation_name}_mTI_MNI_MNI_mTI_max.nii.gz` from `mTI/niftis/` for an mTI simulation
 - **Data Type**: Electric field magnitude values
 - **Analysis Types**: Both classification and correlation approaches supported

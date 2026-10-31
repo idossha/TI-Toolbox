@@ -76,7 +76,7 @@ envelope_max(fields, perpendicular_to=normals) # (N,) max within the plane -> ta
 envelope_max(fields, return_direction=True)    # (amp, unit direction): amp * dir is the TI vector
 envelope_mean(fields)                          # (N,) mean over all directions -> TI_avg
 hf_peak(fields)                                # (N,) peak carrier field max_s |sum s_c E_c|
-hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = E_rms^2, (V/m)^2
+hf_power(fields)                               # (N,) (1/2) sum |E_c|^2 = hf_rms^2, (V/m)^2
 
 envelope_max([E1, E2])                         # K = 1: exact closed form
 envelope_max([E1, E2, E3, E4])                 # K = 2 beating pairs, 4 channels (mTI)
@@ -86,12 +86,13 @@ beating partner gets a zero field as its partner in the envelope functions,
 `[E1, E2, Eu, np.zeros_like(Eu)]` (it lowers the envelope), and one more field
 in `hf_peak`/`hf_power`. `hf_peak(coherent=True)` is `|sum E_c|`, the phase-aligned
 "peak HF"; the default worst case over channel signs is the safety value. The
-on-disk field `hf_sar` stores `2 * hf_power`; `hf_power_density` stores
-`sigma * hf_power` in W/m^3 with the solve's own conductivity.
+on-disk field `hf_rms` stores `sqrt(hf_power)` (V/m, RMS over time; not a compliance metric,
+compare `hf_peak` with limits); `hf_power_density` stores `sigma * hf_power` in W/m^3 with the
+solve's own conductivity (absorbed Joule power density, not SAR).
 
 **Removed — do not emit these.** Any `tit.calc` name other than the five above
 (the older vector/average/direction functions, their `psi` argument, and the
-separate carrier-fields module with its `hf_sar` *function*), `get_nTI_vectors`, `get_mTI_vectors`, `get_mTI_dir`,
+separate carrier-fields module with its sum-of-squares function), `get_nTI_vectors`, `get_mTI_vectors`, `get_mTI_dir`,
 `get_magnitude_am`, and the `channels=` carrier-regrouping parameter. There is no
 `montage.channels`: **wiring is positional — one field per channel, two channels per beating pair**.
 
@@ -120,18 +121,24 @@ cfg = SimulationConfig(
     intensities=[1.0, 1.0],             # mA per channel
     electrode_shape="ellipse", electrode_dimensions=[8.0, 8.0],
     gel_thickness=1.0, rubber_thickness=2.0,
-    map_to_surf=True,                   # required — TI_normal needs surface overlays
     map_to_fsavg=True,
-    output_fields=["TI_max"])           # + "TI_avg", "hf_peak", "hf_sar", "hf_power_density"
+    # output_fields=None (default) -> ["TI_max", "hf_peak", "hf_rms"]; add "TI_avg",
+    # "hf_power_density" by listing them. map_to_vol=True writes one NIfTI per field
+    # (map_to_mni=True, which needs it, adds MNI copies); both default False.
+)
 run_simulation(cfg)
 # ΔF = 0 carrier-only control (two-channel TI; coherent sum, no envelope fields):
-# SimulationConfig(..., carrier_only=True, output_fields=["hf_peak", "hf_sar"])
-# (hf_power_density is a carrier field too and may be added)
+# SimulationConfig(..., carrier_only=True)   # output_fields default -> ["hf_peak", "hf_rms"]
+# (hf_power_density is a carrier field too and may be listed)
 ```
-2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs:
-`Simulations/<name>/TI/{mesh,niftis}` plus MNI-space NIfTIs. `TI_normal` is written
-to `<montage>_mTI_normal.msh` for mTI runs (via `envelope` along the cortical
-normals) and is **mesh-only** — asking for it in voxel space is an error by design.
+2 channels → TI, 4+ (even) → mTI, detected automatically. Outputs: the field mesh
+`Simulations/<name>/TI/mesh/<name>_TI.msh` (every saved field) and its central surface
+`TI/mesh/surfaces/<name>_TI_central.msh` (those fields + `TI_normal`, lh then rh);
+`TI/niftis/` only with `map_to_vol` (whole, `grey_` and `white_` NIfTIs per field). A field or NIfTI an analysis or group
+tool needs and the run did not save is computed then from `high_Frequency/mesh/` and saved
+(`tit.volume_fields`; `AnalysisResult.on_demand_note` says what), except `hf_power_density`. `TI_normal` (via `envelope` along
+the cortical normals) is on the central surface for TI and mTI runs and is **mesh-only** —
+asking for it in voxel space is an error by design.
 
 Free-hand montages come from `m2m_<id>/stim_configs/*.json`
 (`{"name", "type": "U"|"M", "electrode_positions": {label: [x, y, z]}}`, subject-RAS
@@ -198,11 +205,12 @@ space** — the `_area` names are kept for both deliberately, so scripts keep
 working. Voxel values from v2.3.0–v2.5.0 are ten times too large; divide by 10 or
 re-run. `total_area_or_volume` is mm² / mm³ and was always correct.
 
-**Carrier focality:** a TI/mTI analysis also returns `hf_focality` (hf_peak ROI /
-GM mean), `rms_focality` (on E_rms = sqrt(hf_sar / 2)), `ti_selectivity`
-(`roi_focality / hf_focality`) and `hf_focality_50..95_area`, in V/m terms. They are
-`None` when the simulation did not write `hf_peak` / `hf_sar` (add them to
-`SimulationConfig.output_fields`); `r.carrier_note` says why.
+**Carrier focality:** a TI/mTI analysis also returns `hf_peak_focality` (hf_peak ROI /
+GM mean), `hf_rms_focality` (the same on `hf_rms`), `ti_selectivity`
+(`roi_focality / hf_peak_focality`) and `hf_peak_focality_50..95_area`, in V/m terms. They are
+computed from the simulation's `hf_peak` / `hf_rms`, which are saved by default and
+produced on demand otherwise; they are `None` only when a carrier has no usable values (or the
+analysed field is a carrier field), and `r.carrier_note` says why.
 
 ## Statistics (cluster-based permutation)
 
@@ -228,7 +236,7 @@ subject rather than silently stacking different anatomy.
 simnibs_python -m tit.source fsavg_config.json
 ```
 `tit.source.project_fields_to_fsaverage` projects `TI_max`, `TI_normal`, `hf_peak`,
-`hf_sar` onto fsaverage post hoc (spacings 5/6/7), writing
+`hf_rms` onto fsaverage post hoc (spacings 5/6/7), writing
 `<sim>/fsaverage/sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh`
 (`pm.sim_fsaverage_fields(sid, sim, spacing)`): the fsaverage central surfaces, lh
 nodes then rh, one node field per quantity, with a `.msh.opt` Gmsh view and a `.json`

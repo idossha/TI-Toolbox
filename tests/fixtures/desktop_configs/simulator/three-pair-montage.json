@@ -21,6 +21,7 @@
         ],
         "map_to_fsavg": false,
         "map_to_mni": false,
+        "map_to_vol": false,
         "montages": [
           {
             "_type": "Montage",
@@ -44,7 +45,9 @@
           }
         ],
         "output_fields": [
-          "TI_max"
+          "TI_max",
+          "hf_peak",
+          "hf_rms"
         ],
         "subject_id": "001"
       },

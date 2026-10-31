@@ -441,3 +441,15 @@ class TestSurfaceDispatch:
             space=GroupComparisonConfig.AnalysisSpace.FSAVERAGE,
         )
         assert permutation.run_group_comparison(cfg) == "SURFACE_GROUP"
+
+
+@pytest.mark.parametrize("field", ["TI_avg", "hf_power_density"])
+def test_a_volume_only_field_is_refused_for_surface_statistics_saying_why(
+    field,
+) -> None:
+    # Produced on demand into the mesh or not, these are never on fsaverage: a clear error,
+    # not a silently missing column.
+    from tit.stats.surface import load_group_surface_data
+
+    with pytest.raises(ValueError, match="never projected to fsaverage"):
+        load_group_surface_data([("001", "M1")], field, 5)

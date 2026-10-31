@@ -5,14 +5,14 @@
  * simulator; however each job should have its own settings configuration that users configure per
  * job, instead of global settings applied automatically to all jobs."*
  *
- * So the page's sections are the **defaults for new jobs** and this dialog is where one job
- * disagrees with them. A row that has never been opened here carries no settings of its own and
- * follows the defaults live — which is what makes "change a default" reach exactly the rows that
- * never disagreed. `Reset to defaults` puts a row back into that state.
+ * So the **defaults for new jobs** are the user's own (Settings ▸ Simulator, over the factory
+ * ones) and this dialog is where one job disagrees with them. A row that has never been opened here
+ * carries no settings of its own and follows the defaults live — which is what makes "change a
+ * default" reach exactly the rows that never disagreed. `Reset to defaults` puts a row back into
+ * that state: the user's defaults, not the factory ones.
  *
- * The controls are deliberately the same ones the page's sections use (`SegmentedControl`,
- * `NumberInput`, `Select`, the output-field checkboxes and `ConductivityDialog`), so per-job and
- * default are the same form in two places rather than two forms that can drift.
+ * The controls are one component (`SimulationSettings`), which Settings ▸ Simulator renders too,
+ * so per-job and default are the same form in two places rather than two forms that can drift.
  */
 import { useEffect, useState } from "react";
 import { RotateCcw } from "lucide-react";
@@ -24,7 +24,7 @@ import { SimulationSettings } from "./SimulationSettings";
 export interface JobSettingsDialogProps {
   /** The row being edited; `null` closes the dialog. */
   row: SelectedRow | null;
-  /** The page's defaults — what an untouched row runs with, and what `Reset` returns to. */
+  /** The user's defaults — what an untouched row runs with, and what `Reset` returns to. */
   defaults: JobSettings;
   onClose: () => void;
   /** `undefined` puts the row back on the defaults. */

@@ -2,7 +2,7 @@
 
 Pins (2026-10-26): ``BaseSimulation._element_conductivity`` hands back the conductivity a SimNIBS
 TDCS list builds for its mesh (``cond2elmdata``, triangles assigned from their tetrahedra as
-``fem.calc_fields`` does), and ``tit.sim.base.hf_power_density`` applied to it equals
+``fem.calc_fields`` does), and ``tit.volume_fields.hf_power_density`` applied to it equals
 ``(1/2) sum_c J_c . E_c`` with ``J_c`` from SimNIBS's ``fem.calc_J`` -- the current density
 SimNIBS itself would write. Both for the default isotropic ("scalar") conductivities and for a
 "dir" anisotropic model with a synthetic, strongly anisotropic DTI tensor volume, where the
@@ -32,7 +32,8 @@ import simnibs
 from simnibs.mesh_tools import mesh_io
 from simnibs.simulation import fem, sim_struct
 from simnibs.utils.cond_utils import standard_cond
-from tit.sim.base import BaseSimulation, hf_power_density
+from tit.sim.base import BaseSimulation
+from tit.volume_fields import hf_power_density
 
 mesh = mesh_io.read_msh(os.path.join(os.path.dirname(simnibs.__file__),
                         "_internal_resources", "testing_files", "sphere3.msh"))

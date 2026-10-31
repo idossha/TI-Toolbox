@@ -34,6 +34,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from tests.field_mesh import write_central_surface, write_field_mesh
 from tit.paths import get_path_manager
 
 SID = "101"
@@ -58,14 +59,16 @@ def _snapshot(root: Path) -> set[str]:
 
 @pytest.fixture()
 def project(tmp_path: Path) -> Path:
-    """A finished 2-pair TI simulation: TI mesh, central surface, GM and WM NIfTIs."""
+    """A finished 2-pair TI simulation: TI mesh, central surface, GM and WM NIfTIs of the
+    default fields (so a voxel analysis has nothing to produce on demand)."""
     pm = get_path_manager(str(tmp_path))
     _touch(Path(pm.m2m(SID)) / f"{SID}.msh")
-    _touch(pm.ti_mesh(SID, SIM))
-    _touch(pm.ti_central_surface(SID, SIM))
+    write_field_mesh(pm.ti_mesh(SID, SIM))
+    write_central_surface(pm.ti_central_surface(SID, SIM))
     niftis = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
-    _touch(niftis / f"grey_{SIM}_TI_subject_TI_max.nii.gz")
-    _touch(niftis / f"white_{SIM}_TI_subject_TI_max.nii.gz")
+    for tissue in ("grey", "white"):
+        for field in ("TI_max", "hf_peak", "hf_rms"):
+            _touch(niftis / f"{tissue}_{SIM}_TI_subject_{field}.nii.gz")
     return tmp_path
 
 

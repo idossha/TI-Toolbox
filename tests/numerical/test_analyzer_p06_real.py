@@ -6,17 +6,21 @@ tests/test_analyzer_ti_normal.py)
        with the empty-ROI sentence for a sphere outside the head and writes no analysis folder;
        the same config with a sphere inside the field exits 0 and reports the voxel count a
        hand count gives.
-    2. On a surface SimNIBS itself writes and reads (``mesh_io``), ``field="TI_normal"`` reads
-       the normal mesh: ``roi_mean`` equals the area-weighted mean of the authored values with
-       node areas computed here from the triangles (one third of each triangle's area to each
-       of its corners), and the ``TI_max`` run of the same ROI reports the same numbers as
+    2. On a central surface SimNIBS itself writes and reads (``mesh_io``) carrying ``TI_max``
+       and ``TI_normal`` (the layout the simulator writes), ``field="TI_normal"`` reads it:
+       ``roi_mean`` equals the area-weighted mean of the authored values with node areas
+       computed here from the triangles (one third of each triangle's area to each of its
+       corners), and the ``TI_max`` run of the same ROI reports the same numbers as
        ``normal_mean``/``normal_max``.
     3. ``msh_field_names`` reads the field names of binary meshes SimNIBS wrote (SimNIBS 4.6's
        ASCII writer raises TypeError, so ASCII is pinned by the hand-written host fixture).
-    4. Dataset 000 (``TIT_DATASET_000``): on sub-101's Thalamus_example the central surface
-       carries only TI_max and the normal mesh only TI_normal, and a DK40 lh.insula analysis of
+    4. Dataset 000 (``TIT_DATASET_000``): sub-101's Thalamus_example is a run made before the
+       surface carried ``TI_normal`` (its central surface carries only TI_max, its normal mesh
+       only TI_normal); analysed in a tmp project, its surface is rebuilt from its volume mesh
+       with the old ``TI_normal`` (``tit.volume_fields``), and a DK40 lh.insula analysis of
        TI_normal reports roi_max <= the TI_max analysis's roi_max (TI_normal is the envelope
-       along one direction, TI_max its maximum over directions; wiki analyzer.md).
+       along one direction, TI_max its maximum over directions; wiki analyzer.md). The dataset
+       is only read.
 
 Where the numbers come from
     Authored meshes and fields (coordinates, triangles and values below), hand counts and an
@@ -79,10 +83,13 @@ def _voxel_project(tmp_path: Path) -> tuple[Path, np.ndarray]:
     field[2:8, 2:8, 2:8] = np.linspace(0.1, 1.0, 216).reshape(6, 6, 6)
     field[4, 4, 4] = 0.0  # inside the sphere below, not positive: not counted
     affine = np.diag([2.0, 2.0, 2.0, 1.0])  # 2 mm voxels, origin at voxel (0, 0, 0)
-    nib.save(
-        nib.Nifti1Image(field, affine),
-        str(niftis / f"grey_{SIM}_TI_subject_TI_max.nii"),
-    )
+    # A finished default run: the envelope and the carriers its metrics read, so the
+    # analysis has nothing to produce on demand (tests/test_analyzer_on_demand.py).
+    for name in ("TI_max", "hf_peak", "hf_rms"):
+        nib.save(
+            nib.Nifti1Image(field, affine),
+            str(niftis / f"grey_{SIM}_TI_subject_{name}.nii"),
+        )
     return project, field
 
 
@@ -171,13 +178,21 @@ root.mkdir(parents=True, exist_ok=True)
 pm = get_path_manager(str(root))
 Path(pm.m2m("101")).mkdir(parents=True)
 Path(pm.ti_mesh("101", "M1")).parent.mkdir(parents=True)
-Path(pm.ti_mesh("101", "M1")).write_bytes(b"")
-surface({"TI_max": spec["ti_max"]}, Path(pm.ti_central_surface("101", "M1")))
-surface({"TI_normal": spec["ti_normal"]}, Path(pm.ti_mesh_dir("101", "M1")) / "M1_normal.msh")
+# The field mesh: only its header (which fields the run saved) is read in mesh space.
+Path(pm.ti_mesh("101", "M1")).write_text(chr(10).join([
+    "$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "1", "1 0 0 0", "$EndNodes",
+    "$Elements", "0", "$EndElements", "$ElementData", "1", '"TI_max"', "1", "0.0", "3", "0",
+    "1", "0", "$EndElementData", "",
+]))
+# The run's central surface, as the simulator writes it: every volume field and TI_normal.
+surface(
+    {"TI_max": spec["ti_max"], "TI_normal": spec["ti_normal"]},
+    Path(pm.ti_central_surface("101", "M1")),
+)
 
 from tit.analyzer.analyzer import Analyzer
 out = {}
-for field in ("TI_normal", None, "hf_peak"):
+for field in ("TI_normal", None):
     with patch("tit.analyzer.analyzer.add_file_handler"):
         a = Analyzer("101", "M1", space="mesh", field=field)
     try:
@@ -248,12 +263,11 @@ def test_ti_normal_mesh_analysis_on_a_simnibs_surface(tmp_path):
     # The TI_max run of the same ROI reports the same numbers through _get_normal_stats.
     assert out["None"]["normal_mean"] == pytest.approx(got["roi_mean"], rel=1e-12)
     assert out["None"]["normal_max"] == pytest.approx(got["roi_max"], rel=1e-12)
-    assert "hf_peak" in out["hf_peak"]["error"] and "TI_max" in out["hf_peak"]["error"]
 
 
 def test_msh_field_names_reads_simnibs_written_meshes(tmp_path):
     _require("simnibs.mesh_tools.mesh_io")
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     spec = {**_surface_spec(), "mode": "headers"}
     spec_path = tmp_path / "spec.json"
@@ -310,7 +324,7 @@ def _tree_state(root: Path) -> dict[str, tuple[int, int]]:
 
 @needs_dataset
 def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
-    from tit.analyzer.analyzer import msh_field_names
+    from tit.tools.msh_fields import msh_field_names
 
     central = _THALAMUS / "TI" / "mesh" / "surfaces" / "Thalamus_example_TI_central.msh"
     normal = _THALAMUS / "TI" / "mesh" / "Thalamus_example_normal.msh"
@@ -335,11 +349,15 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
         / "Thalamus_example"
     )
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
+    (sim / "documentation").mkdir()
     shutil.copy(central, sim / "TI" / "mesh" / "surfaces" / central.name)
     shutil.copy(normal, sim / "TI" / "mesh" / normal.name)
-    (sim / "TI" / "mesh" / "Thalamus_example_TI.msh").write_bytes(
-        b""
-    )  # never read in mesh space
+    shutil.copy(_THALAMUS / "documentation" / "config.json", sim / "documentation")
+    # The volume mesh is only read (the surface is interpolated from it); its carriers cannot
+    # be produced (no channel meshes here), so nothing is written to it.
+    volume = _THALAMUS / "TI" / "mesh" / "Thalamus_example_TI.msh"
+    before[str(volume)] = volume.stat().st_mtime
+    (sim / "TI" / "mesh" / volume.name).symlink_to(volume)
     # The head model is only read (atlas2subject); link it rather than copy gigabytes.
     (project / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").symlink_to(head_model)
 
@@ -351,5 +369,7 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     assert out["TI_normal"]["roi_max"] <= out["TI_max"]["roi_max"]
     assert out["TI_max"]["normal_max"] == pytest.approx(out["TI_normal"]["roi_max"])
     assert out["TI_max"]["normal_mean"] == pytest.approx(out["TI_normal"]["roi_mean"])
-    assert _mtimes([central, normal]) == before  # the dataset was only read
+    assert _mtimes([central, normal, volume]) == before  # the dataset was only read
+    rebuilt = sim / "TI" / "mesh" / "surfaces" / central.name
+    assert msh_field_names(rebuilt) == {"TI_max", "TI_normal"}
     assert _tree_state(head_model) == head_before  # nothing written through the symlink

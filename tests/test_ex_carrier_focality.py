@@ -2,11 +2,11 @@
 
 What this pins
     Every ex (two channels, each current split) and mEx (four channels) candidate carries
-    ``HF_Focality`` = volume-weighted ROI mean / GM mean of hf_peak -- the peak carrier field
+    ``HFpeak_Focality`` = volume-weighted ROI mean / GM mean of hf_peak -- the peak carrier field
     of all its channel fields -- over the same ROI/GM elements and volumes as ``Focality``,
-    and ``TI_Selectivity`` = ``Focality / HF_Focality``. ``final_output.csv`` gains the two
+    and ``TI_Selectivity`` = ``Focality / HFpeak_Focality``. ``final_output.csv`` gains the two
     columns after ``Composite_Index`` (empty for a result without them), the candidate review
-    exposes them as ``hf_focality`` / ``ti_selectivity`` metrics, the ex-search report lists
+    exposes them as ``hf_peak_focality`` / ``ti_selectivity`` metrics, the ex-search report lists
     them in its top table when the CSV has them, and ``Composite_Index`` is unchanged. An empty
     ROI or GM, or a GM carrier mean of 0, gives ``None`` (an empty cell), never 0.
 
@@ -83,13 +83,13 @@ def _brute_peak(fields):
     )
 
 
-def _hand_hf_focality(engine, peak):
+def _hand_hf_peak_focality(engine, peak):
     roi = (peak[ROI_IDX] * engine.roi_volumes).sum() / engine.roi_volumes.sum()
     gm = (peak[GM_IDX] * engine.gm_volumes).sum() / engine.gm_volumes.sum()
     return roi / gm
 
 
-def test_ex_candidates_carry_the_brute_force_hf_focality(fake_ti):
+def test_ex_candidates_carry_the_brute_force_hf_peak_focality(fake_ti):
     engine = _engine(ExSearchEngine)
     splits = [(1.5, 0.5), (1.0, 1.0), (0.4, 1.6)]
     results = engine.compute_ti_fields("A", "B", "C", "D", splits)
@@ -97,13 +97,13 @@ def test_ex_candidates_carry_the_brute_force_hf_focality(fake_ti):
         peak = _brute_peak(
             [_channel(engine, "A", "B", i1), _channel(engine, "C", "D", i2)]
         )
-        expected = _hand_hf_focality(engine, peak)
-        assert data[f"{ROI}_HF_Focality"] == pytest.approx(expected, rel=1e-12)
+        expected = _hand_hf_peak_focality(engine, peak)
+        assert data[f"{ROI}_HFpeak_Focality"] == pytest.approx(expected, rel=1e-12)
         assert data[f"{ROI}_TI_Selectivity"] == pytest.approx(
             data[f"{ROI}_Focality"] / expected, rel=1e-12
         )
     # The split changes the carrier mix, so each split has its own HF focality.
-    assert len({round(d[f"{ROI}_HF_Focality"], 12) for d in results}) == 3
+    assert len({round(d[f"{ROI}_HFpeak_Focality"], 12) for d in results}) == 3
 
 
 def test_mex_candidate_uses_all_four_channel_carriers(fake_ti):
@@ -113,8 +113,8 @@ def test_mex_candidate_uses_all_four_channel_carriers(fake_ti):
     peak = _brute_peak(
         [_channel(engine, electrodes[k], electrodes[k + 1], 0.75) for k in (0, 2, 4, 6)]
     )
-    expected = _hand_hf_focality(engine, peak)
-    assert data[f"{ROI}_HF_Focality"] == pytest.approx(expected, rel=1e-12)
+    expected = _hand_hf_peak_focality(engine, peak)
+    assert data[f"{ROI}_HFpeak_Focality"] == pytest.approx(expected, rel=1e-12)
     assert data[f"{ROI}_TI_Selectivity"] == pytest.approx(
         data[f"{ROI}_Focality"] / expected, rel=1e-12
     )
@@ -130,10 +130,10 @@ def test_csv_appends_the_columns_and_keeps_the_composite(fake_ti, tmp_path):
         (row,) = list(reader)
     assert reader.fieldnames[-3:] == [
         "Composite_Index",
-        "HF_Focality",
+        "HFpeak_Focality",
         "TI_Selectivity",
     ]
-    assert row["HF_Focality"] == f"{data[f'{ROI}_HF_Focality']:.4f}"
+    assert row["HFpeak_Focality"] == f"{data[f'{ROI}_HFpeak_Focality']:.4f}"
     assert row["TI_Selectivity"] == f"{data[f'{ROI}_TI_Selectivity']:.4f}"
     composite = data[f"{ROI}_TImean_ROI"] * data[f"{ROI}_Focality"]
     assert row["Composite_Index"] == f"{composite:.4f}"
@@ -183,20 +183,23 @@ def test_candidate_review_exposes_and_sorts_by_the_carrier_metrics(tmp_path):
     _ex_run(
         project,
         HEADER
-        + ",HF_Focality,TI_Selectivity\n"
+        + ",HFpeak_Focality,TI_Selectivity\n"
         + "A_B <> C_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4,1.25,1.6\n"
         + "A_C <> B_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.3,0.2,0.1,2.0,0.4,1.6,1.25\n",
     )
     pm = get_path_manager(str(project))
     page = catalog.list_candidates(pm, "ernie", "ex", "r1", sort="ti_selectivity")
     first, second = page["candidates"]
-    assert (first["metrics"]["hf_focality"], first["metrics"]["ti_selectivity"]) == (
+    assert (
+        first["metrics"]["hf_peak_focality"],
+        first["metrics"]["ti_selectivity"],
+    ) == (
         1.25,
         1.6,
     )
     assert second["metrics"]["ti_selectivity"] == 1.25
     assert first["metrics"]["contrast"] == 2.0  # Focality, unchanged
-    assert "hf_peak" in first["metric_labels"]["hf_focality"]
+    assert "hf_peak" in first["metric_labels"]["hf_peak_focality"]
 
 
 def test_report_lists_the_columns_only_when_the_csv_has_them(tmp_path):
@@ -205,7 +208,7 @@ def test_report_lists_the_columns_only_when_the_csv_has_them(tmp_path):
     new = tmp_path / "new.csv"
     new.write_text(
         HEADER
-        + ",HF_Focality,TI_Selectivity\n"
+        + ",HFpeak_Focality,TI_Selectivity\n"
         + "A_B <> C_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4,1.25,1.6\n"
     )
     old = tmp_path / "old.csv"
@@ -213,9 +216,9 @@ def test_report_lists_the_columns_only_when_the_csv_has_them(tmp_path):
         HEADER + "\nA_B <> C_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4\n"
     )
     (row,) = ex_search.read_results(new)
-    assert (row["HF_Focality"], row["TI_Selectivity"]) == (1.25, 1.6)
+    assert (row["HFpeak_Focality"], row["TI_Selectivity"]) == (1.25, 1.6)
     (legacy,) = ex_search.read_results(old)
-    assert legacy["HF_Focality"] is None and legacy["Composite_Index"] == 0.4
+    assert legacy["HFpeak_Focality"] is None and legacy["Composite_Index"] == 0.4
 
 
 def _report_html(tmp_path: Path, csv_text: str) -> str:
@@ -246,7 +249,8 @@ def _report_html(tmp_path: Path, csv_text: str) -> str:
 def test_rendered_report_has_the_columns_only_for_a_csv_with_them(tmp_path):
     row = "AF7_AFz <> CP6_P10_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4"
     new = _report_html(
-        tmp_path / "a", HEADER + ",HF_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n"
+        tmp_path / "a",
+        HEADER + ",HFpeak_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n",
     )
     results = new.split('id="results"', 1)[1].split("</section>", 1)[0]
     assert "TI selectivity" in results and ">1.60<" in results and ">1.25<" in results
@@ -264,7 +268,21 @@ def test_degenerate_candidates_have_no_carrier_metrics_not_zero(fake_ti, case):
     else:  # these electrodes put no field on the GM elements
         engine.leadfield[:, GM_IDX] = 0.0
     (data,) = engine.compute_ti_fields("A", "B", "C", "D", [(1.0, 1.0)])
-    assert data[f"{ROI}_HF_Focality"] is None
+    assert data[f"{ROI}_HFpeak_Focality"] is None
     assert data[f"{ROI}_TI_Selectivity"] is None
     rows, *_ = build_csv_rows({"TI_field_A_B_and_C_D.msh": data}, ROI)
     assert rows[1][-2:] == ["", ""]
+
+
+def test_a_csv_with_the_renamed_carrier_column_says_so_in_the_report(tmp_path):
+    """A final_output.csv from before the rename keeps its ranking and says why its carrier
+    columns are missing, instead of dropping them without a word."""
+    row = "AF7_AFz <> CP6_P10_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4"
+    old = _report_html(
+        tmp_path / "a", HEADER + ",HF_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n"
+    )
+    results = old.split('id="results"', 1)[1].split("</section>", 1)[0]
+    assert "older version" in results and "Re-run the search" in results
+    assert "TI selectivity</th>" not in results
+    none = _report_html(tmp_path / "b", HEADER + "\n" + row + "\n")
+    assert "older version" not in none  # a CSV that never had them: nothing to explain

@@ -290,11 +290,29 @@ class TestSimulationConfig:
             assert config.conductivity == cond
 
     def test_default_output_fields(self):
+        # docs/dev/DECISIONS.md 2026-10-30: the envelope and the two carrier fields the
+        # analyzer's carrier metrics read; TI_avg and hf_power_density stay opt-in.
         config = SimulationConfig(subject_id="001", montages=[])
-        assert config.output_fields == ["TI_max"]
+        assert config.output_fields == ["TI_max", "hf_peak", "hf_rms"]
+
+    def test_carrier_only_default_is_its_carrier_fields(self):
+        config = SimulationConfig(subject_id="001", montages=[], carrier_only=True)
+        assert config.output_fields == ["hf_peak", "hf_rms"]
+
+    def test_nifti_volumes_are_opt_in(self):
+        config = SimulationConfig(subject_id="001", montages=[])
+        assert config.map_to_vol is False and config.map_to_mni is False
+
+    def test_mni_niftis_turn_nifti_volumes_on(self):
+        # MNI output is itself a NIfTI: an older spec with map_to_mni alone still runs, and
+        # writes subject and MNI NIfTIs.
+        config = SimulationConfig(subject_id="001", montages=[], map_to_mni=True)
+        assert (config.map_to_vol, config.map_to_mni) == (True, True)
+        config = SimulationConfig(subject_id="001", montages=[], map_to_vol=True)
+        assert (config.map_to_vol, config.map_to_mni) == (True, False)
 
     def test_output_fields_individually_selectable(self):
-        for name in ("TI_max", "TI_avg", "hf_peak", "hf_sar"):
+        for name in ("TI_max", "TI_avg", "hf_peak", "hf_rms"):
             config = SimulationConfig(
                 subject_id="001", montages=[], output_fields=[name]
             )
@@ -304,9 +322,9 @@ class TestSimulationConfig:
         config = SimulationConfig(
             subject_id="001",
             montages=[],
-            output_fields=["TI_max", "hf_peak", "hf_sar"],
+            output_fields=["TI_max", "hf_peak", "hf_rms"],
         )
-        assert config.output_fields == ["TI_max", "hf_peak", "hf_sar"]
+        assert config.output_fields == ["TI_max", "hf_peak", "hf_rms"]
 
     def test_output_fields_unknown_name_rejected(self):
         with pytest.raises(ValueError, match="Invalid output field"):
@@ -321,7 +339,12 @@ class TestSimulationConfig:
     def test_carrier_only_rejects_envelope_fields(self):
         # ΔF = 0 has no envelope, so TI_max is undefined rather than zero
         with pytest.raises(ValueError, match="carrier_only has no envelope"):
-            SimulationConfig(subject_id="001", montages=[], carrier_only=True)
+            SimulationConfig(
+                subject_id="001",
+                montages=[],
+                carrier_only=True,
+                output_fields=["TI_max", "hf_peak"],
+            )
 
     def test_carrier_only_rejects_mti(self):
         m = Montage(
@@ -344,7 +367,7 @@ class TestSimulationConfig:
             subject_id="001",
             montages=[],
             carrier_only=True,
-            output_fields=["hf_peak", "hf_sar"],
+            output_fields=["hf_peak", "hf_rms"],
         )
         assert config.carrier_only
 

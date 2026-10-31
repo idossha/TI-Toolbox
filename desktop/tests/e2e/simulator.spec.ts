@@ -351,7 +351,7 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   expect(plain.aniso_maxratio).toBe(10);
   expect(custom.electrode_shape).toBe("rect");
   expect(custom.electrode_dimensions).toEqual([10, 10]);
-  expect(custom.output_fields).toEqual(["TI_max", "TI_avg"]);
+  expect(custom.output_fields).toEqual(["TI_max", "hf_peak", "hf_rms", "TI_avg"]);
   expect(custom.gel_thickness).toBe(1);
   expect(custom.map_to_fsavg).toBe(true);
   expect(plain.map_to_fsavg).toBe(false);
@@ -359,7 +359,8 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   expect(plain.electrode_shape).toBe("ellipse");
   expect(plain.electrode_dimensions).toEqual([8, 8]);
   expect(plain.gel_thickness).toBe(1);
-  expect(plain.output_fields).toEqual(["TI_max"]);
+  expect(plain.output_fields).toEqual(["TI_max", "hf_peak", "hf_rms"]);
+  expect([plain.map_to_vol, plain.map_to_mni]).toEqual([false, false]); // NIfTIs are opt-in
 
   // Reset puts the row back on the defaults — including the one that changed meanwhile.
   await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
@@ -367,8 +368,8 @@ test("a job's own electrodes reach its config, and its neighbour keeps the built
   await page.getByRole("dialog").getByRole("button", { name: "Done", exact: true }).click();
   await expect(jobDetail(first).locator('[data-cell="custom"]')).toHaveCount(0);
 
-  // And a NEW row starts from the settings the user configured last, not from the built-ins: the
-  // seed is what makes "configure one job, then add the next like it" one gesture.
+  // And a NEW row starts from the defaults (Settings ▸ Simulator), not from the job configured
+  // last: one job's own settings never leak into the next.
   await first.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
   const again = page.getByRole("dialog");
   await again.getByRole("radio", { name: "Rectangle", exact: true }).click();
@@ -402,7 +403,7 @@ test("a carrier-only job sends carrier_only with carrier fields only, and an mTI
   await expect(dialog.getByRole("checkbox", { name: "TI_max" })).toBeDisabled();
   await expect(dialog.getByRole("checkbox", { name: "TI_avg" })).toBeDisabled();
   await expect(dialog.getByRole("checkbox", { name: "hf_peak" })).toBeChecked();
-  await expect(dialog.getByRole("checkbox", { name: "hf_sar" })).toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "hf_rms" })).toBeChecked();
   await dialog.getByRole("button", { name: "Done", exact: true }).click();
   await expect(dialog).toHaveCount(0);
 
@@ -420,7 +421,7 @@ test("a carrier-only job sends carrier_only with carrier fields only, and an mTI
   const configs = (group.subject_configs ?? []).map((e) => e.config);
   const byMontage = (name: string) => configs.find((c) => ((c.montages as { name: string }[]) ?? []).some((m) => m.name === name))!;
   expect(byMontage("F3_F4").carrier_only).toBe(true);
-  expect(byMontage("F3_F4").output_fields).toEqual(["hf_peak", "hf_sar"]);
+  expect(byMontage("F3_F4").output_fields).toEqual(["hf_peak", "hf_rms"]);
   expect(byMontage("mTI_F3F4_P3P4")).not.toHaveProperty("carrier_only");
 });
 

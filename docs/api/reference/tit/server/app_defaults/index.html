@@ -1084,19 +1084,27 @@ unchanged, for the caller's own validation to reject.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/app_defaults.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-77">77</a></span>
-<span class="normal"><a href="#__codelineno-0-78">78</a></span>
-<span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span>
-<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-81">81</a></span>
 <span class="normal"><a href="#__codelineno-0-82">82</a></span>
-<span class="normal"><a href="#__codelineno-0-83">83</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="k">def</span><span class="w"> </span><span class="nf">with_app_defaults</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="w">    </span><span class="sd">"""*config* over the table's entry for *kind* (a copy); anything but a dict is returned</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    unchanged, for the caller's own validation to reject."""</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a>        <span class="k">return</span> <span class="n">config</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a>    <span class="n">filled</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">APP_DEFAULTS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="p">{})),</span> <span class="o">**</span><span class="n">config</span><span class="p">}</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="k">return</span> <span class="n">_with_saved_preferences</span><span class="p">(</span><span class="n">filled</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span> <span class="k">else</span> <span class="n">filled</span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span>
+<span class="normal"><a href="#__codelineno-0-90">90</a></span>
+<span class="normal"><a href="#__codelineno-0-91">91</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="k">def</span><span class="w"> </span><span class="nf">with_app_defaults</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="w">    </span><span class="sd">"""*config* over the table's entry for *kind* (a copy); anything but a dict is returned</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">    unchanged, for the caller's own validation to reject."""</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="k">return</span> <span class="n">config</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="n">filled</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">APP_DEFAULTS</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="p">{})),</span> <span class="o">**</span><span class="n">config</span><span class="p">}</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"sim"</span> <span class="ow">and</span> <span class="n">config</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"carrier_only"</span><span class="p">)</span> <span class="ow">and</span> <span class="s2">"output_fields"</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>        <span class="c1"># The page's ticks include the envelope a carrier-only run lacks; leave the field to</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="c1"># SimulationConfig, whose default for that run is its carrier fields (as the page's is).</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>        <span class="k">del</span> <span class="n">filled</span><span class="p">[</span><span class="s2">"output_fields"</span><span class="p">]</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>    <span class="k">return</span> <span class="n">_with_saved_preferences</span><span class="p">(</span><span class="n">filled</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span> <span class="k">if</span> <span class="n">kind</span> <span class="o">==</span> <span class="s2">"pre"</span> <span class="k">else</span> <span class="n">filled</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

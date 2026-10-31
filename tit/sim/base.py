@@ -9,7 +9,7 @@
 * ``run`` -- template method (setup dirs, viz, build session, post-process)
 * ``_init_session`` -- common SESSION setup (subpath, tensor, eeg_cap, flags)
 * ``_add_electrode_pair`` -- electrode creation on a TDCS list
-* ``_cropped_carriers`` / ``_write_volume_mesh`` / ``_write_ti_normal`` -- the
+* ``_cropped_carriers`` / ``_write_volume_mesh`` / ``_write_central_surface`` -- the
   field outputs (:mod:`tit.calc` over all channel fields, any even count)
 
 Subclasses implement the following abstract interface:
@@ -29,7 +29,7 @@ run_simulation : Top-level orchestration entry point.
 """
 
 import os
-import subprocess
+import time
 from abc import ABC, abstractmethod
 from copy import deepcopy
 
@@ -37,42 +37,27 @@ import numpy as np
 from simnibs import mesh_io, run_simnibs, sim_struct
 
 from tit import constants as const
-from tit.calc import envelope, envelope_max, envelope_mean, hf_peak, hf_power
 from tit.paths import get_path_manager
 from tit.sim.config import Montage, SimulationConfig
+from tit.volume_fields import (
+    BRAIN_TAGS,
+    central_surface,
+    check_niftis_match_meshes,
+    compute_volume_fields,
+)
 from tit.sim.utils import (
     clear_previous_outputs,
     create_simulation_config_file,
+    finish_t1_to_mni,
     refuse_existing_result,
     run_montage_visualization,
     setup_montage_directories,
+    start_t1_to_mni,
+    transform_dirs_to_nifti,
 )
 
 # Transient element field carrying the conductivity through the crop; never written.
 _SIGMA = "_conductivity"
-
-# Brain tissue crop mask: tissue volume elements and their surfaces
-# (constants.BRAIN_TISSUE_TAG_RANGES); electrodes and gel are dropped.
-_TAGS_KEEP = np.hstack([np.arange(lo, hi) for lo, hi in const.BRAIN_TISSUE_TAG_RANGES])
-
-
-def hf_power_density(fields, sigma, *, coherent: bool = False) -> np.ndarray:
-    """Time-averaged carrier power absorbed per volume, W/m^3.
-
-    ``(1/2) sum_c E_c^T sigma E_c`` for zero-to-peak carrier fields ``E_c``
-    (V/m) at distinct frequencies: ``sigma * hf_power`` for isotropic
-    ``sigma`` ``(N,)`` S/m, the full tensor form for ``(N, 9)`` anisotropic
-    conductivities (``J . E`` averaged over time).  ``SAR = this / rho``
-    (IEEE C95.1-2019, p. 35).  *coherent* is the carrier-only control: one
-    sinusoid of amplitude ``sum_c E_c``.
-    """
-    sigma = np.asarray(sigma, dtype=np.float64)
-    if sigma.ndim == 1:
-        return sigma * hf_power(fields, coherent=coherent)
-    E = np.stack([np.asarray(f, dtype=np.float64) for f in fields])
-    if coherent:
-        E = E.sum(axis=0, keepdims=True)
-    return 0.5 * np.einsum("fni,nij,fnj->n", E, sigma.reshape(-1, 3, 3), E)
 
 
 class BaseSimulation(ABC):
@@ -188,7 +173,9 @@ class BaseSimulation(ABC):
             clear_previous_outputs(montage_dir)
         else:
             refuse_existing_result(montage_dir, self.montage.name)
-        dirs = setup_montage_directories(montage_dir, self._simulation_mode)
+        dirs = setup_montage_directories(
+            montage_dir, self._simulation_mode, niftis=self.config.map_to_vol
+        )
         create_simulation_config_file(
             self.config, self.montage, dirs["documentation"], self.logger
         )
@@ -262,7 +249,9 @@ class BaseSimulation(ABC):
         S.subpath = self.m2m_dir
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
         S.pathfem = output_dir
-        S.map_to_surf = cfg.map_to_surf
+        # The central surface is written by _write_central_surface from the field mesh; SimNIBS's
+        # per-channel surface overlays are not needed (SimulationConfig.map_to_surf is unused).
+        S.map_to_surf = False
         S.map_to_vol = False
         S.map_to_MNI = False
         S.open_in_gmsh = cfg.open_in_gmsh
@@ -350,108 +339,92 @@ class BaseSimulation(ABC):
             m = mesh_io.read_msh(os.path.join(hf_dir, f"{sid}_TDCS_{i}_{cond}.msh"))
             if i == 1 and const.FIELD_HF_POWER_DENSITY in self.config.output_fields:
                 m.add_element_field(self._element_conductivity(m), _SIGMA)
-            meshes.append(m.crop_mesh(tags=_TAGS_KEEP))
+            meshes.append(m.crop_mesh(tags=BRAIN_TAGS))
         return meshes
 
-    def _write_volume_mesh(self, meshes: list, max_name: str, path: str) -> None:
-        """Write the selected volume fields of the channels' ``E`` to *path*.
+    def _write_volume_mesh(self, meshes: list, max_name: str, path: str):
+        """Write the selected volume fields of the channels' ``E`` to *path*; the mesh written.
 
         Every field runs over all channel fields jointly, paired positionally
         (channels 2k-1 and 2k form beating pair k).  The
         envelope maximum is written as *max_name* (``TI_max``; ``mTI_max``
         for mTI); carrier-only runs add the channel fields coherently.
         """
-        selected = set(self.config.output_fields)
-        coherent = self.config.carrier_only
-        fields = [m.field["E"].value for m in meshes]
-
+        selected = self.config.output_fields
         mout = deepcopy(meshes[0])
         mout.elmdata = []
-        if const.FIELD_TI_MAX in selected:
-            mout.add_element_field(envelope_max(fields), max_name)
-        if const.FIELD_TI_AVG in selected:
-            mout.add_element_field(envelope_mean(fields), const.FIELD_TI_AVG)
-        if const.FIELD_HF_PEAK in selected:
-            # Peak carrier field (Cassarà 2025 Part I, Eq. 3); each channel field enters on its own.
-            mout.add_element_field(
-                hf_peak(fields, coherent=coherent), const.FIELD_HF_PEAK
-            )
-        if const.FIELD_HF_SAR in selected:
-            # hf_sar keeps sum|E_c|^2 = 2*hf_power on disk until its pending rename to hf_power.
-            mout.add_element_field(
-                2.0 * hf_power(fields, coherent=coherent), const.FIELD_HF_SAR
-            )
-        if const.FIELD_HF_POWER_DENSITY in selected:
-            mout.add_element_field(
-                hf_power_density(
-                    fields, meshes[0].field[_SIGMA].value, coherent=coherent
-                ),
-                const.FIELD_HF_POWER_DENSITY,
-            )
-
-        view_field = (
-            max_name if const.FIELD_TI_MAX in selected else self.config.output_fields[0]
-        )
+        for name, values in compute_volume_fields(
+            [m.field["E"].value for m in meshes],
+            selected,
+            max_name=max_name,
+            coherent=self.config.carrier_only,
+            sigma=(
+                meshes[0].field[_SIGMA].value
+                if const.FIELD_HF_POWER_DENSITY in selected
+                else None
+            ),
+        ):
+            mout.add_element_field(values, name)
         mesh_io.write_msh(mout, path)
-        mout.view(visible_tags=[1002, 1006], visible_fields=view_field).write_opt(path)
         self.logger.info(f"{self._montage_type_label} mesh saved: {path}")
+        return mout
 
-    def _write_ti_normal(self, hf_dir: str, n_channels: int, path: str) -> None:
-        """Write ``TI_normal`` on the cortical surface to *path*.
+    def _write_central_surface(self, volume, meshes: list, path: str) -> None:
+        """Write the central cortical surface with every field of *volume* and ``TI_normal``.
 
-        The envelope of all channel fields along the node normals of the
-        SimNIBS central-surface overlays (:func:`tit.calc.envelope`).  SimNIBS
-        4.6 writes ``E_magn``, ``E_normal``, ``E_tangent`` and ``E_angle`` there,
-        not the ``E`` vector; the envelope along ``n`` needs only ``E . n``, so
-        the field ``E_normal * n`` gives it exactly.
+        :func:`tit.volume_fields.central_surface`: the volume fields and each channel's ``E``
+        interpolated onto the m2m central surfaces (lh then rh), ``TI_normal`` the envelope of
+        all channel fields along the node normals. A carrier-only run has no envelope, so no
+        ``TI_normal``.
+        """
+        start = time.perf_counter()
+        e_fields = (
+            None if self.config.carrier_only else [m.field["E"].value for m in meshes]
+        )
+        surface = central_surface(volume, self.m2m_dir, e_fields=e_fields)
+        mesh_io.write_msh(surface, path)
+        self.logger.info(
+            f"Central surface saved: {path} ({time.perf_counter() - start:.1f} s)"
+        )
+
+    def _write_niftis(self, dirs: dict, volume_path: str, niftis_key: str) -> None:
+        """Write the opt-in NIfTIs (``map_to_vol``): one 3-D volume per field of the field mesh.
+
+        The field mesh at *volume_path* and its grey- and white-matter crops go to
+        ``dirs[niftis_key]`` (``<mesh>``, ``grey_<mesh>``, ``white_<mesh>``), each channel's
+        ``magnE`` to ``high_Frequency/niftis/``, in subject space and, with ``map_to_mni``, MNI
+        space. Then the NIfTI set is checked against the mesh field set, name for name.
 
         Raises:
-            KeyError: an overlay has no ``E_normal`` node field.
+            RuntimeError: the NIfTIs written differ from the meshes' fields.
         """
         sid = self.config.subject_id
-        cond = self.config.conductivity
-        overlays = os.path.join(hf_dir, "subject_overlays")
-        cms = [
-            mesh_io.read_msh(
-                os.path.join(overlays, f"{sid}_TDCS_{i}_{cond}_central.msh")
-            )
-            for i in range(1, n_channels + 1)
-        ]
-
-        normals = cms[0].nodes_normals().value
-        fields = []
-        for i, cm in enumerate(cms, start=1):
-            if "E_normal" not in cm.field:
-                raise KeyError(
-                    f"central-surface overlay of channel {i} has no 'E_normal' node field "
-                    f"(fields: {sorted(cm.field)})"
-                )
-            fields.append(cm.field["E_normal"].value.reshape(-1, 1) * normals)
-
-        mout = deepcopy(cms[0])
-        mout.nodedata = []
-        mout.add_node_field(envelope(fields, normals), const.FIELD_TI_NORMAL)
-        mesh_io.write_msh(mout, path)
-        mout.view(visible_fields=[const.FIELD_TI_NORMAL]).write_opt(path)
-        self.logger.debug(f"TI_normal saved: {path}")
-
-    def _generate_central_surface(self, mesh_path: str, surfaces_dir: str) -> None:
-        """Generate the central cortical surface mesh via ``msh2cortex``.
-
-        Parameters
-        ----------
-        mesh_path : str
-            Path to the input TI/mTI mesh file.
-        surfaces_dir : str
-            Output directory for the generated surface mesh.
-        """
-        self.logger.info("Central surface generation: Started")
-        subprocess.run(
-            ["msh2cortex", "-i", mesh_path, "-m", self.m2m_dir, "-o", surfaces_dir],
-            check=True,
-            capture_output=True,
+        mni = self.config.map_to_mni
+        # T1->MNI is independent of the field meshes; start it in the background so it
+        # overlaps the mesh-to-NIfTI conversions.
+        t1_proc = start_t1_to_mni(self.m2m_dir, sid) if mni else None
+        self.logger.info("NIfTI transformation: Started")
+        transform_dirs_to_nifti(
+            [
+                {
+                    "mesh_dir": os.path.dirname(volume_path),
+                    "output_dir": dirs[niftis_key],
+                    "tissues": True,
+                },
+                {
+                    "mesh_dir": dirs["hf_mesh"],
+                    "output_dir": dirs["hf_niftis"],
+                    "fields": ["magnE"],
+                },
+            ],
+            self.m2m_dir,
+            self.logger,
+            map_to_mni=mni,
         )
-        self.logger.info("Central surface generation: Complete")
+        check_niftis_match_meshes(volume_path, dirs[niftis_key], mni=mni)
+        self.logger.info("NIfTI transformation: \u2713 Complete")
+        if t1_proc is not None:
+            finish_t1_to_mni(t1_proc, self.logger)
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
         """Override tissue conductivities from environment variables if set."""

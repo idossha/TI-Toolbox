@@ -29,6 +29,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
+from tit.constants import DEFAULT_OUTPUT_FIELDS
+
 _FLEX: dict[str, Any] = {
     "goal": "mean",
     "postproc": "max_TI",
@@ -51,9 +53,11 @@ APP_DEFAULTS: dict[str, dict[str, Any]] = {
     },
     "sim": {
         "map_to_fsavg": False,
-        # The dataclass's own default_factory values, which the generated schema cannot carry.
+        # The dataclass's own default_factory value, which the generated schema cannot carry.
         "electrode_dimensions": [8, 8],
-        "output_fields": ["TI_max"],
+        # The page's ticks: SimulationConfig's own default (None) resolves to the same list,
+        # or to its carrier fields for a carrier-only run (see with_app_defaults).
+        "output_fields": list(DEFAULT_OUTPUT_FIELDS),
     },
     "flex": _FLEX,
     # The Optimizer's focality modes: adaptive (its default) and multi-threshold.
@@ -80,6 +84,10 @@ def with_app_defaults(kind: str, config: Any) -> Any:
     if not isinstance(config, dict):
         return config
     filled = {**copy.deepcopy(APP_DEFAULTS.get(kind, {})), **config}
+    if kind == "sim" and config.get("carrier_only") and "output_fields" not in config:
+        # The page's ticks include the envelope a carrier-only run lacks; leave the field to
+        # SimulationConfig, whose default for that run is its carrier fields (as the page's is).
+        del filled["output_fields"]
     return _with_saved_preferences(filled, config) if kind == "pre" else filled
 
 

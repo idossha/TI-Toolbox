@@ -293,7 +293,15 @@
             },
             "contoursIn2D": { "type": "boolean" },
             "contourWidthPx": { "type": "number" },
-            "fillIn2D": { "type": "boolean" }
+            "fillIn2D": { "type": "boolean" },
+            "fields": {
+              "type": "object",
+              "description": "Optional per-field display metadata keyed by field name, {label, units} from tit.constants.FIELD_REGISTRY. TetraVox 0.6.4+ draws a label's X_{sub} as a subscript; older versions ignore the block.",
+              "additionalProperties": {
+                "type": "object",
+                "properties": { "label": { "type": "string" }, "units": { "type": "string" } }
+              }
+            }
           }
         }
       ]

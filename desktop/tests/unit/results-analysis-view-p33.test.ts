@@ -4,7 +4,7 @@
  * What this pins
  *   1. Field values carry the unit `tit.constants.FIELD_REGISTRY` gives the analysed field — read
  *      here from `tit/constants.py` itself, so the desktop's copy of the table cannot drift
- *      unnoticed: `hf_sar` is (V/m)², not V/m.
+ *      unnoticed: `hf_power_density` is W/m³, not V/m.
  *   2. `gm_*` and `percentile_*` are whole-tissue numbers (analyzer AnalysisResult docstring): no
  *      metric in the ROI group comes from them, and they share one group titled by the tissue
  *      (grey matter for a mesh analysis; a voxel analysis may be WM or GM+WM, which `results.csv`
@@ -75,7 +75,7 @@ describe("field units come from FIELD_REGISTRY", () => {
   const units = registryUnits();
 
   it("reads the seven registry fields from tit/constants.py", () => {
-    expect([...units.keys()].sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_power_density", "hf_sar", "mTI_max"]);
+    expect([...units.keys()].sort()).toEqual(["TI_avg", "TI_max", "TI_normal", "hf_peak", "hf_power_density", "hf_rms", "mTI_max"]);
   });
 
   it.each([...registryUnits()])("labels %s values in %s", (field, unit) => {
@@ -85,10 +85,10 @@ describe("field units come from FIELD_REGISTRY", () => {
     expect(view.groups.flatMap((g) => g.metrics).find((m) => m.value.startsWith("2 "))?.value).toBe(`2 ${unit}`);
   });
 
-  it("does not call carrier power V/m", () => {
-    const view = analysisView(table([["field_name", "hf_sar"], ["space", "voxel"], ["roi_max", "3.25"]]));
+  it("does not call absorbed power density V/m", () => {
+    const view = analysisView(table([["field_name", "hf_power_density"], ["space", "voxel"], ["roi_max", "3.25"]]));
     const values = view.groups.flatMap((g) => g.metrics.map((m) => m.value));
-    expect(values).toEqual(["3.25 (V/m)²"]);
+    expect(values).toEqual(["3.25 W/m³"]);
   });
 });
 

@@ -44,12 +44,20 @@ SIZE_BUDGET = 1_000_000
 TOP_N = 25
 _FIELDS = ("TImax_ROI", "TImean_ROI", "TImean_GM", "Focality", "Composite_Index")
 #: Reported beside the ranking; a CSV written before them has no such columns (``None``).
-_CARRIER_FIELDS = ("HF_Focality", "TI_Selectivity")
+_CARRIER_FIELDS = ("HFpeak_Focality", "TI_Selectivity")
+#: The carrier column a CSV written before the 2026-10-30 rename carries instead (read, never written).
+_RENAMED_CARRIER_FIELD = "HF_Focality"
 
 
 def read_results(csv_path: str | Path) -> list[dict]:
     """``final_output.csv`` rows with numbers as floats, ranked by composite (best first)."""
     return _read_rows(csv_path)[0]
+
+
+def _renamed_columns(csv_path: str | Path) -> bool:
+    """Whether the CSV has the carrier column under its name from before the rename."""
+    with open(csv_path, newline="") as f:
+        return _RENAMED_CARRIER_FIELD in (csv.DictReader(f).fieldnames or ())
 
 
 def _read_rows(csv_path: str | Path) -> tuple[list[dict], int]:
@@ -180,6 +188,7 @@ def collect(run_dir: str | Path, leadfield_dir: str | Path | None = None) -> dic
         "config": cfg,
         "rows": rows,
         "skipped": skipped,
+        "renamed_carrier_columns": _renamed_columns(run_dir / "final_output.csv"),
         "roi": common.roi_summary(run_dir),
         "leadfield": lf,
     }
@@ -383,7 +392,9 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         )
     total, step = cfg.get("total_current_mA", 0), cfg.get("current_step_mA", 0)
     limit = cfg.get("channel_limit_mA")
-    if limit is None:  # runs before 2026-10-24 recorded no limit and swept up to total - step
+    if (
+        limit is None
+    ):  # runs before 2026-10-24 recorded no limit and swept up to total - step
         limit = round(total - step, 9)
     dose = [
         ("Electrodes", electrodes),
@@ -449,7 +460,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         "Up and to the right is better on both. Dashed curves have equal composite; hover a cell or ring for its values.",
     )
     top = top_distinct(rows)
-    carrier = any(r["HF_Focality"] is not None for r in top)
+    carrier = any(r["HFpeak_Focality"] is not None for r in top)
     table_rows = []
     for i, r in enumerate(top, 1):
         currents = channel_currents(r)
@@ -508,10 +519,17 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
         if skipped
         else ""
     )
+    renamed = (
+        '<p class="muted" style="font-size:13px">These results come from an older version: '
+        "their carrier columns were renamed since, so HF<sub>peak</sub> focality and TI "
+        "selectivity are not shown. Re-run the search to get them.</p>"
+        if rec.get("renamed_carrier_columns") and not carrier
+        else ""
+    )
     results_sec = c.section(
         "results",
         "Search results",
-        fig + table + left_out,
+        fig + table + left_out + renamed,
         lead="Where the winner sits among all candidates.",
     )
 

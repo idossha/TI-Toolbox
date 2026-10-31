@@ -21,7 +21,7 @@ class TestFieldRegistryCompleteness:
         "FIELD_TI_NORMAL",
         "FIELD_TI_AVG",
         "FIELD_HF_PEAK",
-        "FIELD_HF_SAR",
+        "FIELD_HF_RMS",
         "FIELD_HF_POWER_DENSITY",
     )
 
@@ -101,7 +101,7 @@ class TestFieldSpecNamingPreserved:
         assert const.FIELD_TI_NORMAL == "TI_normal"
         assert const.FIELD_TI_AVG == "TI_avg"
         assert const.FIELD_HF_PEAK == "hf_peak"
-        assert const.FIELD_HF_SAR == "hf_sar"
+        assert const.FIELD_HF_RMS == "hf_rms"
         assert const.FIELD_HF_POWER_DENSITY == "hf_power_density"
 
 
@@ -116,7 +116,7 @@ class TestFieldRegistryLookupHelpers:
             "TI_normal",
             "TI_avg",
             "hf_peak",
-            "hf_sar",
+            "hf_rms",
             "hf_power_density",
         )
 
@@ -124,7 +124,7 @@ class TestFieldRegistryLookupHelpers:
         functional = const.get_field_names(kind=const.FIELD_KIND_FUNCTIONAL)
         safety = const.get_field_names(kind=const.FIELD_KIND_SAFETY)
         assert set(functional) == {"TI_max", "mTI_max", "TI_normal", "TI_avg"}
-        assert set(safety) == {"hf_peak", "hf_sar", "hf_power_density"}
+        assert set(safety) == {"hf_peak", "hf_rms", "hf_power_density"}
         # Partition: every field is exactly one kind.
         assert set(functional) | set(safety) == set(const.get_field_names())
         assert set(functional) & set(safety) == set()
@@ -134,8 +134,8 @@ class TestFieldRegistryLookupHelpers:
         assert spec.name == "TI_max"
         assert spec.kind == const.FIELD_KIND_FUNCTIONAL
 
-        spec = const.get_field_spec("hf_sar")
-        assert spec.name == "hf_sar"
+        spec = const.get_field_spec("hf_rms")
+        assert spec.name == "hf_rms"
         assert spec.kind == const.FIELD_KIND_SAFETY
 
     def test_get_field_spec_unknown_name_raises(self):
@@ -147,7 +147,7 @@ class TestFieldRegistryLookupHelpers:
 class TestSafetyFieldsGuard:
     """Load-bearing guard: safety fields must never silently gain/lose members.
 
-    A later phase must be able to rely on "safety fields == {hf_peak, hf_sar,
+    A later phase must be able to rely on "safety fields == {hf_peak, hf_rms,
     hf_power_density}"
     to make sure carrier-exposure safety metrics are never made optional by
     accident when new fields are added to the registry.
@@ -155,7 +155,7 @@ class TestSafetyFieldsGuard:
 
     def test_safety_fields_are_exactly_the_carrier_fields(self):
         safety_names = set(const.get_field_names(kind=const.FIELD_KIND_SAFETY))
-        assert safety_names == {"hf_peak", "hf_sar", "hf_power_density"}
+        assert safety_names == {"hf_peak", "hf_rms", "hf_power_density"}
         assert set(const.CARRIER_OUTPUT_FIELDS) == safety_names
 
     def test_functional_fields_are_exactly_the_ti_fields(self):
@@ -181,7 +181,7 @@ class TestValidFsavgFieldsConsumer:
     without changing its historical value, order, or type."""
 
     def test_valid_fsavg_fields_unchanged(self):
-        assert VALID_FSAVG_FIELDS == ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+        assert VALID_FSAVG_FIELDS == ("TI_max", "TI_normal", "hf_peak", "hf_rms")
 
     def test_valid_fsavg_fields_is_a_tuple_of_str(self):
         assert isinstance(VALID_FSAVG_FIELDS, tuple)
@@ -233,3 +233,48 @@ class TestOutputFieldDefinitions:
             lowered = text.lower()
             assert "safety metric" not in lowered
             assert "functional" not in lowered
+
+
+@pytest.mark.unit
+class TestDisplayLabels:
+    """One source of truth for display labels and units: the registry; the desktop mirrors it.
+
+    Pins (2026-10-30, docs/dev/DECISIONS.md "field renames and display labels"): every field's
+    label is ``X_{sub}`` as the maintainer specified it (the table in the decision entry, typed
+    here as the spec), and ``desktop/src/renderer/pages/analyzer/fields.ts`` -- the desktop's copy,
+    read from its source -- carries the same name, label and units for each field it lists.
+    """
+
+    SPEC = {
+        "TI_max": ("TI_{max}", "V/m"),
+        "mTI_max": ("mTI_{max}", "V/m"),
+        "TI_normal": ("TI_{normal}", "V/m"),
+        "TI_avg": ("TI_{avg}", "V/m"),
+        "hf_peak": ("HF_{peak}", "V/m"),
+        "hf_rms": ("HF_{rms}", "V/m"),
+        "hf_power_density": ("p_{HF}", "W/m^3"),
+    }
+
+    def test_registry_labels_and_units_are_the_specified_ones(self):
+        got = {s.name: (s.label, s.units) for s in const.FIELD_REGISTRY}
+        assert got == self.SPEC
+
+    def test_the_desktop_mirror_has_the_registry_labels_and_units(self):
+        import re
+        from pathlib import Path
+
+        text = (
+            Path(__file__).resolve().parents[1]
+            / "desktop/src/renderer/pages/analyzer/fields.ts"
+        ).read_text()
+        entries = re.findall(
+            r'name: "([^"]+)",\s*label: "([^"]+)",\s*kind: "[a-z]+",\s*units: "([^"]+)"',
+            text,
+        )
+        assert len(entries) >= 6, "the desktop field list has entries to check"
+        for name, label, units in entries:
+            spec = const.get_field_spec(name)
+            assert label == spec.label, name
+            assert units == spec.units.replace("^2", "²").replace("^3", "³"), name
+        mti = re.search(r'const MTI_MAX_LABEL = "([^"]+)"', text)
+        assert mti and mti.group(1) == const.get_field_spec("mTI_max").label

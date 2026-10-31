@@ -61,7 +61,9 @@ export function buildSimulationConfig(row: SelectedRow, defaults: GlobalParams):
     electrode_dimensions: params.dimensions,
     gel_thickness: params.gelThickness,
     output_fields: outputFields,
-    map_to_mni: params.mapToMni ?? false,
+    map_to_vol: params.writeNiftis ?? false,
+    // MNI NIfTIs are NIfTIs: the server refuses map_to_mni without map_to_vol.
+    map_to_mni: !!params.writeNiftis && !!params.mapToMni,
     map_to_fsavg: params.mapToFsavg ?? false,
     // Only sent when on: absent is the previous behaviour, for a server that predates the field.
     ...(carrierOnly ? { carrier_only: true } : {}),

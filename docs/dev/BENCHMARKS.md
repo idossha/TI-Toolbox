@@ -240,7 +240,7 @@ End to end, `ExSearchEngine.compute_ti_fields` (one split) and `MExSearchEngine.
 on a synthetic float32 leadfield (20 electrodes, 200,000 elements all in GM, ROI 2,000), with
 `simnibs.utils.TI_utils.get_field` replaced by its arithmetic:
 
-| per candidate | before | after (with `HF_Focality`, `TI_Selectivity`) |
+| per candidate | before | after (with `HFpeak_Focality`, `TI_Selectivity`) |
 |---|---:|---:|
 | Ex | 36.7–37.1 ms | 46.0–47.1 ms |
 | mEx | 0.53–0.54 s | 0.55–0.60 s |
@@ -250,3 +250,26 @@ The Ex increase is the extra pass over the two channel fields (`_stack`'s float6
 it sits next to is cheap, so the relative cost is large. Repeat by timing those calls on the same
 seeded fields in separate processes, once per `tit/` tree on `sys.path`. Accuracy is pinned by
 `tests/test_calc.py` and `tests/test_ex_carrier_focality.py`, not by this page.
+
+## TI simulation outputs: one in-process central surface vs overlays + msh2cortex — 2026-10-30
+
+sub-ernie (Dataset 000 `m2m_ernie`), montage AF3-PO10 / AF4-Oz on `EEG10-10_UI_Jurak_2007.csv`,
+1 mA per channel, scalar conductivity, defaults otherwise (`TI_max`, `hf_peak`, `hf_rms`, no
+NIfTIs, fsaverage projection on), `idossha/ti-toolbox:v3.1.2` emulated (amd64 on Apple Silicon),
+one container at a time, `tit/` bind-mounted from the branch before and after the change.
+Timings from the run's own `Simulator_*.log` timestamps; sizes from `ls -l` of every file under
+the montage folder.
+
+| | before (map_to_surf + msh2cortex) | after (`central_surface`) |
+|---|---|---|
+| surface overlays (SimNIBS, inside the solve call) | 291 s | — |
+| `msh2cortex` | 224 s | — |
+| central surface incl. `TI_normal` | (in the 22 s after the solve) | 90.6 s |
+| whole run (wall) | 1011 s | 731 s |
+| files in the montage folder | 53 | 17 |
+| bytes | 1,519,895,618 | 1,251,545,498 |
+
+Reproduce: `docker run --rm --platform linux/amd64 --entrypoint bash -e PYTHONPATH=/ti-toolbox
+-v <checkout>/tit:/ti-toolbox/tit:ro -v <project>:/mnt/proj -v <cfg>:/cfg:ro
+idossha/ti-toolbox:v3.1.2 -c 'simnibs_python -m tit.sim /cfg/sim.json'` with a config naming
+that montage, once per checkout.

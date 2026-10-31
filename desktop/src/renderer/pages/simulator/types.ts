@@ -1,4 +1,5 @@
 import { appDefaults } from "../../forms/appDefaults";
+import { FIELD_REGISTRY, HF_POWER_DENSITY, type FieldSpec } from "../analyzer/fields";
 
 /**
  * One row of the Simulator's **Jobs table** = one job = one `SimulationConfig` with exactly one
@@ -64,6 +65,10 @@ export interface JobSettings {
   dimensions: [number, number];
   gelThickness: number;
   outputFields: string[];
+  /** Write one NIfTI per output field (`SimulationConfig.map_to_vol`). Off by default: the field
+   *  mesh is the output, and a step that needs a NIfTI writes the one it reads. */
+  writeNiftis?: boolean;
+  /** With `writeNiftis`, also write them in MNI space (`map_to_mni`, which needs `map_to_vol`). */
   mapToMni?: boolean;
   mapToFsavg?: boolean;
   /** ΔF = 0 carrier-only control: both pairs at one frequency, in phase — no envelope; only the
@@ -83,6 +88,7 @@ export function defaultJobSettings(): JobSettings {
     dimensions: d.electrode_dimensions as [number, number],
     gelThickness: d.gel_thickness as number,
     outputFields: d.output_fields as string[],
+    writeNiftis: d.map_to_vol as boolean,
     mapToMni: d.map_to_mni as boolean,
     mapToFsavg: d.map_to_fsavg as boolean,
     carrierOnly: d.carrier_only as boolean,
@@ -288,31 +294,35 @@ export const TISSUE_TABLE: { number: number; name: string; defaultValue: number;
   { number: 500, name: "Saline", defaultValue: 1.0, reference: "Saturnino et al., 2015" },
 ];
 
-export interface OutputFieldSpec {
-  name: string;
-  description: string;
-}
-
-/** Selectable output fields in registry order (tit/constants.py FIELD_REGISTRY, minus mTI_max/TI_normal). */
-export const OUTPUT_FIELDS: OutputFieldSpec[] = [
-  { name: "TI_max", description: "Envelope modulation depth (peak-to-trough), maximised over direction (Grossman et al. 2017; Hirata et al. 2024)." },
-  { name: "TI_avg", description: "Envelope modulation depth (peak-to-trough), averaged over all directions rather than maximised." },
-  { name: "hf_peak", description: "Largest instantaneous magnitude of the summed carrier fields (peak-to-zero): max over sign choices of |sum_i s_i*E_i| (Cassarà et al. 2025, Eq. 3)." },
-  { name: "hf_sar", description: "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)." },
-  { name: "hf_power_density", description: "Time-averaged carrier power absorbed per volume, (1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity; SAR = hf_power_density/rho (IEEE C95.1-2019)." },
-];
+/** Selectable output fields in registry order (tit/constants.py FIELD_REGISTRY, minus TI_normal, a surface field). */
+export const OUTPUT_FIELDS: FieldSpec[] = FIELD_REGISTRY.filter((f) => f.name !== "TI_normal");
 
 /** The only fields defined without an envelope — what a carrier-only (ΔF = 0) job may compute. */
-export const CARRIER_FIELDS = ["hf_peak", "hf_sar", "hf_power_density"];
+export const CARRIER_FIELDS = ["hf_peak", "hf_rms", HF_POWER_DENSITY];
 
-/** What switching carrier-only on ticks when no carrier field is ticked: the two fields that need no conductivity. */
-export const DEFAULT_CARRIER_FIELDS = ["hf_peak", "hf_sar"];
+/** What switching carrier-only on ticks when no carrier field is ticked: the two fields that need no conductivity
+ *  (and what `SimulationConfig`'s default is for a carrier-only run). */
+export const DEFAULT_CARRIER_FIELDS = ["hf_peak", "hf_rms"];
+
+/** Tick or untick "Write NIfTI volumes": MNI NIfTIs are NIfTIs, so unticking it unticks MNI. */
+export function withNiftis(settings: JobSettings, on: boolean): JobSettings {
+  return { ...settings, writeNiftis: on, mapToMni: on && !!settings.mapToMni };
+}
+
+/** Tick or untick "Also in MNI space": MNI output is itself a NIfTI, so ticking it ticks NIfTIs
+ *  (`SimulationConfig` turns `map_to_vol` on for `map_to_mni` the same way). */
+export function withMni(settings: JobSettings, on: boolean): JobSettings {
+  return { ...settings, mapToMni: on, writeNiftis: on || !!settings.writeNiftis };
+}
+
+export const WRITE_NIFTIS_HELP =
+  "Also save every output field as a 3-D NIfTI, one file per field. Off, the field mesh is the output: a voxel analysis or a group tool writes the NIfTI it reads when it needs one.";
 
 export const CARRIER_ONLY_HELP =
   "A control with no temporal interference: both channels run at the same carrier frequency (ΔF = 0) and in phase, " +
-  "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2|, hf_sar = |E1+E2|² and hf_power_density = ½(E1+E2)·σ·(E1+E2) " +
+  "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2|, hf_rms = |E1+E2|/√2 and hf_power_density = ½(E1+E2)·σ·(E1+E2) " +
   "(coherent superposition, Cassarà et al. 2025) instead of the TI worst case max(|E1+E2|, |E1−E2|). " +
-  "Only hf_peak, hf_sar and hf_power_density are computed; TI_max, TI_avg and TI_normal are undefined. 2-channel TI montages only.";
+  "Only hf_peak, hf_rms and hf_power_density are computed; TI_max, TI_avg and TI_normal are undefined. 2-channel TI montages only.";
 
 /** Which montage bucket a montage lives in: `uni_polar_montages` / `multi_polar_montages`. */
 export type MontageKind = "uni_polar" | "multi_polar";

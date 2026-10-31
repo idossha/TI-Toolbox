@@ -232,7 +232,7 @@ def _ex_run(pm, kind: str) -> None:
     if kind == "ex":
         # ex carries the carrier columns a search writes now; the mEx run below is a CSV
         # written before them, so its candidates report them as null.
-        header += ["HF_Focality", "TI_Selectivity"]
+        header += ["HFpeak_Focality", "TI_Selectivity"]
         config |= {"total_current": 2.0, "current_step": 0.5}
         rows = [
             [

@@ -2,10 +2,12 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { usePageActive } from "../app/pageActivity";
+import { plainLabel, Subscripted } from "./Subscripted";
 import { cn } from "./utils";
 
 export interface SelectOption {
   value: string;
+  /** Shown as written; `X_{sub}` (a field label, `fieldLabel`) is drawn as a subscript. */
   label: string;
   disabled?: boolean;
 }
@@ -44,7 +46,7 @@ export function Select({
         aria-label={ariaLabel}
         aria-describedby={describedBy}
         aria-invalid={invalid || undefined}
-        title={selected?.label}
+        title={selected && plainLabel(selected.label)}
       >
         <span className="picker-value">
           <SelectPrimitive.Value placeholder={placeholder} />
@@ -70,7 +72,7 @@ export function Select({
                   </SelectPrimitive.ItemIndicator>
                 </span>
                 <span className="picker-option-label">
-                  <SelectPrimitive.ItemText>{opt.label}</SelectPrimitive.ItemText>
+                  <SelectPrimitive.ItemText><Subscripted text={opt.label} /></SelectPrimitive.ItemText>
                 </span>
               </SelectPrimitive.Item>
             ))}

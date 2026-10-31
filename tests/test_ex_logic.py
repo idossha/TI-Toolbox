@@ -260,7 +260,7 @@ class TestBuildCsvRows:
     """Tests for build_csv_rows()."""
 
     def test_header_row(self):
-        """First row is the header with 10 columns (HF_Focality, TI_Selectivity last)."""
+        """First row is the header with 10 columns (HFpeak_Focality, TI_Selectivity last)."""
         results = _make_results(1)
         rows, *_ = build_csv_rows(results, "region")
         assert rows[0][0] == "Montage"

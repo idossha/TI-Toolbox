@@ -20,13 +20,17 @@ tit.stats.permutation.run_group_comparison : Voxelwise group comparison pipeline
 tit.stats.permutation.run_correlation : Voxelwise correlation pipeline.
 """
 
-import os
 import gc
+import logging
+import os
+
 import numpy as np
 import nibabel as nib
 
 # Import TI-Toolbox core modules
 from tit.analyzer.field_selector import simulation_nifti_path
+
+logger = logging.getLogger(__name__)
 
 # ==============================================================================
 # TI-TOOLBOX INTEGRATED LOADING
@@ -67,11 +71,16 @@ def load_subject_nifti_ti_toolbox(
     Raises
     ------
     FileNotFoundError
-        If the resolved NIfTI path does not exist.
+        If the resolved NIfTI path does not exist and is not one the simulation
+        can produce now; a simulator NIfTI it did not save is written first,
+        from the field mesh (:func:`tit.volume_fields.ensure_nifti_file`).
     """
+    from tit.volume_fields import ensure_nifti_file
+
     # TI/niftis/ for a 2-pair run, mTI/niftis/ (mTI file names) for an mTI run.
     path = simulation_nifti_path(subject_id, simulation_name, nifti_file_pattern)
     nifti_dir, filepath = str(path.parent), str(path)
+    ensure_nifti_file(subject_id, simulation_name, path, say=logger.info)
 
     # Load the file (inline basic loading)
     if not os.path.exists(filepath):

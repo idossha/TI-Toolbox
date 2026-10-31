@@ -40,7 +40,7 @@ function fixture(name: string): TableLike {
 
 const MESH = fixture("analysis_results_mesh.csv");
 const VOXEL = fixture("analysis_results_voxel.csv");
-/** Verbatim `results.csv` of a TI_max mesh analysis whose simulation wrote hf_peak and hf_sar: sub-ernie
+/** Verbatim `results.csv` of a TI_max mesh analysis whose simulation wrote hf_peak and hf_rms: sub-ernie
  *  `e2e_ti` (all five output fields), sphere MNI (-38, 4, 2) r = 10 mm, analysed 2026-10-29. */
 const CARRIER = fixture("analysis_results_mesh_carrier.csv");
 
@@ -141,7 +141,7 @@ describe("analysisView (mesh)", () => {
     expect(view.header).toEqual([
       { label: "Subject", value: "ernie" },
       { label: "Simulation", value: "Thalamus" },
-      { label: "Field", value: "TI_max", mono: true },
+      { label: "Field", value: "TI_{max}" },
       { label: "Space", value: "Mesh (surface)" },
       { label: "Analysis", value: "Cortical region" },
       { label: "Region", value: "lh.bankssts + rh.bankssts" },
@@ -206,18 +206,18 @@ describe("analysisView (carrier metrics)", () => {
   it("leads the stimulation-focality group with the TI selectivity, carrier means in V/m", () => {
     expect(view.groups.find((g) => g.title === "Stimulation (carrier) focality")?.metrics).toEqual([
       { label: "TI selectivity", value: "1.027", lead: true },
-      { label: "hf_peak focality ratio", value: "0.879" },
-      { label: "E_rms focality ratio", value: "0.8485" },
-      { label: "hf_peak ROI mean", value: "0.178 V/m" },
-      { label: "hf_peak GM mean", value: "0.2025 V/m" },
-      { label: "E_rms ROI mean", value: "0.09379 V/m" },
-      { label: "E_rms GM mean", value: "0.1105 V/m" },
+      { label: "HF_{peak} focality ratio", value: "0.879" },
+      { label: "HF_{rms} focality ratio", value: "0.8485" },
+      { label: "HF_{peak} ROI mean", value: "0.178 V/m" },
+      { label: "HF_{peak} GM mean", value: "0.2025 V/m" },
+      { label: "HF_{rms} ROI mean", value: "0.09379 V/m" },
+      { label: "HF_{rms} GM mean", value: "0.1105 V/m" },
     ]);
   });
 
   it("reports the hf_peak hot spot in cm² for a mesh analysis", () => {
     expect(view.groups.find((g) => g.title === "Carrier hot spot · cm²")?.metrics).toEqual([
-      { label: "hf_peak ≥ 50 % of its 99.9th percentile", value: "717.9 cm²" },
+      { label: "HF_{peak} ≥ 50 % of its 99.9th percentile", value: "717.9 cm²" },
       { label: "≥ 75 %", value: "34.52 cm²" },
       { label: "≥ 90 %", value: "6.58 cm²" },
       { label: "≥ 95 %", value: "4.294 cm²" },
@@ -237,8 +237,8 @@ describe("analysisView (carrier metrics)", () => {
     expect(analysisView(MESH).carrierNote).toBeUndefined();
     // The analyzer's wording for a simulation that wrote neither carrier field.
     const note =
-      "this simulation did not write hf_peak or hf_sar: tick hf_peak (for hf_focality, ti_selectivity and the carrier hot spot) " +
-      "and hf_sar (for the rms_* statistics) among its Output fields and re-run it.";
+      "this simulation did not write hf_peak or hf_rms: tick hf_peak (for hf_peak_focality, ti_selectivity and the carrier hot spot) " +
+      "and hf_rms (for the rms_* statistics) among its Output fields and re-run it.";
     const noted = analysisView({ columns: ["Metric", "Value"], rows: [["space", "mesh"], ["roi_mean", "0.5"], ["carrier_note", note]] });
     expect(noted.carrierNote).toBe(note);
     expect(noted.extras).toEqual([]); // shown once, as the muted line, not again as an extra

@@ -5,6 +5,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "F3_F4"
       ],
@@ -13,7 +14,7 @@
         "TI_max",
         "TI_normal",
         "hf_peak",
-        "hf_sar"
+        "hf_rms"
       ],
       "space": [
         "mni",
@@ -54,8 +55,8 @@
           "tissue": null
         },
         {
-          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/Thalamus_TI_subject_hf_sar.nii.gz",
-          "field": "hf_sar",
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/Thalamus/TI/niftis/Thalamus_TI_subject_hf_rms.nii.gz",
+          "field": "hf_rms",
           "space": "subject",
           "tissue": null
         },
@@ -78,6 +79,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/L_Insula",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "E37_E18"
       ],
@@ -122,12 +124,13 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example",
       "has_ti": false,
       "has_mti": true,
+      "carrier_only": false,
       "montages": [
         "mTI_F3F4_P3P4"
       ],
       "fields": [
         "hf_peak",
-        "hf_sar",
+        "hf_rms",
         "mTI_max"
       ],
       "space": [
@@ -151,8 +154,8 @@
           "tissue": null
         },
         {
-          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/mTI/niftis/docs_example_mTI_subject_hf_sar.nii.gz",
-          "field": "hf_sar",
+          "path": "/mnt/example/derivatives/SimNIBS/sub-ernie/Simulations/docs_example/mTI/niftis/docs_example_mTI_subject_hf_rms.nii.gz",
+          "field": "hf_rms",
           "space": "subject",
           "tissue": null
         },
@@ -177,6 +180,7 @@
       "path": "/mnt/example/derivatives/SimNIBS/sub-101/Simulations/Thalamus",
       "has_ti": true,
       "has_mti": false,
+      "carrier_only": false,
       "montages": [
         "F3_F4"
       ],

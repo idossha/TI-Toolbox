@@ -1,17 +1,39 @@
 import { Select } from "../../ui/Select";
 import { AUTO_FIELD, type Space } from "./buildConfig";
-import { FIELD_REGISTRY, fieldSpecForName } from "./fields";
+import { FIELD_REGISTRY, HF_POWER_DENSITY, fieldLabel, fieldSpecForName } from "./fields";
+
+/** The envelope fields a carrier-only (ΔF = 0) simulation can never have. */
+const ENVELOPE_FIELDS = ["TI_max", "mTI_max", "TI_avg", "TI_normal"];
+
+/** The suffix an option carries: why it cannot be picked. A field the analysis can compute is listed
+ *  plainly; the Results pane says what was produced for the analysis. */
+export function fieldOptionNote(name: string, space: Space, saved: string[]): { note?: string; disabled: boolean } {
+  if (space === "voxel" && name === "TI_normal") return { note: "mesh only", disabled: true };
+  // Nothing known about the simulation (no catalog entry yet): no claim either way.
+  if (!saved.length || saved.includes(name) || (name === "TI_max" && saved.includes("mTI_max")) || name === "TI_normal") return { disabled: false };
+  // Its conductivity is not kept, so it cannot be computed after the run (tit/volume_fields.py).
+  if (name === HF_POWER_DENSITY) return { note: "not saved", disabled: true };
+  return { disabled: false };
+}
 
 /**
- * `available` is the simulation's catalog `fields`: everything its NIfTIs carry, `magnE` included.
- * Only names the analyzer accepts are offered (`fieldSpecForName` knows the registry and the mTI
- * spelling `mTI_max`); with none of those, the whole registry is, as when the catalog says nothing.
+ * `available` is the simulation's catalog `fields`: what it saved, read from its field mesh and its
+ * NIfTIs (`magnE` included). Every field the analyzer accepts is offered: one the simulation did not
+ * save is computed from its channel meshes when the analysis runs (and kept), listed plainly;
+ * `hf_power_density` cannot be, so unsaved it is disabled. A carrier-only simulation
+ * (`carrierOnly`) offers its carrier fields only, no envelope; its Auto is hf_peak (the
+ * analyzer's `default_field`) and says so. An envelope value such a row still holds stays
+ * visible, disabled, so the row shows what it has to change.
  */
-export function AnalysisFieldSelect({value,space,available=[],onChange}: {value:string;space:Space;available?:string[];onChange:(value:string)=>void}) {
-  const analysable=available.filter((name)=>fieldSpecForName(name) !== undefined);
-  const names=analysable.length ? analysable : FIELD_REGISTRY.map((field)=>field.name);
-  const retained=value !== AUTO_FIELD && !names.includes(value) ? [value,...names] : names;
-  return <Select value={value} onValueChange={onChange} aria-label="Field" options={[
-    {value:AUTO_FIELD,label:"Auto"},...retained.map((name)=>({value:name,label:space === "voxel" && name === "TI_normal" ? `${name} (mesh only)` : name,disabled:space === "voxel" && name === "TI_normal"})),
-  ]}/>;
+export function AnalysisFieldSelect({value,space,available=[],carrierOnly=false,onChange}: {value:string;space:Space;available?:string[];carrierOnly?:boolean;onChange:(value:string)=>void}) {
+  const saved=available.filter((name)=>fieldSpecForName(name) !== undefined);
+  const names=FIELD_REGISTRY.map((field)=>field.name).filter((name)=>!carrierOnly || !ENVELOPE_FIELDS.includes(name));
+  const offered=[AUTO_FIELD,...names];
+  const retained=offered.includes(value) ? offered : [value,...offered];
+  return <Select value={value} onValueChange={onChange} aria-label="Field" options={retained.map((name)=>{
+    if (name === AUTO_FIELD) return {value:name,label:carrierOnly ? `Auto (${fieldLabel("hf_peak")})` : "Auto",disabled:false};
+    if (!offered.includes(name)) return {value:name,label:`${fieldLabel(name)} (carrier-only run)`,disabled:true};
+    const {note,disabled}=fieldOptionNote(name,space,saved);
+    return {value:name,label:note ? `${fieldLabel(name)} (${note})` : fieldLabel(name),disabled};
+  })}/>;
 }

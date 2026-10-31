@@ -7,7 +7,7 @@ routes return plain ``dict``s, so FastAPI's own OpenAPI says nothing about them 
 ``dev/contracts_check.py`` can only warn. Here the contract is the oracle and the
 server's responses are the data: every contract ``GET`` with a ``200
 application/json`` schema is called on the real app (``TestClient``) against the
-synthetic project in ``tests/contract_project.py`` (TI with MNI and hf_peak/hf_sar,
+synthetic project in ``tests/contract_project.py`` (TI with MNI and hf_peak/hf_rms,
 mTI, vn, Mesh and Voxel analyses, flex/ex runs, reports, stats, averages, ROIs,
 free-hand configs, caps) and validated with ``jsonschema``'s Draft 2020-12 validator,
 ``$ref``s resolved through a registry rooted at the whole contract.

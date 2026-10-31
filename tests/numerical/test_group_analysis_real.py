@@ -5,8 +5,8 @@ What this pins
        row equal to the arithmetic mean of the subjects' own ``results.csv`` values (read
        back from each subject's analysis folder, averaged here).
     2. A voxel analysis has no normal component: its ``Normal_*`` cells are empty, not
-       ``0.000``, and the comparison PDF has no "Normal Mean" panel. Its simulation wrote no
-       ``hf_peak`` / ``hf_sar``, so the carrier cells (``HF_Focality`` ...) are empty too.
+       ``0.000``, and the comparison PDF has no "Normal Mean" panel. Its simulation saved
+       ``hf_peak`` equal to ``TI_max``, so ``TI_Selectivity`` is exactly 1.
     3. A mesh group where one subject has no normal mesh: that subject's ``Normal_*`` cells
        are empty and the AVERAGE is the mean of the subjects that have them (not dragged
        down by a 0), and the PDF keeps the Normal Mean panel.
@@ -129,11 +129,13 @@ def _project(tmp_path: Path) -> Path:
         field = np.zeros((10, 10, 10), dtype=np.float32)
         field[2:8, 2:8, 2:8] = np.linspace(0.1, 1.0, 216).reshape(6, 6, 6) * (k + 1)
         affine = np.diag([2.0, 2.0, 2.0, 1.0])
+        # The default fields, so the analyses have nothing to produce on demand.
         for prefix in ("grey_", "white_"):
-            nib.save(
-                nib.Nifti1Image(field, affine),
-                str(niftis / f"{prefix}{SIM}_TI_subject_TI_max.nii"),
-            )
+            for name in ("TI_max", "hf_peak", "hf_rms"):
+                nib.save(
+                    nib.Nifti1Image(field, affine),
+                    str(niftis / f"{prefix}{SIM}_TI_subject_{name}.nii"),
+                )
     return project
 
 
@@ -196,12 +198,8 @@ def test_voxel_normal_cells_are_empty_and_the_pdf_has_no_normal_panel(
             "",
             "",
         )
-        # No hf_peak / hf_sar NIfTI was written: the carrier cells are empty, not 0.
-        assert (row["HF_Focality"], row["RMS_Focality"], row["TI_Selectivity"]) == (
-            "",
-            "",
-            "",
-        )
+        # The fixture's hf_peak is its TI_max field, so the two focalities are one ratio.
+        assert row["TI_Selectivity"] == "1.000"
     pdf = Path(out["runs"][0]["pdf"])
     assert _is_pdf(pdf)
     titles = out["titles"][0]

@@ -19,7 +19,6 @@ import { JobSettingsDialog } from "./JobSettingsDialog";
 import "./simulator-page.css";
 import { useSimPlan, RunButton } from "./RunControls";
 import {
-  defaultJobSettings,
   emptyRow,
   isRunnableRow,
   settingsFor,
@@ -37,6 +36,7 @@ import { PlanStepBanner, usePlanStepActions, usePlanStepEdit } from "../../app/p
 import { simStepEdit, simStepRows } from "./planStep";
 import { appDefaults } from "../../forms/appDefaults";
 import { electrodePad } from "../../scene/electrodePose";
+import { useSimulatorJobDefaults } from "./userDefaults";
 
 /** The primary's label, from the plan. */
 export function runLabelFor(rowCount: number): string {
@@ -89,15 +89,6 @@ function SimulatorPage() {
   // jobs they had assembled and the sections they had opened.
   const [rows, setRows] = usePageSession<SelectedRow[]>("jobRows", []);
 
-  /**
-   * The settings a **new** row starts with: the ones the user last edited in a row's own dialog,
-   * falling back to the built-in defaults. Not a page-level form any more (2026-09-06): the three
-   * sections that used to sit under the table are gone, because every job now carries its own
-   * electrodes, conductivity and output fields. Seeding from the last-edited row is what someone
-   * assembling a batch expects — they configure one job and add the next like it — while `Reset to
-   * defaults` in the dialog always means the built-ins.
-   */
-  const [seedSettings, setSeedSettings] = usePageSession<JobSettings | null>("jobSettingsSeed", null);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
   // after they finish, instead of the pane emptying itself the moment the run succeeds
@@ -173,11 +164,11 @@ function SimulatorPage() {
   const planSubjects = useMemo(() => [...new Set(runnableRows.map((r) => r.subjectId))], [runnableRows]);
 
   /**
-   * What a row that carries no settings of its own runs with, and what `Reset to defaults` returns
-   * to: the built-ins (`defaultJobSettings()`), not a page control. A row seeded from the last
-   * edited one carries a copy, so it shows as customised and is unaffected by anything else.
+   * What a new row, and every row that carries no settings of its own, runs with, and what `Reset to
+   * defaults` returns to: the user's defaults (Settings ▸ Simulator) over the factory ones. A row's
+   * own settings (its Job settings dialog) are that job's only; they never reach these or another row.
    */
-  const params = useMemo(() => defaultJobSettings() as GlobalParams, []);
+  const params = useSimulatorJobDefaults() as GlobalParams;
 
   // The subject clause of the blocked sentence is still the shared grammar's, but it is now about
   // the subjects the ROWS name rather than a page-level tick list.
@@ -271,12 +262,11 @@ function SimulatorPage() {
   /**
    * The electrode size the scene draws a montage's electrodes at: the settings being edited right
    * now, else the focused row's own, else — for a montage being drawn in the pane, which belongs
-   * to no row yet — the settings the user last configured (what a new job starts from), else the
-   * page defaults. Rubber thickness has no control on
+   * to no row yet — the defaults a new job starts from. Rubber thickness has no control on
    * this page, so it is `SimulationConfig`'s default, as in the job it builds.
    */
   const focusedRow = rows.find((r) => r.id === view.rowId);
-  const padSettings = (settingsRowId && settingsRowId === view.rowId ? liveSettings : null) ?? (focusedRow ? settingsFor(focusedRow, params) : (seedSettings ?? params));
+  const padSettings = (settingsRowId && settingsRowId === view.rowId ? liveSettings : null) ?? (focusedRow ? settingsFor(focusedRow, params) : params);
   const scenePad = useMemo(
     () =>
       electrodePad({
@@ -383,7 +373,6 @@ function SimulatorPage() {
                   />
                 ) : (
                   <JobsTable
-                    seedSettings={seedSettings ?? undefined}
                     onEditSettings={(row) => setSettingsRowId(row.id)}
                     subjects={jobSubjects}
                     subjectNets={subjectNets}
@@ -411,8 +400,6 @@ function SimulatorPage() {
         onDraftChange={setLiveSettings}
         onSave={(settings: JobSettings | undefined) => {
           setRows((prev) => prev.map((r) => (r.id === settingsRowId ? { ...r, settings } : r)));
-          // The last row the user configured is what the next one starts from.
-          setSeedSettings(settings ?? null);
           setSettingsRowId(null);
           setLiveSettings(null);
         }}

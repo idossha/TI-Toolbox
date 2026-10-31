@@ -24,6 +24,7 @@ import "./settings-page.css";
 import { SurferSettingsCard } from "./SurferSettingsCard";
 import { CpuLimitField } from "./CpuLimitField";
 import { NotificationsCard } from "./NotificationsCard";
+import { SimulatorDefaultsCard } from "./SimulatorDefaultsCard";
 import { AppUpdateCard } from "../../app/appUpdate";
 
 /**
@@ -46,6 +47,7 @@ function PageEyebrow({ title }: { title: string }) {
 const SETTINGS_TABS = [
   { id: "project", label: "Project" },
   { id: "preprocessing", label: "Pre-processing" },
+  { id: "simulator", label: "Simulator" },
   { id: "extensions", label: "Extensions" },
   { id: "viewer", label: "Viewer" },
   { id: "server", label: "Server" },
@@ -332,6 +334,9 @@ function SettingsPage() {
           <TabsPrimitive.Content value="preprocessing" forceMount className="settings-panel">
             <SurferSettingsCard />
           </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="simulator" forceMount className="settings-panel">
+            <SimulatorDefaultsCard />
+          </TabsPrimitive.Content>
           <TabsPrimitive.Content value="extensions" forceMount className="settings-panel">
         <Card>
           <CardHeader title="Feature panels" />
@@ -419,11 +424,15 @@ function SettingsPage() {
           )}
         </TabsPrimitive.Root>
 
-        <div className="settings-save">
-          <Button variant="primary" disabled={!dirty} loading={saveMutation.isPending} onClick={handleSave}>
-            Save changes
-          </Button>
-        </div>
+        {/* Settings ▸ Simulator applies at once (SimulatorDefaultsCard): a page Save there would
+            contradict it, so the tab has none. */}
+        {tab !== "simulator" && (
+          <div className="settings-save">
+            <Button variant="primary" disabled={!dirty} loading={saveMutation.isPending} onClick={handleSave}>
+              Save changes
+            </Button>
+          </div>
+        )}
       </div>
     </PageLayout>
   );
@@ -432,7 +441,7 @@ function SettingsPage() {
 const page: PageDef = {
   id: "settings",
   title: "Settings",
-  purpose: "Project, pre-processing, extensions, viewer, and server preferences.",
+  purpose: "Project, pre-processing, simulator, extensions, viewer, and server preferences.",
   navGroup: "system",
   order: 90,
   icon: SlidersHorizontal,

@@ -2,8 +2,8 @@
 
 What this pins (2026-10-22, package p04 "output-naming-contract")
     A simulation writes its outputs under names built in three places -- ``tit/sim/TI.py`` /
-    ``tit/sim/mTI.py`` (mesh names, the fields they add), ``tit/sim/utils.extract_fields``
-    (``grey_``/``white_`` copies) and ``tit/tools/mesh2nii._collect_tasks`` (the
+    ``tit/sim/mTI.py`` (the volume mesh and its central surface, the fields they carry),
+    ``tit/tools/mesh2nii._collect_tasks`` (``grey_``/``white_`` tissue crops and the
     ``<base>_subject`` / ``<base>_MNI`` output prefixes, to which SimNIBS appends
     ``_<field>`` and ``_MNI_<field>``). Every reader then rebuilds one of those names on its
     own: the simulation report, the analyzer's field selector, the group tools'
@@ -38,19 +38,20 @@ from pathlib import Path
 
 import pytest
 
+from tests.field_mesh import write_field_mesh
 from tit.paths import get_path_manager
 
 # ── the writer model ─────────────────────────────────────────────────────────
 
 #: Element fields the post-process adds to the ``<name>_<mode>.msh`` volume mesh
 #: (``TI.py`` ``_post_process`` / ``mTI.py`` ``_post_process``, ``add_element_field``).
-#: mTI spells the envelope ``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_sar`` keep
+#: mTI spells the envelope ``mTI_max``; ``TI_avg``, ``hf_peak`` and ``hf_rms`` keep
 #: their names in both modes.
 VOLUME_FIELDS = {
-    "TI": ("TI_max", "TI_avg", "hf_peak", "hf_sar"),
-    "mTI": ("mTI_max", "TI_avg", "hf_peak", "hf_sar"),
+    "TI": ("TI_max", "TI_avg", "hf_peak", "hf_rms"),
+    "mTI": ("mTI_max", "TI_avg", "hf_peak", "hf_rms"),
 }
-#: ``extract_fields`` writes ``grey_<base>.msh`` and ``white_<base>.msh`` beside ``<base>.msh``.
+#: ``mesh2nii`` names the grey/white crops of ``<base>.msh`` ``grey_<base>`` / ``white_<base>``.
 TISSUE_PREFIX = {None: "", "grey": "grey_", "white": "white_"}
 #: The conductivity token SimNIBS puts in a carrier's file name (``SimulationConfig.conductivity``).
 CONDUCTIVITIES = ("scalar", "vn", "dir", "mc")
@@ -101,7 +102,7 @@ def write_simulation(
     """Touch every file a finished TI/mTI run leaves, named as the writer names them.
 
     Returns ``{"sim_dir", "envelope": {(tissue, space, field): path}, "hf": {(label, space):
-    path}, "mesh": path, "normal": path, "central": path}``. *fields* is the subset of
+    path}, "mesh": path, "central": path}``. *fields* is the subset of
     :data:`VOLUME_FIELDS` written (``SimulationConfig.output_fields``, in the mode's
     spelling); ``None`` writes all of them.
     """
@@ -112,18 +113,15 @@ def write_simulation(
     n_pairs = n_pairs or (2 if mode == "TI" else 4)
     fields = VOLUME_FIELDS[mode] if fields is None else fields
     sim_dir = Path(pm.simulation(sid, sim))
-    # setup_montage_directories creates the TI tree for every run, mTI adds its own.
+    # setup_montage_directories creates the run's own mode tree only.
     for sub in (
         "documentation",
         "high_Frequency/mesh",
         "high_Frequency/niftis",
-        "TI/mesh/surfaces",
-        "TI/niftis",
+        f"{mode}/mesh/surfaces",
+        f"{mode}/niftis",
     ):
         (sim_dir / sub).mkdir(parents=True, exist_ok=True)
-    if mode == "mTI":
-        for sub in ("mTI/mesh/surfaces", "mTI/niftis"):
-            (sim_dir / sub).mkdir(parents=True, exist_ok=True)
     (sim_dir / "documentation" / "config.json").write_text(
         json.dumps(
             {
@@ -138,23 +136,11 @@ def write_simulation(
 
     mesh_dir = sim_dir / mode / "mesh"
     mesh = mesh_dir / f"{envelope_base(sim, mode, None)}.msh"
-    # TI.py writes <name>_normal.msh, mTI.py <name>_mTI_normal.msh, beside the volume mesh.
-    normal = mesh_dir / (
-        f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"
-    )
-    # msh2cortex -o surfaces/ names its output <mesh stem>_central.msh.
+    # TI.py/mTI.py write the central surface as surfaces/<sim>_<mode>_central.msh, with every
+    # volume field and TI_normal.
     central = mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh"
-    for tissue in TISSUE_PREFIX:
-        (mesh_dir / f"{envelope_base(sim, mode, tissue)}.msh").write_bytes(b"msh")
-    normal.write_bytes(b"msh")
-    central.write_bytes(b"msh")
-    if mode == "mTI":
-        # The intermediate pairwise TI vector meshes land in TI/mesh, never converted.
-        for i in range(0, n_pairs, 2):
-            pair = (
-                f"{sim}_TI_{string.ascii_uppercase[i]}{string.ascii_uppercase[i + 1]}"
-            )
-            (sim_dir / "TI" / "mesh" / f"{pair}.msh").write_bytes(b"msh")
+    write_field_mesh(mesh, fields)
+    write_field_mesh(central, (*fields, "TI_normal"))
 
     spaces = ("subject", "mni") if map_to_mni else ("subject",)
     envelope = {}
@@ -185,7 +171,6 @@ def write_simulation(
         "envelope": envelope,
         "hf": hf,
         "mesh": mesh,
-        "normal": normal,
         "central": central,
     }
 
@@ -206,7 +191,7 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
     from tit.analyzer.field_selector import select_field_file, simulation_nifti_path
     from tit.jobs import preflight
     from tit.reporting.generators.simulation import _envelope_niftis
-    from tit.source.fsaverage import _ti_max_overlay, _ti_normal_overlay
+    from tit.source.fsaverage import _ti_max_overlay, _ti_normal_surface
 
     pm = get_path_manager()
     sim_dir = Path(pm.simulation(sid, sim))
@@ -251,15 +236,14 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
         "voxel GM TI_max alias": (voxel("GM", "TI_max"), nii("grey", "subject", env)),
         "voxel GM TI_avg": (voxel("GM", "TI_avg"), nii("grey", "subject", "TI_avg")),
         "voxel GM hf_peak": (voxel("GM", "hf_peak"), nii("grey", "subject", "hf_peak")),
-        "voxel WM hf_sar": (voxel("WM", "hf_sar"), nii("white", "subject", "hf_sar")),
+        "voxel WM hf_rms": (voxel("WM", "hf_rms"), nii("white", "subject", "hf_rms")),
         "mesh default": (
             lambda: select_field_file(sid, sim, "mesh")[0],
             mesh_dir / f"{sim}_{mode}.msh",
         ),
         "mesh TI_normal": (
             lambda: select_field_file(sid, sim, "mesh", field="TI_normal")[0],
-            mesh_dir
-            / (f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"),
+            mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
         # Group tools take a 2-pair spelling and resolve it for mTI themselves.
         "group grey MNI TI_max": (
@@ -282,10 +266,9 @@ def _readers(sid: str, sim: str, mode: str) -> dict:
             lambda: _ti_max_overlay(pm, sid, sim)[0],
             mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
-        "fsaverage TI_normal overlay": (
-            lambda: _ti_normal_overlay(pm, sid, sim),
-            mesh_dir
-            / (f"{sim}_normal.msh" if mode == "TI" else f"{sim}_mTI_normal.msh"),
+        "fsaverage TI_normal surface": (
+            lambda: _ti_normal_surface(pm, sid, sim),
+            mesh_dir / "surfaces" / f"{sim}_{mode}_central.msh",
         ),
     }
 
@@ -370,7 +353,11 @@ def test_deleting_a_file_breaks_exactly_the_readers_that_need_it(project, sim, m
         try:
             for reader_id, (read, expected) in readers.items():
                 got = _resolve(read)
-                if expected == victim:
+                # A group tool's NIfTI that is gone is written again from the field mesh,
+                # which is still there (tests/test_sim_fields_on_demand.py): nothing breaks.
+                if expected == victim and reader_id.startswith("group "):
+                    assert got == expected, f"{reader_id}: {victim.name} is producible"
+                elif expected == victim:
                     assert (
                         got is None
                     ), f"{reader_id} still resolved {got} without {victim.name}"
@@ -390,14 +377,11 @@ def test_preflight_names_the_missing_central_surface_only_for_mesh(project, mode
 
 
 @pytest.mark.parametrize("mode", ["TI", "mTI"])
-def test_without_mni_export_only_the_mni_readers_report_missing(project, mode):
+def test_without_mni_export_the_mni_readers_find_them_producible(project, mode):
+    # The group tools write an MNI NIfTI the run did not save from its field mesh.
     write_simulation(project, "101", "L_Insula", mode, map_to_mni=False)
     for reader_id, (read, expected) in _readers("101", "L_Insula", mode).items():
-        got = _resolve(read)
-        if "_MNI_MNI_" in expected.name:
-            assert got is None, reader_id
-        else:
-            assert got == expected, reader_id
+        assert _resolve(read) == expected, reader_id
 
 
 def test_default_voxel_field_never_falls_back_to_another_field(project):

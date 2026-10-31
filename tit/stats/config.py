@@ -26,7 +26,7 @@ import numbers
 from dataclasses import dataclass, field
 from enum import StrEnum
 
-from tit.constants import FSAVG_FIELD_NAMES
+from tit.constants import FSAVG_FIELD_NAMES, FSAVG_NOT_PROJECTED
 
 #: Cell texts a participants CSV uses for "no value" (pandas' common ``na_values``).
 _MISSING_CELLS = frozenset({"", "nan", "na", "n/a", "null", "none"})
@@ -182,7 +182,8 @@ def _validate_surface_options(space, field, spacing) -> None:
         return
     if field not in _VALID_FSAVG_FIELDS:
         raise ValueError(
-            f"fsaverage_field must be one of {_VALID_FSAVG_FIELDS}, got {field!r}"
+            f"fsaverage_field must be one of {_VALID_FSAVG_FIELDS}, got {field!r}. "
+            + FSAVG_NOT_PROJECTED
         )
     if spacing not in _VALID_FSAVG_SPACINGS:
         raise ValueError(
@@ -254,7 +255,7 @@ class GroupComparisonConfig:
     fsaverage_field : str
         Surface field for ``space="fsaverage"``; one of
         :data:`tit.constants.FSAVG_FIELD_NAMES` (``"TI_max"``,
-        ``"TI_normal"``, ``"hf_peak"``, ``"hf_sar"``).  Default
+        ``"TI_normal"``, ``"hf_peak"``, ``"hf_rms"``).  Default
         ``"TI_max"``.
     fsaverage_spacing : int
         fsaverage ico spacing for ``space="fsaverage"``: ``5`` (default),

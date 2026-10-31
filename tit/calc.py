@@ -598,14 +598,16 @@ def _hf_peak_vertices(E):
 def hf_power(
     fields: Sequence[ArrayLike], *, coherent: bool = False
 ) -> NDArray[np.float64]:
-    """Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2 = E_rms^2``.
+    """Time-averaged mean-square carrier field, ``(1/2) sum_c |E_c|^2``.
 
     Channel fields at distinct frequencies add in power (their cross terms
-    average out).  ``sigma * hf_power`` (isotropic ``sigma``) is the absorbed
-    power density (W/m^3), and over the tissue density the SAR.  Unlike every other output this is a time
-    average: compare ``sqrt(hf_power)`` with RMS limits (at 1-10 kHz ICNIRP 2010
-    and IEEE C95.1 limit the RMS in-situ field, not SAR), or :func:`hf_peak`
-    with ``sqrt(2)`` times them.
+    average out).  The saved ``hf_rms`` field is ``sqrt(hf_power)``, and
+    ``sigma * hf_power`` (isotropic ``sigma``) the absorbed (Joule) power density
+    ``hf_power_density`` in W/m^3.  Unlike every other output this is a time
+    average, and not the quantity to compare with exposure limits: ICNIRP 2010
+    and IEEE C95.1-2019 sum amplitudes across frequencies, so compare
+    :func:`hf_peak` with ``sqrt(2)`` times their RMS tables (``sqrt(hf_power)``
+    against them is up to ``sqrt(N)`` low for N carriers).
 
     Method: closed form, exact for any number of channels.  Literature:
     Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.

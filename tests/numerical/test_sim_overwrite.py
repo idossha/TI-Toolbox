@@ -56,7 +56,7 @@ def test_confirmed_overwrite_reaches_real_simnibs_session(tmp_path):
                 return str(output)
         simulation = object.__new__(Simulation)
         simulation.pm = SimpleNamespace(simulation=lambda *args: str(root))
-        simulation.config = SimpleNamespace(subject_id="fixture")
+        simulation.config = SimpleNamespace(subject_id="fixture", map_to_vol=False)
         simulation.montage = SimpleNamespace(name="fixture", is_xyz=True, eeg_net="")
         simulation.logger = logging.getLogger("fixture")
         dirs = {"hf_dir": str(hf), "documentation": str(root), "images": str(root)}

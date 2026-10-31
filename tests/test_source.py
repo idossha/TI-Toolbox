@@ -34,14 +34,14 @@ class TestFsavgMapConfig:
         from tit.source import FsavgMapConfig
 
         cfg = FsavgMapConfig()
-        assert cfg.fields == ("TI_max", "TI_normal", "hf_peak", "hf_sar")
+        assert cfg.fields == ("TI_max", "TI_normal", "hf_peak", "hf_rms")
         assert cfg.fsaverage_spacing == 5
 
     def test_hf_fields_are_valid(self):
         from tit.source import FsavgMapConfig
 
-        cfg = FsavgMapConfig(fields=("hf_peak", "hf_sar"))
-        assert cfg.fields == ("hf_peak", "hf_sar")
+        cfg = FsavgMapConfig(fields=("hf_peak", "hf_rms"))
+        assert cfg.fields == ("hf_peak", "hf_rms")
 
     def test_unknown_field_raises(self):
         from tit.source import FsavgMapConfig
@@ -121,7 +121,7 @@ class TestFsavgHelpers:
     )
     def test_an_unreadable_or_corrupt_config_raises(self, tmp_path, content, error):
         """Treating it as an ordinary TI run would silently give a carrier-only run's
-        hf_peak/hf_sar the incoherent sum (2026-10-27)."""
+        hf_peak/hf_rms the incoherent sum (2026-10-27)."""
         from types import SimpleNamespace
 
         from tit.source import fsaverage
@@ -217,14 +217,14 @@ class TestFsavgHelpers:
         with pytest.raises(FileNotFoundError):
             fsaverage._carrier_volume_meshes(pm, "001", "TI_sim")
 
-    def test_hf_peak_and_hf_sar_from_carrier_e(self, monkeypatch, tmp_path):
+    def test_hf_peak_and_hf_rms_from_carrier_e(self, monkeypatch, tmp_path):
         """Both derive from the interpolated vector E (Cassarà formulas)."""
         import numpy as np
 
         from tit.source import fsaverage
         from tit.source.config import FsavgMapConfig
 
-        # Anti-parallel carriers: |E1+E2|=0, |E1-E2|=2 -> hf_peak=2; hf_sar=1+1=2.
+        # Anti-parallel carriers: |E1+E2|=0, |E1-E2|=2 -> hf_peak=2; hf_rms=sqrt((1+1)/2)=1.
         monkeypatch.setattr(
             fsaverage, "_carrier_volume_meshes", lambda *a: ("v1", "v2")
         )
@@ -245,16 +245,16 @@ class TestFsavgHelpers:
         pm = SimpleNamespace(
             simulation=lambda sid, sim: str(tmp_path), m2m=lambda sid: str(tmp_path)
         )
-        cfg = FsavgMapConfig(fields=("hf_peak", "hf_sar"))
+        cfg = FsavgMapConfig(fields=("hf_peak", "hf_rms"))
         out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, False)
         assert out["hf_peak"][0] == pytest.approx(2.0)
-        assert out["hf_sar"][0] == pytest.approx(2.0)
+        assert out["hf_rms"][0] == pytest.approx(1.0)
 
         # ΔF = 0 carrier-only, as the run recorded it: the same anti-parallel carriers
         # cancel coherently.
         out = fsaverage._compute_fields(pm, "001", "TI_sim", cfg, True)
         assert out["hf_peak"][0] == pytest.approx(0.0)
-        assert out["hf_sar"][0] == pytest.approx(0.0)
+        assert out["hf_rms"][0] == pytest.approx(0.0)
 
     def test_carrier_interp_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier E-interpolation failure skips hf_max/magnitude, keeps TI."""
@@ -275,7 +275,7 @@ class TestFsavgHelpers:
             fsaverage, "_read_surface_scalar", lambda path, name: np.array([0.5])
         )
         monkeypatch.setattr(fsaverage, "_ti_max_overlay", lambda *a: "ti")
-        monkeypatch.setattr(fsaverage, "_ti_normal_overlay", lambda *a: "tn")
+        monkeypatch.setattr(fsaverage, "_ti_normal_surface", lambda *a: "tn")
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
@@ -284,7 +284,7 @@ class TestFsavgHelpers:
             _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
         )
         assert "TI_max" in out and "TI_normal" in out
-        assert "hf_peak" not in out and "hf_sar" not in out
+        assert "hf_peak" not in out and "hf_rms" not in out
 
     def test_carrier_failure_keeps_ti_fields(self, monkeypatch):
         """A carrier read failure drops hf_max/magnitude but keeps TI_max/TI_normal."""
@@ -301,7 +301,7 @@ class TestFsavgHelpers:
             fsaverage, "_read_surface_scalar", lambda path, name: np.array([0.5])
         )
         monkeypatch.setattr(fsaverage, "_ti_max_overlay", lambda *a: "ti")
-        monkeypatch.setattr(fsaverage, "_ti_normal_overlay", lambda *a: "tn")
+        monkeypatch.setattr(fsaverage, "_ti_normal_surface", lambda *a: "tn")
         monkeypatch.setattr(fsaverage, "_morph_split", lambda v, *a: v)
         monkeypatch.setattr(fsaverage, "_FSAVG_NODES", {5: 1})
 
@@ -310,7 +310,7 @@ class TestFsavgHelpers:
             _MagicMock(), "001", "TI_sim", FsavgMapConfig(), False
         )
         assert "TI_max" in out and "TI_normal" in out
-        assert "hf_peak" not in out and "hf_sar" not in out
+        assert "hf_peak" not in out and "hf_rms" not in out
 
     @staticmethod
     def _mock_simnibs_core(monkeypatch):

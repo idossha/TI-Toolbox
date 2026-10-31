@@ -169,6 +169,27 @@ describe("Settings ▸ Extensions save", () => {
     queryClient.clear();
   });
 
+  it("has no page Save on Settings ▸ Simulator, whose changes apply at once (2026-10-30)", async () => {
+    const { default: settingsPage } = await import("../../src/renderer/pages/settings/index");
+    const SettingsComponent = settingsPage.Component;
+    const saveButton = () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((b) => b.textContent === "Save changes");
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    for (const [hash, shown] of [["#simulator", false], ["#extensions", true]] as const) {
+      act(() =>
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter key={hash} initialEntries={[`/settings${hash}`]}>
+              <SettingsComponent />
+            </MemoryRouter>
+          </QueryClientProvider>,
+        ),
+      );
+      await settle();
+      expect(Boolean(saveButton()), hash).toBe(shown);
+    }
+    queryClient.clear();
+  });
+
   it("never offers a reload when the server's panel list differs from this machine's mirror", async () => {
     // The mirror says a previous session had caps on; the server now says source only.
     window.localStorage.setItem("tit-enabled-panels", JSON.stringify(["caps"]));

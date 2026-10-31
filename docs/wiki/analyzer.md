@@ -6,7 +6,18 @@ permalink: /wiki/analyzer/
 
 The Analyzer is the last step of the pipeline. After a montage has been optimized ([flex-search]({{ site.baseurl }}/wiki/flex-search/), [ex-search]({{ site.baseurl }}/wiki/ex-search/)) and [simulated]({{ site.baseurl }}/wiki/simulator/), it reduces the field to numbers: statistics inside a target and across the whole grey matter, in mesh or voxel space. One `Analyzer` class handles both spaces, and `run_group_analysis()` runs the same analysis across subjects.
 
-This page also defines the toolbox's field quantities, `TI_max`, `TI_normal`, `TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density`. The optimizer and simulator pages link here for them.
+This page also defines the toolbox's field quantities, `TI_max`, `TI_normal`, `TI_avg`, `hf_peak`, `hf_rms` and `hf_power_density`. The optimizer and simulator pages link here for them.
+
+Each field has a saved name, used in files, configs and scripts, and a display label the app, the Viewer and these pages show:
+
+| Saved name | Shown as | Units | What it is |
+| --- | --- | --- | --- |
+| `TI_max` (`mTI_max` for mTI) | $$TI_{max}$$ ($$mTI_{max}$$) | V/m | envelope modulation depth, maximised over direction |
+| `TI_normal` | $$TI_{normal}$$ | V/m | the envelope along the cortical surface normal |
+| `TI_avg` | $$TI_{avg}$$ | V/m | the envelope averaged over direction |
+| `hf_peak` | $$HF_{peak}$$ | V/m | peak (zero-to-peak) carrier field; the one to compare with exposure limits |
+| `hf_rms` | $$HF_{rms}$$ | V/m | RMS carrier field over time; not a compliance metric |
+| `hf_power_density` | $$p_{HF}$$ | W/m³ | absorbed (Joule) power density of the carriers |
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/v3/analyzer-page.png" alt="The Analyzer page: one row analysing subject 101's L_Insula simulation on the mesh, with a 10 mm MNI sphere as its target" style="width: 100%; max-width: 1000px;">
@@ -113,11 +124,11 @@ The right-hand form subtracts no near-equal numbers and is the one the code eval
 | tangential maximum | `envelope_max(..., perpendicular_to=)` | exact (closed form on the in-plane fields) | exact (roots of a degree-6 polynomial) |
 | `TI_avg` | `envelope_mean` | exact closed form | 4096-direction sphere quadrature (2048 on a hemisphere, since $$E_{\mathrm{AM}}(\hat{\mathbf{n}}) = E_{\mathrm{AM}}(-\hat{\mathbf{n}})$$), about $$7 \times 10^{-4}$$ relative error at worst |
 | `hf_peak` | `hf_peak` | exact, $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ | exact for any number of channels (every sign pattern up to eight channels, zonotope vertices above) |
-| `hf_sar`, `hf_power_density` | `hf_power` | exact | exact |
+| `hf_rms`, `hf_power_density` | `hf_power` | exact | exact |
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-pair envelopes and the joint envelope at one point" style="width: 100%; max-width: 900px;">
-  <em>One point of an mTI field (4 channels, 2 beating pairs), with every channel field along one axis for clarity. Pair 1's channels carry 0.5 + 0.5 V/m, pair 2's 0.3 + 0.7 V/m. On its own, each pair's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the pairs' power envelopes add (not their amplitudes) and the joint envelope amplitude is 1.01 V/m (<code>envelope_max</code>). The larger numbers are other quantities: the dotted sum of per-pair envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_power</code> = <code>hf_sar</code>/2 = 0.54 (V/m)² (see <a href="#safety-metrics">Safety metrics</a>).</em>
+  <em>One point of an mTI field (4 channels, 2 beating pairs), with every channel field along one axis for clarity. Pair 1's channels carry 0.5 + 0.5 V/m, pair 2's 0.3 + 0.7 V/m. On its own, each pair's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the pairs' power envelopes add (not their amplitudes) and the joint envelope amplitude is 1.01 V/m (<code>envelope_max</code>). The larger numbers are other quantities: the dotted sum of per-pair envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_power</code> = 0.54 (V/m)², so <code>hf_rms</code> = 0.73 V/m (see <a href="#safety-metrics">Safety metrics</a>).</em>
 </div>
 
 <div class="image-container">
@@ -129,11 +140,11 @@ Two shortcuts give different and wrong numbers, and the toolbox offers neither: 
 
 ### Safety metrics
 
-`hf_peak`, `hf_sar` and `hf_power_density` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed by `tit.calc.hf_peak` and `tit.calc.hf_power` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a beating pair differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
+`hf_peak`, `hf_rms` and `hf_power_density` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed by `tit.calc.hf_peak` and `tit.calc.hf_power` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a beating pair differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
 
-**Peak and RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_power` is the time-averaged mean square $$E_{\mathrm{rms}}^2$$. Compare $$\sqrt{\mathrm{hf\_power}}$$ with RMS standards tables, or `hf_peak` with $$\sqrt{2}$$ times the limit. At 1–10 kHz ICNIRP 2010 and IEEE C95.1-2019 limit the RMS in-situ electric field ("All values are rms", ICNIRP 2010 Table 2), not SAR: their SAR limits start at 100 kHz.
+**Peak and RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_rms` is the RMS over time and `hf_power` its square, the time-averaged mean square.
 
-**`hf_peak`** (V/m) is the largest instantaneous magnitude the summed field can reach:
+**`hf_peak`** ($$HF_{peak}$$, V/m) is the largest instantaneous magnitude the summed field can reach, zero-to-peak:
 
 $$
 \mathrm{hf\_peak} = \max_{s_j \in \{+1, -1\}} \left\lVert \sum_{j=1}^{N} s_j \mathbf{E}_j \right\rVert
@@ -141,23 +152,27 @@ $$
 
 Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then a conservative upper bound. The maximum is exact for any number of channels: it lies at a vertex of the zonotope spanned by the $$\pm\mathbf{E}_j$$, and the candidate sign patterns are those around the directions $$\mathbf{E}_i \times \mathbf{E}_j$$.
 
-**`hf_power`** ((V/m)²) is the time-averaged mean-square carrier field. Fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8), so
+**`hf_peak` is the field to compare with exposure limits.** At 1–10 kHz ICNIRP 2010 and IEEE C95.1-2019 limit the in-situ electric field, not SAR (their SAR limits start at 100 kHz). They tabulate RMS values ("All values are rms", ICNIRP 2010 Table 2) with a peak limit of $$\sqrt{2}$$ times the RMS one, and for several frequencies both sum amplitudes rather than power. So compare `hf_peak` with $$\sqrt{2}$$ times the tabulated limit, after the standards' own spatial averaging: ICNIRP averages over a 2 × 2 × 2 mm³ cube and takes its 99th percentile, IEEE averages along a 5 mm line. A per-element value of `hf_peak` is not that compliance quantity.
+
+**`hf_rms`** ($$HF_{rms}$$, V/m) is the RMS in-situ carrier field over time. Fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8), so
 
 $$
-\mathrm{hf\_power} = \frac{1}{2} \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2 = \bigl\langle \lVert \mathbf{E}(t) \rVert^2 \bigr\rangle = E_{\mathrm{rms}}^2
+\mathrm{hf\_rms} = \sqrt{\mathrm{hf\_power}},
+\qquad
+\mathrm{hf\_power} = \frac{1}{2} \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2 = \bigl\langle \lVert \mathbf{E}(t) \rVert^2 \bigr\rangle
 $$
 
-The on-disk field **`hf_sar`** stores $$\sum_j \lVert \mathbf{E}_j \rVert^2 = 2\,\mathrm{hf\_power}$$. It is a heating proxy, not calibrated SAR.
+`hf_rms` is **not** a compliance metric. Compared with the RMS tables it underestimates the exposure by up to $$\sqrt{N}$$ for $$N$$ carriers, because the standards sum amplitudes across frequencies; use `hf_peak` for that.
 
-**`hf_power_density`** (W/m³) is the time-averaged carrier power absorbed per volume, with the conductivity $$\boldsymbol{\sigma}$$ the simulation solved with:
+**`hf_power_density`** ($$p_{HF}$$, W/m³) is the absorbed (Joule) power density of the carriers, time-averaged, with the conductivity $$\boldsymbol{\sigma}$$ the simulation solved with:
 
 $$
-\mathrm{hf\_power\_density} = \frac{1}{2} \sum_{j=1}^{N} \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j
+p_{HF} = \frac{1}{2} \sum_{j=1}^{N} \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j
 $$
 
-For isotropic (`scalar`) conductivity this is $$\sigma \cdot \mathrm{hf\_power}$$, with each tissue's value including any overrides; for the anisotropic models (`vn`, `dir`, `mc`) each element's full DTI conductivity tensor is used. Divided by the tissue density it is SAR, $$\mathrm{SAR} = \mathrm{hf\_power\_density} / \rho$$ (IEEE C95.1-2019, p. 35; Cassarà Part II, Eq. 1); the toolbox does not apply $$\rho$$. It is written on the volume mesh and its NIfTIs only, not projected to fsaverage: that projection interpolates the fields onto the cortical surface, not the conductivity.
+For isotropic (`scalar`) conductivity this is $$\sigma \cdot \mathrm{hf\_power}$$, with each tissue's value including any overrides; for the anisotropic models (`vn`, `dir`, `mc`) each element's full DTI conductivity tensor is used. It is not SAR: SAR is this divided by the tissue density, $$\mathrm{SAR} = p_{HF} / \rho$$ (IEEE C95.1-2019, p. 35; Cassarà Part II, Eq. 1), the toolbox does not apply $$\rho$$, and no SAR limit applies below 100 kHz. It is written on the volume mesh and its NIfTIs only, not projected to fsaverage: that projection interpolates the fields onto the cortical surface, not the conductivity.
 
-`TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density` are optional outputs. `SimulationConfig.output_fields` defaults to `["TI_max"]`, so a simulation writes them only when they are selected (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). The Analyzer treats each like any other field, in its own units.
+A simulation saves `TI_max`, `hf_peak` and `hf_rms` by default; `TI_avg` and `hf_power_density` only when they are ticked (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). An analysis of a field the simulation did not save computes it first from the simulation's channel meshes and saves it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)), except `hf_power_density`, which needs the conductivity of the original solve and must be ticked before the run. The Analyzer treats each like any other field, in its own units.
 
 #### Carrier-only controls (ΔF = 0) {#carrier-only-controls}
 
@@ -166,14 +181,14 @@ A carrier-only control drives both channels of a two-channel montage at the **sa
 $$
 \mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert,
 \qquad
-\mathrm{hf\_sar} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert^2,
+\mathrm{hf\_rms} = \tfrac{1}{\sqrt{2}} \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert,
 \qquad
 \mathrm{hf\_power\_density} = \tfrac{1}{2} (\mathbf{E}_1 + \mathbf{E}_2)^{\top} \boldsymbol{\sigma} \, (\mathbf{E}_1 + \mathbf{E}_2)
 $$
 
-`hf_peak` keeps its TI value where the two fields are within 90° of each other and is smaller elsewhere. `hf_sar` gains the cross term $$2\,\mathbf{E}_1 \cdot \mathbf{E}_2$$, so it ranges from twice its TI value (equal, aligned fields) to zero (equal, opposed fields). For example, $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120° give `hf_peak` = 1.56 V/m in a TI run and 0.92 V/m in a carrier-only run. "In phase" follows the simulation's sign convention: each channel's first electrode is driven positive at the same instant.
+`hf_peak` keeps its TI value where the two fields are within 90° of each other and is smaller elsewhere. `hf_power` ($$\mathrm{hf\_rms}^2$$) gains the cross term $$\mathbf{E}_1 \cdot \mathbf{E}_2$$, so it ranges from twice its TI value (equal, aligned fields) to zero (equal, opposed fields), and `hf_rms` from $$\sqrt{2}$$ times its TI value to zero. For example, $$\lVert \mathbf{E}_1 \rVert = 1$$ and $$\lVert \mathbf{E}_2 \rVert = 0.8$$ V/m at 120° give `hf_peak` = 1.56 V/m in a TI run and 0.92 V/m in a carrier-only run. "In phase" follows the simulation's sign convention: each channel's first electrode is driven positive at the same instant.
 
-`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak`, `hf_sar` and/or `hf_power_density`. To set one up, in the app or from Python, see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
+`TI_max`, `TI_avg` and `TI_normal` are undefined without a beat and are **not computed**; a carrier-only run writes only `hf_peak`, `hf_rms` and/or `hf_power_density`. To set one up, in the app or from Python, see [Carrier-only control on the Simulator page]({{ site.baseurl }}/wiki/simulator/#carrier-only-control).
 
 ---
 
@@ -226,8 +241,12 @@ The Scene pane follows the active job. Cortical atlas regions remain clickable. 
 
 Each row analyses its field in one of two spaces:
 
-- **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, which the simulation writes with SimNIBS `msh2cortex`. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
-- **Voxel** (`space="voxel"`) reads the simulation's NIfTI on the subject grid and keeps the voxels of the selected tissue. Each voxel is weighted by its volume, so sizes come out in mm³ and cm³. Measure deep structures here.
+- **Mesh** (`space="mesh"`) reads the field on the subject's central grey-matter surface, `surfaces/{sim}_TI_central.msh`, which the simulation writes with every saved field and `TI_normal` interpolated onto it (with SimNIBS's own surface interpolation). A simulation whose surface lacks a field or `TI_normal` gets it written when an analysis needs it. Each node is weighted by its surface area, so sizes come out in mm² and cm². `TI_normal` exists only here, and the tissue is fixed to grey matter.
+- **Voxel** (`space="voxel"`) reads the simulation's NIfTI on the subject grid and keeps the voxels of the selected tissue. Each voxel is weighted by its volume, so sizes come out in mm³ and cm³. Measure deep structures here. A simulation writes no NIfTIs unless asked to, so the first voxel analysis of a tissue writes the NIfTIs it reads from that tissue's field mesh and keeps them for the next one.
+
+The **Field** list offers every field the analysis can read, whether or not the simulation saved it. One it did not save is computed from the channel meshes when the analysis runs and saved into the simulation; the job output and the Results pane ("Produced for this analysis: …") say so. An unsaved `hf_power_density` is marked **(not saved)** and cannot be picked. For a carrier-only control the list holds only its carrier fields (`hf_peak`, `hf_rms`, `hf_power_density`): it has no envelope, so `TI_max`, `TI_avg` and `TI_normal` are not offered, and **Auto** is `hf_peak` ("Auto (hf_peak)").
+
+A voxel analysis first looks for the NIfTI it reads, older and renamed ones included, and only computes it when there is none, so a simulation folder that kept only its NIfTIs still analyses.
 
 <div class="image-row">
   <div class="image-container">
@@ -272,32 +291,33 @@ An analysis reduces the field to the statistics below. "Positive" elements are t
 | **Normal component** | `normal_mean`, `normal_max`, `normal_focality` | `roi_mean`, `roi_max` and `roi_focality` recomputed on `TI_normal` (mesh only). |
 | **Peak** | `percentile_95`, `percentile_99`, `percentile_99_9` | Area- or volume-weighted percentiles of the field over the grey matter (mesh) or the selected tissue (voxel): the smallest value at or below which that fraction of the area or volume lies. `percentile_99_9` is a robust peak that ignores single outlier elements. |
 | **Hot-spot size** | `focality_50_area` … `focality_95_area` | Grey-matter area in $$\mathrm{cm}^2$$ (mesh), or selected-tissue volume in $$\mathrm{cm}^3$$ (voxel), where the field is at least 50, 75, 90 or 95 % of `percentile_99_9`. A small `focality_50_area` means a compact hot spot. |
-| **Stimulation focality** | `hf_roi_mean`, `hf_gm_mean`, `hf_focality` | The target and reference means of `hf_peak`, the peak carrier field, and their ratio: the focality of the stimulation intensity itself. [Modulation and stimulation focality](#carrier-focality). |
-| **RMS stimulation focality** | `rms_roi_mean`, `rms_gm_mean`, `rms_focality` | The same on the RMS carrier field $$E_{\mathrm{rms}} = \sqrt{\mathrm{hf\_power}}$$. |
-| **TI selectivity** | `ti_selectivity` | `roi_focality / hf_focality`. Above 1 the modulation is more focal than the stimulation that produces it. |
-| **Carrier hot-spot size** | `hf_focality_50_area` … `hf_focality_95_area` | The hot-spot size statistic computed on `hf_peak`. |
+| **Stimulation focality** | `hf_peak_roi_mean`, `hf_peak_gm_mean`, `hf_peak_focality` | The target and reference means of `hf_peak`, the peak carrier field, and their ratio: the focality of the stimulation intensity itself. [Modulation and stimulation focality](#carrier-focality). |
+| **RMS stimulation focality** | `hf_rms_roi_mean`, `hf_rms_gm_mean`, `hf_rms_focality` | The same on `hf_rms`, the RMS carrier field ($$HF_{rms}$$). |
+| **TI selectivity** | `ti_selectivity` | `roi_focality / hf_peak_focality`. Above 1 the modulation is more focal than the stimulation that produces it. |
+| **Carrier hot-spot size** | `hf_peak_focality_50_area` … `hf_peak_focality_95_area` | The hot-spot size statistic computed on `hf_peak`. |
 | **Carrier note** | `carrier_note` | Why a carrier statistic is missing, or empty when none is. |
+| **On-demand note** | `on_demand_note` | What the analysis computed or wrote because the simulation had not saved it, in the words of its job output; empty when everything was saved. |
 
-The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_sar` gives means in (V/m)², not field strengths. The carrier statistics are the exception: `hf_*` and `rms_*` means are always in V/m.
+The 99.9th-percentile peak and the area above a fraction of it are the conventions of SimNIBS's field summary (`get_percentiles`, `get_focality`). The peak and hot-spot statistics describe the whole grey matter (or tissue) and do not depend on the target. There is no separate whole-head analysis: these statistics and the histogram come with every analysis. Every statistic is in the units of the analysed field, so selecting `hf_rms` gives means in (V/m)², not field strengths. The carrier statistics are the exception: `hf_*` and `rms_*` means are always in V/m.
 
 ### Modulation and stimulation focality {#carrier-focality}
 
 `roi_focality` says how concentrated the *modulation* is in the target. A TI field is carried by kHz fields that are themselves spread over the head, and the premise of TI is that the modulation is more focal than they are. An analysis of a modulation field (`TI_max`, `mTI_max`, `TI_avg` or `TI_normal`) therefore also reports the focality of the *stimulation intensity*, from the same simulation, on the same elements:
 
 $$
-F_{\mathrm{HF}} = \frac{\langle E_{\mathrm{peak}} \rangle_{\mathrm{ROI}}}{\langle E_{\mathrm{peak}} \rangle_{\mathrm{GM}}}, \qquad
-F_{\mathrm{RMS}} = \frac{\langle E_{\mathrm{rms}} \rangle_{\mathrm{ROI}}}{\langle E_{\mathrm{rms}} \rangle_{\mathrm{GM}}}, \qquad
-S_{\mathrm{TI}} = \frac{F_{\mathrm{TI}}}{F_{\mathrm{HF}}}
+F_{HF_{peak}} = \frac{\langle HF_{peak} \rangle_{\mathrm{ROI}}}{\langle HF_{peak} \rangle_{\mathrm{GM}}}, \qquad
+F_{HF_{rms}} = \frac{\langle HF_{rms} \rangle_{\mathrm{ROI}}}{\langle HF_{rms} \rangle_{\mathrm{GM}}}, \qquad
+S_{\mathrm{TI}} = \frac{F_{\mathrm{TI}}}{F_{HF_{peak}}}
 $$
 
-$$F_{\mathrm{TI}}$$ is `roi_focality`, $$F_{\mathrm{HF}}$$ `hf_focality`, $$F_{\mathrm{RMS}}$$ `rms_focality` and $$S_{\mathrm{TI}}$$ `ti_selectivity`. $$E_{\mathrm{peak}}$$ is `hf_peak` and $$E_{\mathrm{rms}} = \sqrt{\mathrm{hf\_power}} = \sqrt{\mathrm{hf\_sar} / 2}$$. $$\langle \cdot \rangle$$ is the area-weighted (mesh) or volume-weighted (voxel) mean over exactly the target and reference elements of `roi_mean` and `gm_mean`: the nodes or voxels where the analysed field is positive. For mTI, `hf_peak` and `hf_sar` run over every channel's carrier. A `TI_normal` analysis divides `TI_normal`'s own focality by $$F_{\mathrm{HF}}$$.
+$$F_{\mathrm{TI}}$$ is `roi_focality`, $$F_{HF_{peak}}$$ `hf_peak_focality`, $$F_{HF_{rms}}$$ `hf_rms_focality` and $$S_{\mathrm{TI}}$$ `ti_selectivity`; $$HF_{peak}$$ and $$HF_{rms}$$ are the saved fields `hf_peak` and `hf_rms`. $$\langle \cdot \rangle$$ is the area-weighted (mesh) or volume-weighted (voxel) mean over exactly the target and reference elements of `roi_mean` and `gm_mean`: the nodes or voxels where the analysed field is positive. For mTI, `hf_peak` and `hf_rms` run over every channel's carrier. A `TI_normal` analysis divides `TI_normal`'s own focality by $$F_{HF_{peak}}$$.
 
-- **Why $$E_{\mathrm{rms}}$$ and not power.** A field twice as strong in the target as in the reference has four times the power there. The ratio of mean powers would therefore be roughly the square of a field ratio, and not comparable with `roi_focality`. $$E_{\mathrm{rms}}$$ is a field strength (V/m), so `rms_focality` is a linear ratio like `roi_focality` and `hf_focality`.
+- **Why $$HF_{rms}$$ and not power.** A field twice as strong in the target as in the reference has four times the power there. The ratio of mean powers would therefore be roughly the square of a field ratio, and not comparable with `roi_focality`. $$HF_{rms}$$ is a field strength (V/m), so `hf_rms_focality` is a linear ratio like `roi_focality` and `hf_peak_focality`.
 - **Reading `ti_selectivity`.** Above 1, the modulation is more concentrated in the target than the carriers: the envelope adds focality that a kHz field alone does not have. At or below 1, a plain kHz field with the carriers' spatial distribution reaches the target as selectively as the modulation does. The ratio compares spatial distributions only; it says nothing about how neurons respond to a kHz field compared with an envelope.
-- **Where the carrier fields come from.** The Analyzer reads `hf_peak` and `hf_sar` from the same outputs as the analysed field: in mesh space the central surface, which carries every field of the TI or mTI mesh, and in voxel space the NIfTI of the same tissue (`grey_<sim>_TI_subject_hf_peak.nii.gz` beside `grey_<sim>_TI_subject_TI_max.nii.gz`). They go through the same interpolation as the modulation field.
-- **When they are missing.** A simulation writes `TI_max` only unless more output fields are ticked. Without `hf_peak`, the `hf_*` statistics and `ti_selectivity` are empty. Without `hf_sar`, the `rms_*` statistics are empty. In both cases `carrier_note` names the fields to tick and the Analyzer logs one warning. A carrier field with NaN or infinite values on the analysed elements, a carrier whose reference mean is 0, or a carrier NIfTI on another grid (shape or affine) leaves its statistics empty in the same way, with the reason. Nothing is approximated, and the modulation statistics are never affected. Re-run the simulation with `hf_peak` and `hf_sar` among its **Output fields** to get them. An analysis of a carrier field (`hf_peak`, `hf_sar`, `hf_power_density`) has no carrier statistics, and `carrier_note` says so.
+- **Where the carrier fields come from.** The Analyzer reads `hf_peak` and `hf_rms` from the same outputs as the analysed field: in mesh space the central surface, which carries every field of the TI or mTI mesh, and in voxel space the NIfTI of the same tissue (`grey_<sim>_TI_subject_hf_peak.nii.gz` beside `grey_<sim>_TI_subject_TI_max.nii.gz`). They go through the same interpolation as the modulation field. A simulation saves both by default; one that did not has them computed and saved by the analysis first (`on_demand_note` says so), into its field mesh before the central surface is regenerated, so they still share the modulation field's interpolation.
+- **When one has no usable values.** A carrier field with NaN or infinite values on the analysed elements, a carrier whose reference mean is 0, or a carrier NIfTI on another grid (shape or affine) leaves its statistics empty, with the reason in `carrier_note`, and the Analyzer logs one warning. Nothing is approximated, and the modulation statistics are never affected. An analysis of a carrier field (`hf_peak`, `hf_rms`, `hf_power_density`) has no carrier statistics, and `carrier_note` says so. When the simulation can neither provide nor compute a carrier (its channel meshes are gone, or only its NIfTIs were kept), those statistics are empty and `carrier_note` says what is missing; the modulation statistics are still reported.
 
-Ex-search reports the same two ratios for every candidate, as `HF_Focality` and `TI_Selectivity` ([Ex-search metrics]({{ site.baseurl }}/wiki/ex-search/#metrics)).
+Ex-search reports the same two ratios for every candidate, as `HFpeak_Focality` and `TI_Selectivity` ([Ex-search metrics]({{ site.baseurl }}/wiki/ex-search/#metrics)).
 
 ---
 
@@ -332,7 +352,8 @@ Every analysis call returns an `AnalysisResult` dataclass. It holds the [statist
 - `n_elements`: the target's positive nodes (mesh) or voxels (voxel)
 - `total_area_or_volume`: their area in $$\mathrm{mm}^2$$ (mesh) or volume in $$\mathrm{mm}^3$$ (voxel)
 - The `normal_*` fields are `None` in voxel space, and for runs that predate `TI_normal` support for their mode -- see [mTI analyses](#mti-analyses)
-- The carrier fields (`hf_*`, `rms_*`, `ti_selectivity`) are `None` when the simulation did not write `hf_peak` or `hf_sar`, or when the analysed field is a carrier field; `carrier_note` says which -- see [Modulation and stimulation focality](#carrier-focality). `results.csv` leaves out every `None` field.
+- The carrier fields (`hf_*`, `rms_*`, `ti_selectivity`) are `None` when a carrier field has no usable values on the analysed elements, or when the analysed field is a carrier field; `carrier_note` says which -- see [Modulation and stimulation focality](#carrier-focality)
+- `on_demand_note`: what the analysis produced because the simulation had not saved it, or `None`. `results.csv` leaves out every `None` field.
 
 ### Viewing the results
 
@@ -349,15 +370,13 @@ The Analyzer handles multipolar (mTI) simulations with the same `Analyzer` class
 | Space | mTI source                                               | Standard TI source                      |
 | ----- | -------------------------------------------------------- | --------------------------------------- |
 | Mesh  | `mTI/mesh/surfaces/{sim}_mTI_central.msh` (field values) | `TI/mesh/surfaces/{sim}_TI_central.msh` |
-| Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue)     | `TI/niftis/`                            |
-
-An mTI run also writes each beating pair's own two-channel envelope (`TI_AB`, `TI_CD`, ...) into `TI/mesh/`. The Analyzer does not read them, and they are not the mTI result.
+| Voxel | `mTI/niftis/` (`grey_` / `white_` prefix per tissue; written on demand when the run did not) | `TI/niftis/` (likewise) |
 
 ### Fields
 
-`TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak`, `hf_sar` and `hf_power_density` can be selected when the run wrote them.
+`TI_max` and `mTI_max` are aliases for the [joint envelope amplitude](#more-carriers-mti). Whichever spelling is requested, the Analyzer resolves it to the name the detected simulation type wrote, so the Field selector lists it once. `TI_avg`, `hf_peak` and `hf_rms` can be selected whether or not the run saved them (an unsaved one is computed over every channel's carrier), `hf_power_density` only when it did.
 
-`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-pair envelope along the cortical surface normal (`envelope`) and writes `{simulation}_mTI_normal.msh` under `mTI/mesh/`. The Analyzer reads it when `TI_normal` is requested, and fills the `normal_*` statistics as for standard TI. mTI simulations run before this support have no normal mesh: requesting `TI_normal` raises `FileNotFoundError`, and the `normal_*` statistics are `None`. Re-run the simulation to get them.
+`TI_normal` is computed for mTI too: the simulator evaluates the $$K$$-pair envelope along the cortical surface normal (`envelope`) and stores it on the central surface beside the other fields. The Analyzer reads it there when `TI_normal` is requested, and fills the `normal_*` statistics for every analysis of a run with an envelope (a carrier-only control has none).
 
 ---
 
@@ -378,7 +397,7 @@ derivatives/ti-toolbox/group_analysis/<simulation>_<space>_<target>_<YYYYMMDD>_<
 └── group_analysis_<timestamp>.log
 ```
 
-`group_summary.csv` includes `HF_Focality`, `RMS_Focality` and `TI_Selectivity`. Each AVERAGE cell is the mean of the subjects' own values, over the subjects that have them, so the AVERAGE `TI_Selectivity` is the mean of per-subject ratios, not the ratio of the averaged focalities.
+`group_summary.csv` includes `HFpeak_Focality`, `HFrms_Focality` and `TI_Selectivity`. Each AVERAGE cell is the mean of the subjects' own values, over the subjects that have them, so the AVERAGE `TI_Selectivity` is the mean of per-subject ratios, not the ratio of the averaged focalities.
 
 Group runs are listed under **Results ▸ Group ▸ Group analyses**. Group analyses from earlier
 versions shared one folder, `derivatives/ti-toolbox/logs/group_analysis/`, where each run replaced

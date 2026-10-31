@@ -5,7 +5,7 @@ What this pins (p15, 2026-10-22)
 --------------------------------
 Dataset 000 ``sub-101/Simulations/L_Insula``: ``config.json`` (2026-09-23, ``map_to_mni`` false,
 ``output_fields`` ``["TI_max"]``) sits beside ``*_MNI_MNI_TI_max.nii.gz`` from 2026-09-09 and
-``*_hf_peak``/``*_hf_sar`` NIfTIs from 2026-07-20: nothing cleared the earlier run's outputs, so a
+``*_hf_peak``/``*_hf_rms`` NIfTIs from 2026-07-20: nothing cleared the earlier run's outputs, so a
 group MNI analysis read a volume the config never asked for. And SimNIBS's own existence guard
 (``simnibs_simulation*.mat`` in ``pathfem``) never fires after a completed run, because
 ``_organize_files`` moves that file into ``documentation/`` -- so ``run_simulation(cfg)`` from
@@ -45,6 +45,7 @@ import numpy as np
 import pytest
 
 import tit.sim.base as base_mod
+import tit.volume_fields as fields_mod
 import tit.sim.TI as ti_mod
 from tit.sim.config import Montage, MontageMode, SimulationConfig
 from tit.sim.TI import TISimulation
@@ -53,7 +54,7 @@ SID = "001"
 NAME = "L_Insula"
 NET = "GSN-HydroCel-185.csv"
 
-#: What an earlier run with map_to_mni and hf_peak/hf_sar left (real names, sub-101/L_Insula).
+#: What an earlier run with map_to_mni and hf_peak/hf_rms left (real names, sub-101/L_Insula).
 STALE = [
     "TI/mesh/L_Insula_TI.msh",
     "TI/mesh/grey_L_Insula_TI.msh",
@@ -62,7 +63,7 @@ STALE = [
     "TI/niftis/L_Insula_TI_MNI_MNI_TI_max.nii.gz",
     "TI/niftis/grey_L_Insula_TI_MNI_MNI_TI_max.nii.gz",
     "TI/niftis/L_Insula_TI_subject_hf_peak.nii.gz",
-    "TI/niftis/L_Insula_TI_MNI_MNI_hf_sar.nii.gz",
+    "TI/niftis/L_Insula_TI_MNI_MNI_hf_rms.nii.gz",
     "TI/montage_imgs/L_Insula_highlighted_visualization.png",
     "TI/surface_overlays/lh.001_TDCS_1_scalar.central.E.magn",
     "mTI/niftis/L_Insula_mTI_MNI_MNI_mTI_max.nii.gz",
@@ -152,13 +153,11 @@ def _fake_simnibs(sessions: list):
         patch.object(TISimulation, "_build_session", build),
         patch.object(base_mod, "run_simnibs", side_effect=lambda s: s.run()),
         patch.object(base_mod, "run_montage_visualization"),
-        patch.object(base_mod, "subprocess"),
+        patch.object(base_mod, "central_surface"),
         patch.object(base_mod.BaseSimulation, "_write_report"),
         patch.object(base_mod, "mesh_io", mesh_io),
-        patch.object(base_mod, "envelope_max"),
-        patch.object(base_mod, "envelope"),
-        patch.object(ti_mod, "extract_fields"),
-        patch.object(ti_mod, "transform_dirs_to_nifti"),
+        patch.object(fields_mod, "envelope_max"),
+        patch.object(base_mod, "transform_dirs_to_nifti"),
     ):
         yield
 

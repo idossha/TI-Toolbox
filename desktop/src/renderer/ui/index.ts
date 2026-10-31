@@ -10,6 +10,7 @@ export * from "./HelpPopover";
 export * from "./Field";
 export * from "./NumberInput";
 export * from "./Select";
+export * from "./Subscripted";
 export * from "./Combobox";
 export * from "./Toggle";
 export * from "./SegmentedControl";

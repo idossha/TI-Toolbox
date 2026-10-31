@@ -9,8 +9,12 @@ const config = { subject_id: "101", montages: [{ _type: "Montage", name: "candid
 
 describe("candidate cap selection", () => {
   it.each([false, true])("preserves explicit MNI opt-in %s when replaying a candidate", (mapToMni) => {
-    const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_mni: mapToMni } });
-    expect(buildSimulationConfig(row, defaultJobSettings()).map_to_mni).toBe(mapToMni);
+    const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_vol: true, map_to_mni: mapToMni } });
+    expect(buildSimulationConfig(row, defaultJobSettings())).toMatchObject({ map_to_vol: true, map_to_mni: mapToMni });
+  });
+  it("an MNI opt-in alone turns the NIfTIs on: MNI output is itself a NIfTI", () => {
+    const row = candidateRow({ id: "8", subject: "101", run: "run-a", config: { ...config, map_to_mni: true } });
+    expect(buildSimulationConfig(row, defaultJobSettings())).toMatchObject({ map_to_vol: true, map_to_mni: true });
   });
   it("maps the chosen candidate without carrying optimized poses into labeled placement", () => {
     const row = candidateRow({ id: "8", subject: "101", run: "run-a", config });

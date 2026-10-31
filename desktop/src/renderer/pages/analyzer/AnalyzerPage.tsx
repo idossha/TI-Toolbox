@@ -192,6 +192,8 @@ export function AnalyzerPage() {
   });
   const fieldsFor = (subjectId: string, simulation: string): string[] =>
     detailsFor(subjectId).find((d) => d.name === simulation)?.fields ?? [];
+  const carrierOnlyFor = (subjectId: string, simulation: string): boolean =>
+    detailsFor(subjectId).find((d) => d.name === simulation)?.carrier_only === true;
 
   // The table starts with one row on the shell's primary subject, so the page's first act is
   // choosing a simulation rather than discovering an "Add row" button.
@@ -490,6 +492,7 @@ export function AnalyzerPage() {
                   rows={rows}
                   onRowsChange={setRows2}
                   fieldsFor={fieldsFor}
+                  carrierOnlyFor={carrierOnlyFor}
                   group={group}
                   onGroupChange={setGroup}
                   activeRowId={activeRow?.id ?? null}

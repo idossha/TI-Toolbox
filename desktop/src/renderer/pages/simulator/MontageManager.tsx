@@ -64,7 +64,6 @@ import {
   rowCurrents,
   rowPairCount,
   rowProblem,
-  type JobSettings,
   type MontageKind,
   type MontageSource,
   type SelectedRow,
@@ -406,8 +405,6 @@ export interface JobsTableProps {
   /** The user opened or touched the montage or placement form; `rowId` is the row it came from
    *  when that is not the row last touched (Edit on another row). */
   onFocusForm?: (rowId?: string) => void;
-  /** What a NEW row starts from: the settings of the row the user configured last, if any. */
-  seedSettings?: JobSettings;
   /** Open this row's own settings editor (electrodes · conductivity · output fields). */
   onEditSettings?: (row: SelectedRow) => void;
 }
@@ -422,7 +419,6 @@ export function JobsTable({
   focus,
   onFocusRow,
   onFocusForm,
-  seedSettings,
   onEditSettings,
 }: JobsTableProps) {
   const queryClient = useQueryClient();
@@ -785,9 +781,10 @@ export function JobsTable({
 
   function addRow() {
     // A new row is like the job the user has selected — its subject and its net, visible in its own
-    // cells — and starts from the settings the user configured last, else the built-ins.
+    // cells — and carries no settings of its own: it runs with the user's defaults (Settings ▸
+    // Simulator), so another row's Job settings never leak into it.
     const seed = homeRow ?? rows[rows.length - 1];
-    const row = { ...emptyRow(seed?.subjectId || usable[0] || "", "montage", offered(homeRow?.eegNet)), settings: seedSettings };
+    const row = emptyRow(seed?.subjectId || usable[0] || "", "montage", offered(homeRow?.eegNet));
     onRowsChange([...rows, row]);
     onFocusRow?.(row.id);
   }

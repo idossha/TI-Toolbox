@@ -2,16 +2,16 @@
 
 What this pins
     A voxel ``Analyzer`` run of ``TI_max`` reads the same simulation's ``hf_peak`` and
-    ``hf_sar`` NIfTIs (real files, real nibabel) and reports ``hf_focality``,
-    ``rms_focality`` and ``ti_selectivity`` over exactly the voxels ``roi_focality`` used;
-    its ``hf_focality_*_area`` equal the ``focality_*_area`` of an analysis of ``hf_peak``
+    ``hf_rms`` NIfTIs (real files, real nibabel) and reports ``hf_peak_focality``,
+    ``hf_rms_focality`` and ``ti_selectivity`` over exactly the voxels ``roi_focality`` used;
+    its ``hf_peak_focality_*_area`` equal the ``focality_*_area`` of an analysis of ``hf_peak``
     itself on the same ROI.
 
 Where the numbers come from
     Two parallel channel fields ``E1 = a u``, ``E2 = b u`` (a, b > 0, authored below), for which
     the closed forms are textbook: TI_max = 2 min(a, b) (Grossman 2017, parallel fields),
     hf_peak = a + b, E_rms = sqrt((a^2 + b^2) / 2). The NIfTIs are written with
-    ``tit.calc`` (what the simulator writes, hf_sar = 2 hf_power); the expectations are
+    ``tit.calc`` (what the simulator writes, hf_rms = sqrt(hf_power)); the expectations are
     those closed forms averaged over a sphere mask computed here from the affine. Outside a
     "brain" box both fields are 0, so TI_max = 0 there and those voxels are in neither mean.
 
@@ -75,7 +75,7 @@ def project(tmp_path: Path) -> Path:
     written = {
         "TI_max": envelope_max([e1, e2]),
         "hf_peak": hf_peak([e1, e2]),
-        "hf_sar": 2.0 * hf_power([e1, e2]),  # the simulator's on-disk hf_sar
+        "hf_rms": np.sqrt(hf_power([e1, e2])),  # the simulator's on-disk hf_rms
     }
     for name, values in written.items():
         nib.save(
@@ -111,11 +111,11 @@ def test_voxel_carrier_metrics_match_the_closed_forms(project: Path) -> None:
     r = Analyzer(SID, SIM, space="voxel", field="TI_max").analyze_sphere(CENTER, RADIUS)
     assert r.n_elements == int(roi.sum())
     assert r.roi_focality == pytest.approx(focality(ti), rel=1e-12)
-    assert r.hf_roi_mean == pytest.approx(peak[roi].mean(), rel=1e-12)
-    assert r.hf_gm_mean == pytest.approx(peak[gm].mean(), rel=1e-12)
-    assert r.hf_focality == pytest.approx(focality(peak), rel=1e-12)
-    assert r.rms_roi_mean == pytest.approx(rms[roi].mean(), rel=1e-12)
-    assert r.rms_focality == pytest.approx(focality(rms), rel=1e-12)
+    assert r.hf_peak_roi_mean == pytest.approx(peak[roi].mean(), rel=1e-12)
+    assert r.hf_peak_gm_mean == pytest.approx(peak[gm].mean(), rel=1e-12)
+    assert r.hf_peak_focality == pytest.approx(focality(peak), rel=1e-12)
+    assert r.hf_rms_roi_mean == pytest.approx(rms[roi].mean(), rel=1e-12)
+    assert r.hf_rms_focality == pytest.approx(focality(rms), rel=1e-12)
     assert r.ti_selectivity == pytest.approx(focality(ti) / focality(peak), rel=1e-12)
     assert r.carrier_note is None
 
@@ -123,7 +123,7 @@ def test_voxel_carrier_metrics_match_the_closed_forms(project: Path) -> None:
         CENTER, RADIUS
     )
     for pct in (50, 75, 90, 95):
-        assert getattr(r, f"hf_focality_{pct}_area") == pytest.approx(
+        assert getattr(r, f"hf_peak_focality_{pct}_area") == pytest.approx(
             getattr(hf, f"focality_{pct}_area"), rel=1e-12
         ), pct
-    assert hf.hf_focality is None and "not a modulation field" in hf.carrier_note
+    assert hf.hf_peak_focality is None and "not a modulation field" in hf.carrier_note

@@ -73,12 +73,6 @@ CORPUS: tuple[tuple[str, str, str], ...] = (
         f"/bin/bash -e {SIMNIBS_BIN}/subject2mni -i {M2M}/T1.nii.gz -m {M2M} -o {M2M}/T1_101",
     ),
     (
-        "tit/sim/base.py",
-        '["msh2cortex", "-i", mesh_path, "-m", self.m2m_dir, "-o", surfaces_dir]',
-        f"{SIMNIBS_PY} {SIMNIBS_CLI}/msh2cortex.py -i /data/derivatives/SimNIBS/sub-101/"
-        f"Simulations/M1/TI/mesh/101_M1_TI.msh -m {M2M} -o /tmp/surfaces",
-    ),
-    (
         "tit/pre/dicom2nifti.py",
         '"dcm2niix",',
         "dcm2niix -z y -b y -d 9 -f sub-101_T1w -o /data/sub-101/anat "

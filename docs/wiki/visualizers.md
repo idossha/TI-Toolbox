@@ -31,6 +31,11 @@ you installed yourself.
 <em>The Viewer page. Compose on the left, the launch button and saved scenes on the right.</em>
 
 Results and jobs pages also have a direct open button, so you rarely need to build a scene by hand.
+A simulation opens on its field mesh shown as grey matter only (the other tissues are hidden, one
+tick away in TetraVox's tissue list), coloured by `TI_max` (`mTI_max` for mTI, `hf_peak` for a
+carrier-only control) and windowed from its grey-matter values; every other field the simulation
+saved is on the same mesh, one field switch away, under its display name (TI<sub>max</sub>,
+HF<sub>peak</sub>, …) and units. A simulation that wrote NIfTI volumes opens them too.
 
 A few things to know:
 

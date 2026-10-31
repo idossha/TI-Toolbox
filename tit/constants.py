@@ -101,8 +101,9 @@ FIELD_TI_NORMAL = "TI_normal"  # Normal component field name
 FIELD_TI_AVG = "TI_avg"  # envelope averaged over direction (calc.envelope_mean)
 FIELD_HF_PEAK = "hf_peak"  # peak carrier field, max over sign choices of the
 # vector sum; at N=2 this is max(|E1+E2|,|E1-E2|) (Cassarà 2025)
-FIELD_HF_SAR = "hf_sar"  # sum_i |E_i|^2 = 2 * calc.hf_power (rename pending)
-FIELD_HF_POWER_DENSITY = "hf_power_density"  # sigma * calc.hf_power, W/m^3
+FIELD_HF_RMS = "hf_rms"  # sqrt(calc.hf_power) = sqrt(1/2 sum_i |E_i|^2): RMS over time
+# sigma * calc.hf_power, W/m^3; the one constant to rename it by
+FIELD_HF_POWER_DENSITY = "hf_power_density"
 
 # Field "kind" classification used by FieldSpec below. This groups fields by
 # what they are computed from -- the low-frequency envelope versus the carrier
@@ -123,7 +124,9 @@ class FieldSpec:
     name : str
         Exact on-disk / in-mesh field name (matches a ``FIELD_*`` constant).
     label : str
-        Short label for UI widgets (checkboxes, combo boxes).
+        Display name, ``X_{sub}`` for a subscript (``TI_{max}``, ``HF_{rms}``): the desktop
+        app, the TetraVox scene and the docs render the braces as a subscript. Values, IDs
+        and file names always use ``name``.
     kind : str
         ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.
     units : str
@@ -145,7 +148,7 @@ class FieldSpec:
 FIELD_REGISTRY: tuple[FieldSpec, ...] = (
     FieldSpec(
         name=FIELD_TI_MAX,
-        label=FIELD_TI_MAX,
+        label="TI_{max}",
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description=(
@@ -155,7 +158,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
     ),
     FieldSpec(
         name=FIELD_MTI_MAX,
-        label=FIELD_MTI_MAX,
+        label="mTI_{max}",
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description=(
@@ -165,14 +168,14 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
     ),
     FieldSpec(
         name=FIELD_TI_NORMAL,
-        label=FIELD_TI_NORMAL,
+        label="TI_{normal}",
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description="Modulation depth along the cortical surface normal.",
     ),
     FieldSpec(
         name=FIELD_TI_AVG,
-        label=FIELD_TI_AVG,
+        label="TI_{avg}",
         kind=FIELD_KIND_FUNCTIONAL,
         units="V/m",
         description=(
@@ -182,34 +185,35 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
     ),
     FieldSpec(
         name=FIELD_HF_PEAK,
-        label=FIELD_HF_PEAK,
+        label="HF_{peak}",
         kind=FIELD_KIND_SAFETY,
         units="V/m",
         description=(
             "Largest instantaneous magnitude of the summed carrier fields "
-            "(peak-to-zero): max over sign choices of |sum_i s_i*E_i| "
-            "(Cassarà et al. 2025, Eq. 3)."
+            "(zero-to-peak): max over sign choices of |sum_i s_i*E_i| "
+            "(Cassarà et al. 2025, Eq. 3). The quantity to compare with exposure "
+            "limits (peak limit = sqrt(2) x the tabulated RMS limit)."
         ),
     ),
     FieldSpec(
-        name=FIELD_HF_SAR,
-        label=FIELD_HF_SAR,
+        name=FIELD_HF_RMS,
+        label="HF_{rms}",
         kind=FIELD_KIND_SAFETY,
-        units="(V/m)^2",
+        units="V/m",
         description=(
-            "Sum of carrier power, sum_i |E_i|^2. Proportional to SAR but not "
-            "calibrated: SAR = (sigma/2*rho)*hf_sar (Cassarà et al. 2025)."
+            "RMS carrier field over time, sqrt(1/2 sum_i |E_i|^2). Not a compliance "
+            "metric: against RMS limit tables it underestimates by up to sqrt(N) "
+            "for N carriers; compare hf_peak instead."
         ),
     ),
     FieldSpec(
         name=FIELD_HF_POWER_DENSITY,
-        label=FIELD_HF_POWER_DENSITY,
+        label="p_{HF}",
         kind=FIELD_KIND_SAFETY,
         units="W/m^3",
         description=(
-            "Time-averaged carrier power absorbed per volume, "
-            "(1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity; "
-            "SAR = hf_power_density/rho (IEEE C95.1-2019)."
+            "Absorbed (Joule) power density of the carriers, time-averaged: "
+            "(1/2) sum_i E_i.sigma.E_i with the simulation's own conductivity."
         ),
     ),
 )
@@ -262,28 +266,33 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         FIELD_HF_PEAK,
         "V/m",
         "Largest instantaneous magnitude the summed carrier fields can reach "
-        "(peak-to-zero, not peak-to-trough).",
+        "(zero-to-peak, not peak-to-trough). ICNIRP 2010 and IEEE C95.1-2019 "
+        "tabulate RMS limits with a peak limit of sqrt(2) x RMS and, for several "
+        "carriers, sum amplitudes, so this is the field to compare with the "
+        "limits, after the standards' spatial averaging (ICNIRP: 2x2x2 mm^3 cube "
+        "and 99th percentile; IEEE: 5 mm line). Per-element values are not the "
+        "compliance quantity.",
         "max over s_i in {-1,+1} of |sum_i s_i*E_i|, exact for any number of "
         "fields (zonotope vertices).",
-        "Cassara et al. 2025, Eq. 3.",
+        "Cassara et al. 2025, Eq. 3; ICNIRP 2010; IEEE C95.1-2019.",
     ),
     (
-        FIELD_HF_SAR,
-        "(V/m)^2",
-        "Sum of carrier power. The carriers sit at different, incommensurate "
-        "frequencies, so their power adds rather than their amplitudes. This "
-        "is a field-domain quantity, not calibrated SAR: that is "
-        "(sigma/2*rho)*hf_sar and needs per-tissue conductivity and density.",
-        "sum_i |E_i|^2",
+        FIELD_HF_RMS,
+        "V/m",
+        "RMS in-situ carrier field over time. The carriers sit at different, "
+        "incommensurate frequencies, so their power adds rather than their "
+        "amplitudes. Not a compliance metric: comparing it with RMS limit tables "
+        "underestimates the exposure by up to sqrt(N) for N carriers.",
+        "sqrt((1/2) sum_i |E_i|^2) = sqrt(hf_power)",
         "Cassara et al. 2025.",
     ),
     (
         FIELD_HF_POWER_DENSITY,
         "W/m^3",
-        "Time-averaged carrier power absorbed per unit volume (Joule heating), "
-        "with the per-element conductivity the simulation solved with. Divided "
-        "by tissue density it is SAR; at 1-10 kHz, though, the exposure "
-        "standards limit the RMS in-situ field, not SAR.",
+        "Absorbed (Joule) power density of the carriers, time-averaged, with the "
+        "per-element conductivity the simulation solved with. It is not SAR "
+        "(SAR = this / tissue density), and no SAR limit applies below 100 kHz: "
+        "at 1-10 kHz the exposure standards limit the in-situ field.",
         "(1/2) sum_i E_i^T sigma E_i: sigma*hf_power for isotropic conductivity, "
         "the conductivity tensor for anisotropic (DTI) models.",
         "IEEE C95.1-2019, p. 35; Cassara et al. 2025, Part II Eq. 1.",
@@ -321,8 +330,23 @@ SELECTABLE_OUTPUT_FIELDS: tuple[str, ...] = tuple(
 #: (ΔF = 0) simulation may compute (``SimulationConfig.carrier_only``).
 CARRIER_OUTPUT_FIELDS: tuple[str, ...] = (
     FIELD_HF_PEAK,
-    FIELD_HF_SAR,
+    FIELD_HF_RMS,
     FIELD_HF_POWER_DENSITY,
+)
+
+
+#: What a simulation writes when ``SimulationConfig.output_fields`` is not given: the
+#: envelope and the two carrier fields an analysis's carrier metrics read. ``TI_avg`` and
+#: ``hf_power_density`` are opt-in. A carrier-only run has no envelope, so its default is the
+#: carrier fields among these (``SimulationConfig.__post_init__``).
+DEFAULT_OUTPUT_FIELDS: tuple[str, ...] = (FIELD_TI_MAX, FIELD_HF_PEAK, FIELD_HF_RMS)
+
+
+#: Why a volume field is not on the fsaverage surface (for the errors that refuse it).
+FSAVG_NOT_PROJECTED = (
+    "TI_avg and hf_power_density are volume fields only and are never projected to "
+    "fsaverage (the projection maps the channel fields, TI_max and TI_normal, not the "
+    "conductivity or the direction average); analyse them in mesh or voxel space."
 )
 
 

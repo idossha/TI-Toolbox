@@ -4,14 +4,16 @@ import { HelpIcon } from "../../ui/HelpPopover";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
 import { Select } from "../../ui/Select";
+import { Subscripted } from "../../ui/Subscripted";
 import { Checkbox } from "../../ui/Toggle";
 import { ElectrodeSettings } from "../_shared/electrodes/ElectrodeSettings";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
-import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, type JobSettings } from "./types";
+import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
 
 /**
- * Shared per-job simulation controls, used by the Simulator. `carrierOnlyAllowed` is false for an
- * mTI job: a carrier-only (ΔF = 0) control is defined for 2-pair TI only.
+ * The simulation controls: one job's (the Simulator's Job settings dialog) and the defaults for new
+ * jobs (Settings ▸ Simulator). `carrierOnlyAllowed` is false for an mTI job: a carrier-only (ΔF = 0)
+ * control is defined for 2-pair TI only.
  */
 export function SimulationSettings({
   value: draft,
@@ -67,7 +69,7 @@ export function SimulationSettings({
                   />
                 </Field>
               </>}
-              <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults for this job only.">
+              <Field label="Tissue values" help="Overrides SimNIBS's per-tissue defaults.">
                 <Button variant="secondary" onClick={() => setTissueOpen(true)}>
                   Edit values…
                 </Button>
@@ -96,6 +98,7 @@ export function SimulationSettings({
               {OUTPUT_FIELDS.map((f) => (
                 <label key={f.name} title={f.description} className="checkbox-label-row">
                   <Checkbox
+                    aria-label={f.name}
                     checked={draft.outputFields.includes(f.name)}
                     disabled={carrierOnly && !CARRIER_FIELDS.includes(f.name)}
                     onCheckedChange={(checked) =>
@@ -105,27 +108,43 @@ export function SimulationSettings({
                       })
                     }
                   />
-                  {f.name}
+                  <Subscripted text={f.label} />
                 </label>
               ))}
             </div>
             {invalid && <span className="field-error">Select at least one output field.</span>}
           </section>
           <section>
-            <h4>Standard-space outputs</h4>
+            <h4>Output files</h4>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <label className="checkbox-label-row">
-                <Checkbox checked={draft.mapToMni ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToMni: checked })} />
-                Generate MNI NIfTI outputs
+                <Checkbox
+                  checked={draft.writeNiftis ?? false}
+                  onCheckedChange={(checked) => setDraft(withNiftis(draft, checked))}
+                  aria-label="Write NIfTI volumes"
+                />
+                Write NIfTI volumes (one per field)
               </label>
-              <HelpIcon variant="plain" title="MNI mapping" text="Transform fields and T1 to MNI space after simulation. Subject-space outputs are always generated." />
+              <HelpIcon variant="plain" title="NIfTI volumes" text={WRITE_NIFTIS_HELP} label="About NIfTI volumes" />
+            </div>
+            {/* A sub-option of the NIfTIs: ticking it ticks them (MNI output is a NIfTI). */}
+            <div className="job-settings-suboption" style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
+              <label className="checkbox-label-row">
+                <Checkbox
+                  checked={!!draft.writeNiftis && !!draft.mapToMni}
+                  onCheckedChange={(checked) => setDraft(withMni(draft, checked))}
+                  aria-label="Also in MNI space"
+                />
+                Also in MNI space
+              </label>
+              <HelpIcon variant="plain" title="MNI NIfTIs" text="Also write each field NIfTI, and the T1, in MNI space. Ticking it writes the NIfTIs too." />
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
               <label className="checkbox-label-row">
                 <Checkbox checked={draft.mapToFsavg ?? false} onCheckedChange={(checked) => setDraft({ ...draft, mapToFsavg: checked })} />
                 Map fields to fsaverage
               </label>
-              <HelpIcon variant="plain" title="Surface mapping" text="Project this job’s surface fields to fsaverage5 after simulation for comparisons across subjects." />
+              <HelpIcon variant="plain" title="Surface mapping" text="Project the simulation’s surface fields to fsaverage5 after simulation for comparisons across subjects." />
             </div>
           </section>
         </div>

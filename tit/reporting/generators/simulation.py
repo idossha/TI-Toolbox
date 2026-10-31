@@ -4,7 +4,9 @@ Built on :mod:`tit.reporting.html.components` (ARCHITECTURE.md §14) like the DT
 is read from what the simulation wrote: ``documentation/config.json`` (montage, currents,
 electrodes, conductivity), the SimNIBS log (whether the DTI tensor was used, the solver, the
 calibration error), ``high_Frequency/analysis/fields_summary.txt`` (per-carrier grey-matter percentiles),
-and the grey/white-matter envelope NIfTIs. The page has no checks.
+and the grey/white-matter envelope: the run's NIfTIs when it wrote them (``map_to_vol``), else
+its grey/white field meshes voxelised onto the T1 grid in a scratch directory, by the same
+conversion, and not kept. The page has no checks.
 
 The default view is the verdict with the grey-matter envelope (99.9th percentile, median and where its
 maximum is, in MNI through charm's warp), the montage on the app's EEG-cap overlay with its dose, and the envelope in three planes;
@@ -23,6 +25,7 @@ import glob
 import json
 import logging
 import re
+import tempfile
 import time
 from datetime import datetime
 from pathlib import Path
@@ -104,6 +107,34 @@ def _envelope_niftis(sim_dir: Path, name: str, mode: str) -> dict[str, Path]:
     return out
 
 
+def _voxelised_envelope(
+    sim_dir: Path, name: str, mode: str, m2m: Path, scratch: Path
+) -> dict[str, Path]:
+    """``{"grey": …, "white": …}`` envelope NIfTIs voxelised from the field mesh into *scratch*.
+
+    The on-demand path's conversion (:func:`tit.volume_fields.voxelise`, onto the T1 grid) of
+    ``<mode>/mesh/<name>_<mode>.msh``'s envelope, cropped to each tissue; nothing is written
+    into the simulation.
+
+    Raises:
+        FieldUnavailableError: a tissue's field mesh is missing or carries no envelope.
+        RuntimeError: the conversion did not write a volume.
+    """
+    from tit.volume_fields import voxelise
+
+    field = "mTI_max" if mode == "mTI" else "TI_max"
+    return {
+        tissue: voxelise(
+            sim_dir / mode / "mesh" / f"{name}_{mode}.msh",
+            m2m,
+            scratch,
+            [field],
+            tissue=tissue,
+        )[field]
+        for tissue in ("grey", "white")
+    }
+
+
 def _volume(img) -> np.ndarray:
     """The image's voxels as float32, 3-D: trailing single frames (``(X, Y, Z, 1)``) dropped."""
     data = np.asarray(img.dataobj, dtype=np.float32)
@@ -112,8 +143,14 @@ def _volume(img) -> np.ndarray:
     return data
 
 
-def collect(sim_dir: str | Path) -> dict:
-    """Everything the report shows, from one simulation folder."""
+def collect(
+    sim_dir: str | Path, *, m2m: Path | None = None, scratch: Path | None = None
+) -> dict:
+    """Everything the report shows, from one simulation folder.
+
+    With *m2m* and *scratch*, a run that wrote no envelope NIfTIs has its field meshes
+    voxelised into *scratch* (:func:`_voxelised_envelope`) for the envelope statistics and figure.
+    """
     sim_dir = Path(sim_dir)
     doc = sim_dir / "documentation"
     config = json.loads((doc / "config.json").read_text())
@@ -137,6 +174,15 @@ def collect(sim_dir: str | Path) -> dict:
         if config.get("carrier_only")
         else _envelope_niftis(sim_dir, rec["name"], mode)
     )
+    if not config.get("carrier_only") and "grey" not in niftis and scratch is not None:
+        from tit.volume_fields import FieldUnavailableError
+
+        try:
+            niftis = _voxelised_envelope(sim_dir, rec["name"], mode, Path(m2m), scratch)
+        except (FieldUnavailableError, RuntimeError) as exc:
+            # The report stands without its envelope figure, and says why on the page.
+            rec["figure_note"] = str(exc)
+            logger.warning(f"Simulation report: envelope not voxelised ({exc})")
     if "grey" in niftis:
         import nibabel as nib
 
@@ -466,6 +512,8 @@ def build_html(
         )
     elif carrier_only:
         body = '<p class="muted">No envelope figure: a carrier-only control has no envelope.</p>'
+    elif rec.get("figure_note"):
+        body = f'<p class="muted">No envelope figure: {esc(rec["figure_note"])}</p>'
     else:
         body = '<p class="muted">No envelope figure: the grey-matter envelope or the T1 could not be read.</p>'
     field_sec = c.section(
@@ -617,18 +665,22 @@ def create_simulation_report(
 
     t0 = time.time()
     pm = get_path_manager(str(project_dir))
-    rec = collect(pm.simulation(subject_id, simulation_name))
     m2m = Path(pm.m2m(subject_id))
-    if rec["envelope"]:
+    with tempfile.TemporaryDirectory(prefix="tit-sim-report-") as scratch:
+        rec = collect(
+            pm.simulation(subject_id, simulation_name), m2m=m2m, scratch=Path(scratch)
+        )
+        if rec["envelope"]:
+            try:
+                rec["envelope"]["peak_mni"] = to_mni(rec["envelope"]["peak_world"], m2m)
+            except (OSError, ValueError) as exc:
+                logger.warning(f"Simulation report: peak left in subject space ({exc})")
         try:
-            rec["envelope"]["peak_mni"] = to_mni(rec["envelope"]["peak_world"], m2m)
+            images = field_images(rec, m2m / "T1.nii.gz")
         except (OSError, ValueError) as exc:
-            logger.warning(f"Simulation report: peak left in subject space ({exc})")
-    try:
-        images = field_images(rec, m2m / "T1.nii.gz")
-    except (OSError, ValueError) as exc:
-        logger.warning(f"Simulation report: no envelope figure ({exc})")
-        images = None
+            logger.warning(f"Simulation report: no envelope figure ({exc})")
+            rec.setdefault("figure_note", str(exc))
+            images = None
     html = build_html(rec, images, subject_id)
     return common.write_report(
         html,
