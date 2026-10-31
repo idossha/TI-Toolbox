@@ -7,6 +7,8 @@ lazily inside each module so that ``import tit.tools`` remains fast.
 
 Modules
 -------
+electrode_overlay
+    Create NIfTI label overlays for XYZ electrode placements.
 extract_labels
     Extract specific label values from a NIfTI segmentation.
 field_extract
@@ -17,10 +19,10 @@ map_electrodes
     Map optimised electrode positions to the nearest EEG net electrodes.
 mesh2nii
     Convert SimNIBS meshes to subject- and MNI-space NIfTI volumes.
-electrode_overlay
-    Create NIfTI label overlays for XYZ electrode placements.
 montage_visualizer
     Render PNG images of electrode montages on an EEG cap template.
+msh_fields
+    Read the data fields of a Gmsh 2.2 ``.msh`` without SimNIBS or loading the mesh.
 nifti_to_mesh
     Convert a NIfTI segmentation/mask to an STL or Gmsh surface mesh.
 read_annot
