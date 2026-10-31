@@ -72,7 +72,8 @@ export function Select({
                   </SelectPrimitive.ItemIndicator>
                 </span>
                 <span className="picker-option-label">
-                  <SelectPrimitive.ItemText><Subscripted text={opt.label} /></SelectPrimitive.ItemText>
+                  {/* Chromium gives a <sub> label no accessible name through Radix's aria-labelledby. */}
+                  <SelectPrimitive.ItemText aria-label={plainLabel(opt.label)}><Subscripted text={opt.label} /></SelectPrimitive.ItemText>
                 </span>
               </SelectPrimitive.Item>
             ))}
