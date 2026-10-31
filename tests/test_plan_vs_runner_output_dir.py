@@ -671,7 +671,7 @@ def test_stats_writes_where_the_plan_says(
         raise _Stop
 
     monkeypatch.setattr(permutation, "_setup_logger", stop)
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     rows = [
         {
             "subject_id": f"00{i}",
@@ -704,7 +704,7 @@ def test_nifti_average_writes_where_the_plan_says(
             {"A": ["001"], "B": ["002"]},
         ),
     )
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     config = {
         "output_name": "avg1",
         "subjects": [
@@ -736,7 +736,7 @@ def test_nilearn_writes_where_the_plan_says(
         return str(path)
 
     monkeypatch.setattr(runner, "create_pdf_entry_point_group", render)
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     config = {
         "subject_simulation_pairs": [
             {"subject_id": "001", "simulation_name": SIM},
@@ -770,7 +770,7 @@ def test_source_forward_writes_where_the_plan_says(
         raise RuntimeError("stopped after the forward folder was made")
 
     monkeypatch.setattr(forward, "_read_simnibs_montage", stop)
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     config = {"mode": "forward", "subject_ids": ["001"], "forward": {}}
     planned = _plan(client, "source", config)["jobs"]
     before = {p for p in project.rglob("*") if p.is_dir()}
@@ -804,7 +804,7 @@ def _fsavg_run(
     monkeypatch.setattr(fsaverage, "_compute_fields", compute)
     monkeypatch.setattr(fsaverage, "write_fsaverage_msh", write)
     monkeypatch.setattr(fsaverage, "_recorded_carrier_only", lambda *a: False)
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     config = _fsavg_config(overwrite, spacing)
     path = tmp_path / "fsavg.json"
     path.write_text(json.dumps({**config, "project_dir": str(project)}))

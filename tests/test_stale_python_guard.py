@@ -11,8 +11,7 @@ What this pins (2026-10-22, the p43 dead-code sweep):
 * Every ``tit.<module>[.<name>]`` that a ``tit/stats`` docstring cites resolves to a module file
   and a name bound in it (``tit/stats/nifti.py`` used to cite ``tit.stats.comparison``).
 * Behaviour the sweep kept on purpose: ``load_montages`` still accepts ``include_flex`` but no
-  longer appends montages from ``$FLEX_MONTAGES_FILE``; an old simulation ``config.json`` with
-  ``map_to_vol``/``tissues_in_niftis``/``open_in_gmsh`` still loads with those values; the
+  longer appends montages from ``$FLEX_MONTAGES_FILE``; the
   analyzer's legacy-layout fallback says so in the job log.
 
 Where the expected values come from: the source tree read off disk (``ast``), never imported for
@@ -545,41 +544,6 @@ def test_load_montages_accepts_include_flex_and_appends_nothing_from_the_env(
         assert [(m.name, m.electrode_pairs) for m in montages] == [
             ("m1", [["E1", "E2"], ["E3", "E4"]])
         ], kwargs
-
-
-@pytest.mark.unit
-def test_an_old_simulation_config_with_the_unused_fields_still_loads():
-    """map_to_vol / tissues_in_niftis / open_in_gmsh change nothing but must still deserialise."""
-    from tit.config_io import deserialize_config, serialize_config
-    from tit.sim.config import SimulationConfig
-
-    old = {
-        "subject_id": "ernie",
-        "montages": [
-            {
-                "name": "L_Insula",
-                "mode": "net",
-                "electrode_pairs": [["E010", "E011"], ["E012", "E013"]],
-                "eeg_net": "GSN-HydroCel-185.csv",
-            }
-        ],
-        "map_to_vol": True,
-        "tissues_in_niftis": "1,2",
-        "open_in_gmsh": False,
-    }
-    config = deserialize_config(SimulationConfig, old)
-    assert (config.map_to_vol, config.tissues_in_niftis, config.open_in_gmsh) == (
-        True,
-        "1,2",
-        False,
-    )
-    again = serialize_config(config)
-    assert (again["map_to_vol"], again["tissues_in_niftis"], again["open_in_gmsh"]) == (
-        True,
-        "1,2",
-        False,
-    )
-    assert deserialize_config(SimulationConfig, again) == config
 
 
 @pytest.mark.unit

@@ -30,15 +30,8 @@ __all__ = [
 ]
 
 # ``MNI_ATLAS_FILES``/``DEFAULT_MNI_ATLAS`` come from
-# ``resources/atlas/manifest.json``. They are re-exported lazily rather than
-# imported: reading the manifest is a filesystem access, and importing this
-# package must not touch the filesystem (``dev/route_import_guard.py`` --
-# every server route module imports ``tit.catalog``, which imports this).
-
-
-def __getattr__(name):
-    if name in ("MNI_ATLAS_FILES", "DEFAULT_MNI_ATLAS"):
-        from tit.atlas import constants
-
-        return getattr(constants, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+# ``resources/atlas/manifest.json``, so they resolve on first access through
+# tit.atlas.constants' own module ``__getattr__``: importing this package must
+# not touch the filesystem (``dev/route_import_guard.py`` -- every server route
+# module imports ``tit.catalog``, which imports this).
+from tit.atlas.constants import __getattr__  # noqa: E402,F401

@@ -7,8 +7,7 @@ group and custom layer stacks as a JSON-able ``ViewSpec``
 the layers into the Tetravox ViewSpec v2 document
 (``contracts/tetravox-viewspec-v2.schema.json``), which ``POST /api/view/open``
 re-roots onto host paths and writes as a ``.tetravox.json`` scene file for the
-native TetraVox. ``to_freeview_args`` only fills the
-deprecated ``freeview_args`` response field; no route launches Freeview.
+native TetraVox.
 
 Regression notes, each pinned by a test in ``tests/test_viewspec.py``:
 
@@ -65,22 +64,8 @@ from tit.catalog import (
     surface_attachments,
 )
 from tit.atlas.constants import mni_resources_dir
+from tit.atlas.manifest import mni_atlas_files
 from tit.paths import get_path_manager, is_within, resolve_under, resolve_within
-
-
-def __getattr__(name):
-    """Resolve ``DEFAULT_MNI_ATLAS`` on first use, not at import.
-
-    It comes from ``resources/atlas/manifest.json``, i.e. from a file, and this
-    module is imported by server route modules that must do no I/O at import
-    time (``dev/route_import_guard.py``).
-    """
-    if name == "DEFAULT_MNI_ATLAS":
-        from tit.atlas import constants
-
-        return constants.DEFAULT_MNI_ATLAS
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 _VIEW_KINDS = ("subject", "simulation", "analysis", "group", "custom")
 
@@ -119,15 +104,18 @@ def _default_mni_atlas_path(requested: str | None = None) -> str | None:
     between images then still renders the anatomy, which is the useful
     half, instead of a 404 with no picture at all.
     """
-    found = VoxelAtlasManager.detect_mni_atlases(mni_resources_dir())
+    directory = mni_resources_dir()
+    found = VoxelAtlasManager.detect_mni_atlases(directory)
     if not found:
         return None
     if requested:
         for path in found:
             if os.path.basename(path) == requested:
                 return path
+    # The default is the first manifest atlas present (tit.atlas.DEFAULT_MNI_ATLAS).
+    default = mni_atlas_files(directory)[:1]
     for path in found:
-        if os.path.basename(path) == DEFAULT_MNI_ATLAS:
+        if os.path.basename(path) in default:
             return path
     return found[0]
 
@@ -1602,8 +1590,7 @@ def _resolve_layer_percentile(layer: dict[str, Any]) -> None:
 
     Any failure (missing/unreadable file, an all-zero volume, no ``nibabel``
     in this environment) leaves ``cal_min``/``cal_max`` exactly as they were
-    -- a layer with an unresolved threshold still renders, just without a
-    ``heatscale`` arg (see :func:`to_freeview_args`).
+    -- a layer with an unresolved threshold still renders.
 
     Memoised on the file's identity (see :data:`_PERCENTILE_CACHE`). A miss reads the volume
     exactly as before; a hit costs one ``os.stat``.
@@ -3134,12 +3121,10 @@ def finish_spec(
     title: str | None = None,
     cursor: list[float] | None = None,
 ) -> dict[str, Any]:
-    """Attach the two derived views of *spec* -- ``freeview_args`` (deprecated,
-    kept for one release) and ``scene`` -- in place.
+    """Attach *spec*'s ``scene`` (and its ``cursor``, when given) in place.
 
-    The single place both derivations happen, so ``GET /api/view/{kind}``
-    (via :func:`_finish`) can never hand out an argv and a scene built from
-    different rules.
+    The single place the scene is derived, so ``GET /api/view/{kind}`` (via
+    :func:`_finish`) and every other caller get it from the same rules.
 
     *title* has nowhere to go in a real ``ViewSpec`` (unlike the retired
     ``TitScene``, it carries no title field) and is accepted only for call-
@@ -3148,40 +3133,8 @@ def finish_spec(
     """
     if cursor is not None:
         spec["cursor"] = list(cursor)
-    spec["freeview_args"] = to_freeview_args(spec)
     spec["scene"] = to_tetravox_viewspec(spec)
     return spec
-
-
-def to_freeview_args(spec: dict[str, Any]) -> list[str]:
-    """The argv tail Freeview should be launched with for *spec*.
-
-    Reproduces ``launch_freeview_with_files``'s per-layer grammar
-    (``path:colormap=...:opacity=...:visible=...[:lut=...][:heatscale=lo,hi]``),
-    with bug 5 fixed: ``heatscale`` is emitted whenever a layer carries both
-    ``cal_min`` and ``cal_max``, not only in some percentile-mode branch.
-    """
-    args = []
-    for layer in spec.get("layers", []):
-        arg = layer["path"]
-        arg += f":colormap={layer.get('colormap', 'grayscale')}"
-        opacity = layer.get("opacity")
-        if opacity is not None:
-            arg += f":opacity={opacity}"
-        arg += f":visible={1 if layer.get('visible', True) else 0}"
-        lut = layer.get("lut")
-        if lut:
-            arg += f":lut={lut}"
-        cal_min, cal_max = layer.get("cal_min"), layer.get("cal_max")
-        if cal_min is not None and cal_max is not None:
-            arg += f":heatscale={cal_min},{cal_max}"
-        args.append(arg)
-    return args
-
-
-def freeview_command(spec: dict[str, Any]) -> list[str]:
-    """Full ``["freeview", ...]`` argv for *spec*."""
-    return ["freeview"] + to_freeview_args(spec)
 
 
 # ── path jail (ra_14 finding 11) ─────────────────────────────────────────────

@@ -10,12 +10,11 @@ view had nothing to link (job ``60727ba738144204``).
 """
 
 import json
-import os
 import sys
 import time
-from contextlib import nullcontext
 
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.stats.config import (
     CorrelationConfig,
     GroupComparisonConfig,
@@ -26,22 +25,6 @@ MODE_FOR_TYPE = {
     "GroupComparisonConfig": "group_comparison",
     "CorrelationConfig": "correlation",
 }
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    from tit.paths import get_path_manager
-
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def _emit_output_artifacts(output_dir, started: float) -> None:
@@ -88,7 +71,7 @@ def main() -> None:
     # `mode` goes back in for the lock request only: `tit.jobs.locks.keys_for("stats", ...)`
     # reads it off the request dict to build `project:stats:<mode>/<analysis_name>`, so popping
     # it first would file every correlation run under the group_comparison key.
-    lock_cm = _hold_locks("stats", [], {**data, "mode": mode})
+    lock_cm = locks.hold_for_job("stats", [], {**data, "mode": mode})
 
     exit_code = 1
     try:

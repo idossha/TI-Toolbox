@@ -8,9 +8,7 @@ to ``build_view``.
 D3 (``docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)``): the external Freeview/Gmsh
 launch routes (``POST /api/viewers/freeview``, ``POST /api/viewers/gmsh``),
 ``_require_x11`` and the ``viewer`` job-kind submission they drove are
-**removed** -- there is no X11 in this runtime. ``freeview_args`` itself
-stays on the response for one release (deprecated) so an old client
-mid-migration does not break.
+**removed** -- there is no X11 in this runtime.
 
 V2 (``docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)``): viewing is the
 **host-installed Tetravox desktop app**, not an embed served from this

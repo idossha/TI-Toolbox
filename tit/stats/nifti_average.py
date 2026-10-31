@@ -19,31 +19,15 @@ import logging
 import os
 import shutil
 import sys
-from contextlib import nullcontext
 
 import nibabel as nib
 import numpy as np
 
 from tit import constants as const
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.stats.nifti import load_grouped_subjects_ti_toolbox
 from tit.stats.nifti_average_config import NiftiAverageConfig
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    from tit.paths import get_path_manager
-
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def main() -> None:
@@ -67,7 +51,7 @@ def main() -> None:
     get_path_manager(data.pop("project_dir"))
     config = deserialize_config(NiftiAverageConfig, data)
     subject_ids = sorted({s.subject_id for s in config.subjects})
-    lock_cm = _hold_locks("nifti_average", subject_ids, data)
+    lock_cm = locks.hold_for_job("nifti_average", subject_ids, data)
 
     exit_code = 1
     try:

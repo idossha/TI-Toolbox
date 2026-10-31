@@ -29,26 +29,10 @@ import logging
 import os
 import sys
 import time
-from contextlib import nullcontext
 
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.logger import setup_logging, add_stream_handler
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    from tit.paths import get_path_manager
-
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def main() -> int:
@@ -83,7 +67,7 @@ def main() -> int:
         return 1
 
     subject_id = data.get("subject_id")
-    lock_cm = _hold_locks("blender", [subject_id] if subject_id else [], data)
+    lock_cm = locks.hold_for_job("blender", [subject_id] if subject_id else [], data)
 
     from tit.jobs import events
 

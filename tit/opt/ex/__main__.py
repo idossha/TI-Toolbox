@@ -2,11 +2,10 @@
 
 import json
 import logging
-import os
 import sys
-from contextlib import nullcontext
 
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.opt.config import ExConfig
 from tit.opt.ex.ex import run_ex_search
 
@@ -18,22 +17,6 @@ def _make_stdout_logger() -> logging.Logger:
     setup_logging()
     add_stream_handler("tit.opt.ex_search")
     return logging.getLogger("tit.opt.ex_search")
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    from tit.paths import get_path_manager
-
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def main() -> None:
@@ -50,7 +33,7 @@ def main() -> None:
     get_path_manager(data.pop("project_dir"))
 
     config = deserialize_config(ExConfig, data)
-    lock_cm = _hold_locks("ex", [config.subject_id], data)
+    lock_cm = locks.hold_for_job("ex", [config.subject_id], data)
 
     exit_code = 1
     try:

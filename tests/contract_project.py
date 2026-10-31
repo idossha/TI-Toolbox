@@ -104,12 +104,10 @@ def _sim_config(sim: str, *, mode: str, conductivity: str, pairs: list) -> dict:
             "rubber_thickness": 2.0,
         },
         "mapping_options": {
-            "map_to_surf": True,
             "map_to_vol": True,
             "map_to_mni": True,
             "map_to_fsavg": False,
         },
-        "tissues_in_niftis": "all",
         "created_at": "2026-09-23T13:13:20.899598",
     }
 

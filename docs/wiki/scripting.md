@@ -241,7 +241,6 @@ run_simulation(cfg)
 | `rubber_thickness` | — | `2.0` |
 | `output_fields` | **Output fields** (`TI_max`, `TI_avg`, `hf_peak`, `hf_rms`, `hf_power_density`) | `None`: `["TI_max", "hf_peak", "hf_rms"]`, or `["hf_peak", "hf_rms"]` with `carrier_only` |
 | `carrier_only` | **Carrier-only control** (ΔF = 0): coherent `hf_peak`/`hf_rms`/`hf_power_density`, no envelope fields; two-channel TI, `output_fields` from those three ([details]({{ site.baseurl }}/wiki/simulator/#carrier-only-control)) | `False` |
-| `map_to_surf` | — | `True` |
 | `map_to_vol` | **Write NIfTI volumes (one per field)** | `False` |
 | `map_to_mni` | **Also in MNI space** (turns `map_to_vol` on) | `False` |
 | `map_to_fsavg` | **Map fields to fsaverage** | `True` (app: `False`) |

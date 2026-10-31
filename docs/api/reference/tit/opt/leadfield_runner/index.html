@@ -1080,7 +1080,22 @@ same holder the scheduler reserves) and writes an <code>exit</code> event in a
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/leadfield_runner.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-53">53</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-38">38</a></span>
+<span class="normal"><a href="#__codelineno-0-39">39</a></span>
+<span class="normal"><a href="#__codelineno-0-40">40</a></span>
+<span class="normal"><a href="#__codelineno-0-41">41</a></span>
+<span class="normal"><a href="#__codelineno-0-42">42</a></span>
+<span class="normal"><a href="#__codelineno-0-43">43</a></span>
+<span class="normal"><a href="#__codelineno-0-44">44</a></span>
+<span class="normal"><a href="#__codelineno-0-45">45</a></span>
+<span class="normal"><a href="#__codelineno-0-46">46</a></span>
+<span class="normal"><a href="#__codelineno-0-47">47</a></span>
+<span class="normal"><a href="#__codelineno-0-48">48</a></span>
+<span class="normal"><a href="#__codelineno-0-49">49</a></span>
+<span class="normal"><a href="#__codelineno-0-50">50</a></span>
+<span class="normal"><a href="#__codelineno-0-51">51</a></span>
+<span class="normal"><a href="#__codelineno-0-52">52</a></span>
+<span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
 <span class="normal"><a href="#__codelineno-0-55">55</a></span>
 <span class="normal"><a href="#__codelineno-0-56">56</a></span>
@@ -1089,46 +1104,31 @@ same holder the scheduler reserves) and writes an <code>exit</code> event in a
 <span class="normal"><a href="#__codelineno-0-59">59</a></span>
 <span class="normal"><a href="#__codelineno-0-60">60</a></span>
 <span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span>
-<span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="w">    </span><span class="sd">"""Run leadfield generation from a JSON config passed as the first CLI argument."""</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup_logging</span><span class="p">,</span> <span class="n">add_stream_handler</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">events</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a>    <span class="n">setup_logging</span><span class="p">()</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="n">add_stream_handler</span><span class="p">(</span><span class="s2">"tit.opt.leadfield"</span><span class="p">)</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="n">config_path</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="n">get_path_manager</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"project_dir"</span><span class="p">))</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">deserialize_config</span><span class="p">(</span><span class="n">LeadfieldConfig</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="n">lock_cm</span> <span class="o">=</span> <span class="n">_hold_locks</span><span class="p">(</span><span class="s2">"leadfield"</span><span class="p">,</span> <span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">],</span> <span class="n">data</span><span class="p">)</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="n">exit_code</span> <span class="o">=</span> <span class="mi">1</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="k">with</span> <span class="n">lock_cm</span><span class="p">:</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>            <span class="n">_run</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>            <span class="n">exit_code</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="n">events</span><span class="o">.</span><span class="n">emit_exit</span><span class="p">(</span><span class="n">exit_code</span><span class="p">)</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">exit_code</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-38" name="__codelineno-0-38"></a><span class="k">def</span><span class="w"> </span><span class="nf">main</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="w">    </span><span class="sd">"""Run leadfield generation from a JSON config passed as the first CLI argument."""</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.logger</span><span class="w"> </span><span class="kn">import</span> <span class="n">setup_logging</span><span class="p">,</span> <span class="n">add_stream_handler</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">events</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>    <span class="n">setup_logging</span><span class="p">()</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>    <span class="n">add_stream_handler</span><span class="p">(</span><span class="s2">"tit.opt.leadfield"</span><span class="p">)</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>    <span class="n">config_path</span> <span class="o">=</span> <span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">config_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>        <span class="n">data</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>    <span class="n">get_path_manager</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="s2">"project_dir"</span><span class="p">))</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>    <span class="n">config</span> <span class="o">=</span> <span class="n">deserialize_config</span><span class="p">(</span><span class="n">LeadfieldConfig</span><span class="p">,</span> <span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>    <span class="n">lock_cm</span> <span class="o">=</span> <span class="n">locks</span><span class="o">.</span><span class="n">hold_for_job</span><span class="p">(</span><span class="s2">"leadfield"</span><span class="p">,</span> <span class="p">[</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">],</span> <span class="n">data</span><span class="p">)</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>    <span class="n">exit_code</span> <span class="o">=</span> <span class="mi">1</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>        <span class="k">with</span> <span class="n">lock_cm</span><span class="p">:</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>            <span class="n">_run</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>            <span class="n">exit_code</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>        <span class="n">events</span><span class="o">.</span><span class="n">emit_exit</span><span class="p">(</span><span class="n">exit_code</span><span class="p">)</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="n">exit_code</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

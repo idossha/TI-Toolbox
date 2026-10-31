@@ -608,10 +608,42 @@ def test_keys_for_matches_ex_main_call_site():
     assert ("subject:001:m2m", "read") in resources
 
 
+def test_hold_for_job_holds_its_kinds_keys_only_inside_a_job(tmp_path, monkeypatch):
+    """Every runner's lock scaffold: nothing outside a job, ``keys_for(kind)`` inside one,
+    released on exit. Read back from the lock descriptors on disk, not from ``holders``
+    (which never reports this process's own pid)."""
+    from tit.paths import get_path_manager
+
+    get_path_manager(str(tmp_path))
+    config = {"subject_id": "001"}
+
+    def held() -> set[tuple[str, str]]:
+        root = locks.locks_dir(str(tmp_path))
+        if not os.path.isdir(root):
+            return set()
+        found = set()
+        for name in os.listdir(root):
+            with open(os.path.join(root, name, "lock.json")) as fh:
+                data = json.load(fh)
+            found.add((data["key"], data["job_id"]))
+        return found
+
+    monkeypatch.delenv(jobs_runner.ENV_JOB_ID, raising=False)
+    with locks.hold_for_job("sim", ["001"], config):
+        assert held() == set()
+
+    monkeypatch.setenv(jobs_runner.ENV_JOB_ID, "job-1")
+    expected = {(r.key, "job-1") for r in locks.keys_for("sim", ["001"], config)}
+    assert expected
+    with locks.hold_for_job("sim", ["001"], config):
+        assert held() == expected
+    assert held() == set()
+
+
 def test_keys_for_analyzer_uses_the_real_output_dir_field():
     """tit/analyzer/config.py::AnalyzerConfig's field is ``output_dir`` (not
     ``analysis_output_dir``) -- exercised via the real dataclass/serialize_config round trip,
-    the same shape tit/analyzer/__main__.py's ``_hold_locks`` call site passes."""
+    the same shape tit/analyzer/__main__.py's ``locks.hold_for_job`` call site passes."""
     from tit.analyzer.config import AnalyzerConfig
     from tit.config_io import serialize_config
 

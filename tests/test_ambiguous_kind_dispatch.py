@@ -166,7 +166,7 @@ def _stats_runner(body: dict, project: Path, tmp_path: Path, monkeypatch):
         requested.append([r.resource for r in keys_for(kind, subject_ids, config_dict)])
         return nullcontext()
 
-    monkeypatch.setattr(runner, "_hold_locks", hold)
+    monkeypatch.setattr(runner.locks, "hold_for_job", hold)
     outcome = _run_main(runner, body, project, tmp_path, monkeypatch)
     return (called[0] if called else None), (requested[0] if requested else []), outcome
 
@@ -311,7 +311,7 @@ def _blender_runner(body, project, tmp_path, monkeypatch):
             name,
             lambda data, logger, _n=name: called.append(_n) or str(tmp_path / "out"),
         )
-    monkeypatch.setattr(runner, "_hold_locks", lambda *a: nullcontext())
+    monkeypatch.setattr(runner.locks, "hold_for_job", lambda *a: nullcontext())
     outcome = _run_main(runner, body, project, tmp_path, monkeypatch)
     return (called[0] if called else None), outcome
 

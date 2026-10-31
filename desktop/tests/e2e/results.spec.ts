@@ -103,7 +103,10 @@ test("a simulation previews its configuration, its files and its report — not 
   await expect(summary).toContainText("EEG10-10_Cutini_2011");
   await expect(summary).toContainText("1 / 1 mA");
   await expect(summary).toContainText("ellipse · 8 × 8 mm · gel 4 mm · rubber 2 mm");
-  await expect(summary).toContainText("surface, fsaverage");
+  // The no-op map_to_surf / tissues_in_niftis an older run recorded are not shown.
+  await expect(summary).toContainText("fsaverage");
+  await expect(summary).not.toContainText("surface");
+  await expect(summary).not.toContainText("Tissues");
   // The electrode pairs are chips, one per stimulation channel.
   const chips = page.getByTestId("results-pair-chips");
   await expect(chips.getByText("E1+ F7 · E1- P7")).toBeVisible();

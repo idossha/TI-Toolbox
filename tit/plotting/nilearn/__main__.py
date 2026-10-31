@@ -18,7 +18,6 @@ import json
 import logging
 import os
 import sys
-from contextlib import nullcontext
 from datetime import datetime
 
 import nibabel as nib
@@ -26,6 +25,7 @@ import numpy as np
 
 from tit import constants as const
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.plotting.nilearn.config import NilearnConfig
 from tit.plotting.nilearn.cutoffs import (
     blank_figure_warning,
@@ -79,22 +79,6 @@ def _average_fields(pairs) -> nib.Nifti1Image:
     return nib.Nifti1Image(total / len(pairs), ref_img.affine, ref_img.header)
 
 
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    from tit.paths import get_path_manager
-
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
-
-
 def main() -> None:
     """Run Nilearn Visuals from a JSON config passed as the first CLI argument."""
     from tit.logger import setup_logging, add_stream_handler
@@ -113,7 +97,7 @@ def main() -> None:
     get_path_manager(data.pop("project_dir"))
     config = deserialize_config(NilearnConfig, data)
     subject_ids = sorted({p.subject_id for p in config.subject_simulation_pairs})
-    lock_cm = _hold_locks("nilearn", subject_ids, data)
+    lock_cm = locks.hold_for_job("nilearn", subject_ids, data)
 
     exit_code = 1
     try:
