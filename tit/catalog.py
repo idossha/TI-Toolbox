@@ -304,16 +304,6 @@ def _mtime_iso(path: str) -> str:
     return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
 
 
-def _read_json(path: str) -> dict | None:
-    if not os.path.isfile(path):
-        return None
-    try:
-        with open(path) as f:
-            return json.load(f)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-
 def _read_csv_table(path: str) -> dict[str, Any]:
     """A CSV file as ``{"columns": [...], "rows": [[...], ...]}``."""
     with open(path, newline="") as f:
