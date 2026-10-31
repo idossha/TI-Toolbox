@@ -76,9 +76,8 @@ def pm(tmp_path: Path, monkeypatch) -> PathManager:
     )
     monkeypatch.setattr(viewspec, "mni_resources_dir", lambda: str(resources))
     monkeypatch.setattr(viewspec, "MNI_TEMPLATE", "MNI152_T1_1mm.nii.gz")
-    monkeypatch.setattr(
-        viewspec, "DEFAULT_MNI_ATLAS", "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz"
-    )
+    # No DEFAULT_MNI_ATLAS patch: the default is the manifest's first atlas present here
+    # (CIT168), the path the real server takes.
 
     return pm
 

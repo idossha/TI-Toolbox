@@ -64,22 +64,8 @@ from tit.catalog import (
     surface_attachments,
 )
 from tit.atlas.constants import mni_resources_dir
+from tit.atlas.manifest import mni_atlas_files
 from tit.paths import get_path_manager, is_within, resolve_under, resolve_within
-
-
-def __getattr__(name):
-    """Resolve ``DEFAULT_MNI_ATLAS`` on first use, not at import.
-
-    It comes from ``resources/atlas/manifest.json``, i.e. from a file, and this
-    module is imported by server route modules that must do no I/O at import
-    time (``dev/route_import_guard.py``).
-    """
-    if name == "DEFAULT_MNI_ATLAS":
-        from tit.atlas import constants
-
-        return constants.DEFAULT_MNI_ATLAS
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 _VIEW_KINDS = ("subject", "simulation", "analysis", "group", "custom")
 
@@ -118,15 +104,18 @@ def _default_mni_atlas_path(requested: str | None = None) -> str | None:
     between images then still renders the anatomy, which is the useful
     half, instead of a 404 with no picture at all.
     """
-    found = VoxelAtlasManager.detect_mni_atlases(mni_resources_dir())
+    directory = mni_resources_dir()
+    found = VoxelAtlasManager.detect_mni_atlases(directory)
     if not found:
         return None
     if requested:
         for path in found:
             if os.path.basename(path) == requested:
                 return path
+    # The default is the first manifest atlas present (tit.atlas.DEFAULT_MNI_ATLAS).
+    default = mni_atlas_files(directory)[:1]
     for path in found:
-        if os.path.basename(path) == DEFAULT_MNI_ATLAS:
+        if os.path.basename(path) in default:
             return path
     return found[0]
 
