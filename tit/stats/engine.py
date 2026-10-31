@@ -31,8 +31,12 @@ logger = logging.getLogger(__name__)
 
 
 #: Relative tolerance under which a null statistic ties the observed one (see
-#: :func:`pval_from_histogram`).
-TIE_RTOL = 1e-9
+#: :func:`pval_from_histogram`). The t maps are float32, so a relabelling that reproduces the
+#: observed grouping in another column order moves the cluster mass by float32 rounding, not
+#: float64 ulps: 4.3e-8 relative measured on the 5-vs-5 planted block of
+#: ``tests/numerical/test_stats_runner_real_path.py`` (1e-6 is 23x that, about 8 float32 eps).
+#: Cluster sizes are whole voxel counts, so 1e-6 cannot merge two sizes below 1e6 voxels.
+TIE_RTOL = 1e-6
 
 
 def pval_from_histogram(observed_stats, null_distribution, tail=0, sampled=True):
@@ -76,9 +80,9 @@ def pval_from_histogram(observed_stats, null_distribution, tail=0, sampled=True)
     null_distribution = np.asarray(null_distribution)
     m = null_distribution.size
     # A permutation that reproduces the observed labelling (or its mirror) gives the observed
-    # statistic summed in another order, which can differ in the last bits; it is a tie and
-    # counts as at least as extreme. TIE_RTOL is far below any real difference of two cluster
-    # statistics (sizes are whole voxel counts).
+    # statistic computed in another column order, which differs by float32 rounding; it is a
+    # tie and counts as at least as extreme. TIE_RTOL is far below any real difference of two
+    # cluster statistics (sizes are whole voxel counts).
     tol = TIE_RTOL * np.abs(observed_stats)
 
     if tail == -1:
