@@ -7,7 +7,9 @@ Convention (stated in every caption that uses it):
 * panels are **neurological**: subject left on image left, superior up; anterior up in axial
   panels and to the right in sagittal panels;
 * slices are picked by coordinate, normally MNI through charm's ``Conform2MNI_nonl`` warp, and
-  never where the brain is (nearly) absent, so a mosaic has no empty panels.
+  never where the brain is (nearly) absent, so a mosaic has no empty panels;
+* panels are never cropped: each shows its whole slice of the volume, framed by a black margin of
+  :data:`MARGIN` voxels (a brain-mask crop cut the scalp, and the brain where it reached the grid edge).
 
 Rendering needs matplotlib and Pillow (WebP); everything else is numpy.
 """
@@ -20,6 +22,8 @@ import numpy as np
 
 #: Brain voxels a slice needs before it can be chosen; below this a panel reads as empty.
 MIN_SLICE_VOXELS = 200
+#: Black voxels framing every mosaic panel, so the head never touches a panel edge.
+MARGIN = 8
 
 
 def canonical(data: np.ndarray, affine: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -35,37 +39,14 @@ def canonical(data: np.ndarray, affine: np.ndarray) -> tuple[np.ndarray, np.ndar
     return out, affine @ inv_ornt_aff(ornt, data.shape[:3])
 
 
-def brain_box(
-    brain: np.ndarray,
-    z_coord: np.ndarray | None = None,
-    z_min: float = -58.0,
-    margin: tuple[int, int] = (5, 6),
-) -> list[tuple[int, int]]:
-    """Voxel bounding box of *brain* plus a margin; with *z_coord* (MNI z), drop what lies below *z_min* (the cord)."""
-    keep = brain if z_coord is None else brain & (z_coord > z_min)
-    nz = np.array(np.nonzero(keep))
-    if nz.size == 0:
-        return [(0, s) for s in brain.shape]
-    lo = np.maximum(nz.min(1) - margin[0], 0)
-    hi = np.minimum(nz.max(1) + margin[1], np.array(brain.shape))
-    return [(int(a), int(b)) for a, b in zip(lo, hi)]
-
-
-def pick_slice(
-    axis: int,
-    target: float,
-    coord: np.ndarray,
-    mask: np.ndarray,
-    box: list[tuple[int, int]] | None = None,
-) -> int:
+def pick_slice(axis: int, target: float, coord: np.ndarray, mask: np.ndarray) -> int:
     """Index along *axis* whose *mask* voxels' mean *coord* is closest to *target*.
 
     *coord* is one coordinate component per voxel (e.g. MNI y for a coronal slice). Slices with
     fewer than :data:`MIN_SLICE_VOXELS` mask voxels are never chosen.
     """
-    lo, hi = box[axis] if box else (0, mask.shape[axis])
     best, best_i = np.inf, None
-    for i in range(lo, hi):
+    for i in range(mask.shape[axis]):
         sl = [slice(None)] * 3
         sl[axis] = i
         m = mask[tuple(sl)]
@@ -81,30 +62,22 @@ def pick_slice(
     return best_i
 
 
-def oriented(
-    vol: np.ndarray, axis: int, i: int, box: list[tuple[int, int]] | None = None
-) -> np.ndarray:
-    """2-D panel (rows top to bottom) of RAS *vol* at index *i* along *axis*, neurological.
+def oriented(vol: np.ndarray, axis: int, i: int) -> np.ndarray:
+    """The whole 2-D slice (rows top to bottom) of RAS *vol* at index *i* along *axis*, neurological.
 
     Axial (axis 2): anterior up, left on the left. Coronal (1): superior up, left on the left.
     Sagittal (0): superior up, anterior on the right. Trailing channel axes are kept.
     """
-    (x0, x1), (y0, y1), (z0, z1) = box or [(0, s) for s in vol.shape[:3]]
-    if axis == 2:
-        a = vol[x0:x1, y0:y1, i]
-    elif axis == 1:
-        a = vol[x0:x1, i, z0:z1]
-    else:
-        a = vol[i, y0:y1, z0:z1]
-    return np.rot90(a)
+    return np.rot90(np.take(vol, i, axis=axis))
 
 
 def mosaic(
-    tiles: list[np.ndarray], cols: int, gap: int = 4
+    tiles: list[np.ndarray], cols: int, gap: int = 4, margin: int = MARGIN
 ) -> tuple[np.ndarray, tuple[int, int]]:
-    """Tiles on a grid, centred in equal cells; returns ``(image, (tile_h, tile_w))``."""
-    h = max(t.shape[0] for t in tiles)
-    w = max(t.shape[1] for t in tiles)
+    """Tiles on a grid, centred in equal cells at least *margin* larger on every side; returns
+    ``(image, (cell_h, cell_w))``."""
+    h = max(t.shape[0] for t in tiles) + 2 * margin
+    w = max(t.shape[1] for t in tiles) + 2 * margin
     rows = -(-len(tiles) // cols)
     out = np.zeros(
         (rows * h + (rows - 1) * gap, cols * w + (cols - 1) * gap) + tiles[0].shape[2:],

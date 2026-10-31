@@ -3,8 +3,10 @@
 Pins (2026-09-28, ARCHITECTURE.md §14): on a RAS voxel grid, panels are neurological —
 subject left on image left, anterior up in axial panels, superior up in coronal and sagittal
 panels, anterior on the right in sagittal panels; slice choice never lands on a (nearly) empty
-slice; mosaics centre tiles in equal cells. Expected positions come from where the markers were
-planted, not from the code under test. Reordering LAS / PSR grids to RAS (``canonical``) needs
+slice; mosaics centre tiles in equal cells. Panels are never cropped (2026-10-31): every panel
+is the whole slice, and every mosaic cell frames it in ``MARGIN`` black voxels, so a head that fills
+its grid still has a margin. Expected positions come from where the markers were planted, not from
+the code under test. Reordering LAS / PSR grids to RAS (``canonical``) needs
 the real nibabel and is pinned in tests/numerical/test_dti_advisories.py.
 """
 
@@ -48,13 +50,6 @@ def test_sagittal_anterior_right_superior_up():
     assert col > 15 and row < 20
 
 
-def test_box_crops_before_orienting():
-    box = [(1, 11), (5, 25), (0, 40)]
-    panel = sl.oriented(_marker(2, 20, 10), 2, 10, box)
-    assert panel.shape == (20, 10)
-    assert _where(panel) == (25 - 1 - 20, 2 - 1)
-
-
 def test_trailing_channels_kept():
     rgb = np.zeros(SHAPE + (3,))
     assert sl.oriented(rgb, 2, 3).shape == (30, 20, 3)
@@ -74,17 +69,25 @@ def test_pick_slice_raises_when_nothing_qualifies():
         sl.pick_slice(2, 0.0, np.zeros(SHAPE), np.zeros(SHAPE, bool))
 
 
-def test_brain_box_margin_and_cord_cut():
-    brain = np.zeros(SHAPE, bool)
-    brain[5:15, 10:20, 2:30] = True
-    z_coord = np.broadcast_to(np.arange(40, dtype=float) * 4 - 60, SHAPE)  # z index 1 is -56, 0 is -60
-    box = sl.brain_box(brain, z_coord, z_min=-50, margin=(1, 2))
-    assert box[0] == (4, 16) and box[1] == (9, 21)
-    assert box[2][0] == 3 - 1  # indices with z <= -50 (0..2) are cut before the margin
+@pytest.mark.parametrize("axis", [0, 1, 2])
+def test_a_head_filling_its_grid_is_whole_and_framed_in_every_orientation(axis):
+    # Nonzero to the grid's faces: the bounding box is the whole volume, as for a head at the edge.
+    head = np.ones(SHAPE)
+    i = SHAPE[axis] // 2
+    out, (h, w) = sl.mosaic([sl.oriented(head, axis, i)], cols=1)
+    face = [s for a, s in enumerate(SHAPE) if a != axis]  # the slice's two extents
+    m = sl.MARGIN
+    assert m > 0 and out.shape == (h, w)
+    assert out.sum() == np.prod(face)  # every voxel of the slice is drawn
+    inner = out[m : h - m, m : w - m]
+    assert sorted(inner.shape) == sorted(face) and inner.all()
+    ring = out.copy()
+    ring[m : h - m, m : w - m] = 0
+    assert not ring.any()  # a black margin on all four sides
 
 
 def test_mosaic_centres_tiles():
     tiles = [np.ones((4, 6)), np.ones((2, 2))]
-    out, tile = sl.mosaic(tiles, cols=2, gap=1)
+    out, tile = sl.mosaic(tiles, cols=2, gap=1, margin=0)
     assert tile == (4, 6) and out.shape == (4, 13)
     assert out[1:3, 9:11].all() and not out[0, 7:13].any()

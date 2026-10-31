@@ -1249,7 +1249,8 @@ record predates them.
 **Slice figures share one convention.** `tit/plotting/slices.py` reorders every volume to the closest
 RAS voxel order, draws neurological panels (subject left on image left, anterior up in axial,
 superior up in coronal and sagittal, anterior right in sagittal), and picks slices by MNI coordinate
-through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. Without the warp,
+through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. A panel is never cropped:
+it is the whole slice of the volume in a black frame of `MARGIN` voxels (a brain crop cut the scalp). Without the warp,
 coordinates are approximate and captions say so.
 
 **Simulator, flex-search and ex-search reports are written by their pipelines and read only the run's

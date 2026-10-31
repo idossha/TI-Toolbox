@@ -174,7 +174,13 @@ def collect(
         if config.get("carrier_only")
         else _envelope_niftis(sim_dir, rec["name"], mode)
     )
-    if not config.get("carrier_only") and "grey" not in niftis and scratch is not None:
+    # A grey-only NIfTI (an analysis saves just what it reads) would leave white matter
+    # uncoloured, so both tissues come from the mesh unless the run wrote both.
+    if (
+        not config.get("carrier_only")
+        and not {"grey", "white"} <= niftis.keys()
+        and scratch is not None
+    ):
         from tit.volume_fields import FieldUnavailableError
 
         try:
@@ -270,13 +276,12 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
             return None
         field = np.maximum(field, f)
         tissues[tissue] = f
-    brain = field > 0
+    brain = field > 0  # grey and white matter: the T1 window, not a crop
     lo, hi = rec["envelope"]["median"], rec["envelope"]["p99_9"]
     # A uniform envelope (median == 99.9th percentile) is drawn at the top of the scale, not 0 / 0;
     # the step is relative because the volume is float32 (hi > 0: it is a percentile of field > 0).
     draw_lo = lo if hi > lo else hi * (1 - 1e-6)
     centre = hotspot_centre(tissues["grey"], hi)
-    box = s.brain_box(brain)
     t1_lo, t1_hi = np.percentile(t1[brain], [1, 99])
     grey = (
         np.clip((t1 - t1_lo) / (t1_hi - t1_lo), 0, 1)
@@ -288,8 +293,8 @@ def field_images(rec: dict, t1_path: str | Path) -> dict | None:
     tiles, labels = [], []
     for axis in (2, 1, 0):
         rgb = s.overlay(
-            s.oriented(grey, axis, centre[axis], box),
-            s.oriented(field, axis, centre[axis], box),
+            s.oriented(grey, axis, centre[axis]),
+            s.oriented(field, axis, centre[axis]),
             draw_lo,
             hi,
         )
@@ -507,7 +512,8 @@ def build_html(
             f'<div class="lightbox"><div class="lb-inner">{c.img(images["image"], "TI envelope over the T1, through " + images["centred_on"])}{labels}</div></div>'
             + _colour_bar(images["lo"], images["hi"], images["stops"]),
             f"Slices through {images['centred_on']}. Coloured where the envelope is above the grey-matter median "
-            f"({images['lo']:.2f} V/m), up to its 99.9th percentile; grey and white matter only. "
+            f"({images['lo']:.2f} V/m), up to its 99.9th percentile ({images['hi']:.2f} V/m); higher values, white matter's "
+            "included, take the top colour. Grey and white matter only; each panel is the whole slice of the T1. "
             "Neurological convention: subject left on image left.",
         )
     elif carrier_only:

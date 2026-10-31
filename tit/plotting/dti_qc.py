@@ -3,7 +3,7 @@
 Two figures: the registration flicker (T1w and FA mosaics with the same charm contours) and the
 direction-encoded colour (DEC) stack with its orientation legend. Every panel follows
 :mod:`tit.plotting.slices`: canonical RAS, neurological (subject left on image left), slices chosen
-by MNI coordinate through charm's warp, cropped to the brain. DEC is ``|V1|`` in world RAS
+by MNI coordinate through charm's warp, each the whole slice in a black frame. DEC is ``|V1|`` in world RAS
 (red L–R, green A–P, blue S–I) scaled by FA.
 """
 
@@ -75,17 +75,16 @@ def render_all(vols) -> dict:
     )
     t1n = np.clip((vols.t1 - lo) / max(hi - lo, 1e-6), 0, 1).astype(np.float32)
     coord, is_mni = _coordinates(vols, pial)
-    box = sl.brain_box(brain, coord[..., 2])
 
     def pick(axis: int, target: float) -> int:
-        return sl.pick_slice(axis, target, coord[..., axis], brain, box)
+        return sl.pick_slice(axis, target, coord[..., axis], brain)
 
     registration = {}
     for plane, (axis, targets, letter) in REG_PLANES.items():
         idx = [pick(axis, t) for t in targets]
 
         def mosaic(vol, idx=idx, axis=axis):
-            return sl.mosaic([sl.oriented(vol, axis, i, box) for i in idx], 3)
+            return sl.mosaic([sl.oriented(vol, axis, i) for i in idx], 3)
 
         t1_m, tile = mosaic(t1n)
         contours = [
@@ -104,7 +103,10 @@ def render_all(vols) -> dict:
         }
     frames = [
         sl.render(
-            np.clip(sl.oriented(rgb, 2, pick(2, z), box) * DEC_GAIN, 0, 1), quality=80
+            np.clip(
+                sl.mosaic([sl.oriented(rgb, 2, pick(2, z))], 1)[0] * DEC_GAIN, 0, 1
+            ),
+            quality=80,
         )
         for z in DEC_STACK_Z
     ]

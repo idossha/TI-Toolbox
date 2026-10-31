@@ -194,6 +194,25 @@ def test_a_constant_t1_gets_a_finite_background(tmp_path, drawn):
         )
 
 
+def test_a_grey_only_nifti_is_voxelised_again_with_white_matter(tmp_path):
+    # An analysis that needs only the grey NIfTI saves only that one; drawn alone, white matter
+    # was left uncoloured in the figure. Both tissues then come from the field mesh.
+    d = write_run(tmp_path, _ti())
+    (d / "TI" / "niftis").mkdir(parents=True)
+    (d / "TI" / "niftis" / "grey_M_TI_subject_TI_max.nii.gz").touch()
+    voxelised = {"grey": tmp_path / "g.nii.gz", "white": tmp_path / "w.nii.gz"}
+    imgs = {
+        "g.nii.gz": SimpleNamespace(dataobj=_grey(), affine=AFFINE),
+        "w.nii.gz": SimpleNamespace(dataobj=_grey(), affine=AFFINE),
+    }
+    with patch.object(sim, "_voxelised_envelope", return_value=voxelised) as vox, patch(
+        "nibabel.load", side_effect=lambda p: imgs[Path(p).name]
+    ):
+        rec = sim.collect(d, m2m=tmp_path, scratch=tmp_path / "scratch")
+    vox.assert_called_once()
+    assert rec["niftis"] == {k: str(p) for k, p in voxelised.items()}
+
+
 def test_a_run_without_niftis_or_field_meshes_says_why_it_has_no_figure(tmp_path):
     # NIfTIs are opt-in; the report voxelises the field mesh's grey/white matter instead. With
     # the mesh gone too, the page says what is missing rather than a generic "could not be read".

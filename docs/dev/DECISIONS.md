@@ -4080,3 +4080,20 @@ Docker image and a real development loop) decision, is removed from `ViewSpec` w
 `tit.viewspec.to_freeview_args` / `freeview_command`. **Why.** No route launches Freeview, and no
 reader exists in the desktop, the server, the agent plugin or the wiki (searched 2026-10-31).
 **Alternatives rejected.** Keeping it optional (a field nothing reads, recomputed on every view).
+
+## 2026-10-31 — Report slice panels are never cropped
+
+**Decision.** `tit.plotting.slices` drops `brain_box`: every panel of the simulation and DTI QC
+reports is its whole slice of the volume, framed by `MARGIN` (8) black voxels in `mosaic`. The
+simulation report also takes both tissues from the field mesh when the run's NIfTIs hold grey
+matter only. Pinned by `tests/test_plotting_slices.py`,
+`tests/numerical/test_report_simulation_figure.py` and `tests/test_report_simulation_edges.py`.
+
+**Why.** The crop was the grey/white (simulation) or charm brain (DTI QC) mask's bounding box plus
+5-6 voxels, so the T1 under it lost the scalp on every side (sub-ernie rv_mTI, 2026-10-31: grey
+matter spans RAS voxels 34-169, 21-203, 94-225 of 208 x 256 x 256), and a brain touching the grid
+edge would have had no margin at all.
+
+**Alternatives rejected.** A head box from a thresholded T1 (noise and fat make the threshold
+subject-dependent; the whole slice needs none); keeping the crop and adding padding (still cuts
+the scalp).
