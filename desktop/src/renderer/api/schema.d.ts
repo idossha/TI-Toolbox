@@ -6800,8 +6800,6 @@ export interface components {
             space: "subject" | "mni";
             /** @description resolved_layers: by the time a ViewSpec leaves the server (from GET /api/view/{kind}), every layer's cal_min/cal_max is already resolved to concrete numbers -- percentile is carried for the client's display only (e.g. to preselect a threshold-mode control), never something the client must resolve itself. */
             layers: components["schemas"]["ViewLayer"][];
-            /** @description DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an external Freeview process would need (to_freeview_args). Kept for one release; no route launches Freeview any more (there is no X11 in this runtime). */
-            freeview_args: string[];
             /** @description The real Tetravox ViewSpec v2 document (tit.viewspec.to_tetravox_viewspec) -- datasets addressed by origin-relative /api/files/raw/... URLs (both DatasetRef.path and .absPath, which POST /api/view/open rewrites to host paths for the native TetraVox), layers in the engine's own vocabulary (VolumeLayer/MeshLayer). Derived from `layers` by a pure function, so the two always describe the same files. Untyped here (a generic object) because the full engine scene model is Tetravox-owned; the subset this server emits is hand-schema'd in contracts/tetravox-viewspec-v2.schema.json (host-facing). Optional, so an older server still satisfies this contract. */
             scene?: Record<string, never> | null;
         };

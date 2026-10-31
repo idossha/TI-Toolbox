@@ -191,49 +191,6 @@ def test_mni_resources_dir_falls_back_off_container_path(monkeypatch) -> None:
     )
 
 
-# ── bug 5: absolute thresholds kept regardless of "percentile" ──────────────
-
-
-def test_heatscale_emitted_for_absolute_thresholds_without_a_percentile_flag() -> None:
-    spec = {
-        "space": "subject",
-        "layers": [
-            {
-                "path": "/x/field.nii.gz",
-                "kind": "volume",
-                "colormap": "heat",
-                "opacity": 0.8,
-                "visible": True,
-                "cal_min": 0.1,
-                "cal_max": 0.5,
-                "lut": None,
-            }
-        ],
-    }
-    args = viewspec.to_freeview_args(spec)
-    assert args == [
-        "/x/field.nii.gz:colormap=heat:opacity=0.8:visible=1:heatscale=0.1,0.5"
-    ]
-
-
-def test_no_heatscale_when_thresholds_absent() -> None:
-    spec = {
-        "space": "subject",
-        "layers": [
-            {
-                "path": "/x/t1.nii.gz",
-                "kind": "volume",
-                "colormap": "grayscale",
-                "opacity": 1.0,
-                "visible": True,
-            }
-        ],
-    }
-    assert viewspec.to_freeview_args(spec) == [
-        "/x/t1.nii.gz:colormap=grayscale:opacity=1.0:visible=1"
-    ]
-
-
 # ── bug 6: single-subject MNI is reachable ───────────────────────────────────
 
 
@@ -263,7 +220,7 @@ def test_subject_kind_subject_space_uses_subject_t1_and_labeling_atlas(
     assert atlas_layers[0]["path"].endswith("labeling.nii.gz")
 
 
-# ── build_view / to_freeview_args / freeview_command, general shape ────────
+# ── build_view, general shape ──────────────────────────────────────────────
 
 
 def test_build_view_unknown_kind_returns_none(pm: PathManager) -> None:
@@ -325,7 +282,6 @@ def test_build_view_custom_path(pm: PathManager) -> None:
                 "lut": None,
             }
         ],
-        "freeview_args": [f"{resolved}:colormap=grayscale:opacity=1.0:visible=1"],
     }
     # The scene is the real Tetravox ViewSpec v2; tests/test_viewspec_scene.py owns its shape.
     # datasets[].path is the /api/files/raw URL (origin-relative), not the container path.
@@ -350,14 +306,6 @@ def test_build_view_custom_path_outside_jail_returns_none(
 def test_build_view_custom_path_nonexistent_returns_none(pm: PathManager) -> None:
     missing = os.path.join(pm.project_dir, "nope.msh")
     assert viewspec.build_view("custom", path=missing) is None
-
-
-def test_freeview_command_prefixes_binary(pm: PathManager) -> None:
-    path = os.path.join(pm.project_dir, "x.nii.gz")
-    Path(path).write_bytes(b"x")
-    spec = viewspec.build_view("custom", path=path)
-    assert viewspec.freeview_command(spec)[0] == "freeview"
-    assert viewspec.freeview_command(spec)[1:] == spec["freeview_args"]
 
 
 def test_jail_roots_includes_project_and_resources_parent(pm: PathManager) -> None:

@@ -471,7 +471,7 @@ def test_finish_spec_attaches_both_derived_views() -> None:
         ],
     }
     finished = viewspec.finish_spec(spec)
-    assert finished["freeview_args"][0].startswith("/mnt/000/T1.nii.gz:")
+    assert "freeview_args" not in finished
     assert (
         finished["scene"]["datasets"][0]["path"] == "/api/files/raw/mnt/000/T1.nii.gz"
     )

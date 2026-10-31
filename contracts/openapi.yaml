@@ -5719,7 +5719,7 @@ components:
             whether the caller supplied them directly or via percentile.
     ViewSpec:
       type: object
-      required: [space, layers, freeview_args]
+      required: [space, layers]
       properties:
         space: { type: string, enum: [subject, mni] }
         layers:
@@ -5731,13 +5731,6 @@ components:
             resolved to concrete numbers -- percentile is carried for the client's display
             only (e.g. to preselect a threshold-mode control), never something the client must
             resolve itself.
-        freeview_args:
-          type: array
-          items: { type: string }
-          description: >-
-            DEPRECATED (D3, docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)): the exact argv tail an
-            external Freeview process would need (to_freeview_args). Kept for one release; no
-            route launches Freeview any more (there is no X11 in this runtime).
         scene:
           type: [object, "null"]
           description: >-

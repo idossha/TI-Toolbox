@@ -1143,9 +1143,8 @@ function buildViewSpec(kind, q) {
   }
   const percentile = parsePercentileParam(q);
   const resolvedLayers = layers.map((l) => dataRootLayer(resolvePercentileLayer(l, percentile)));
-  const freeview_args = ["-v", ...resolvedLayers.map((l) => `${l.path}:colormap=${l.colormap}:opacity=${l.opacity}`)];
   const specSpace = kind === "group" ? "mni" : space;
-  return { space: specSpace, layers: resolvedLayers, freeview_args, scene: sceneFor(specSpace, resolvedLayers, null) };
+  return { space: specSpace, layers: resolvedLayers, scene: sceneFor(specSpace, resolvedLayers, null) };
 }
 
 // ------------------------------------------------------------------------------ Tetravox scene

@@ -86,9 +86,6 @@ class ViewSpec(BaseModel):
 
     space: Literal["subject", "mni"]
     layers: list[ViewLayer]
-    freeview_args: list[str] = Field(
-        description="deprecated: exact argv tail for the external Freeview launcher, kept for one release"
-    )
     scene: dict[str, Any] | None = Field(
         default=None,
         description=(

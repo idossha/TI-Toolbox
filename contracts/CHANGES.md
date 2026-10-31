@@ -1322,3 +1322,11 @@ The three fields changed nothing a run writes and are removed from the dataclass
 any of them is refused at submit as an unknown key; the `tit.sim` runner still ignores them in an
 older `config.json`. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-10-31 — `ViewSpec.freeview_args` removed
+
+`ViewSpec` no longer has the deprecated `freeview_args` (required until now), kept for one release
+after the 2026-09-03 removal of the Freeview launch routes; no client read it. `GET
+/api/view/{kind}` returns `space`, `layers`, `scene` and the optional `cursor`.
+`tit.viewspec.to_freeview_args` and `freeview_command` are deleted with it. Regenerated
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.

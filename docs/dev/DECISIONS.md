@@ -4072,3 +4072,11 @@ settings that do nothing.
 **Alternatives rejected.** Dropping the retired keys at submit, as `pre`'s `LEGACY_KEYS` are
 translated (a permanent alias for three dead names, for a rerun that a fresh simulate from the
 candidate replaces); deprecating them for a release first (there is no behaviour to deprecate).
+
+## 2026-10-31 — `ViewSpec.freeview_args` is removed after its one release
+
+**Decision.** The deprecated `freeview_args` field, kept for one release by the 2026-09-03 (One
+Docker image and a real development loop) decision, is removed from `ViewSpec` with
+`tit.viewspec.to_freeview_args` / `freeview_command`. **Why.** No route launches Freeview, and no
+reader exists in the desktop, the server, the agent plugin or the wiki (searched 2026-10-31).
+**Alternatives rejected.** Keeping it optional (a field nothing reads, recomputed on every view).
