@@ -51,6 +51,10 @@ describe("the real candidate_detail output round-trips through the Simulator han
       delete expected.tissue_conductivities;
       expect(built).toStrictEqual(expected);
       expect(candidateMetricsChanged(row)).toBe(false);
+      // The server rebuilds this config per request from the run's recorded files, so a run
+      // optimised before the no-op flags were removed still replays without them (a strict
+      // POST /api/jobs would refuse them).
+      for (const removed of ["map_to_surf", "tissues_in_niftis", "open_in_gmsh"]) expect(removed in built).toBe(false);
     });
   }
 
