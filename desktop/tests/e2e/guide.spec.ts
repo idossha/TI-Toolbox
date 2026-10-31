@@ -74,10 +74,10 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("the pane draws the guide, and says so rather than naming the subject", async () => {
-  // The SIMULATOR, not the Optimizer: since 2026-09-17 a targeting pane draws the row's own
-  // subject (`scene-space.spec.ts`), and the montage pane is where the fixed guide's whole
-  // argument — name electrodes, never produce a coordinate — still holds.
+test("the Simulator pane draws the job's own subject, and the guide only stands in for a missing head", async () => {
+  // ARCHITECTURE §7.2 (85bd6e8d, 2026-10-28): the Simulator's head is always the focused row's own
+  // subject; the guide stands in only while that head is unavailable. The mock's ernie has a head,
+  // so the pane names the subject, not the guide.
   await gotoPage(page, "simulator", "Simulator");
   await expectPage(page, "simulator");
   await expectRunPaneTab(page, "scene");
@@ -89,11 +89,9 @@ test("the pane draws the guide, and says so rather than naming the subject", asy
     if (!handle) throw new Error("window.__scenePane is absent — build out/ with VITE_SCENE_HOOKS=1");
     return JSON.parse(JSON.stringify(handle)) as { guide: string | null; space: string | null; subject: string | null; gesture: string };
   });
-  expect(debug.guide).toBe("ernie");
-  // The point of the whole change: not the *subject* ernie — the guide, in its own space.
-  expect(debug.space).toBe("guide-ras");
-  expect(debug.subject).toBeNull();
-  expect(guideRequests.some((url) => url.startsWith("/api/guide/manifest"))).toBe(true);
+  expect(debug.subject).toBe("ernie");
+  expect(debug.guide).toBeNull();
+  expect(debug.space).not.toBe("guide-ras");
 });
 
 test("changing the selected subjects costs zero guide requests", async () => {

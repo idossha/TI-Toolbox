@@ -161,7 +161,9 @@ test("an analysis reads header · key numbers · figures · files, not a 22-row 
 
   // The header block says what the analysis IS — the four descriptive rows of `results.csv`.
   const header = page.getByTestId("results-header-block");
-  await expect(header).toContainText("TI_max");
+  // The field shows its display label, TI with a subscript max (FIELD_REGISTRY's TI_{max}).
+  await expect(header).toContainText("TImax");
+  await expect(header.locator("sub")).toHaveText("max");
   await expect(header).toContainText("Mesh (surface)");
   await expect(header).toContainText("Cortical region");
   await expect(header).toContainText("lh.bankssts + rh.bankssts");

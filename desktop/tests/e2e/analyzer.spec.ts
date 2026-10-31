@@ -376,7 +376,8 @@ test("a job entry is two lines ~56-64px tall, and every cell prints its full val
   console.log(
     `JOBS-COLS subject=${subject.width} simulation=${simulation.width} space=${space.width} field=${field.width}`,
   );
-  expect(space.width).toBeGreaterThanOrEqual(96);
+  // JobRows.tsx's <col> widths for the 1280 px window: Space 88, Field 128 (bf9482a3).
+  expect(space.width).toBeGreaterThanOrEqual(88);
   expect(field.width).toBeGreaterThanOrEqual(100);
   expect(simulation.width).toBeGreaterThan(field.width);
   // Nothing is clipped: each control fits inside its own cell.

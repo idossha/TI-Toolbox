@@ -186,7 +186,15 @@ test("switching the form's EEG net redraws the head's net, keeps the electrodes 
 
   // Each slot keeps its electrode if the new net has it and is emptied if not; the cursor moves to
   // the first empty slot.
-  const onNew = new Set(await page.evaluate(() => (window.__scene?.markers ?? []).map((m: { id: string }) => m.id)));
+  // The oracle is the net's electrode list the form prunes against (/api/catalog/eeg-nets), not the
+  // scene's markers: since the pane draws the job's own head (85bd6e8d) those are that head's
+  // positions file, which need not list every electrode of the catalog's net.
+  // ernie carries both nets (tests/fixtures/subject_details.json).
+  const nets = (await (
+    await fetch(`${SERVER_URL}/api/catalog/eeg-nets?subject=ernie`, { headers: { authorization: `Bearer ${TOKEN}` } })
+  ).json()) as { name: string; electrodes: string[] }[];
+  const onNew = new Set(nets.find((n) => n.name === other)?.electrodes ?? []);
+  expect(onNew.size, `${other}'s electrodes`).toBeGreaterThan(0);
   const expected = draft.map((n) => (onNew.has(n) ? n : "Choose…"));
   expect(expected[5], `${onlyHere} is not on ${other}`).toBe("Choose…");
   for (const [i, text] of expected.entries()) await expect(slot(i)).toHaveText(text, { timeout: 10_000 });
