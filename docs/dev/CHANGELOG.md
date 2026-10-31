@@ -53,6 +53,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 - **Added: build a forward model in a recording's head frame** — from Python, `prepare_forward(subject, cfg, info=raw.info)` coregisters the head model to a recording's digitized fiducials instead of the EEG net's template ones, and `trans=` takes an explicit head→MRI transform as is (it must map MNE head to MRI coordinates); pass one or the other. An `info` without digitized LPA, Nasion and RPA, or whose fiducials MNE filled in itself, is refused before any computation instead of producing a wrong transform. Either one rebuilds the forward and reuses the cached FEM leadfield. Without them the forward is built exactly as before; the **Source** extension and JSON configs are unchanged.
 
+#### Viewer
+
+- **Fixed: a group view, or a subject in MNI space, opens without choosing an atlas** — since v3.0.0, opening one of these in the **Viewer** with no atlas picked failed with a server error instead of showing the MNI template with the default atlas (CIT168). It now shows the default atlas, as intended; choosing an atlas works as before.
+
 #### Removed
 
 - **Removed: the `map_to_surf`, `tissues_in_niftis` and `open_in_gmsh` simulation settings** — none of them changed what a simulation writes (every run writes one central surface, the NIfTIs are fixed by `map_to_vol` / `map_to_mni`, and the image has no Gmsh window to open), so `SimulationConfig` no longer has them, a run's `documentation/config.json` no longer records them, and **Results** no longer shows "Mapped to: surface" or "Tissues" for a simulation. A `config.json` that carries them still runs with `simnibs_python -m tit.sim config.json` (the keys are ignored), and older runs open as before. A script that passes them to `SimulationConfig(...)` must drop them, and a job submitted with them is refused, naming the key: rerunning a simulation job that was queued from **Results ▸ Evaluated candidates** before this version fails, so simulate the candidate again from **Results** instead. `map_to_vol`, `map_to_mni` and `map_to_fsavg` are unchanged.
