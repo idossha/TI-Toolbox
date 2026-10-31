@@ -210,7 +210,12 @@ def _check_freesurfer_sphere() -> None:
             assert np.abs(fs[: len(s)] - s).max() < 1e-4, (hemi, spacing)
 
 
-_N_PERM = 40
+#: The group case is 5 vs 5 with an unseeded null: a relabelling reproduces the planted split
+#: (or its mirror) in 2 of C(10, 5) = 252 draws and a 4/1 split stays under the t(8) cut, so
+#: the patch's p is (1 + b) / (m + 1) with b ~ Binomial(m, 2/252). At m = 40 it missed alpha
+#: whenever b >= 2, 4.0 % of runs (seen 2026-10-30: p = 3/41 = 0.073); at m = 199 it misses
+#: only at b >= 9: ``scipy.stats.binom.sf(8, 199, 2 / 252)`` = 3.6e-5.
+_N_PERM = 199
 
 
 def _surface_case(tmp: str, analysis: str) -> None:
