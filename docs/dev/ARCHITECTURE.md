@@ -687,7 +687,7 @@ channel meshes in `high_Frequency/mesh/`. The surface is written in process by
 m2m central surfaces (lh then rh) in one stacked `interpolate_to_surface` per hemisphere inside
 the grey-matter tetrahedra -- what `msh2cortex` does -- with `TI_normal`, the envelope of the
 channel fields along the node normals, beside them (none for a carrier-only run). SimNIBS's
-surface overlays (`map_to_surf`, now unused), `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
+surface overlays, `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
 `_normal.msh`, `grey_`/`white_` meshes, mTI per-pair `TI_AB`… meshes and Gmsh `.opt` views of our
 meshes are not written. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
 per mesh field for the whole brain tissue and its grey- and white-matter crops (`grey_`/`white_`

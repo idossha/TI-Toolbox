@@ -51,8 +51,10 @@ describe("simulation config.json — sub-ernie/Simulations/Thalamus", () => {
     expect(rows.Intensity).toBe("1 / 1 mA");
     expect(rows.Conductivity).toBe("scalar");
     expect(rows.Electrodes).toBe("ellipse · 8 × 8 mm · gel 4 mm · rubber 2 mm");
-    expect(rows["Mapped to"]).toBe("surface, fsaverage");
-    expect(rows.Tissues).toBe("all");
+    // A run written before the no-op flags were removed still records `map_to_surf: true` and
+    // `tissues_in_niftis`; neither did anything, so neither is shown.
+    expect(rows["Mapped to"]).toBe("fsaverage");
+    expect(rows.Tissues).toBeUndefined();
     // The file's `created_at` is 2026-07-06T18:48:57; the row is locale-formatted, so assert the
     // parts that do not move rather than a string that depends on the runner's locale.
     expect(rows.Created).toMatch(/2026/);
@@ -79,7 +81,7 @@ describe("simulation config.json — sub-ernie/Simulations/Thalamus", () => {
     expect(trimNumber(1.5)).toBe("1.5");
     expect(electrodePairs([["F7", "P7"], ["bad"], "no"])).toEqual(["E1+ F7 · E1- P7"]);
     expect(electrodeGeometry({})).toBeUndefined();
-    expect(mappingOptions({ map_to_surf: false, map_to_vol: false })).toBe("none");
+    expect(mappingOptions({ map_to_vol: false })).toBe("none");
     expect(mappingOptions({})).toBeUndefined();
     expect(simulationConfigPath("/p/Sim/")).toBe("/p/Sim/documentation/config.json");
   });

@@ -4055,3 +4055,20 @@ same value on the same nodes (the old overlays and the m2m central surface share
 recompute agrees to 2.78e-16 V/m, `tests/numerical/test_central_surface_real.py`), and copying it
 lets a run whose channel meshes were deleted still be upgraded. `tit/volume_fields.py` is the one
 reader of that file, allowlisted as such in `tests/test_field_rename_guard.py`.
+
+## 2026-10-31 — `SimulationConfig` drops its no-op fields; old job specs with them are refused
+
+**Decision.** `map_to_surf`, `tissues_in_niftis` and `open_in_gmsh` are removed from
+`SimulationConfig` (supersedes the "kept, unused" clause of the 2026-10-30 central-surface
+entry). The `tit.sim` runner reads leniently, so an older `config.json` carrying them still runs;
+job submission stays strict (`check_job_config`, `refuse_unknown_keys`), so a stored job spec that
+carries them -- a Simulator job seeded from **Results ▸ Evaluated candidates** before this
+change, whose candidate `simulation_config` held all three -- is refused on rerun with the key
+named. Pinned by `tests/test_runners_deserialize.py::TestSimMain::test_a_config_with_the_removed_fields_still_runs`.
+
+**Why.** None changed an output; keeping them meant documenting, serialising and previewing three
+settings that do nothing.
+
+**Alternatives rejected.** Dropping the retired keys at submit, as `pre`'s `LEGACY_KEYS` are
+translated (a permanent alias for three dead names, for a rerun that a fresh simulate from the
+candidate replaces); deprecating them for a release first (there is no behaviour to deprecate).

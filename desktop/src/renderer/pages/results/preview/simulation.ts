@@ -80,7 +80,6 @@ export function electrodeGeometry(value: unknown): string | undefined {
 export function mappingOptions(value: unknown): string | undefined {
   if (!value || typeof value !== "object") return undefined;
   const labels: Record<string, string> = {
-    map_to_surf: "surface",
     map_to_vol: "volume",
     map_to_mni: "MNI",
     map_to_fsavg: "fsaverage",
@@ -148,9 +147,6 @@ export function parseSimulationConfig(text: string): SimulationSummary | undefin
 
   const mapping = mappingOptions(c.mapping_options);
   if (mapping) rows.push({ label: "Mapped to", value: mapping });
-
-  const tissues = str(c.tissues_in_niftis);
-  if (tissues) rows.push({ label: "Tissues", value: tissues });
 
   const createdAt = str(c.created_at);
   const created = formatDate(createdAt);

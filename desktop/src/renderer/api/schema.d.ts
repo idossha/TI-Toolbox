@@ -6991,13 +6991,6 @@ export interface components {
          *         the rubber.  Default ``1.0``.
          *     rubber_thickness : float
          *         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
-         *     map_to_surf : bool
-         *         Not used.  Every run writes one central cortical surface,
-         *         ``<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh``, with every
-         *         volume field and ``TI_normal`` on it; SimNIBS's per-channel surface
-         *         overlays are never written.  The value is only recorded in the run's
-         *         ``config.json``, and the field is still accepted so older configs and
-         *         job specs load.  Default ``True``.
          *     map_to_vol : bool
          *         Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
          *         name; ``tit.tools.mesh2nii`` does the conversion after the run): one
@@ -7016,14 +7009,6 @@ export interface components {
          *         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_rms``) onto fsaverage5
          *         for group surface analysis.  Default ``True``; set ``False`` to
          *         skip.  Failures are logged and never abort the simulation.
-         *     open_in_gmsh : bool
-         *         Open results in Gmsh after simulation.  Default ``False``.
-         *     tissues_in_niftis : str
-         *         Not used.  The NIfTIs a run writes are fixed by the meshes the
-         *         simulator converts (whole head, grey matter, white matter),
-         *         whatever this says.  The value is only recorded in the run's
-         *         ``config.json``, and the field is still accepted so older configs
-         *         load.  Default ``"all"``.
          *     aniso_maxratio : float
          *         Maximum eigenvalue ratio clamp for anisotropic conductivity
          *         tensors.  Default ``10.0``.
@@ -7096,8 +7081,8 @@ export interface components {
          *     ...     electrode_dimensions=[8.0, 8.0],
          *     ...     output_fields=["TI_max", "hf_peak"],
          *     ... )
-         *     >>> cfg.map_to_surf, cfg.output_fields
-         *     (True, ['TI_max', 'hf_peak'])
+         *     >>> cfg.output_fields
+         *     ['TI_max', 'hf_peak']
          *
          *     A carrier-only control of the same montage (both channels at one
          *     frequency, in phase; no envelope, so only carrier fields):
@@ -7148,11 +7133,6 @@ export interface components {
              */
             rubber_thickness: number;
             /**
-             * Map To Surf
-             * @default true
-             */
-            map_to_surf: boolean;
-            /**
              * Map To Vol
              * @default false
              */
@@ -7167,16 +7147,6 @@ export interface components {
              * @default true
              */
             map_to_fsavg: boolean;
-            /**
-             * Open In Gmsh
-             * @default false
-             */
-            open_in_gmsh: boolean;
-            /**
-             * Tissues In Niftis
-             * @default all
-             */
-            tissues_in_niftis: string;
             /**
              * Aniso Maxratio
              * @default 10

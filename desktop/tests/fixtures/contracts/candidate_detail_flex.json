@@ -225,12 +225,9 @@
       ],
       "gel_thickness": 3,
       "rubber_thickness": 1,
-      "map_to_surf": true,
       "map_to_vol": false,
       "map_to_mni": false,
       "map_to_fsavg": true,
-      "open_in_gmsh": false,
-      "tissues_in_niftis": "all",
       "aniso_maxratio": 10,
       "aniso_maxcond": 2,
       "output_fields": [

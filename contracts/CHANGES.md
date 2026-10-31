@@ -1313,3 +1313,12 @@ tissue, as before. Config schema, regenerated: `SimulationConfig.map_to_surf` is
 unused (the run always writes its central surface; still accepted so older configs load).
 Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-10-31 — `SimulationConfig` loses `map_to_surf`, `tissues_in_niftis` and `open_in_gmsh`
+
+The three fields changed nothing a run writes and are removed from the dataclass, so the
+`SimulationConfig` schema (`additionalProperties: false`) no longer lists them and
+`OptimizationCandidate` detail's `simulation_config` no longer carries them. A job config with
+any of them is refused at submit as an unknown key; the `tit.sim` runner still ignores them in an
+older `config.json`. Regenerated `contracts/generated/config.schema.json`,
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.

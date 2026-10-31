@@ -281,8 +281,6 @@ class TestCreateSimulationConfigFile:
             intensities=[1.0, 1.0],
             aniso_maxratio=12.0,
             aniso_maxcond=1.8,
-            tissues_in_niftis="2,3",
-            open_in_gmsh=True,
         )
         create_simulation_config_file(config, montage, str(tmp_path), logger)
 
@@ -291,8 +289,8 @@ class TestCreateSimulationConfigFile:
         assert data["conductivity"] == "vn"
         assert data["aniso_maxratio"] == 12.0
         assert data["aniso_maxcond"] == 1.8
-        assert data["tissues_in_niftis"] == "2,3"
-        assert data["open_in_gmsh"] is True
+        assert "tissues_in_niftis" not in data and "open_in_gmsh" not in data
+        assert "map_to_surf" not in data["mapping_options"]
         assert data["electrode_coordinates"] is None
         assert data["electrode_coordinate_source"] is None
 

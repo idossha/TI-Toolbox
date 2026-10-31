@@ -105,6 +105,29 @@ class TestSimMain:
         assert config.montages[0].name == "m1"
         assert _types(events_env) == ["stage", "artifact", "result", "exit"]
 
+    def test_a_config_with_the_removed_fields_still_runs(self, events_env, monkeypatch):
+        """``map_to_surf`` / ``tissues_in_niftis`` / ``open_in_gmsh`` were removed from
+        SimulationConfig; a ``config.json`` written before still runs (the runner reads
+        leniently), while job submission refuses them as unknown keys."""
+        from tit.jobs.config_check import check_job_config
+        from tit.sim import __main__ as entry
+
+        old = json.loads(Path(self._config_path(events_env, "/proj")).read_text())
+        old.update(map_to_surf=True, tissues_in_niftis="all", open_in_gmsh=False)
+        monkeypatch.setattr(sys, "argv", ["tit.sim", _write_json(events_env, old)])
+        with (
+            patch("tit.sim.__main__.get_path_manager"),
+            patch("tit.sim.__main__.run_simulation") as mock_run,
+        ):
+            mock_run.return_value = [{"status": "ok", "montage_name": "m1"}]
+            with pytest.raises(SystemExit) as exc_info:
+                entry.main()
+        assert exc_info.value.code == 0
+        assert mock_run.call_args.args[0].montages[0].name == "m1"
+        old.pop("project_dir")
+        with pytest.raises(ValueError, match="map_to_surf"):
+            check_job_config("sim", old)
+
     def test_failed_montage_exits_one(self, events_env, monkeypatch):
         from tit.sim import __main__ as entry
 

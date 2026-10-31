@@ -406,13 +406,6 @@ class SimulationConfig:
         the rubber.  Default ``1.0``.
     rubber_thickness : float
         Rubber (silicone) layer thickness in mm.  Default ``2.0``.
-    map_to_surf : bool
-        Not used.  Every run writes one central cortical surface,
-        ``<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh``, with every
-        volume field and ``TI_normal`` on it; SimNIBS's per-channel surface
-        overlays are never written.  The value is only recorded in the run's
-        ``config.json``, and the field is still accepted so older configs and
-        job specs load.  Default ``True``.
     map_to_vol : bool
         Write NIfTI volumes of the field meshes (SimNIBS's own meaning of the
         name; ``tit.tools.mesh2nii`` does the conversion after the run): one
@@ -431,14 +424,6 @@ class SimulationConfig:
         (``TI_max``, ``TI_normal``, ``hf_peak``, ``hf_rms``) onto fsaverage5
         for group surface analysis.  Default ``True``; set ``False`` to
         skip.  Failures are logged and never abort the simulation.
-    open_in_gmsh : bool
-        Open results in Gmsh after simulation.  Default ``False``.
-    tissues_in_niftis : str
-        Not used.  The NIfTIs a run writes are fixed by the meshes the
-        simulator converts (whole head, grey matter, white matter),
-        whatever this says.  The value is only recorded in the run's
-        ``config.json``, and the field is still accepted so older configs
-        load.  Default ``"all"``.
     aniso_maxratio : float
         Maximum eigenvalue ratio clamp for anisotropic conductivity
         tensors.  Default ``10.0``.
@@ -511,8 +496,8 @@ class SimulationConfig:
     ...     electrode_dimensions=[8.0, 8.0],
     ...     output_fields=["TI_max", "hf_peak"],
     ... )
-    >>> cfg.map_to_surf, cfg.output_fields
-    (True, ['TI_max', 'hf_peak'])
+    >>> cfg.output_fields
+    ['TI_max', 'hf_peak']
 
     A carrier-only control of the same montage (both channels at one
     frequency, in phase; no envelope, so only carrier fields):
@@ -542,16 +527,10 @@ class SimulationConfig:
     electrode_dimensions: list[float] = field(default_factory=lambda: [8.0, 8.0])
     gel_thickness: float = 1.0
     rubber_thickness: float = 2.0
-    # map_to_surf is unused (the central surface is always written); kept so older configs load.
-    map_to_surf: bool = True
     # NIfTI conversion is handled by tit.tools.mesh2nii (not SimNIBS SESSION).
-    # tissues_in_niftis changes nothing; it stays so an older config.json or job spec
-    # that carries it still deserialises.
     map_to_vol: bool = False
     map_to_mni: bool = False
     map_to_fsavg: bool = True
-    open_in_gmsh: bool = False
-    tissues_in_niftis: str = "all"
     aniso_maxratio: float = 10.0
     aniso_maxcond: float = 2.0
     output_fields: list[str] | None = None

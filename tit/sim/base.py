@@ -250,11 +250,11 @@ class BaseSimulation(ABC):
         S.fnamehead = os.path.join(self.m2m_dir, f"{cfg.subject_id}.msh")
         S.pathfem = output_dir
         # The central surface is written by _write_central_surface from the field mesh; SimNIBS's
-        # per-channel surface overlays are not needed (SimulationConfig.map_to_surf is unused).
+        # per-channel surface overlays are not needed.
         S.map_to_surf = False
         S.map_to_vol = False
         S.map_to_MNI = False
-        S.open_in_gmsh = cfg.open_in_gmsh
+        S.open_in_gmsh = False
 
         if not self.montage.is_xyz:
             eeg_net = self.montage.eeg_net

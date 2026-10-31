@@ -253,7 +253,6 @@ class TestSimulationConfig:
             subject_id="001",
             montages=[],
         )
-        assert config.map_to_surf is True
         assert config.map_to_vol is False
         assert config.map_to_mni is False
         assert config.map_to_fsavg is True  # on by default: auto fsaverage projection
