@@ -112,7 +112,7 @@ def test_the_top_table_has_a_column_per_channel(tmp_path):
     ]
     (body,) = re.findall(r"<tbody>(.*?)</tbody>", table)
     cells = [_text(c).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", body)]
-    assert cells[1:6] == ["A–B", "C–D", "E–F", "G–H", "1 / 1 / 1 / 1"]
+    assert cells[1:6] == ["A(+)–B(−)", "C(+)–D(−)", "E(+)–F(−)", "G(+)–H(−)", "1 / 1 / 1 / 1"]
 
 
 def test_montages_that_differ_only_in_pairs_three_and_four_are_both_ranked(tmp_path):
@@ -127,7 +127,7 @@ def test_montages_that_differ_only_in_pairs_three_and_four_are_both_ranked(tmp_p
     )
     table = html.split("Top 25 by composite", 1)[1].split("</table>", 1)[0]
     assert table.count("<tr>") == 1 + 2  # header + both montages
-    assert "I–J" in table and "K–L" in table
+    assert "I(+)–J(−)" in table and "K(+)–L(−)" in table
 
 
 def test_four_current_columns_are_read_when_the_csv_has_them(tmp_path):

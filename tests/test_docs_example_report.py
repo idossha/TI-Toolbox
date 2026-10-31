@@ -12,10 +12,11 @@ and copied over the asset. Checked here, without the dataset:
   ``tit.__version__``'s (the page stamped 3.0.1 predated the 2026-10 report fixes);
 * it has the four sections the report always writes (verdict, montage, field, technical) and the
   field section holds the envelope figure;
-* its numbers are coherent: grey-matter median <= 99.9th percentile <= maximum, and the
-  headline is the 99.9th percentile tile;
-* it shows what the wiki's caption promises: sub-ernie, AF3-PO10 and AF4-Oz, 1 mA per channel,
-  anisotropic conductivity from the subject's DTI tensor.
+* its numbers are coherent: grey-matter median <= 99.9th percentile, the headline is the 99.9th
+  percentile tile, and no raw maximum is shown (2026-10-31);
+* it shows what the wiki's caption promises: sub-ernie, AF3-PO10 and AF4-Oz (written with their
+  polarity, AF3(+)–PO10(−)), 1 mA per channel, anisotropic conductivity from the subject's DTI
+  tensor.
 
 The values themselves come from the real files: ``tests/numerical/test_reports_realdata.py``
 rebuilds every Dataset 000 report and checks its numbers against the NIfTIs.
@@ -73,10 +74,11 @@ def test_the_example_numbers_are_ordered_and_the_headline_is_the_p99_9():
     page = _page()
     median = _tile(page, "Grey matter median")
     p999 = _tile(page, "Grey matter 99.9th pct")
-    peak = _tile(page, "Grey matter maximum")
-    assert 0 < median <= p999 <= peak, (median, p999, peak)
+    assert 0 < median <= p999, (median, p999)
+    assert "Grey matter maximum" not in page
     head = re.search(
-        r'<h2 id="verdict-h">([\d.]+) V/m peak envelope in grey matter', page
+        r'<h2 id="verdict-h">([\d.]+) V/m envelope in grey matter \(99\.9th percentile\)',
+        page,
     )
     assert head and float(head.group(1)) == p999
 
@@ -84,6 +86,6 @@ def test_the_example_numbers_are_ordered_and_the_headline_is_the_p99_9():
 def test_the_example_shows_what_the_wiki_caption_promises():
     text = htmllib.unescape(re.sub(r"<[^>]+>", " ", _page()))
     assert "sub-ernie" in text
-    assert "AF3–PO10 and AF4–Oz" in text
+    assert "AF3(+)–PO10(−) and AF4(+)–Oz(−)" in text
     assert "1 mA per channel" in text
     assert "anisotropic" in text and "from the subject's DTI tensor" in text

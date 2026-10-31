@@ -13,9 +13,10 @@ with ``create_*(out_dir=tmp_path)`` and nothing is re-simulated:
   percentiles; a percentile of a minimum is at most the minimum of the percentiles). Each
   carrier's p99.9 per mA lies in [0.01, 3] V/m. MNI volumes, when present, are 182x218x182(x1)
   at 1 mm. Do not assert TI_max <= max(|E1|, |E2|): aligned equal fields give 2|E|.
-* **The report's numbers and peak** (``collect`` + ``to_mni``): the median, p99.9 and max equal
-  those computed here with numpy from the same file; the voxel at ``peak_world`` holds the
-  maximum and charm's ``final_tissues`` labels it grey matter (2); in MNI the peak is inside
+* **The report's numbers and hot spot** (``collect`` + ``to_mni``): the median and p99.9 equal
+  those computed here with numpy from the same file, and no raw maximum is recorded (2026-10-31);
+  the voxel at ``hotspot_world`` is at or above the p99.9 and charm's ``final_tissues`` labels it
+  grey matter (2); in MNI the hot spot is inside
   the MNI box [-90, 90] x [-126, 90] x [-72, 108] and ``final_tissues_MNI`` labels it 1 or 2
   (5 GM + 1 WM boundary voxel measured). In the image, ``to_mni`` is within 2 mm of SimNIBS's
   ``subject2mni_coords``.
@@ -337,15 +338,16 @@ def test_the_report_reads_the_envelope_and_finds_its_peak_in_grey_matter(untouch
         assert Path(rec["niftis"]["grey"]) == _grey(sim), sim
         expected = _stats(grey)
         env = rec["envelope"]
-        for key, value in expected.items():
-            assert env[key] == pytest.approx(value, rel=FLOAT32_PERCENTILE), (sim, key)
+        assert "max" not in env, sim
+        for key in ("median", "p99_9"):
+            assert env[key] == pytest.approx(expected[key], rel=FLOAT32_PERCENTILE), (sim, key)
 
-        ijk = np.round(np.linalg.inv(img.affine) @ [*env["peak_world"], 1])[:3]
-        assert grey[tuple(ijk.astype(int))] == pytest.approx(expected["max"], rel=1e-6)
+        ijk = np.round(np.linalg.inv(img.affine) @ [*env["hotspot_world"], 1])[:3]
+        assert grey[tuple(ijk.astype(int))] >= expected["p99_9"] * (1 - FLOAT32_PERCENTILE)
         m2m = _m2m(sim)
-        assert _label_at(m2m / "final_tissues.nii.gz", env["peak_world"]) == 2, sim
+        assert _label_at(m2m / "final_tissues.nii.gz", env["hotspot_world"]) == 2, sim
 
-        mni = to_mni(env["peak_world"], m2m)
+        mni = to_mni(env["hotspot_world"], m2m)
         assert mni is not None, sim
         for v, (lo, hi) in zip(mni, MNI_BOX):
             assert lo <= v <= hi, (sim, mni)
@@ -359,7 +361,7 @@ def test_to_mni_agrees_with_simnibs(untouched, real_simnibs):
     from tit.reporting.generators.simulation import collect, to_mni
 
     for sim in _simulations():
-        peak = collect(sim)["envelope"]["peak_world"]
+        peak = collect(sim)["envelope"]["hotspot_world"]
         ours = to_mni(peak, _m2m(sim))
         theirs = np.asarray(simnibs.subject2mni_coords(peak, str(_m2m(sim)))).ravel()
         assert math.dist(ours, theirs) <= TO_MNI_TOLERANCE_MM, (sim, ours, theirs)
@@ -383,7 +385,10 @@ def test_every_simulation_report_rebuilds_with_its_own_facts(untouched, tmp_path
         page = path.read_text(encoding="utf-8")
         assert page_problems(page, simulation.SIZE_BUDGET) == [], sim
 
-        head = re.search(r'<h2 id="verdict-h">([\d.]+) V/m peak envelope', page)
+        head = re.search(
+            r'<h2 id="verdict-h">([\d.]+) V/m envelope in grey matter \(99\.9th percentile\)',
+            page,
+        )
         _, grey = _volume(_grey(sim))
         assert head and float(head.group(1)) == pytest.approx(
             _stats(grey)["p99_9"], abs=5e-4

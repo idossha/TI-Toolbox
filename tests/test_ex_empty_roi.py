@@ -323,7 +323,7 @@ def test_rows_with_non_finite_numbers_are_left_out_and_counted(tmp_path):
     html = _html(run)
     # Two finite rows remain; the winner is the 0.2-composite AF3-PO10 row.
     assert "leads 2 montages" in html
-    assert "AF3–PO10 ‖ AF4–Oz leads" in html
+    assert "AF3(+)–PO10(−) ‖ AF4(+)–Oz(−) leads" in html
     assert re.search(
         r"\b2 rows?\b[^<]*(left out|not finite|dropped)", html
     ), "no drop note"
@@ -344,7 +344,7 @@ def test_an_unparsable_montage_cell_is_skipped_not_a_crash(tmp_path):
     )
     html = _html(run)
     assert "leads 1 montages" in html or "leads 1 montage" in html
-    assert "AF3–PO10 ‖ AF4–Oz" in html
+    assert "AF3(+)–PO10(−) ‖ AF4(+)–Oz(−)" in html
     assert re.search(
         r"\b1 row\b[^<]*(left out|not finite|dropped|could not be read)", html
     )
@@ -401,4 +401,4 @@ def test_a_run_with_one_scoring_montage_is_still_reported(tmp_path):
         path = ex_search.create_ex_search_report(
             tmp_path, "X", run, out_dir=tmp_path / "out"
         )
-    assert "F3–PO10 ‖ AF4–Oz leads 2 montages" in path.read_text()
+    assert "F3(+)–PO10(−) ‖ AF4(+)–Oz(−) leads 2 montages" in path.read_text()

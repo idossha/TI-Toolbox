@@ -4,7 +4,9 @@ Pins (2026-09-28, ARCHITECTURE.md §14):
 * each page has its sections, every contents link lands on an element, every image has alt text,
   every figure a caption, statuses are icon + word, and nothing is fetched (doi.org links only);
 * no run report shows checks or advisories; the simulator leads with the grey-matter envelope
-  (99.9th percentile, median, where its maximum is) and says nothing about an ROI; flex-search embeds the run's
+  (99.9th percentile, median, where its hot spot is), never a raw maximum (2026-10-31), and says
+  nothing about an ROI; its methods cite TI-Toolbox and write each channel with its polarity
+  (``AF3(+)–PO10(−)``: tit.sim gives a channel's first electrode +I, ``tdcs.currents = [I, -I]``); flex-search embeds the run's
   own target and valid-scalp figures and draws no cap; ex-search draws no cap;
 * a Mean/Max flex run, whose candidates.csv leaves the background columns empty, reports the
   target alone (2026-10-22);
@@ -107,8 +109,8 @@ def _sim_dir(tmp_path: Path, mA: float = 1.0) -> Path:
 
 
 def _with_envelope(rec: dict, mni=(-12.4, -80.2, 4.0)) -> dict:
-    rec["envelope"] = {"median": 0.17, "p99_9": 0.36, "max": 0.48, "peak_world": [10.0, -60.0, 20.0],
-                       "peak_mni": list(mni) if mni else None}
+    rec["envelope"] = {"median": 0.17, "p99_9": 0.36, "hotspot_world": [10.0, -60.0, 20.0],
+                       "hotspot_mni": list(mni) if mni else None}
     return rec
 
 
@@ -131,9 +133,16 @@ class TestSimulation:
         with patch(CAP, return_value=FAKE):
             html = sim.build_html(rec, _sim_images(), "X")
         _structure(html, ("verdict", "montage", "field", "technical"), sim.SIZE_BUDGET, require_status=False)
-        assert '<h2 id="verdict-h">0.360 V/m peak envelope in grey matter</h2>' in html
-        assert "median 0.170 V/m; its maximum, 0.480 V/m, is at MNI (-12, -80, 4) mm." in html
-        assert "Grey matter maximum" in html and "from the subject's DTI tensor" in html
+        assert '<h2 id="verdict-h">0.360 V/m envelope in grey matter (99.9th percentile)</h2>' in html
+        assert "median 0.170 V/m; its hot spot (top 0.1 %) is at MNI (-12, -80, 4) mm." in html
+        assert "from the subject's DTI tensor" in html
+        # The 99.9th percentile is the peak: no raw maximum as a tile, a sentence or a caption.
+        shown = re.sub(r"<(style|script|pre|code)\b.*?</\1>|<[^>]+>", " ", html, flags=re.S)
+        assert not re.search(r"maximum|\bmax\b", shown, re.I)  # config.json (in <pre>) may say TI_max
+        methods = html.split('class="methods"', 1)[1].split("</div>", 1)[0]
+        assert "simulated in TI-Toolbox " in methods and 'href="#ref-Haber2026"' in methods
+        assert "Two channels (AF3(+)–PO10(−) and AF4(+)–Oz(−)) each delivered 1 mA" in methods
+        assert "10.1016/j.brs.2025.103016" in html  # the reference list carries the paper's DOI
         assert "ROI" not in html  # the simulator report says nothing about an ROI
         assert not _advisory_ids(html) and 'id="safety"' not in html and "Software checks" not in html
         assert "Electrode current" not in html and 'class="callout' not in html  # no checks, even at 1 mA
@@ -143,7 +152,7 @@ class TestSimulation:
         rec = _with_envelope(sim.collect(_sim_dir(tmp_path)), mni=None)
         with patch(CAP, return_value=None):
             html = sim.build_html(rec, None, "X")
-        assert "its maximum, 0.480 V/m, is at (10, -60, 20) mm, subject space." in html
+        assert "its hot spot (top 0.1 %) is at (10, -60, 20) mm, subject space." in html
 
     def test_high_current_raises_no_advisory(self, tmp_path):
         with patch(CAP, return_value=None):
@@ -170,7 +179,7 @@ class TestSimulation:
         with patch("nibabel.load", side_effect=lambda p: imgs[Path(p).name]):
             rec = sim.collect(d)
         assert rec["niftis"]["grey"].endswith("grey_M_TI_subject_TI_max.nii.gz")
-        assert rec["envelope"]["peak_world"] == [1.0, 2.0, 0.0]
+        assert rec["envelope"]["hotspot_world"] == [1.0, 2.0, 0.0]
 
     def test_report_file_and_budget(self, tmp_path):
         d = _sim_dir(tmp_path)
@@ -382,7 +391,8 @@ class TestExSearch:
         )
         assert not _advisory_ids(html) and 'class="tbl gate"' not in html  # no checks, even at 4.5 mA
         assert 'class="callout' not in html and "Electrode current" not in html
-        assert '<h2 id="verdict-h">F3–PO10 ‖ AF4–Oz leads 41 montages</h2>' in html
+        assert '<h2 id="verdict-h">F3(+)–PO10(−) ‖ AF4(+)–Oz(−) leads 41 montages</h2>' in html
+        assert "ROI max" not in html and "ROI peak" not in html  # a raw maximum is never a peak
         table = html.split('sortable">')[1].split("</table>")[0]
         assert table.count("<tr>") == ex.TOP_N + 1  # header + top 25
         assert html.count('fill="none" stroke="var(--s2)"') == ex.TOP_N - 1  # rings for 2..25
@@ -422,6 +432,18 @@ def _report_html(kind: str, tmp_path: Path) -> str:
         if kind == "flex_search":
             return flex_search.build_html(_flex_rec(tmp_path), "X")
         return ex_search.build_html(_ex_rec(tmp_path), "X")
+
+
+@pytest.mark.parametrize("kind", ["dti_qc", "simulation", "flex_search", "ex_search"])
+def test_every_methods_text_cites_ti_toolbox_where_it_names_it(tmp_path, kind):
+    """Haber et al., Brain Stimulation 2026;19(1):103016 (volume, issue, article number and the
+    issue's year from Crossref, 2026-10-31), cited right after "TI-Toolbox" in the methods."""
+    html = _report_html(kind, tmp_path)
+    methods = html.split('id="methods-text">', 1)[1].split("</div>", 1)[0]
+    assert re.search(r'TI-Toolbox <a class="cite" href="#ref-Haber2026"', methods), kind
+    ref = html.split('<li id="ref-Haber2026">', 1)[1].split("</li>", 1)[0]
+    assert "Brain Stimulation. 2026;19(1):103016." in ref
+    assert "10.1016/j.brs.2025.103016" in ref
 
 
 @pytest.mark.parametrize("kind", ["dti_qc", "simulation", "flex_search", "ex_search"])

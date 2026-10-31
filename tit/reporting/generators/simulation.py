@@ -9,7 +9,7 @@ its grey/white field meshes voxelised onto the T1 grid in a scratch directory, b
 conversion, and not kept. The page has no checks.
 
 The default view is the verdict with the grey-matter envelope (99.9th percentile, median and where its
-maximum is, in MNI through charm's warp), the montage on the app's EEG-cap overlay with its dose, and the envelope in three planes;
+hot spot is, in MNI through charm's warp), the montage on the app's EEG-cap overlay with its dose, and the envelope in three planes;
 per-carrier fields, methods, references and the run record are collapsed under Technical details.
 
 ``tit.sim`` writes one after every montage (:meth:`tit.sim.base.BaseSimulation.run`). Rebuild one
@@ -196,15 +196,16 @@ def collect(
         gm = _volume(img)
         v = gm[gm > 0]
         if v.size:
-            ijk = np.unravel_index(np.nanargmax(gm), gm.shape)
+            # The 99.9th percentile is the robust peak; the raw maximum is never reported.
+            p99_9 = float(np.percentile(v, 99.9))
+            ijk = hotspot_centre(gm, p99_9)
             rec["envelope"] = {
                 "median": float(np.median(v)),
-                "p99_9": float(np.percentile(v, 99.9)),
-                "max": float(v.max()),
-                "peak_world": [
+                "p99_9": p99_9,
+                "hotspot_world": [
                     float(x) for x in img.affine[:3, :3] @ ijk + img.affine[:3, 3]
                 ],
-                "peak_mni": None,
+                "hotspot_mni": None,
             }
     rec["niftis"] = {k: str(p) for k, p in niftis.items()}
     return rec
@@ -328,11 +329,11 @@ def to_mni(world: list[float], m2m: Path) -> list[float] | None:
     return [float(v) for v in np.asarray(img.dataobj[tuple(ijk)])]
 
 
-def _peak_at(env: dict) -> str:
+def _hotspot_at(env: dict) -> str:
     """``MNI (-12, -80, 4) mm``, or subject-space mm when there is no warp."""
-    if env["peak_mni"]:
-        return "MNI ({:.0f}, {:.0f}, {:.0f}) mm".format(*env["peak_mni"])
-    return "({:.0f}, {:.0f}, {:.0f}) mm, subject space".format(*env["peak_world"])
+    if env["hotspot_mni"]:
+        return "MNI ({:.0f}, {:.0f}, {:.0f}) mm".format(*env["hotspot_mni"])
+    return "({:.0f}, {:.0f}, {:.0f}) mm, subject space".format(*env["hotspot_world"])
 
 
 def _colour_bar(lo: float, hi: float, stops: list[str]) -> str:
@@ -385,13 +386,21 @@ def build_html(
     carrier_only = bool(cfg.get("carrier_only"))
     # A coordinate already holds minus signs, so its pairs read "a → b", not "a–b".
     montage = (
-        " and ".join((" → " if xyz else "–").join(p) for p in pairs) or rec["name"]
+        common.and_list(
+            [
+                common.polar_pair(
+                    p, currents[i] if i < len(currents) else 1, " → " if xyz else "–"
+                )
+                for i, p in enumerate(pairs)
+            ]
+        )
+        or rec["name"]
     )
     per_ch = common.per_channel(currents)
 
     # ── 1. verdict ──
     if env:
-        headline = f"{env['p99_9']:.3f} V/m peak envelope in grey matter"
+        headline = f"{env['p99_9']:.3f} V/m envelope in grey matter (99.9th percentile)"
     elif carrier_only:
         headline = f"{rec['name']}: carrier-only control, no envelope (ΔF = 0)"
     else:
@@ -426,7 +435,7 @@ def build_html(
     if env:
         lede += (
             f" In grey matter the envelope reaches {env['p99_9']:.3f} V/m (99.9th percentile), "
-            f"median {env['median']:.3f} V/m; its maximum, {env['max']:.3f} V/m, is at {_peak_at(env)}."
+            f"median {env['median']:.3f} V/m; its hot spot (top 0.1 %) is at {_hotspot_at(env)}."
         )
     key = []
     if env:
@@ -434,17 +443,12 @@ def build_html(
             (
                 "Grey matter 99.9th pct",
                 f"{env['p99_9']:.3f}<small>V/m</small>",
-                "peak envelope",
+                esc(f"hot spot at {_hotspot_at(env)}"),
             ),
             (
                 "Grey matter median",
                 f"{env['median']:.3f}<small>V/m</small>",
                 "half of grey matter is above this",
-            ),
-            (
-                "Grey matter maximum",
-                f"{env['max']:.3f}<small>V/m</small>",
-                esc(f"at {_peak_at(env)}"),
             ),
         ]
     key.append(
@@ -570,9 +574,9 @@ def build_html(
             if carrier_only
             else "Temporal interference stimulation was"
         )
-        + " simulated in TI-Toolbox with SimNIBS "
+        + f" simulated in TI-Toolbox {cite('haber2026_titoolbox')} with SimNIBS "
         f"{esc(log['simnibs'] or '')} {cite('saturnino2019_simnibs21')} on the head model of subject {esc(subject_id)} {cite('puonti2020_charm')}. "
-        f"{len(pairs)} channels ({esc(montage)}) each delivered {per_ch} mA through {esc(geo.get('shape', ''))} {dims} mm electrodes with "
+        f"{common.number_word(len(pairs)).capitalize()} channel{'s' if len(pairs) != 1 else ''} ({esc(montage)}) each delivered {per_ch} mA through {esc(geo.get('shape', ''))} {dims} mm electrodes with "
         f"{geo.get('gel_thickness', '?')} mm gel"
         + (
             f"; positions from the {esc(Path(str(cfg.get('eeg_net'))).stem)} layout {cite('jurcak2007_eeg_positions')}"
@@ -678,9 +682,13 @@ def create_simulation_report(
         )
         if rec["envelope"]:
             try:
-                rec["envelope"]["peak_mni"] = to_mni(rec["envelope"]["peak_world"], m2m)
+                rec["envelope"]["hotspot_mni"] = to_mni(
+                    rec["envelope"]["hotspot_world"], m2m
+                )
             except (OSError, ValueError) as exc:
-                logger.warning(f"Simulation report: peak left in subject space ({exc})")
+                logger.warning(
+                    f"Simulation report: hot spot left in subject space ({exc})"
+                )
         try:
             images = field_images(rec, m2m / "T1.nii.gz")
         except (OSError, ValueError) as exc:

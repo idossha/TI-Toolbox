@@ -50,6 +50,35 @@ def electrode_name(electrode: str | list[float]) -> str:
     return str(electrode)
 
 
+def polar_pair(pair: list[str], mA: float = 1.0, sep: str = "–") -> str:
+    """``"F7(+)–P7(−)"``: tit.sim gives a channel's first electrode +I and its second −I
+    (``tdcs.currents = [I, -I]``), so a negative current swaps the signs."""
+    a, b = ("+", "−") if mA >= 0 else ("−", "+")
+    return f"{pair[0]}({a}){sep}{pair[1]}({b})"
+
+
+def and_list(items: list[str]) -> str:
+    """``"a, b and c"``."""
+    return " and ".join(filter(None, [", ".join(items[:-1]), *items[-1:]]))
+
+
+def number_word(n: int) -> str:
+    """``"four"`` for 4: numbers under ten as words, larger ones as digits."""
+    words = (
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+    )
+    return words[n] if 0 <= n < 10 else str(n)
+
+
 def channel_electrodes(pair: list[str], channel: int) -> str:
     """``"E1+ AF3 · E1- PO10"`` for channel index 0: channel k is electrodes Ek+ and Ek-, the one
     naming the app and every report use (never "A"/"B")."""
@@ -91,7 +120,7 @@ def cap_figure(
         return listing
     net = esc(Path(str(eeg_net)).stem)
     body = (
-        f'<div class="split"><div class="cap">{c.img(image, f"Montage on the {net} cap: " + "; ".join(" to ".join(p) for p in pairs))}</div>'
+        f'<div class="split"><div class="cap">{c.img(image, f"Montage on the {net} cap: " + "; ".join(polar_pair(p, mA, " to ") for p, mA in zip(pairs, currents_mA)))}</div>'
         f"<div>{listing}</div></div>"
     )
     return c.figure(

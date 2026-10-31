@@ -4097,3 +4097,16 @@ edge would have had no margin at all.
 **Alternatives rejected.** A head box from a thresholded T1 (noise and fat make the threshold
 subject-dependent; the whole slice needs none); keeping the crop and adding padding (still cuts
 the scalp).
+
+## 2026-10-31 — Reports give the 99.9th percentile, never a raw maximum
+
+**Decision.** The simulation report reports the grey-matter 99.9th percentile as the peak and
+locates the hot spot (`hotspot_centre`, the voxel its figure is centred on) instead of the raw
+maximum's voxel; the ex-search report drops its `TImax_ROI` tile and column (the CSV keeps it).
+Pinned by `tests/test_reporting_runs.py` and `tests/numerical/test_reports_realdata.py`.
+
+**Why.** A single voxel's or element's maximum is mesh noise; the 99.9th percentile is the robust
+peak the reports already headline, and two "peaks" on one page invite the wrong one.
+
+**Alternatives rejected.** Computing an ROI 99.9th percentile in ex-search (changes the engine and
+its CSV for a display value); keeping the maximum beside the percentile.

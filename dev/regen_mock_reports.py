@@ -269,9 +269,8 @@ def build() -> dict[str, str]:
             rec["envelope"] = {
                 "median": round(0.17 * mA, 4),
                 "p99_9": round(0.36 * mA, 4),
-                "max": round(0.48 * mA, 4),
-                "peak_world": [-12.0, -18.0, 8.0],
-                "peak_mni": [-12.4, -19.1, 7.9],
+                "hotspot_world": [-12.0, -18.0, 8.0],
+                "hotspot_mni": [-12.4, -19.1, 7.9],
             }
             html = sim.build_html(rec, images, sid, generated=when)
             path = (
