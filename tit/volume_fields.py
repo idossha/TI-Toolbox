@@ -75,6 +75,9 @@ _FIELD_ORDER = (
     const.FIELD_HF_POWER_DENSITY,
 )
 _ENVELOPE_FIELDS = (const.FIELD_TI_MAX, const.FIELD_TI_AVG)
+#: Every field name the toolbox writes; anything else on a mesh (an old run's retired field) is
+#: neither carried onto a rebuilt surface nor expected as a NIfTI.
+_REGISTERED = frozenset(const.get_field_names())
 
 
 class FieldUnavailableError(FileNotFoundError):
@@ -158,9 +161,11 @@ def central_surface(volume, m2m_dir, *, e_fields=None):
     from simnibs.mesh_tools.mesh_io import ElementTags
     from simnibs.utils.file_finder import SubjectFiles
 
-    names = [d.field_name for d in volume.elmdata]
+    # Only registered fields: an old run's retired field is never carried forward.
+    kept = [d for d in volume.elmdata if d.field_name in _REGISTERED]
+    names = [d.field_name for d in kept]
     columns = []
-    for data in volume.elmdata:
+    for data in kept:
         if data.nr_comp != 1:
             raise ValueError(
                 f"the field mesh carries {data.field_name!r} with {data.nr_comp} components; "
@@ -334,7 +339,9 @@ def _surface_lacks(sim: _Simulation) -> list[str] | None:
         return None
     carried = msh_field_names(sim.central) or set()
     lacks = [
-        n for n in sorted(msh_field_names(sim.volume_mesh) or ()) if n not in carried
+        n
+        for n in sorted(msh_field_names(sim.volume_mesh) or ())
+        if n in _REGISTERED and n not in carried
     ]
     if const.FIELD_TI_NORMAL not in carried and (
         _recorded_config(sim).get("carrier_only") is not True
@@ -917,6 +924,7 @@ def check_niftis_match_meshes(volume_mesh, niftis_dir, *, mni: bool) -> None:
         raise RuntimeError(
             f"Cannot read the fields of {volume_mesh} to check its NIfTIs."
         )
+    carried &= _REGISTERED  # a retired field on an old mesh has no NIfTI to match
     written = [p.name for p in niftis_dir.glob("*.nii*")]
     problems = []
     for base in (f"{t}{volume_mesh.stem}" for t in ("", "grey_", "white_")):

@@ -1241,7 +1241,8 @@ description : str
 
             <details class="quote">
               <summary>Source code in <code>tit/constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-223">223</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-222">222</a></span>
+<span class="normal"><a href="#__codelineno-0-223">223</a></span>
 <span class="normal"><a href="#__codelineno-0-224">224</a></span>
 <span class="normal"><a href="#__codelineno-0-225">225</a></span>
 <span class="normal"><a href="#__codelineno-0-226">226</a></span>
@@ -1250,18 +1251,17 @@ description : str
 <span class="normal"><a href="#__codelineno-0-229">229</a></span>
 <span class="normal"><a href="#__codelineno-0-230">230</a></span>
 <span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_names</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="w">    </span><span class="sd">"""Return registered field names in registry order.</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    kind : str, optional</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">        If given, restrict to ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    """</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">)</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span> <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">kind</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_names</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="o">...</span><span class="p">]:</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="w">    </span><span class="sd">"""Return registered field names in registry order.</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    kind : str, optional</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">        If given, restrict to ``FIELD_KIND_FUNCTIONAL`` or ``FIELD_KIND_SAFETY``.</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    """</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">)</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span> <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">kind</span> <span class="o">==</span> <span class="n">kind</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1289,7 +1289,8 @@ description : str
 
             <details class="quote">
               <summary>Source code in <code>tit/constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-304">304</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-303">303</a></span>
+<span class="normal"><a href="#__codelineno-0-304">304</a></span>
 <span class="normal"><a href="#__codelineno-0-305">305</a></span>
 <span class="normal"><a href="#__codelineno-0-306">306</a></span>
 <span class="normal"><a href="#__codelineno-0-307">307</a></span>
@@ -1299,19 +1300,18 @@ description : str
 <span class="normal"><a href="#__codelineno-0-311">311</a></span>
 <span class="normal"><a href="#__codelineno-0-312">312</a></span>
 <span class="normal"><a href="#__codelineno-0-313">313</a></span>
-<span class="normal"><a href="#__codelineno-0-314">314</a></span>
-<span class="normal"><a href="#__codelineno-0-315">315</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_spec</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FieldSpec</span><span class="p">:</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="w">    </span><span class="sd">"""Look up a :class:`FieldSpec` by its exact field name.</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">    KeyError</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">        If ``name`` is not in :data:`FIELD_REGISTRY`.</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">    """</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">:</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a>        <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a>            <span class="k">return</span> <span class="n">spec</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown field name: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_field_spec</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FieldSpec</span><span class="p">:</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="w">    </span><span class="sd">"""Look up a :class:`FieldSpec` by its exact field name.</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">    KeyError</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        If ``name`` is not in :data:`FIELD_REGISTRY`.</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">    """</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a>    <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">FIELD_REGISTRY</span><span class="p">:</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a>        <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">name</span> <span class="o">==</span> <span class="n">name</span><span class="p">:</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a>            <span class="k">return</span> <span class="n">spec</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Unknown field name: </span><span class="si">{</span><span class="n">name</span><span class="si">!r}</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1339,21 +1339,21 @@ pair is tACS, not TI.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/constants.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-404">404</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-403">403</a></span>
+<span class="normal"><a href="#__codelineno-0-404">404</a></span>
 <span class="normal"><a href="#__codelineno-0-405">405</a></span>
 <span class="normal"><a href="#__codelineno-0-406">406</a></span>
 <span class="normal"><a href="#__codelineno-0-407">407</a></span>
 <span class="normal"><a href="#__codelineno-0-408">408</a></span>
 <span class="normal"><a href="#__codelineno-0-409">409</a></span>
-<span class="normal"><a href="#__codelineno-0-410">410</a></span>
-<span class="normal"><a href="#__codelineno-0-411">411</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="w">    </span><span class="sd">"""Is *n* an allowed electrode-pair (channel) count?</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a><span class="sd">    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …</span>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">    Odd counts leave a channel with nothing to beat against, and a single</span>
-<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">    pair is tACS, not TI.</span>
-<a id="__codelineno-0-410" name="__codelineno-0-410"></a><span class="sd">    """</span>
-<a id="__codelineno-0-411" name="__codelineno-0-411"></a>    <span class="k">return</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="n">MIN_ELECTRODE_PAIRS</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-403" name="__codelineno-0-403"></a><span class="k">def</span><span class="w"> </span><span class="nf">is_valid_pair_count</span><span class="p">(</span><span class="n">n</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="w">    </span><span class="sd">"""Is *n* an allowed electrode-pair (channel) count?</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a><span class="sd">    ``True`` for even counts of at least `MIN_ELECTRODE_PAIRS`: 2, 4, 6, 8, …</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a><span class="sd">    Odd counts leave a channel with nothing to beat against, and a single</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">    pair is tACS, not TI.</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">    """</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="k">return</span> <span class="n">n</span> <span class="o">&gt;=</span> <span class="n">MIN_ELECTRODE_PAIRS</span> <span class="ow">and</span> <span class="n">n</span> <span class="o">%</span> <span class="mi">2</span> <span class="o">==</span> <span class="mi">0</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

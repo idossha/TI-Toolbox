@@ -4045,3 +4045,13 @@ surface 90.6 s, run 731 s, 17 files, 1,251,545,498 bytes; the fsaverage medians 
 `grey_` meshes for the Viewer (the scene format hides tissues itself); reading old runs'
 `_normal.msh` or `grey_` meshes in place (two layouts to read forever; the producer upgrades
 instead).
+
+## 2026-10-30 — An old run's `TI_normal` is copied from its `_normal.msh`, not recomputed
+
+**Decision.** When the on-demand producer rebuilds an old run's central surface and the run has
+its `<sim>_normal.msh` (`<sim>_mTI_normal.msh`), `TI_normal` is copied from it rather than
+computed again from the channel meshes (coordinator's decision, 2026-10-30). **Why.** It is the
+same value on the same nodes (the old overlays and the m2m central surface share them; the
+recompute agrees to 2.78e-16 V/m, `tests/numerical/test_central_surface_real.py`), and copying it
+lets a run whose channel meshes were deleted still be upgraded. `tit/volume_fields.py` is the one
+reader of that file, allowlisted as such in `tests/test_field_rename_guard.py`.

@@ -163,6 +163,12 @@ def test_one_field_alone_goes_in_as_a_scalar():
 
 
 def test_a_vector_volume_field_is_refused():
-    volume = _Volume({"E": np.zeros((_LH + _RH, 3))})
+    volume = _Volume({"TI_max": np.zeros((_LH + _RH, 3))})
     with pytest.raises(ValueError, match="a volume field is a scalar"):
         volume_fields.central_surface(volume, "/m2m")
+
+
+def test_a_field_outside_the_registry_is_not_carried_onto_the_surface():
+    """An old run's retired field on its volume mesh never reaches a rebuilt surface."""
+    got, _, _ = _surface(2, fields=("TI_max", "retired_field"))
+    assert [d.field_name for d in got.nodedata] == ["TI_max", "TI_normal"]

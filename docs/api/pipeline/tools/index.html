@@ -2957,9 +2957,9 @@ fields : list[str] | None
     If given, only these fields are converted.
 skip_patterns : list[str] | None
     Basenames containing any of these substrings are skipped. By default
-    only basenames ending in <code>_normal</code> are -- the surface-only
-    <code>&lt;name&gt;_normal.msh</code> / <code>&lt;name&gt;_mTI_normal.msh</code> meshes, which have no
-    volume elements -- so a montage or subject whose name merely contains
+    only basenames ending in <code>_normal</code> are -- the surface-only <code>TI_normal</code>
+    meshes runs made before the central surface carried it left, which have
+    no volume elements -- so a montage or subject whose name merely contains
     "normal" is still converted.
 map_to_mni : bool
     Include MNI-space outputs (default True for standalone conversion).
@@ -3066,9 +3066,9 @@ max_workers : int | None
 <a id="__codelineno-0-195" name="__codelineno-0-195"></a><span class="sd">        If given, only these fields are converted.</span>
 <a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="sd">    skip_patterns : list[str] | None</span>
 <a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="sd">        Basenames containing any of these substrings are skipped. By default</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        only basenames ending in ``_normal`` are -- the surface-only</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        ``&lt;name&gt;_normal.msh`` / ``&lt;name&gt;_mTI_normal.msh`` meshes, which have no</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        volume elements -- so a montage or subject whose name merely contains</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a><span class="sd">        only basenames ending in ``_normal`` are -- the surface-only ``TI_normal``</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a><span class="sd">        meshes runs made before the central surface carried it left, which have</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a><span class="sd">        no volume elements -- so a montage or subject whose name merely contains</span>
 <a id="__codelineno-0-201" name="__codelineno-0-201"></a><span class="sd">        "normal" is still converted.</span>
 <a id="__codelineno-0-202" name="__codelineno-0-202"></a><span class="sd">    map_to_mni : bool</span>
 <a id="__codelineno-0-203" name="__codelineno-0-203"></a><span class="sd">        Include MNI-space outputs (default True for standalone conversion).</span>

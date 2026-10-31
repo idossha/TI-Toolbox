@@ -35,9 +35,18 @@ HISTORY = ("docs/dev/CHANGELOG.md", "docs/dev/DECISIONS.md", "contracts/CHANGES.
 HISTORY_DIRS = ("docs/releases/",)
 
 
+#: The one reader of the old Ex/mEx column, which says in the report that it was renamed, and
+#: its test.
+LEGACY_READERS = (
+    "tit/reporting/generators/ex_search.py",
+    "tests/test_ex_carrier_focality.py",
+)
+
+
 def allowed(path: str) -> bool:
     return (
         path in HISTORY
+        or path in LEGACY_READERS
         or path.startswith(HISTORY_DIRS)
         or path == "tests/test_field_rename_guard.py"
     )
@@ -55,6 +64,38 @@ def violations(root: Path, paths: list[str]) -> list[str]:
             continue  # binary, or deleted in the working tree
         for number, line in enumerate(text.splitlines(), start=1):
             match = RETIRED.search(line)
+            if match:
+                out.append(f"{rel}:{number}: {match.group(0)}")
+    return out
+
+
+#: The old surface layout (2026-10-30, "one central surface mesh per run"): nothing the toolbox
+#: ships writes or reads these, except the producer that copies an old run's ``TI_normal``.
+RETIRED_LAYOUT = re.compile(r"_normal\.msh|msh2cortex|surface_overlays")
+#: Shipped code and user docs; tests and the dev docs model and describe old runs.
+LAYOUT_SCOPE = (
+    "tit/",
+    "desktop/src/",
+    "agent-plugin/",
+    "docs/wiki/",
+    "docs/api_mkdocs/",
+)
+#: The one reader of an old run's ``<sim>_normal.msh``: the copy into the rebuilt surface.
+LAYOUT_ALLOWED = ("tit/volume_fields.py",)
+
+
+def layout_violations(root: Path, paths: list[str]) -> list[str]:
+    """``path:line: match`` for the retired surface layout in shipped code and user docs."""
+    out = []
+    for rel in paths:
+        if not rel.startswith(LAYOUT_SCOPE) or rel in LAYOUT_ALLOWED:
+            continue
+        try:
+            text = (root / rel).read_text(encoding="utf-8")
+        except (UnicodeDecodeError, FileNotFoundError, IsADirectoryError):
+            continue
+        for number, line in enumerate(text.splitlines(), start=1):
+            match = RETIRED_LAYOUT.search(line)
             if match:
                 out.append(f"{rel}:{number}: {match.group(0)}")
     return out
@@ -99,3 +140,22 @@ def test_the_new_names_and_the_history_files_pass(tmp_path: Path) -> None:
     (tmp_path / "docs/dev").mkdir(parents=True)
     (tmp_path / "docs/dev/CHANGELOG.md").write_text("hf_sar was renamed hf_rms")
     assert violations(tmp_path, ["a.py", "docs/dev/CHANGELOG.md"]) == []
+
+
+def test_no_retired_surface_layout_in_shipped_code_or_user_docs() -> None:
+    found = layout_violations(REPO, tracked())
+    assert not found, "\n".join(found[:50])
+
+
+def test_the_retired_layout_rule_is_caught_and_its_allowlist_kept(
+    tmp_path: Path,
+) -> None:
+    for rel in ("tit/a.py", "docs/wiki/b.md", "tit/volume_fields.py", "tests/c.py"):
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text("M_normal.msh\nmsh2cortex\nTI/surface_overlays/\n")
+    found = layout_violations(
+        tmp_path, ["tit/a.py", "docs/wiki/b.md", "tit/volume_fields.py", "tests/c.py"]
+    )
+    assert len(found) == 6 and all(
+        f.startswith(("tit/a.py", "docs/wiki/b.md")) for f in found
+    )

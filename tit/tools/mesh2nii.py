@@ -195,9 +195,9 @@ def convert_mesh_dir(
         If given, only these fields are converted.
     skip_patterns : list[str] | None
         Basenames containing any of these substrings are skipped. By default
-        only basenames ending in ``_normal`` are -- the surface-only
-        ``<name>_normal.msh`` / ``<name>_mTI_normal.msh`` meshes, which have no
-        volume elements -- so a montage or subject whose name merely contains
+        only basenames ending in ``_normal`` are -- the surface-only ``TI_normal``
+        meshes runs made before the central surface carried it left, which have
+        no volume elements -- so a montage or subject whose name merely contains
         "normal" is still converted.
     map_to_mni : bool
         Include MNI-space outputs (default True for standalone conversion).

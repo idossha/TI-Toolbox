@@ -1852,8 +1852,8 @@ def _scene_field_name(name: str) -> str | None:
     (``qa-neuro-researcher-notes.md``), a NIfTI field volume's curated
     display name (:func:`_scene_display_name`). The basenames SimNIBS writes
     are unambiguous enough for the default -- ``*_TI.msh`` /
-    ``*_TI_subject_TI_max.nii.gz`` carry ``TI_max``, ``*_normal.msh`` carries
-    ``TI_normal``, an mTI simulation's outputs carry ``mTI_max``, and the
+    ``*_TI_subject_TI_max.nii.gz`` carry ``TI_max``, an older run's ``*_normal``
+    mesh carries ``TI_normal``, an mTI simulation's outputs carry ``mTI_max``, and the
     high-frequency ``*_TDCS_*_scalar*.msh``/``*_scalar_*magnE.nii.gz`` carry
     ``magnE`` -- and the client can always re-pick from the engine's own
     ``MeshDataset.fields`` after load. ``None`` means "colour by tag/solid"
@@ -1874,7 +1874,7 @@ def _scene_field_name(name: str) -> str | None:
             return field
 
     # A **mesh** genuinely carries no trailing field token -- `grey_L_Insula_TI.msh`,
-    # `..._normal.msh`, `..._TDCS_1_scalar.msh` -- so the hint chain stays, but *only* for meshes.
+    # an older run's `..._normal` mesh, `..._TDCS_1_scalar.msh` -- so the hint chain stays, but *only* for meshes.
     # Letting a volume reach it is what made `final_tissues.nii.gz` a "TI_max" layer: "tissues"
     # contains "ti". A volume whose last token names no field simply has none, which is what this
     # function's docstring has always said `None` means for a volume.

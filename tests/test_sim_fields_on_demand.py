@@ -683,3 +683,26 @@ def test_a_voxel_step_never_needs_the_surface(converter) -> None:
     paths, _ = fields.ensure_niftis(SID, SIM, ["TI_max"], tissue="grey")
     assert paths["TI_max"].is_file()
     assert converter.producer.calls.surface == []
+
+
+def test_a_retired_field_on_an_old_mesh_needs_no_nifti_and_no_surface(
+    producer, tmp_path
+):
+    # A field outside the registry (an old run's retired name): no NIfTI is expected for it...
+    mesh_dir, nifti_dir = tmp_path / "mesh", tmp_path / "niftis"
+    mesh_dir.mkdir()
+    nifti_dir.mkdir()
+    write_msh(mesh_dir / "M_TI.msh", 1, {"TI_max": [1.0], "retired_field": [2.0]})
+    for stem in ("M_TI", "grey_M_TI", "white_M_TI"):
+        (nifti_dir / f"{stem}_subject_TI_max.nii.gz").write_bytes(b"nii")
+    fields.check_niftis_match_meshes(mesh_dir / "M_TI.msh", nifti_dir, mni=False)
+    # ...and a surface without it is complete, so nothing is rebuilt.
+    sim_dir = make_simulation(producer.pm, saved=("TI_max", "retired_field"))
+    central = sim_dir / "TI" / "mesh" / "surfaces" / "M_TI_central.msh"
+    write_msh(
+        central,
+        int(BRAIN.sum()),
+        {"TI_max": np.ones(int(BRAIN.sum())), "TI_normal": np.ones(int(BRAIN.sum()))},
+    )
+    assert fields.ensure_mesh_fields(SID, SIM, []) == []
+    assert producer.calls.surface == []

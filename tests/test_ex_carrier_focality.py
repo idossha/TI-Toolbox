@@ -190,7 +190,10 @@ def test_candidate_review_exposes_and_sorts_by_the_carrier_metrics(tmp_path):
     pm = get_path_manager(str(project))
     page = catalog.list_candidates(pm, "ernie", "ex", "r1", sort="ti_selectivity")
     first, second = page["candidates"]
-    assert (first["metrics"]["hf_peak_focality"], first["metrics"]["ti_selectivity"]) == (
+    assert (
+        first["metrics"]["hf_peak_focality"],
+        first["metrics"]["ti_selectivity"],
+    ) == (
         1.25,
         1.6,
     )
@@ -246,7 +249,8 @@ def _report_html(tmp_path: Path, csv_text: str) -> str:
 def test_rendered_report_has_the_columns_only_for_a_csv_with_them(tmp_path):
     row = "AF7_AFz <> CP6_P10_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4"
     new = _report_html(
-        tmp_path / "a", HEADER + ",HFpeak_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n"
+        tmp_path / "a",
+        HEADER + ",HFpeak_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n",
     )
     results = new.split('id="results"', 1)[1].split("</section>", 1)[0]
     assert "TI selectivity" in results and ">1.60<" in results and ">1.25<" in results
@@ -268,3 +272,17 @@ def test_degenerate_candidates_have_no_carrier_metrics_not_zero(fake_ti, case):
     assert data[f"{ROI}_TI_Selectivity"] is None
     rows, *_ = build_csv_rows({"TI_field_A_B_and_C_D.msh": data}, ROI)
     assert rows[1][-2:] == ["", ""]
+
+
+def test_a_csv_with_the_renamed_carrier_column_says_so_in_the_report(tmp_path):
+    """A final_output.csv from before the rename keeps its ranking and says why its carrier
+    columns are missing, instead of dropping them without a word."""
+    row = "AF7_AFz <> CP6_P10_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4,0.2,0.1,2.0,0.4"
+    old = _report_html(
+        tmp_path / "a", HEADER + ",HF_Focality,TI_Selectivity\n" + row + ",1.25,1.6\n"
+    )
+    results = old.split('id="results"', 1)[1].split("</section>", 1)[0]
+    assert "older version" in results and "Re-run the search" in results
+    assert "TI selectivity</th>" not in results
+    none = _report_html(tmp_path / "b", HEADER + "\n" + row + "\n")
+    assert "older version" not in none  # a CSV that never had them: nothing to explain

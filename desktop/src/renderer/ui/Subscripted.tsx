@@ -10,8 +10,9 @@ const SUBSCRIPT = /_\{([^}]*)\}/g;
 export function Subscripted({ text }: { text: string }) {
   if (!text.includes("_{")) return <>{text}</>;
   const parts = text.split(SUBSCRIPT);
+  // One span: inside a flex label (gap) a fragment's text and <sub> would be separate items.
   // split with one capture group alternates plain text and subscript text.
-  return <>{parts.map((part, i) => (i % 2 ? <sub key={i}>{part}</sub> : <Fragment key={i}>{part}</Fragment>))}</>;
+  return <span>{parts.map((part, i) => (i % 2 ? <sub key={i}>{part}</sub> : <Fragment key={i}>{part}</Fragment>))}</span>;
 }
 
 /** *text* for a place that holds no markup (a `title`, an `aria-label`): `TI_{max}` → `TI_max`. */
