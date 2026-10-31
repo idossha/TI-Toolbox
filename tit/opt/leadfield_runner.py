@@ -26,28 +26,13 @@ same holder the scheduler reserves) and writes an ``exit`` event in a
 from __future__ import annotations
 
 import json
-import os
 import sys
-from contextlib import nullcontext
 
 from tit.config_io import deserialize_config
+from tit.jobs import locks
 from tit.opt.leadfield import LeadfieldGenerator
 from tit.opt.leadfield_config import LeadfieldConfig
 from tit.paths import get_path_manager
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def main() -> None:
@@ -64,7 +49,7 @@ def main() -> None:
 
     get_path_manager(data.pop("project_dir"))
     config = deserialize_config(LeadfieldConfig, data)
-    lock_cm = _hold_locks("leadfield", [config.subject_id], data)
+    lock_cm = locks.hold_for_job("leadfield", [config.subject_id], data)
 
     exit_code = 1
     try:

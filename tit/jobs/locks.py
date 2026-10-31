@@ -1,11 +1,10 @@
 """Advisory, filesystem-based locks.
 
-Keys are **held by the runner process itself** (``with tit.jobs.locks.hold(...)``, a few lines
-per ``__main__``) and *predicted* by the scheduler by reading the same lock directory with
-:func:`holders` — so a bare ``simnibs_python -m tit.sim cfg.json`` from a second shell and a
-server-submitted job share one policy and one lock directory. Direct Python calls
-(``run_simulation()`` in a notebook) remain advisory: nothing stops them, they just don't
-register a hold.
+Keys are **held by the runner process itself** (``with`` :func:`hold_for_job` in every runner's
+``__main__``) and *predicted* by the scheduler by reading the same lock directory with
+:func:`holders`. Runs outside a job -- a bare ``simnibs_python -m tit.sim cfg.json`` from a
+second shell, or ``run_simulation()`` in a notebook -- remain advisory: nothing stops them, they
+just don't register a hold.
 
 Storage: one directory per **held (resource, mode, holder)** triple,
 ``jobs/.locks/<sha1(discriminator)[:16]>/lock.json``, created with :func:`os.mkdir` (atomic on
@@ -292,6 +291,25 @@ def hold(
     finally:
         for path in held_dirs:
             _remove_dir(project_dir, path)
+
+
+def hold_for_job(
+    kind: str, subject_ids: list[str], config: dict[str, Any]
+) -> contextlib.AbstractContextManager[None]:
+    """The locks a job runner holds while it runs: :func:`keys_for` *kind*, held by this job.
+
+    A no-op outside a ``tit.jobs`` job (no ``$TIT_JOB_ID``): a bare
+    ``simnibs_python -m tit.<module> cfg.json`` registers nothing, as a notebook call does not.
+    The project is the active path manager's.
+    """
+    from tit.jobs.runner import ENV_JOB_ID  # local import: avoid a module-load cycle
+    from tit.paths import get_path_manager
+
+    job_id = os.environ.get(ENV_JOB_ID)
+    if not job_id:
+        return contextlib.nullcontext()
+    requests = keys_for(kind, subject_ids, config)
+    return hold(get_path_manager().project_dir, job_id, requests)
 
 
 def _write_against_write(

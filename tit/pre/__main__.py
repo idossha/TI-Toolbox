@@ -15,28 +15,13 @@ tit.pre.structural.run_pipeline : Pipeline function invoked by this entry point.
 import dataclasses
 import json
 import logging
-import os
 import sys
-from contextlib import nullcontext
 
+from tit.jobs import locks
 from tit.paths import get_path_manager
 from tit.pre.config import PreprocessConfig, migrate_legacy_keys
 from tit.pre.structural import run_pipeline
 from tit.pre.utils import PreprocessError
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def _build_config(data: dict) -> PreprocessConfig:
@@ -86,7 +71,7 @@ def main() -> None:
     except (TypeError, ValueError) as exc:
         sys.exit(f"Invalid preprocessing config: {exc}")
 
-    lock_cm = _hold_locks("pre", config.subject_ids, data)
+    lock_cm = locks.hold_for_job("pre", config.subject_ids, data)
 
     exit_code = 1
     try:

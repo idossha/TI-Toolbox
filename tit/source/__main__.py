@@ -18,24 +18,10 @@ import json
 import logging
 import os
 import sys
-from contextlib import nullcontext
 
+from tit.jobs import locks
 from tit.paths import get_path_manager
 from tit.source.config import ForwardConfig, FsavgMapConfig, SourceConfig, SourceMode
-
-
-def _hold_locks(kind: str, subject_ids: list[str], config_dict: dict):
-    """Best-effort lock scaffold: a no-op unless running as a ``tit.jobs`` job."""
-    try:
-        from tit.jobs import locks
-        from tit.jobs.runner import ENV_JOB_ID
-    except ImportError:
-        return nullcontext()
-    job_id = os.environ.get(ENV_JOB_ID)
-    if not job_id:
-        return nullcontext()
-    requests = locks.keys_for(kind, subject_ids, config_dict)
-    return locks.hold(get_path_manager().project_dir, job_id, requests)
 
 
 def _build_config_legacy(data: dict) -> SourceConfig:
@@ -126,7 +112,7 @@ def main() -> None:
         subject_ids = config.subject_ids
     else:
         subject_ids = [p.subject_id for p in config.pairs]
-    lock_cm = _hold_locks("source", subject_ids, data)
+    lock_cm = locks.hold_for_job("source", subject_ids, data)
 
     print(f"Starting source {config.mode.value} pipeline...", flush=True)
 

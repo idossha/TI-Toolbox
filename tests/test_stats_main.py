@@ -426,7 +426,7 @@ class TestMain:
         mock_corr.assert_called_once()
         mock_gc.assert_not_called()
 
-    @patch("tit.stats.__main__._hold_locks")
+    @patch("tit.jobs.locks.hold_for_job")
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")
     @patch("tit.logger.setup_logging")
@@ -463,7 +463,7 @@ class TestMain:
         assert config_dict["mode"] == "correlation"
         assert config_dict["analysis_name"] == "test_corr"
 
-    @patch("tit.stats.__main__._hold_locks")
+    @patch("tit.jobs.locks.hold_for_job")
     @patch("tit.stats.__main__._run_group_comparison")
     @patch("tit.stats.__main__._run_correlation")
     @patch("tit.logger.add_stream_handler")

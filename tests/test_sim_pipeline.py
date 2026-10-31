@@ -630,7 +630,7 @@ class TestRunSimulation:
         monkeypatch.setenv("TIT_JOB_OVERWRITE", "1" if overwrite else "0")
         monkeypatch.setattr(entry, "get_path_manager", lambda _: None)
         monkeypatch.setattr(entry, "deserialize_config", lambda *args: config)
-        monkeypatch.setattr(entry, "_hold_locks", lambda *args: nullcontext())
+        monkeypatch.setattr(entry.locks, "hold_for_job", lambda *args: nullcontext())
         monkeypatch.setattr(entry, "run_simulation", _utils_mod.run_simulation)
         with self._patch_run_sim() as (mock_pm, mock_ti_cls, _):
             # main() passes no logger, so run_simulation opens its own log file under

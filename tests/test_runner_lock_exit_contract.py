@@ -4,10 +4,10 @@ What this pins
 --------------
 1. Architecture (source read off disk with ``ast``, nothing imported): for every module in
    :data:`tit.jobs.kinds.MODULE_FOR_KIND` except ``project_init`` (which takes no locks), the
-   entry file calls ``locks.hold(..., requests)`` with ``requests`` built by
-   ``locks.keys_for(<a kind that maps to this module>, ...)``, enters that hold in a ``with``
-   statement, and the ``with`` sits inside a ``try`` whose ``finally`` calls
-   ``events.emit_exit``. The kind -> module table is the independent source: a runner added for
+   entry file calls ``locks.hold_for_job(<a kind that maps to this module>, ...)`` (the one
+   helper that holds ``locks.keys_for`` of that kind, ``tests/test_jobs_model.py``),
+   enters that hold in a ``with`` statement, and the ``with`` sits inside a ``try`` whose
+   ``finally`` calls ``events.emit_exit``. The kind -> module table is the independent source: a runner added for
    a new kind without the scaffold fails here by name. ``tit.opt.leadfield_runner`` did neither
    until 2026-10-22.
 2. Plan/admission parity: while a runner that writes no lock descriptor of its own (the way the
@@ -85,91 +85,31 @@ def _parents(tree: ast.AST) -> dict[ast.AST, ast.AST]:
     }
 
 
-def _enclosing_function(node, parents):
-    while node in parents:
-        node = parents[node]
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            return node
-    return None
-
-
-def _requests_source(hold: ast.Call, function) -> ast.Call | None:
-    """The ``locks.keys_for(...)`` call the hold's requests come from, or ``None``."""
-    named = [kw.value for kw in hold.keywords if kw.arg == "requests"]
-    requests = hold.args[2] if len(hold.args) >= 3 else (named[0] if named else None)
-    if requests is None:
-        return None
-    if _is_call(requests, "locks", "keys_for"):
-        return requests
-    if isinstance(requests, ast.Name) and function is not None:
-        for node in ast.walk(function):
-            if (
-                isinstance(node, ast.Assign)
-                and any(
-                    isinstance(t, ast.Name) and t.id == requests.id
-                    for t in node.targets
-                )
-                and _is_call(node.value, "locks", "keys_for")
-            ):
-                return node.value
-    return None
-
-
 def _contract_problems(module: str, module_kinds: set[str]) -> list[str]:
     path = _entry_file(module)
     if not path.is_file():
         return [f"{module}: entry file {path} does not exist"]
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     parents = _parents(tree)
-    holds = [n for n in ast.walk(tree) if _is_call(n, "locks", "hold")]
+    holds = [n for n in ast.walk(tree) if _is_call(n, "locks", "hold_for_job")]
     if not holds:
-        return [f"{module}: no locks.hold(...) call in {path.name}"]
+        return [f"{module}: no locks.hold_for_job(...) call in {path.name}"]
 
     problems: list[str] = []
     entered = False
     for hold in holds:
-        function = _enclosing_function(hold, parents)
-        source = _requests_source(hold, function)
-        if source is None or not source.args:
-            problems.append(f"{module}: locks.hold requests do not come from keys_for")
-            continue
-        kind_arg = source.args[0]
-        # The calls whose result is the hold: the helper's own call sites, or the hold itself.
-        if isinstance(kind_arg, ast.Constant):
-            sites = [hold]
-            kind_values = [kind_arg]
-        else:
-            params = [a.arg for a in function.args.args] if function else []
-            if not (isinstance(kind_arg, ast.Name) and kind_arg.id in params):
+        kind = hold.args[0] if hold.args else None
+        if isinstance(kind, ast.Constant):
+            if kind.value not in module_kinds:
                 problems.append(
-                    f"{module}: keys_for kind is not a constant or parameter"
+                    f"{module}: holds the locks of kind {kind.value!r}, not one of "
+                    f"{sorted(module_kinds)}"
                 )
-                continue
-            position = params.index(kind_arg.id)
-            sites = [
-                n
-                for n in ast.walk(tree)
-                if isinstance(n, ast.Call)
-                and isinstance(n.func, ast.Name)
-                and n.func.id == function.name
-            ]
-            if not sites:
-                problems.append(f"{module}: {function.name}() is never called")
-                continue
-            kind_values = [site.args[position] for site in sites]
-        for value in kind_values:
-            if isinstance(value, ast.Constant):
-                if value.value not in module_kinds:
-                    problems.append(
-                        f"{module}: holds the locks of kind {value.value!r}, not one of "
-                        f"{sorted(module_kinds)}"
-                    )
-            elif len(module_kinds) == 1:
-                # One kind per module: the kind is known, so it must be named.
-                problems.append(f"{module}: the lock kind is computed, not named")
-        for site in sites:
-            if _entered_in_try_with_exit(tree, parents, site):
-                entered = True
+        elif len(module_kinds) == 1:
+            # One kind per module: the kind is known, so it must be named.
+            problems.append(f"{module}: the lock kind is computed, not named")
+        if _entered_in_try_with_exit(tree, parents, hold):
+            entered = True
     if not entered:
         problems.append(
             f"{module}: the lock hold is never entered in a `with` inside a try whose "
@@ -237,19 +177,16 @@ def test_the_static_check_refuses_a_runner_without_the_scaffold(tmp_path, monkey
     )
     monkeypatch.setitem(globals(), "REPO", tmp_path)
     assert _contract_problems("fake_runner_pkg", {"leadfield"}) == [
-        "fake_runner_pkg: no locks.hold(...) call in fake_runner_pkg.py"
+        "fake_runner_pkg: no locks.hold_for_job(...) call in fake_runner_pkg.py"
     ]
 
 
 def test_the_static_check_refuses_another_kinds_locks(tmp_path, monkeypatch):
     (tmp_path / "wrong_kind.py").write_text(
-        "def _hold_locks(kind, subject_ids, config):\n"
-        "    from tit.jobs import locks\n"
-        "    requests = locks.keys_for(kind, subject_ids, config)\n"
-        "    return locks.hold('/p', 'job', requests)\n"
+        "from tit.jobs import locks\n"
         "def main():\n"
         "    from tit.jobs import events\n"
-        "    lock_cm = _hold_locks('sim', ['001'], {})\n"
+        "    lock_cm = locks.hold_for_job('sim', ['001'], {})\n"
         "    try:\n"
         "        with lock_cm:\n"
         "            pass\n"
