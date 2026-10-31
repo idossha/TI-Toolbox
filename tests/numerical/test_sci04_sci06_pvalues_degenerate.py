@@ -209,3 +209,56 @@ class TestEmptyValidMaskIsReported:
         )
         assert int(np.count_nonzero(valid_mask)) == 1
         assert valid_mask[0, 0, 0]
+
+
+# ---------------------------------------------------------------------------
+# Replicas of the observed grouping are ties
+# ---------------------------------------------------------------------------
+
+
+def test_every_relabelling_that_reproduces_the_observed_grouping_ties_it(monkeypatch):
+    """A within-group reordering of the observed 5-vs-5 labelling, or its mirror, is the same
+    partition, so its two-sided cluster mass IS the observed one and counts as at least as
+    extreme. The engine computes t in float32, so the reordered mass differs by float32
+    rounding (1.4e-8 relative here, 4.3e-8 on the real-path block, measured 2026-10-31); with
+    TIE_RTOL = 1e-9, 86 of these 240 replicas were dropped (p = 155/241), and on CI
+    (numerical-image on 4be8739a) the planted block's p came out one count too small: 0.015
+    where the written null gives 0.02. The expected value is a property of the design (every
+    replica ties), not a number from the engine.
+    """
+    import itertools
+
+    from tit.stats import engine
+
+    rng = np.random.default_rng(20261022)
+    shape = (8, 8, 8)
+    block = (slice(2, 5),) * 3
+    vols = []
+    for subject in range(10):
+        data = 0.1 + 0.05 * rng.random(shape)
+        if subject < 5:
+            data[block] = 1.0 + 0.02 * rng.random((3, 3, 3))
+        vols.append(data)
+    stack = np.stack(vols, axis=-1)
+    valid = np.ones(shape, dtype=bool)
+    coords = np.argwhere(valid)
+    test_data = stack[valid].astype(np.float32)
+
+    def mass(order):
+        monkeypatch.setattr(engine.np.random, "permutation", lambda n: np.array(order))
+        stat, *_ = engine._run_single_permutation(
+            test_data, coords, 5, 10, 0.05, valid, shape, cluster_stat="mass"
+        )
+        return stat
+
+    observed = mass(range(10))
+    non = list(range(5, 10))
+    replicas = [
+        mass(order)
+        for resp in itertools.permutations(range(5))
+        for order in (list(resp) + non[::-1], non + list(resp))
+    ]
+    assert observed > 0, "the planted block must form a cluster"
+    assert len(replicas) == 240
+    p = engine.pval_from_histogram([observed], np.array(replicas), tail=0)
+    assert p[0] == pytest.approx(1.0), "every replica of the observed grouping is a tie"

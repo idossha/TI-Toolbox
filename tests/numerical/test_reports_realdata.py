@@ -3,7 +3,8 @@
 Pins (2026-10-22, package p25), read-only on the real files; reports are written to ``tmp_path``
 with ``create_*(out_dir=tmp_path)`` and nothing is re-simulated:
 
-* **Simulation outputs** (every ``Simulations/*`` with a config): the grey-matter subject
+* **Simulation outputs** (every TI ``Simulations/*`` with a config; carrier-only runs have
+  no envelope and are left out, and the tests skip when none is left): the grey-matter subject
   ``TI_max`` NIfTI is 3-D on the m2m T1 grid (same shape and affine, which the report figure
   needs), finite, >= 0, with > 1000 non-zero voxels; ``median <= p99.9 <= max``; the envelope
   obeys TI_max <= 2 min(|E1|, |E2|) (Grossman 2017), checked as ``p99.9(TI) <= 1.05 * 2 *
@@ -26,8 +27,9 @@ with ``create_*(out_dir=tmp_path)`` and nothing is re-simulated:
   crashed for both flex-free (XYZ) simulations.
 * **Flex pages**: the same text checks; one optimiser-run row per ``all_values`` entry; the
   Currents tile is the accepted candidate's ch1/ch2 currents (the ``current_split`` when it is
-  recorded); the position table is ``electrode_positions.json`` in channel order with + on
-  array 0; the four centres are distinct and >= 0.9 x ``min_electrode_distance`` apart.
+  recorded); the position table is ``electrode_positions.json`` in channel order, channel k's
+  electrodes named Ek+ (array 0) and Ek-; the four centres are distinct and >= 0.9 x
+  ``min_electrode_distance`` apart.
 * **Flex -> simulation**: a simulation named after a flex run of the same subject simulated
   exactly the run's ``optimized_positions`` (pairs in ``channel_array_indices`` order) at its
   accepted currents.
@@ -98,10 +100,23 @@ def _sid(path: Path) -> str:
 
 
 def _simulations() -> list[Path]:
-    return sorted(
+    """The dataset's TI simulations; skips when it has none.
+
+    A carrier-only run (``carrier_only: true``, the HF carriers without an envelope) writes no
+    ``TI_max``, and which runs a user's Dataset 000 holds changes whenever a simulation is
+    re-run, so those runs are left out rather than failed.
+    """
+    sims = sorted(
         p.parent.parent
         for p in _SIMNIBS.glob("sub-*/Simulations/*/documentation/config.json")
+        if not json.loads(p.read_text()).get("carrier_only")
     )
+    if not sims:
+        pytest.skip(
+            "skipping: TIT_DATASET_000 has no TI simulation (every Simulations/* run is "
+            "carrier-only or has no documentation/config.json)"
+        )
+    return sims
 
 
 def _flex_runs() -> list[Path]:
@@ -282,7 +297,6 @@ def test_every_simulation_envelope_is_plausible_on_the_t1_grid_and_under_the_car
     untouched,
 ):
     sims = _simulations()
-    assert sims, "has no simulations to check"
     for sim in sims:
         config = json.loads((sim / "documentation" / "config.json").read_text())
         n_pairs = len(config["electrode_pairs"])
@@ -317,7 +331,6 @@ def test_the_report_reads_the_envelope_and_finds_its_peak_in_grey_matter(untouch
     from tit.reporting.generators.simulation import collect, to_mni
 
     sims = _simulations()
-    assert sims, "has no simulations to check"
     for sim in sims:
         rec = collect(sim)
         img, grey = _volume(_grey(sim))
@@ -360,7 +373,6 @@ def test_every_simulation_report_rebuilds_with_its_own_facts(untouched, tmp_path
     from tit.reporting.generators import simulation
 
     sims = _simulations()
-    assert sims, "has no simulations to check"
     for sim in sims:
         sid = _sid(sim)
         config = json.loads((sim / "documentation" / "config.json").read_text())
@@ -437,7 +449,9 @@ def test_every_flex_report_states_its_runs_currents_and_positions(untouched, tmp
             cells, centres, positions["channel_array_indices"]
         ):
             ch_cell, pole, xyz = re.findall(r"<td[^>]*>(.*?)</td>", row, re.S)
-            assert ch_cell == f"Ch {ch + 1}" and pole == ("+" if arr == 0 else "−")
+            # Channel k is electrodes Ek+ (array 0) and Ek- (array 1), as everywhere else.
+            assert ch_cell == f"Channel {ch + 1}"
+            assert pole == f"E{ch + 1}{'+' if arr == 0 else '-'}", (run, pole)
             got = [float(v) for v in xyz.strip("()").split(",")]
             assert got == pytest.approx(centre, abs=0.051), (run, got, centre)
 
