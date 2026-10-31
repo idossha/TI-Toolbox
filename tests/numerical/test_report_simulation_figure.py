@@ -10,7 +10,9 @@ Pins (2026-10-22, package p03):
   zero, which turned the whole figure NaN);
 * the hot spot is coloured at the top of the scale: some pixel is the inferno top colour at the
   overlay's 0.85 opacity over a grey value in [0, 1];
-* the WebP is 2 px per voxel of the composed image.
+* the WebP is 2 px per voxel of the composed image;
+* (2026-10-31) no panel is cropped: each reaches every face of the grid, in a black frame of
+  ``tit.plotting.slices.MARGIN`` voxels, with the panel sizes worked out from the grid by hand.
 
 Every expected number is placed by hand: the grid's affine maps voxel (i, j, k) to world
 (k - 20, 30 - i, j - 10) mm, so the hot spot at voxel (12, 15, 30) is world (10, 18, 5).
@@ -138,3 +140,34 @@ def test_a_single_frame_4d_envelope_draws_like_3d(tmp_path, monkeypatch):
     out, img = _draw(monkeypatch, rec, t1_path)
     assert out["labels"] == LABELS
     _check_pixels(out, img)
+
+
+def test_every_panel_shows_the_whole_head_in_a_black_frame(tmp_path, monkeypatch):
+    """The head reaches every face of the grid and the brain sits inside it, so the nonzero T1's
+    bounding box is the whole grid: every panel must reach the grid's faces (bright scalp all
+    round its edge) inside a black frame of ``MARGIN`` voxels. The crop to the brain used before
+    2026-10-31 cut the scalp off every edge."""
+    from tit.plotting.slices import MARGIN
+
+    grey = np.zeros(SHAPE, np.float32)
+    grey[12:28, 8:22, 15:35] = 0.1  # the brain, clear of every face
+    grey[18:22, 13:17, 23:27] = 1.0
+    t1 = np.full(SHAPE, 200.0, np.float32)  # scalp brighter than any brain voxel: white
+    t1[grey > 0] = np.linspace(50, 100, int((grey > 0).sum()))
+    rec, t1_path = _sim(tmp_path, grey, np.zeros(SHAPE), t1)
+    out, img = _draw(monkeypatch, rec, t1_path)
+    _check_pixels(out, img)
+    # The PSR grid in RAS order is (50, 40, 30): axial 40 x 50, coronal 30 x 50, sagittal 30 x 40.
+    panels = [(40, 50), (30, 50), (30, 40)]
+    h, w = out["tile"]
+    assert (h, w) == (40 + 2 * MARGIN, 50 + 2 * MARGIN)
+    for n, (ph, pw) in enumerate(panels):
+        cell = img[:, n * (w + 4) : n * (w + 4) + w]  # mosaic's default 4-pixel gap
+        top, left = (h - ph) // 2, (w - pw) // 2
+        frame = np.ones((h, w), bool)
+        frame[top : top + ph, left : left + pw] = False
+        assert not cell[frame].any(), n  # black all round
+        panel = cell[top : top + ph, left : left + pw]
+        edge = np.ones((ph, pw), bool)
+        edge[1:-1, 1:-1] = False
+        assert np.allclose(panel[edge], 1.0), n  # the scalp at every face of the grid

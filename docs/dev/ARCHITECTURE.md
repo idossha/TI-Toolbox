@@ -1249,7 +1249,8 @@ record predates them.
 **Slice figures share one convention.** `tit/plotting/slices.py` reorders every volume to the closest
 RAS voxel order, draws neurological panels (subject left on image left, anterior up in axial,
 superior up in coronal and sagittal, anterior right in sagittal), and picks slices by MNI coordinate
-through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. Without the warp,
+through charm's `Conform2MNI_nonl` warp, never on a slice with under 200 brain voxels. A panel is never cropped:
+it is the whole slice of the volume in a black frame of `MARGIN` voxels (a brain crop cut the scalp). Without the warp,
 coordinates are approximate and captions say so.
 
 **Simulator, flex-search and ex-search reports are written by their pipelines and read only the run's
@@ -1259,8 +1260,8 @@ cannot be written is a warning and never fails the run, and each is recorded as 
 its job. Each has `python -m tit.reporting.generators.<simulation|flex_search|ex_search> <project>
 <subject> <run>` to rebuild it. None of the three has checks; the default view is the verdict with key
 numbers; methods, references and the run's configuration are under Technical details. The simulator
-report leads with the grey-matter envelope (99.9th percentile, median, and the maximum's MNI coordinate
-through charm's warp, read at one voxel; no atlas lookup) and shows the montage on the EEG cap and the envelope
+report leads with the grey-matter envelope (99.9th percentile, median, and the hot spot's MNI coordinate
+through charm's warp, read at one voxel; no atlas lookup and no raw maximum) and shows the montage on the EEG cap and the envelope
 through the hot spot; it reads no Analyzer result. Flex-search names the ROI from the run's ROI
 confirmation, embeds the run's own `roi.png` and `valid_skin_region.png` as WebP, states the score in
 words and lists every multi-start run; ex-search charts every montage's ROI mean against focality and

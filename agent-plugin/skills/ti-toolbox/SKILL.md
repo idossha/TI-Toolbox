@@ -9,7 +9,7 @@ user-invocable: false
 **TI-Toolbox** simulates, optimizes and analyzes temporal-interference (TI) brain
 stimulation on subject-specific head models. It wraps SimNIBS, FastSurfer/FreeSurfer
 and (optionally) QSIPrep/QSIRecon. Docs: https://idossha.github.io/TI-Toolbox/ ·
-Repo: https://github.com/idossha/TI-Toolbox · Cite: Haber et al. 2025,
+Repo: https://github.com/idossha/TI-Toolbox · Cite: Haber et al. 2026,
 *Brain Stimulation*, doi:10.1016/j.brs.2025.103016.
 
 ## What v3 is (this is the single most common thing to get wrong)

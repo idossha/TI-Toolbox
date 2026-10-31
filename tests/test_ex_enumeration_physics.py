@@ -201,8 +201,8 @@ def _top_table_keys(html: str) -> list:
         keys.append(
             frozenset(
                 {
-                    (frozenset(cells[1].split("–")), currents[0]),
-                    (frozenset(cells[2].split("–")), currents[1]),
+                    (frozenset(re.sub(r"\([+−]\)", "", cells[1]).split("–")), currents[0]),
+                    (frozenset(re.sub(r"\([+−]\)", "", cells[2]).split("–")), currents[1]),
                 }
             )
         )

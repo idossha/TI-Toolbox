@@ -16,7 +16,7 @@ dark theme, work offline and can be shared as single files.
 - **DTI QC report** — written by the DTI tensor step: a verdict, the one published-range gate, advisories
   such as missing distortion correction, and registration and fibre-orientation figures.
 - **Simulation report** — written after every simulated montage: the grey-matter envelope (99.9th
-  percentile and median) and where its maximum is (MNI coordinate), the montage on the EEG cap
+  percentile and median) and where its hot spot is (MNI coordinate), the montage on the EEG cap
   with the current per channel and in total, the conductivity model (and whether the DTI tensor was used),
   and the TI envelope in three planes through the hot spot.
 - **Flex-search report** — the target by name with the run's own target figure, what the score means in

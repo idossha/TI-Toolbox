@@ -230,7 +230,7 @@ def target_description(cfg: dict) -> str:
 
 
 def _montage_name(pairs: list[list[str]]) -> str:
-    return " ‖ ".join("–".join(p) for p in pairs)
+    return " ‖ ".join(common.polar_pair(p) for p in pairs)
 
 
 def density_chart(rows: list[dict], top: int = TOP_N) -> str:
@@ -338,7 +338,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
     net = net_of(cfg)
     mA = channel_currents(best)
     channels = len(pairs)
-    channels_word = {2: "two", 4: "four"}.get(channels, str(channels))
+    channels_word = common.number_word(channels)
     # ex sweeps the split; mEx (run_config "current_mA") runs one fixed current per pair
     swept = cfg.get("current_mA") is None
 
@@ -359,11 +359,6 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             "Focality",
             f"{best['Focality']:.2f}<small>×</small>",
             "ROI mean ÷ grey-matter mean",
-        ),
-        (
-            "ROI peak",
-            f"{best['TImax_ROI']:.3f}<small>V/m</small>",
-            "maximum in the ROI",
         ),
         (
             "Montages",
@@ -468,12 +463,11 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             [
                 (str(i), i),
                 *[
-                    esc("–".join(r["pairs"][k])) if k < len(r["pairs"]) else ""
+                    esc(common.polar_pair(r["pairs"][k])) if k < len(r["pairs"]) else ""
                     for k in range(channels)
                 ],
                 (" / ".join(fmt(v) for v in currents), currents[0]),
                 (f"{r['TImean_ROI']:.3f}", r["TImean_ROI"]),
-                (f"{r['TImax_ROI']:.3f}", r["TImax_ROI"]),
                 (f"{r['TImean_GM']:.3f}", r["TImean_GM"]),
                 (f"{r['Focality']:.2f}", r["Focality"]),
                 (
@@ -496,7 +490,6 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             *[f"Channel {k}" for k in range(1, channels + 1)],
             "mA",
             "ROI mean",
-            "ROI max",
             "GM mean",
             "Focality",
             "Composite",
@@ -509,7 +502,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
             if carrier
             else ""
         ),
-        right={0, *range(channels + 1, channels + (9 if carrier else 7))},
+        right={0, *range(channels + 1, channels + (8 if carrier else 6))},
         sortable=True,
     )
     skipped = rec.get("skipped", 0)
@@ -595,7 +588,7 @@ def build_html(rec: dict, subject_id: str, generated: datetime | None = None) ->
 
     # ── 5. technical ──
     paras = [
-        f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox: {n:,} {channels_word}-channel combinations{' and current splits' if swept else ''} on the {esc(Path(net).stem)} positions"
+        f"Electrode montages for temporal interference stimulation were ranked by exhaustive search in TI-Toolbox {cite('haber2026_titoolbox')}: {n:,} {channels_word}-channel combinations{' and current splits' if swept else ''} on the {esc(Path(net).stem)} positions"
         + (f" {cite('jurcak2007_eeg_positions')}" if "10-" in net else "")
         + f", each evaluated from a SimNIBS {esc(lf.get('simnibs') or '')} {cite('saturnino2019_simnibs21')} leadfield of subject {esc(subject_id)}'s head model "
         f"{cite('puonti2020_charm')}"

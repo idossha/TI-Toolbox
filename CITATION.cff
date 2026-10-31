@@ -40,7 +40,10 @@ preferred-citation:
   type: article
   title: "TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research"
   journal: "Brain Stimulation: Basic, Translational, and Clinical Research in Neuromodulation"
-  year: 2025
+  year: 2026
+  volume: 19
+  issue: 1
+  start: 103016
   doi: 10.1016/j.brs.2025.103016
   authors:
     - family-names: Haber

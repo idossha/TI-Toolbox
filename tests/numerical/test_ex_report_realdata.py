@@ -60,9 +60,12 @@ def _mtimes(paths: list[Path]) -> dict[Path, int]:
 
 
 def _montage_name(cell: str) -> str:
-    """``AF7_AFz <> CP6_P10_I1-1.6mA_I2-0.4mA`` -> ``AF7–AFz ‖ CP6–P10`` (the page's spelling)."""
+    """``AF7_AFz <> CP6_P10_I1-1.6mA_I2-0.4mA`` -> ``AF7(+)–AFz(−) ‖ CP6(+)–P10(−)`` (the page's
+    spelling: a channel's first electrode carries +I)."""
     bare = re.sub(r"_I1?-[\d.]+mA(_I2-[\d.]+mA)?$", "", cell.strip())
-    return " ‖ ".join("–".join(pair.strip().split("_", 1)) for pair in bare.split("<>"))
+    return " ‖ ".join(
+        "{}(+)–{}(−)".format(*pair.strip().split("_", 1)) for pair in bare.split("<>")
+    )
 
 
 def _hdf5_log_facts(leadfields: Path, hdf: str) -> tuple[str, str | None] | None:

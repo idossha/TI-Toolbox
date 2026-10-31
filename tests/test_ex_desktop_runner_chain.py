@@ -443,7 +443,7 @@ def test_the_report_leads_with_the_hand_winner(chain):
     html = Path(reports[0]).read_text()
     electrodes, currents = chain.winner
     name = " ‖ ".join(
-        "–".join(electrodes[i : i + 2]) for i in range(0, len(electrodes), 2)
+        "{}(+)–{}(−)".format(*electrodes[i : i + 2]) for i in range(0, len(electrodes), 2)
     )
     assert f"{name} leads {len(chain.hand):,} montages" in html
     best = chain.hand[chain.winner]

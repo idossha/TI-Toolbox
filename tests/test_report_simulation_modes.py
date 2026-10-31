@@ -84,6 +84,13 @@ NET_MTI = NET + [("F3", "P4"), ("F4", "P3")]
 MAPPED = [("E010", "E011"), ("E012", "E013")]
 MAPPED_MTI = MAPPED + [("E020", "E021"), ("E030", "E031")]
 
+def _polar(names: list[str]) -> str:
+    """``"a(+) → b(−), c(+) → d(−) and …"``: the first electrode of a channel carries +I in
+    tit.sim (``tdcs.currents = [I, -I]``); coordinates keep their arrow."""
+    channels = [n.replace(" → ", "(+) → ") + "(−)" for n in names]
+    return ", ".join(channels[:-1]) + " and " + channels[-1]
+
+
 #: (montage mode, pairs, eeg_net, channel text per pair, the lede's montage phrase)
 CASES = {
     "net-TI": (
@@ -91,56 +98,56 @@ CASES = {
         NET,
         "EEG10-10_UI_Jurak_2007.csv",
         ["AF3 → PO10", "AF4 → Oz"],
-        "AF3–PO10 and AF4–Oz",
+        "AF3(+)–PO10(−) and AF4(+)–Oz(−)",
     ),
     "net-mTI": (
         MontageMode.NET,
         NET_MTI,
         "EEG10-10_UI_Jurak_2007.csv",
         ["AF3 → PO10", "AF4 → Oz", "F3 → P4", "F4 → P3"],
-        "AF3–PO10 and AF4–Oz and F3–P4 and F4–P3",
+        "AF3(+)–PO10(−), AF4(+)–Oz(−), F3(+)–P4(−) and F4(+)–P3(−)",
     ),
     "flex_mapped-TI": (
         MontageMode.FLEX_MAPPED,
         MAPPED,
         "GSN-HydroCel-185.csv",
         ["E010 → E011", "E012 → E013"],
-        "E010–E011 and E012–E013",
+        "E010(+)–E011(−) and E012(+)–E013(−)",
     ),
     "flex_mapped-mTI": (
         MontageMode.FLEX_MAPPED,
         MAPPED_MTI,
         "GSN-HydroCel-185.csv",
         ["E010 → E011", "E012 → E013", "E020 → E021", "E030 → E031"],
-        "E010–E011 and E012–E013 and E020–E021 and E030–E031",
+        "E010(+)–E011(−), E012(+)–E013(−), E020(+)–E021(−) and E030(+)–E031(−)",
     ),
     "flex_free-TI": (
         MontageMode.FLEX_FREE,
         CHN,
         None,
         CHN_NAMES,
-        " and ".join(CHN_NAMES),
+        _polar(CHN_NAMES),
     ),
     "flex_free-mTI": (
         MontageMode.FLEX_FREE,
         CHN_MTI,
         None,
         CHN_MTI_NAMES,
-        " and ".join(CHN_MTI_NAMES),
+        _polar(CHN_MTI_NAMES),
     ),
     "freehand-TI": (
         MontageMode.FREEHAND,
         FREE,
         None,
         FREE_NAMES,
-        " and ".join(FREE_NAMES),
+        _polar(FREE_NAMES),
     ),
     "freehand-mTI": (
         MontageMode.FREEHAND,
         FREE_MTI,
         None,
         FREE_MTI_NAMES,
-        " and ".join(FREE_MTI_NAMES),
+        _polar(FREE_MTI_NAMES),
     ),
 }
 
@@ -307,5 +314,5 @@ def test_the_simulation_pipeline_writes_a_report_for_an_xyz_montage(tmp_path):
     )
     assert len(reports) == 1
     page = reports[0].read_text()
-    assert f"Temporal interference with {CHN_NAMES[0]} and {CHN_NAMES[1]}" in page
-    assert "its maximum, 0.700 V/m, is at (1, 2, 3) mm, subject space." in page
+    assert f"Temporal interference with {_polar(CHN_NAMES)}" in page
+    assert "its hot spot (top 0.1 %) is at (1, 2, 3) mm, subject space." in page

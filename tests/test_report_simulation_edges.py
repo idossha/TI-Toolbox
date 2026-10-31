@@ -5,7 +5,8 @@ Pins (2026-10-22, package p03):
 
 * an mTI simulation is read from ``mTI/niftis`` even when a stale ``TI/niftis`` volume sits beside it,
   and is reported as multichannel with carrier i on pair i;
-* the grey-matter maximum is located with NaN voxels ignored (``np.argmax`` returned the first NaN);
+* the grey-matter hot spot is located with NaN voxels ignored (``np.argmax`` returned the first NaN),
+  and no raw maximum is recorded (the 99.9th percentile is the peak, 2026-10-31);
 * a subject envelope saved as ``(X, Y, Z, 1)`` reads like its 3-D twin (it crashed the peak lookup
   with a matmul shape mismatch);
 * a simulation named with glob characters (``a[1]``) still finds its envelope;
@@ -14,8 +15,8 @@ Pins (2026-10-22, package p03):
 * the figure of a uniform envelope (median = 99.9th percentile) and of a constant T1 gets finite,
   ordered colour limits and a finite grey background (both divided zero by zero before).
 
-Every expected number comes from the arrays built here: the maximum and its voxel are placed by
-hand and mapped through the hand-written affine; median and percentiles of a handful of values are
+Every expected number comes from the arrays built here: the hot voxel (the only one at or above
+the 99.9th percentile of a handful of values) is placed by hand and mapped through the hand-written affine; median and percentiles of a handful of values are
 worked out by hand.
 """
 
@@ -89,13 +90,13 @@ def test_mti_reads_its_own_volume_not_a_stale_ti_one(tmp_path):
     assert rec["mode"] == "mTI" and rec["niftis"]["grey"].endswith(
         "grey_M_mTI_subject_mTI_max.nii.gz"
     )
-    assert rec["envelope"]["max"] == pytest.approx(0.7)
-    assert rec["envelope"]["peak_world"] == [2 * 2 - 10, 2 * 1 + 5, 2 * 0 + 3]
+    assert "max" not in rec["envelope"]
+    assert rec["envelope"]["hotspot_world"] == [2 * 2 - 10, 2 * 1 + 5, 2 * 0 + 3]
     with patch(CAP, return_value=None):
         page = sim.build_html(rec, None, "X")
     assert '<div class="kind">mTI simulation</div>' in page
     assert (
-        "Multichannel temporal interference with AF3–PO10 and AF4–Oz and F3–P4 and F4–P3"
+        "Multichannel temporal interference with AF3(+)–PO10(−), AF4(+)–Oz(−), F3(+)–P4(−) and F4(+)–P3(−)"
         in page
     )
     assert [r[:2] for r in carrier_rows(page)] == [
@@ -115,8 +116,7 @@ def test_peak_ignores_nan_voxels(tmp_path):
     env = _with_volumes(
         write_run(tmp_path, _ti()), {"TI/niftis/grey_M_TI_subject_TI_max.nii.gz": gm}
     )["envelope"]
-    assert env["max"] == 0.5
-    assert env["peak_world"] == [2 * 2 - 10, 2 * 1 + 5, 2 * 2 + 3]
+    assert env["hotspot_world"] == [2 * 2 - 10, 2 * 1 + 5, 2 * 2 + 3]
     # the positive voxels are 0.1, 0.2, 0.3, 0.5: median (0.2 + 0.3) / 2
     assert env["median"] == pytest.approx(0.25)
 
@@ -127,8 +127,7 @@ def test_a_single_frame_4d_envelope_reads_like_its_3d_twin(tmp_path):
         write_run(tmp_path, _ti()),
         {"TI/niftis/grey_M_TI_subject_TI_max.nii.gz": gm[..., None]},
     )["envelope"]
-    assert env["max"] == pytest.approx(0.6)
-    assert env["peak_world"] == [2 * 1 - 10, 2 * 2 + 5, 2 * 0 + 3]
+    assert env["hotspot_world"] == [2 * 1 - 10, 2 * 2 + 5, 2 * 0 + 3]
 
 
 def test_glob_characters_in_the_simulation_name(tmp_path):
@@ -137,7 +136,7 @@ def test_glob_characters_in_the_simulation_name(tmp_path):
         d, {"TI/niftis/grey_a[1]_TI_subject_TI_max.nii.gz": _grey((0, 2, 1), 0.4)}
     )
     assert rec["niftis"]["grey"].endswith("grey_a[1]_TI_subject_TI_max.nii.gz")
-    assert rec["envelope"]["peak_world"] == [2 * 0 - 10, 2 * 2 + 5, 2 * 1 + 3]
+    assert rec["envelope"]["hotspot_world"] == [2 * 0 - 10, 2 * 2 + 5, 2 * 1 + 3]
 
 
 # ── (e) carrier-only control ─────────────────────────────────────────────
@@ -150,14 +149,15 @@ def test_a_carrier_only_control_is_not_reported_as_temporal_interference(tmp_pat
     assert rec["envelope"] is None and rec["niftis"] == {}
     with patch(CAP, return_value=None):
         page = sim.build_html(rec, None, "X")
-    text = visible_text(page)
+    # The reference list may name TI-Toolbox's paper ("… temporal interference stimulation research").
+    text = visible_text(page.split('<h3 class="sub">References</h3>', 1)[0])
     assert "Temporal interference" not in text and "temporal interference" not in text
     assert "TI envelope" not in text and "TI simulation" not in text
     headline = page.split('<h2 id="verdict-h">', 1)[1].split("</h2>", 1)[0]
     assert headline == "M: carrier-only control, no envelope (ΔF = 0)"
     assert '<div class="kind">Carrier-only control</div>' in page
     assert (
-        "Carrier-only control with AF3–PO10 and AF4–Oz at 1 mA per channel (2 mA total)"
+        "Carrier-only control with AF3(+)–PO10(−) and AF4(+)–Oz(−) at 1 mA per channel (2 mA total)"
         in page
     )
     assert (
@@ -192,6 +192,25 @@ def test_a_constant_t1_gets_a_finite_background(tmp_path, drawn):
             and panel.grey.min() >= 0
             and panel.grey.max() <= 1
         )
+
+
+def test_a_grey_only_nifti_is_voxelised_again_with_white_matter(tmp_path):
+    # An analysis that needs only the grey NIfTI saves only that one; drawn alone, white matter
+    # was left uncoloured in the figure. Both tissues then come from the field mesh.
+    d = write_run(tmp_path, _ti())
+    (d / "TI" / "niftis").mkdir(parents=True)
+    (d / "TI" / "niftis" / "grey_M_TI_subject_TI_max.nii.gz").touch()
+    voxelised = {"grey": tmp_path / "g.nii.gz", "white": tmp_path / "w.nii.gz"}
+    imgs = {
+        "g.nii.gz": SimpleNamespace(dataobj=_grey(), affine=AFFINE),
+        "w.nii.gz": SimpleNamespace(dataobj=_grey(), affine=AFFINE),
+    }
+    with patch.object(sim, "_voxelised_envelope", return_value=voxelised) as vox, patch(
+        "nibabel.load", side_effect=lambda p: imgs[Path(p).name]
+    ):
+        rec = sim.collect(d, m2m=tmp_path, scratch=tmp_path / "scratch")
+    vox.assert_called_once()
+    assert rec["niftis"] == {k: str(p) for k, p in voxelised.items()}
 
 
 def test_a_run_without_niftis_or_field_meshes_says_why_it_has_no_figure(tmp_path):

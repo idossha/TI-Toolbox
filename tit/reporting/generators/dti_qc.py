@@ -551,7 +551,7 @@ def build_html(
         f"Diffusion tensors were fitted by weighted least squares in DIPY {cite('garyfallidis2014_dipy')} to the volumes with b ≤ {bmax:g} s/mm², "
         "mapped into the head model's T1 space with QSIPrep's AC-PC-to-T1w transform, resampled by normalised trilinear interpolation, "
         "reoriented by the rotation factor of that transform, and restricted to the dilated white- and grey-matter mask of the charm "
-        f"segmentation {cite('puonti2020_charm')} (TI-Toolbox). The tensor was accepted when white-matter median diffusivity "
+        f"segmentation {cite('puonti2020_charm')} (TI-Toolbox {cite('haber2026_titoolbox')}). The tensor was accepted when white-matter median diffusivity "
         f"lay in {md_range} {cite.dois(RULES['dti']['wm_md_median']['cite'])} and software consistency checks passed."
     )
     paras.append(

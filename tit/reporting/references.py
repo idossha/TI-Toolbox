@@ -12,6 +12,18 @@ DEFAULT_REFERENCES: list[dict[str, str]] = [
     # Core TI-Toolbox, TI & SimNIBS references
     # ==========================================================================
     {
+        # Volume, issue, article number and year (the issue's, January 2026) from Crossref
+        # (api.crossref.org/works/10.1016/j.brs.2025.103016), 2026-10-31.
+        "key": "haber2026_titoolbox",
+        "label": "Haber2026",
+        "citation": (
+            "Haber I, Jackson A, Thielscher A, Hai A, Tononi G. TI-Toolbox: an "
+            "open-source software for temporal interference stimulation research. "
+            "Brain Stimulation. 2026;19(1):103016."
+        ),
+        "doi": "10.1016/j.brs.2025.103016",
+    },
+    {
         "key": "grossman2017_ti",
         "label": "Grossman2017",
         "citation": (
