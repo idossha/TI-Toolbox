@@ -4645,11 +4645,7 @@ run_group_comparison : Two-group comparison with the same correction.</p>
 
                   <details class="quote">
                     <summary>Source code in <code>tit/stats/engine.py</code></summary>
-                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-682">682</a></span>
-<span class="normal"><a href="#__codelineno-0-683">683</a></span>
-<span class="normal"><a href="#__codelineno-0-684">684</a></span>
-<span class="normal"><a href="#__codelineno-0-685">685</a></span>
-<span class="normal"><a href="#__codelineno-0-686">686</a></span>
+                    <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-686">686</a></span>
 <span class="normal"><a href="#__codelineno-0-687">687</a></span>
 <span class="normal"><a href="#__codelineno-0-688">688</a></span>
 <span class="normal"><a href="#__codelineno-0-689">689</a></span>
@@ -4662,24 +4658,28 @@ run_group_comparison : Two-group comparison with the same correction.</p>
 <span class="normal"><a href="#__codelineno-0-696">696</a></span>
 <span class="normal"><a href="#__codelineno-0-697">697</a></span>
 <span class="normal"><a href="#__codelineno-0-698">698</a></span>
-<span class="normal"><a href="#__codelineno-0-699">699</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a>    <span class="n">n_permutations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="n">cluster_stat</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"mass"</span><span class="p">,</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="n">alternative</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"two-sided"</span><span class="p">,</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>    <span class="n">log</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a><span class="p">):</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span> <span class="o">=</span> <span class="n">cluster_threshold</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span> <span class="o">=</span> <span class="n">n_permutations</span>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">=</span> <span class="n">cluster_stat</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span> <span class="o">=</span> <span class="n">alternative</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span> <span class="o">=</span> <span class="n">n_jobs</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logger</span>
+<span class="normal"><a href="#__codelineno-0-699">699</a></span>
+<span class="normal"><a href="#__codelineno-0-700">700</a></span>
+<span class="normal"><a href="#__codelineno-0-701">701</a></span>
+<span class="normal"><a href="#__codelineno-0-702">702</a></span>
+<span class="normal"><a href="#__codelineno-0-703">703</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="n">cluster_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="n">n_permutations</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">1000</span><span class="p">,</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a>    <span class="n">alpha</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.05</span><span class="p">,</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="n">cluster_stat</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"mass"</span><span class="p">,</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="n">alternative</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"two-sided"</span><span class="p">,</span>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="n">log</span><span class="p">:</span> <span class="n">logging</span><span class="o">.</span><span class="n">Logger</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a><span class="p">):</span>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span> <span class="o">=</span> <span class="n">cluster_threshold</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span> <span class="o">=</span> <span class="n">n_permutations</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">=</span> <span class="n">alpha</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">=</span> <span class="n">cluster_stat</span>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span> <span class="o">=</span> <span class="n">alternative</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span> <span class="o">=</span> <span class="n">n_jobs</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logger</span>
 </code></pre></div></td></tr></table></div>
                   </details>
 
@@ -4715,11 +4715,7 @@ correlation_data)</code>.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-701">701</a></span>
-<span class="normal"><a href="#__codelineno-0-702">702</a></span>
-<span class="normal"><a href="#__codelineno-0-703">703</a></span>
-<span class="normal"><a href="#__codelineno-0-704">704</a></span>
-<span class="normal"><a href="#__codelineno-0-705">705</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-705">705</a></span>
 <span class="normal"><a href="#__codelineno-0-706">706</a></span>
 <span class="normal"><a href="#__codelineno-0-707">707</a></span>
 <span class="normal"><a href="#__codelineno-0-708">708</a></span>
@@ -4913,205 +4909,209 @@ correlation_data)</code>.</p>
 <span class="normal"><a href="#__codelineno-0-896">896</a></span>
 <span class="normal"><a href="#__codelineno-0-897">897</a></span>
 <span class="normal"><a href="#__codelineno-0-898">898</a></span>
-<span class="normal"><a href="#__codelineno-0-899">899</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-701" name="__codelineno-0-701"></a><span class="k">def</span><span class="w"> </span><span class="nf">correct_groups</span><span class="p">(</span>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a>    <span class="n">responders</span><span class="p">,</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a>    <span class="n">non_responders</span><span class="p">,</span>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="n">p_values</span><span class="p">,</span>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="n">t_statistics</span><span class="p">,</span>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a>    <span class="n">test_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"unpaired"</span><span class="p">,</span>
-<a id="__codelineno-0-710" name="__codelineno-0-710"></a>    <span class="n">perm_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a>    <span class="n">subject_ids_resp</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a>    <span class="n">subject_ids_non_resp</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-713" name="__codelineno-0-713"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a><span class="w">    </span><span class="sd">"""Cluster-based permutation correction for group comparison.</span>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="sd">    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a><span class="sd">    correlation_data)``.</span>
-<a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="sd">    """</span>
-<a id="__codelineno-0-719" name="__codelineno-0-719"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.io_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_permutation_details</span>
-<a id="__codelineno-0-720" name="__codelineno-0-720"></a>
-<a id="__codelineno-0-721" name="__codelineno-0-721"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"mass"</span> <span class="ow">and</span> <span class="n">t_statistics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-722" name="__codelineno-0-722"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"t_statistics required when cluster_stat='mass'"</span><span class="p">)</span>
-<a id="__codelineno-0-723" name="__codelineno-0-723"></a>
-<a id="__codelineno-0-724" name="__codelineno-0-724"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-725" name="__codelineno-0-725"></a>        <span class="s2">"Cluster-based permutation correction (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
-<a id="__codelineno-0-726" name="__codelineno-0-726"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-727" name="__codelineno-0-727"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="p">)</span>
-<a id="__codelineno-0-729" name="__codelineno-0-729"></a>
-<a id="__codelineno-0-730" name="__codelineno-0-730"></a>    <span class="n">initial_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_values</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">valid_mask</span>
-<a id="__codelineno-0-731" name="__codelineno-0-731"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">n_clusters</span> <span class="o">=</span> <span class="n">label_signed</span><span class="p">(</span>
-<a id="__codelineno-0-732" name="__codelineno-0-732"></a>        <span class="n">initial_mask</span><span class="p">,</span> <span class="n">t_statistics</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span>
-<a id="__codelineno-0-733" name="__codelineno-0-733"></a>    <span class="p">)</span>
-<a id="__codelineno-0-734" name="__codelineno-0-734"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-735" name="__codelineno-0-735"></a>        <span class="s2">"Clusters at p&lt;</span><span class="si">%.3f</span><span class="s2"> (uncorrected, sign-separated): </span><span class="si">%d</span><span class="s2">"</span><span class="p">,</span>
-<a id="__codelineno-0-736" name="__codelineno-0-736"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-737" name="__codelineno-0-737"></a>        <span class="n">n_clusters</span><span class="p">,</span>
-<a id="__codelineno-0-738" name="__codelineno-0-738"></a>    <span class="p">)</span>
-<a id="__codelineno-0-739" name="__codelineno-0-739"></a>
-<a id="__codelineno-0-740" name="__codelineno-0-740"></a>    <span class="n">empty</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])}</span>
-<a id="__codelineno-0-741" name="__codelineno-0-741"></a>    <span class="k">if</span> <span class="n">n_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-742" name="__codelineno-0-742"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
-<a id="__codelineno-0-743" name="__codelineno-0-743"></a>            <span class="s2">"No clusters found. Consider increasing cluster_threshold."</span>
-<a id="__codelineno-0-744" name="__codelineno-0-744"></a>        <span class="p">)</span>
-<a id="__codelineno-0-745" name="__codelineno-0-745"></a>        <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-746" name="__codelineno-0-746"></a>            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">p_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
-<a id="__codelineno-0-747" name="__codelineno-0-747"></a>            <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-748" name="__codelineno-0-748"></a>            <span class="p">[],</span>
-<a id="__codelineno-0-749" name="__codelineno-0-749"></a>            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
-<a id="__codelineno-0-750" name="__codelineno-0-750"></a>            <span class="p">[],</span>
-<a id="__codelineno-0-751" name="__codelineno-0-751"></a>            <span class="n">empty</span><span class="p">,</span>
-<a id="__codelineno-0-752" name="__codelineno-0-752"></a>        <span class="p">)</span>
-<a id="__codelineno-0-753" name="__codelineno-0-753"></a>
-<a id="__codelineno-0-754" name="__codelineno-0-754"></a>    <span class="c1"># Pre-extract voxel data</span>
-<a id="__codelineno-0-755" name="__codelineno-0-755"></a>    <span class="n">all_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">responders</span><span class="p">,</span> <span class="n">non_responders</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-756" name="__codelineno-0-756"></a>    <span class="n">n_resp</span> <span class="o">=</span> <span class="n">responders</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-757" name="__codelineno-0-757"></a>    <span class="n">n_total</span> <span class="o">=</span> <span class="n">n_resp</span> <span class="o">+</span> <span class="n">non_responders</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-758" name="__codelineno-0-758"></a>
-<a id="__codelineno-0-759" name="__codelineno-0-759"></a>    <span class="n">test_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span>
-<a id="__codelineno-0-760" name="__codelineno-0-760"></a>    <span class="n">n_test</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_coords</span><span class="p">)</span>
-<a id="__codelineno-0-761" name="__codelineno-0-761"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Pre-extracting </span><span class="si">%d</span><span class="s2"> voxels, </span><span class="si">%d</span><span class="s2"> subjects"</span><span class="p">,</span> <span class="n">n_test</span><span class="p">,</span> <span class="n">n_total</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-899">899</a></span>
+<span class="normal"><a href="#__codelineno-0-900">900</a></span>
+<span class="normal"><a href="#__codelineno-0-901">901</a></span>
+<span class="normal"><a href="#__codelineno-0-902">902</a></span>
+<span class="normal"><a href="#__codelineno-0-903">903</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-705" name="__codelineno-0-705"></a><span class="k">def</span><span class="w"> </span><span class="nf">correct_groups</span><span class="p">(</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="n">responders</span><span class="p">,</span>
+<a id="__codelineno-0-708" name="__codelineno-0-708"></a>    <span class="n">non_responders</span><span class="p">,</span>
+<a id="__codelineno-0-709" name="__codelineno-0-709"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-710" name="__codelineno-0-710"></a>    <span class="n">p_values</span><span class="p">,</span>
+<a id="__codelineno-0-711" name="__codelineno-0-711"></a>    <span class="n">t_statistics</span><span class="p">,</span>
+<a id="__codelineno-0-712" name="__codelineno-0-712"></a>    <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-713" name="__codelineno-0-713"></a>    <span class="n">test_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"unpaired"</span><span class="p">,</span>
+<a id="__codelineno-0-714" name="__codelineno-0-714"></a>    <span class="n">perm_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-715" name="__codelineno-0-715"></a>    <span class="n">subject_ids_resp</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a>    <span class="n">subject_ids_non_resp</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a><span class="w">    </span><span class="sd">"""Cluster-based permutation correction for group comparison.</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a>
+<a id="__codelineno-0-720" name="__codelineno-0-720"></a><span class="sd">    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,</span>
+<a id="__codelineno-0-721" name="__codelineno-0-721"></a><span class="sd">    correlation_data)``.</span>
+<a id="__codelineno-0-722" name="__codelineno-0-722"></a><span class="sd">    """</span>
+<a id="__codelineno-0-723" name="__codelineno-0-723"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.io_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_permutation_details</span>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a>
+<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"mass"</span> <span class="ow">and</span> <span class="n">t_statistics</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"t_statistics required when cluster_stat='mass'"</span><span class="p">)</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a>
+<a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-729" name="__codelineno-0-729"></a>        <span class="s2">"Cluster-based permutation correction (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-730" name="__codelineno-0-730"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-731" name="__codelineno-0-731"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-732" name="__codelineno-0-732"></a>    <span class="p">)</span>
+<a id="__codelineno-0-733" name="__codelineno-0-733"></a>
+<a id="__codelineno-0-734" name="__codelineno-0-734"></a>    <span class="n">initial_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_values</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">valid_mask</span>
+<a id="__codelineno-0-735" name="__codelineno-0-735"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">n_clusters</span> <span class="o">=</span> <span class="n">label_signed</span><span class="p">(</span>
+<a id="__codelineno-0-736" name="__codelineno-0-736"></a>        <span class="n">initial_mask</span><span class="p">,</span> <span class="n">t_statistics</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span>
+<a id="__codelineno-0-737" name="__codelineno-0-737"></a>    <span class="p">)</span>
+<a id="__codelineno-0-738" name="__codelineno-0-738"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-739" name="__codelineno-0-739"></a>        <span class="s2">"Clusters at p&lt;</span><span class="si">%.3f</span><span class="s2"> (uncorrected, sign-separated): </span><span class="si">%d</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-740" name="__codelineno-0-740"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-741" name="__codelineno-0-741"></a>        <span class="n">n_clusters</span><span class="p">,</span>
+<a id="__codelineno-0-742" name="__codelineno-0-742"></a>    <span class="p">)</span>
+<a id="__codelineno-0-743" name="__codelineno-0-743"></a>
+<a id="__codelineno-0-744" name="__codelineno-0-744"></a>    <span class="n">empty</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])}</span>
+<a id="__codelineno-0-745" name="__codelineno-0-745"></a>    <span class="k">if</span> <span class="n">n_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-746" name="__codelineno-0-746"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span>
+<a id="__codelineno-0-747" name="__codelineno-0-747"></a>            <span class="s2">"No clusters found. Consider increasing cluster_threshold."</span>
+<a id="__codelineno-0-748" name="__codelineno-0-748"></a>        <span class="p">)</span>
+<a id="__codelineno-0-749" name="__codelineno-0-749"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-750" name="__codelineno-0-750"></a>            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">p_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+<a id="__codelineno-0-751" name="__codelineno-0-751"></a>            <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-752" name="__codelineno-0-752"></a>            <span class="p">[],</span>
+<a id="__codelineno-0-753" name="__codelineno-0-753"></a>            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+<a id="__codelineno-0-754" name="__codelineno-0-754"></a>            <span class="p">[],</span>
+<a id="__codelineno-0-755" name="__codelineno-0-755"></a>            <span class="n">empty</span><span class="p">,</span>
+<a id="__codelineno-0-756" name="__codelineno-0-756"></a>        <span class="p">)</span>
+<a id="__codelineno-0-757" name="__codelineno-0-757"></a>
+<a id="__codelineno-0-758" name="__codelineno-0-758"></a>    <span class="c1"># Pre-extract voxel data</span>
+<a id="__codelineno-0-759" name="__codelineno-0-759"></a>    <span class="n">all_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">([</span><span class="n">responders</span><span class="p">,</span> <span class="n">non_responders</span><span class="p">],</span> <span class="n">axis</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-760" name="__codelineno-0-760"></a>    <span class="n">n_resp</span> <span class="o">=</span> <span class="n">responders</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-761" name="__codelineno-0-761"></a>    <span class="n">n_total</span> <span class="o">=</span> <span class="n">n_resp</span> <span class="o">+</span> <span class="n">non_responders</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 <a id="__codelineno-0-762" name="__codelineno-0-762"></a>
-<a id="__codelineno-0-763" name="__codelineno-0-763"></a>    <span class="n">test_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_test</span><span class="p">,</span> <span class="n">n_total</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-<a id="__codelineno-0-764" name="__codelineno-0-764"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">test_coords</span><span class="p">):</span>
-<a id="__codelineno-0-765" name="__codelineno-0-765"></a>        <span class="n">test_data</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">all_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
-<a id="__codelineno-0-766" name="__codelineno-0-766"></a>    <span class="k">del</span> <span class="n">all_data</span>
-<a id="__codelineno-0-767" name="__codelineno-0-767"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-768" name="__codelineno-0-768"></a>
-<a id="__codelineno-0-769" name="__codelineno-0-769"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Test data: </span><span class="si">%.1f</span><span class="s2"> MB"</span><span class="p">,</span> <span class="n">test_data</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
-<a id="__codelineno-0-770" name="__codelineno-0-770"></a>
-<a id="__codelineno-0-771" name="__codelineno-0-771"></a>    <span class="n">actual_jobs</span> <span class="o">=</span> <span class="n">resolve_n_jobs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)</span>
-<a id="__codelineno-0-772" name="__codelineno-0-772"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-773" name="__codelineno-0-773"></a>        <span class="s2">"Running </span><span class="si">%d</span><span class="s2"> permutations on </span><span class="si">%d</span><span class="s2"> cores"</span><span class="p">,</span>
-<a id="__codelineno-0-774" name="__codelineno-0-774"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">,</span>
-<a id="__codelineno-0-775" name="__codelineno-0-775"></a>        <span class="n">actual_jobs</span><span class="p">,</span>
-<a id="__codelineno-0-776" name="__codelineno-0-776"></a>    <span class="p">)</span>
-<a id="__codelineno-0-777" name="__codelineno-0-777"></a>
-<a id="__codelineno-0-778" name="__codelineno-0-778"></a>    <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-779" name="__codelineno-0-779"></a>    <span class="n">track</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-780" name="__codelineno-0-780"></a>        <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-781" name="__codelineno-0-781"></a>        <span class="ow">and</span> <span class="n">subject_ids_resp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-782" name="__codelineno-0-782"></a>        <span class="ow">and</span> <span class="n">subject_ids_non_resp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-783" name="__codelineno-0-783"></a>    <span class="p">)</span>
-<a id="__codelineno-0-784" name="__codelineno-0-784"></a>
-<a id="__codelineno-0-785" name="__codelineno-0-785"></a>    <span class="k">if</span> <span class="n">actual_jobs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-786" name="__codelineno-0-786"></a>        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-787" name="__codelineno-0-787"></a>            <span class="n">_run_single_permutation</span><span class="p">(</span>
-<a id="__codelineno-0-788" name="__codelineno-0-788"></a>                <span class="n">test_data</span><span class="p">,</span>
-<a id="__codelineno-0-789" name="__codelineno-0-789"></a>                <span class="n">test_coords</span><span class="p">,</span>
-<a id="__codelineno-0-790" name="__codelineno-0-790"></a>                <span class="n">n_resp</span><span class="p">,</span>
-<a id="__codelineno-0-791" name="__codelineno-0-791"></a>                <span class="n">n_total</span><span class="p">,</span>
-<a id="__codelineno-0-792" name="__codelineno-0-792"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-793" name="__codelineno-0-793"></a>                <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-794" name="__codelineno-0-794"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-<a id="__codelineno-0-795" name="__codelineno-0-795"></a>                <span class="n">test_type</span><span class="o">=</span><span class="n">test_type</span><span class="p">,</span>
-<a id="__codelineno-0-796" name="__codelineno-0-796"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-797" name="__codelineno-0-797"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-798" name="__codelineno-0-798"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-799" name="__codelineno-0-799"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
-<a id="__codelineno-0-800" name="__codelineno-0-800"></a>            <span class="p">)</span>
-<a id="__codelineno-0-801" name="__codelineno-0-801"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-802" name="__codelineno-0-802"></a>        <span class="p">]</span>
-<a id="__codelineno-0-803" name="__codelineno-0-803"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-804" name="__codelineno-0-804"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">actual_jobs</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span>
-<a id="__codelineno-0-805" name="__codelineno-0-805"></a>            <span class="n">delayed</span><span class="p">(</span><span class="n">_run_single_permutation</span><span class="p">)(</span>
-<a id="__codelineno-0-806" name="__codelineno-0-806"></a>                <span class="n">test_data</span><span class="p">,</span>
-<a id="__codelineno-0-807" name="__codelineno-0-807"></a>                <span class="n">test_coords</span><span class="p">,</span>
-<a id="__codelineno-0-808" name="__codelineno-0-808"></a>                <span class="n">n_resp</span><span class="p">,</span>
-<a id="__codelineno-0-809" name="__codelineno-0-809"></a>                <span class="n">n_total</span><span class="p">,</span>
-<a id="__codelineno-0-810" name="__codelineno-0-810"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-811" name="__codelineno-0-811"></a>                <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-812" name="__codelineno-0-812"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-<a id="__codelineno-0-813" name="__codelineno-0-813"></a>                <span class="n">test_type</span><span class="o">=</span><span class="n">test_type</span><span class="p">,</span>
-<a id="__codelineno-0-814" name="__codelineno-0-814"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-815" name="__codelineno-0-815"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-816" name="__codelineno-0-816"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-817" name="__codelineno-0-817"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
-<a id="__codelineno-0-818" name="__codelineno-0-818"></a>            <span class="p">)</span>
-<a id="__codelineno-0-819" name="__codelineno-0-819"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-820" name="__codelineno-0-820"></a>        <span class="p">)</span>
-<a id="__codelineno-0-821" name="__codelineno-0-821"></a>        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-822" name="__codelineno-0-822"></a>
-<a id="__codelineno-0-823" name="__codelineno-0-823"></a>    <span class="k">del</span> <span class="n">test_data</span>
-<a id="__codelineno-0-824" name="__codelineno-0-824"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-825" name="__codelineno-0-825"></a>
-<a id="__codelineno-0-826" name="__codelineno-0-826"></a>    <span class="k">if</span> <span class="n">track</span><span class="p">:</span>
-<a id="__codelineno-0-827" name="__codelineno-0-827"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-<a id="__codelineno-0-828" name="__codelineno-0-828"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-829" name="__codelineno-0-829"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-830" name="__codelineno-0-830"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-831" name="__codelineno-0-831"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-832" name="__codelineno-0-832"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-<a id="__codelineno-0-833" name="__codelineno-0-833"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-834" name="__codelineno-0-834"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-835" name="__codelineno-0-835"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-836" name="__codelineno-0-836"></a>
-<a id="__codelineno-0-837" name="__codelineno-0-837"></a>    <span class="c1"># Determine threshold</span>
-<a id="__codelineno-0-838" name="__codelineno-0-838"></a>    <span class="n">sorted_null</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">null_stats</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-839" name="__codelineno-0-839"></a>    <span class="n">ti</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_null</span><span class="p">)))</span>
-<a id="__codelineno-0-840" name="__codelineno-0-840"></a>    <span class="n">cluster_stat_threshold</span> <span class="o">=</span> <span class="n">sorted_null</span><span class="p">[</span><span class="n">ti</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-841" name="__codelineno-0-841"></a>
-<a id="__codelineno-0-842" name="__codelineno-0-842"></a>    <span class="n">stat_unit</span> <span class="o">=</span> <span class="s2">"voxels"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"size"</span> <span class="k">else</span> <span class="s2">"mass units"</span>
-<a id="__codelineno-0-843" name="__codelineno-0-843"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-844" name="__codelineno-0-844"></a>        <span class="s2">"Threshold (p&lt;</span><span class="si">%.3f</span><span class="s2">): </span><span class="si">%.2f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">  "</span> <span class="s2">"(null min=</span><span class="si">%.2f</span><span class="s2">, mean=</span><span class="si">%.2f</span><span class="s2">, max=</span><span class="si">%.2f</span><span class="s2">)"</span><span class="p">,</span>
-<a id="__codelineno-0-845" name="__codelineno-0-845"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
-<a id="__codelineno-0-846" name="__codelineno-0-846"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-847" name="__codelineno-0-847"></a>        <span class="n">stat_unit</span><span class="p">,</span>
-<a id="__codelineno-0-848" name="__codelineno-0-848"></a>        <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-849" name="__codelineno-0-849"></a>        <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-850" name="__codelineno-0-850"></a>        <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-851" name="__codelineno-0-851"></a>    <span class="p">)</span>
-<a id="__codelineno-0-852" name="__codelineno-0-852"></a>
-<a id="__codelineno-0-853" name="__codelineno-0-853"></a>    <span class="k">if</span> <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">perm_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-854" name="__codelineno-0-854"></a>        <span class="n">info</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-855" name="__codelineno-0-855"></a>            <span class="p">{</span>
-<a id="__codelineno-0-856" name="__codelineno-0-856"></a>                <span class="s2">"perm_num"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
-<a id="__codelineno-0-857" name="__codelineno-0-857"></a>                <span class="s2">"perm_idx"</span><span class="p">:</span> <span class="n">perm_indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-858" name="__codelineno-0-858"></a>                <span class="s2">"max_cluster_size"</span><span class="p">:</span> <span class="n">null_stats</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-859" name="__codelineno-0-859"></a>            <span class="p">}</span>
-<a id="__codelineno-0-860" name="__codelineno-0-860"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-861" name="__codelineno-0-861"></a>        <span class="p">]</span>
-<a id="__codelineno-0-862" name="__codelineno-0-862"></a>        <span class="n">save_permutation_details</span><span class="p">(</span>
-<a id="__codelineno-0-863" name="__codelineno-0-863"></a>            <span class="n">info</span><span class="p">,</span>
-<a id="__codelineno-0-864" name="__codelineno-0-864"></a>            <span class="n">perm_log_file</span><span class="p">,</span>
-<a id="__codelineno-0-865" name="__codelineno-0-865"></a>            <span class="n">subject_ids_resp</span><span class="p">,</span>
-<a id="__codelineno-0-866" name="__codelineno-0-866"></a>            <span class="n">subject_ids_non_resp</span><span class="p">,</span>
-<a id="__codelineno-0-867" name="__codelineno-0-867"></a>        <span class="p">)</span>
-<a id="__codelineno-0-868" name="__codelineno-0-868"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Permutation log saved: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">)</span>
-<a id="__codelineno-0-869" name="__codelineno-0-869"></a>
-<a id="__codelineno-0-870" name="__codelineno-0-870"></a>    <span class="c1"># Identify significant clusters (MNE-style per-cluster p-values)</span>
-<a id="__codelineno-0-871" name="__codelineno-0-871"></a>    <span class="n">sig_mask</span><span class="p">,</span> <span class="n">sig_clusters</span><span class="p">,</span> <span class="n">all_observed</span> <span class="o">=</span> <span class="n">_identify_significant_clusters</span><span class="p">(</span>
-<a id="__codelineno-0-872" name="__codelineno-0-872"></a>        <span class="n">labeled_array</span><span class="p">,</span>
-<a id="__codelineno-0-873" name="__codelineno-0-873"></a>        <span class="n">n_clusters</span><span class="p">,</span>
-<a id="__codelineno-0-874" name="__codelineno-0-874"></a>        <span class="n">t_statistics</span><span class="p">,</span>
-<a id="__codelineno-0-875" name="__codelineno-0-875"></a>        <span class="n">null_stats</span><span class="p">,</span>
-<a id="__codelineno-0-876" name="__codelineno-0-876"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-877" name="__codelineno-0-877"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
-<a id="__codelineno-0-878" name="__codelineno-0-878"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-879" name="__codelineno-0-879"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="p">,</span>
-<a id="__codelineno-0-880" name="__codelineno-0-880"></a>    <span class="p">)</span>
-<a id="__codelineno-0-881" name="__codelineno-0-881"></a>
-<a id="__codelineno-0-882" name="__codelineno-0-882"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-883" name="__codelineno-0-883"></a>        <span class="s2">"Significant: </span><span class="si">%d</span><span class="s2"> clusters, </span><span class="si">%d</span><span class="s2"> voxels"</span><span class="p">,</span>
-<a id="__codelineno-0-884" name="__codelineno-0-884"></a>        <span class="nb">len</span><span class="p">(</span><span class="n">sig_clusters</span><span class="p">),</span>
-<a id="__codelineno-0-885" name="__codelineno-0-885"></a>        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">),</span>
-<a id="__codelineno-0-886" name="__codelineno-0-886"></a>    <span class="p">)</span>
-<a id="__codelineno-0-887" name="__codelineno-0-887"></a>
-<a id="__codelineno-0-888" name="__codelineno-0-888"></a>    <span class="n">correlation_data</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-889" name="__codelineno-0-889"></a>        <span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_sizes</span><span class="p">),</span>
-<a id="__codelineno-0-890" name="__codelineno-0-890"></a>        <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_masses</span><span class="p">),</span>
-<a id="__codelineno-0-891" name="__codelineno-0-891"></a>    <span class="p">}</span>
-<a id="__codelineno-0-892" name="__codelineno-0-892"></a>    <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-893" name="__codelineno-0-893"></a>        <span class="n">sig_mask</span><span class="p">,</span>
-<a id="__codelineno-0-894" name="__codelineno-0-894"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-895" name="__codelineno-0-895"></a>        <span class="n">sig_clusters</span><span class="p">,</span>
-<a id="__codelineno-0-896" name="__codelineno-0-896"></a>        <span class="n">null_stats</span><span class="p">,</span>
-<a id="__codelineno-0-897" name="__codelineno-0-897"></a>        <span class="n">all_observed</span><span class="p">,</span>
-<a id="__codelineno-0-898" name="__codelineno-0-898"></a>        <span class="n">correlation_data</span><span class="p">,</span>
-<a id="__codelineno-0-899" name="__codelineno-0-899"></a>    <span class="p">)</span>
+<a id="__codelineno-0-763" name="__codelineno-0-763"></a>    <span class="n">test_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span>
+<a id="__codelineno-0-764" name="__codelineno-0-764"></a>    <span class="n">n_test</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">test_coords</span><span class="p">)</span>
+<a id="__codelineno-0-765" name="__codelineno-0-765"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Pre-extracting </span><span class="si">%d</span><span class="s2"> voxels, </span><span class="si">%d</span><span class="s2"> subjects"</span><span class="p">,</span> <span class="n">n_test</span><span class="p">,</span> <span class="n">n_total</span><span class="p">)</span>
+<a id="__codelineno-0-766" name="__codelineno-0-766"></a>
+<a id="__codelineno-0-767" name="__codelineno-0-767"></a>    <span class="n">test_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_test</span><span class="p">,</span> <span class="n">n_total</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-0-768" name="__codelineno-0-768"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">test_coords</span><span class="p">):</span>
+<a id="__codelineno-0-769" name="__codelineno-0-769"></a>        <span class="n">test_data</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">all_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">float32</span><span class="p">)</span>
+<a id="__codelineno-0-770" name="__codelineno-0-770"></a>    <span class="k">del</span> <span class="n">all_data</span>
+<a id="__codelineno-0-771" name="__codelineno-0-771"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-772" name="__codelineno-0-772"></a>
+<a id="__codelineno-0-773" name="__codelineno-0-773"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Test data: </span><span class="si">%.1f</span><span class="s2"> MB"</span><span class="p">,</span> <span class="n">test_data</span><span class="o">.</span><span class="n">nbytes</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1024</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span>
+<a id="__codelineno-0-774" name="__codelineno-0-774"></a>
+<a id="__codelineno-0-775" name="__codelineno-0-775"></a>    <span class="n">actual_jobs</span> <span class="o">=</span> <span class="n">resolve_n_jobs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)</span>
+<a id="__codelineno-0-776" name="__codelineno-0-776"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-777" name="__codelineno-0-777"></a>        <span class="s2">"Running </span><span class="si">%d</span><span class="s2"> permutations on </span><span class="si">%d</span><span class="s2"> cores"</span><span class="p">,</span>
+<a id="__codelineno-0-778" name="__codelineno-0-778"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">,</span>
+<a id="__codelineno-0-779" name="__codelineno-0-779"></a>        <span class="n">actual_jobs</span><span class="p">,</span>
+<a id="__codelineno-0-780" name="__codelineno-0-780"></a>    <span class="p">)</span>
+<a id="__codelineno-0-781" name="__codelineno-0-781"></a>
+<a id="__codelineno-0-782" name="__codelineno-0-782"></a>    <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-783" name="__codelineno-0-783"></a>    <span class="n">track</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-784" name="__codelineno-0-784"></a>        <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-785" name="__codelineno-0-785"></a>        <span class="ow">and</span> <span class="n">subject_ids_resp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-786" name="__codelineno-0-786"></a>        <span class="ow">and</span> <span class="n">subject_ids_non_resp</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-787" name="__codelineno-0-787"></a>    <span class="p">)</span>
+<a id="__codelineno-0-788" name="__codelineno-0-788"></a>
+<a id="__codelineno-0-789" name="__codelineno-0-789"></a>    <span class="k">if</span> <span class="n">actual_jobs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-790" name="__codelineno-0-790"></a>        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-791" name="__codelineno-0-791"></a>            <span class="n">_run_single_permutation</span><span class="p">(</span>
+<a id="__codelineno-0-792" name="__codelineno-0-792"></a>                <span class="n">test_data</span><span class="p">,</span>
+<a id="__codelineno-0-793" name="__codelineno-0-793"></a>                <span class="n">test_coords</span><span class="p">,</span>
+<a id="__codelineno-0-794" name="__codelineno-0-794"></a>                <span class="n">n_resp</span><span class="p">,</span>
+<a id="__codelineno-0-795" name="__codelineno-0-795"></a>                <span class="n">n_total</span><span class="p">,</span>
+<a id="__codelineno-0-796" name="__codelineno-0-796"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-797" name="__codelineno-0-797"></a>                <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-798" name="__codelineno-0-798"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+<a id="__codelineno-0-799" name="__codelineno-0-799"></a>                <span class="n">test_type</span><span class="o">=</span><span class="n">test_type</span><span class="p">,</span>
+<a id="__codelineno-0-800" name="__codelineno-0-800"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-801" name="__codelineno-0-801"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-802" name="__codelineno-0-802"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-803" name="__codelineno-0-803"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
+<a id="__codelineno-0-804" name="__codelineno-0-804"></a>            <span class="p">)</span>
+<a id="__codelineno-0-805" name="__codelineno-0-805"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-806" name="__codelineno-0-806"></a>        <span class="p">]</span>
+<a id="__codelineno-0-807" name="__codelineno-0-807"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-808" name="__codelineno-0-808"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">actual_jobs</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span>
+<a id="__codelineno-0-809" name="__codelineno-0-809"></a>            <span class="n">delayed</span><span class="p">(</span><span class="n">_run_single_permutation</span><span class="p">)(</span>
+<a id="__codelineno-0-810" name="__codelineno-0-810"></a>                <span class="n">test_data</span><span class="p">,</span>
+<a id="__codelineno-0-811" name="__codelineno-0-811"></a>                <span class="n">test_coords</span><span class="p">,</span>
+<a id="__codelineno-0-812" name="__codelineno-0-812"></a>                <span class="n">n_resp</span><span class="p">,</span>
+<a id="__codelineno-0-813" name="__codelineno-0-813"></a>                <span class="n">n_total</span><span class="p">,</span>
+<a id="__codelineno-0-814" name="__codelineno-0-814"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-815" name="__codelineno-0-815"></a>                <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-816" name="__codelineno-0-816"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+<a id="__codelineno-0-817" name="__codelineno-0-817"></a>                <span class="n">test_type</span><span class="o">=</span><span class="n">test_type</span><span class="p">,</span>
+<a id="__codelineno-0-818" name="__codelineno-0-818"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-819" name="__codelineno-0-819"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-820" name="__codelineno-0-820"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-821" name="__codelineno-0-821"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
+<a id="__codelineno-0-822" name="__codelineno-0-822"></a>            <span class="p">)</span>
+<a id="__codelineno-0-823" name="__codelineno-0-823"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-824" name="__codelineno-0-824"></a>        <span class="p">)</span>
+<a id="__codelineno-0-825" name="__codelineno-0-825"></a>        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-826" name="__codelineno-0-826"></a>
+<a id="__codelineno-0-827" name="__codelineno-0-827"></a>    <span class="k">del</span> <span class="n">test_data</span>
+<a id="__codelineno-0-828" name="__codelineno-0-828"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-829" name="__codelineno-0-829"></a>
+<a id="__codelineno-0-830" name="__codelineno-0-830"></a>    <span class="k">if</span> <span class="n">track</span><span class="p">:</span>
+<a id="__codelineno-0-831" name="__codelineno-0-831"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+<a id="__codelineno-0-832" name="__codelineno-0-832"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-833" name="__codelineno-0-833"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-834" name="__codelineno-0-834"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-835" name="__codelineno-0-835"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-836" name="__codelineno-0-836"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+<a id="__codelineno-0-837" name="__codelineno-0-837"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-838" name="__codelineno-0-838"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-839" name="__codelineno-0-839"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-840" name="__codelineno-0-840"></a>
+<a id="__codelineno-0-841" name="__codelineno-0-841"></a>    <span class="c1"># Determine threshold</span>
+<a id="__codelineno-0-842" name="__codelineno-0-842"></a>    <span class="n">sorted_null</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">null_stats</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-843" name="__codelineno-0-843"></a>    <span class="n">ti</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_null</span><span class="p">)))</span>
+<a id="__codelineno-0-844" name="__codelineno-0-844"></a>    <span class="n">cluster_stat_threshold</span> <span class="o">=</span> <span class="n">sorted_null</span><span class="p">[</span><span class="n">ti</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-845" name="__codelineno-0-845"></a>
+<a id="__codelineno-0-846" name="__codelineno-0-846"></a>    <span class="n">stat_unit</span> <span class="o">=</span> <span class="s2">"voxels"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"size"</span> <span class="k">else</span> <span class="s2">"mass units"</span>
+<a id="__codelineno-0-847" name="__codelineno-0-847"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-848" name="__codelineno-0-848"></a>        <span class="s2">"Threshold (p&lt;</span><span class="si">%.3f</span><span class="s2">): </span><span class="si">%.2f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">  "</span> <span class="s2">"(null min=</span><span class="si">%.2f</span><span class="s2">, mean=</span><span class="si">%.2f</span><span class="s2">, max=</span><span class="si">%.2f</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-849" name="__codelineno-0-849"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+<a id="__codelineno-0-850" name="__codelineno-0-850"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-851" name="__codelineno-0-851"></a>        <span class="n">stat_unit</span><span class="p">,</span>
+<a id="__codelineno-0-852" name="__codelineno-0-852"></a>        <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-853" name="__codelineno-0-853"></a>        <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-854" name="__codelineno-0-854"></a>        <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-855" name="__codelineno-0-855"></a>    <span class="p">)</span>
+<a id="__codelineno-0-856" name="__codelineno-0-856"></a>
+<a id="__codelineno-0-857" name="__codelineno-0-857"></a>    <span class="k">if</span> <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">perm_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-858" name="__codelineno-0-858"></a>        <span class="n">info</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-859" name="__codelineno-0-859"></a>            <span class="p">{</span>
+<a id="__codelineno-0-860" name="__codelineno-0-860"></a>                <span class="s2">"perm_num"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
+<a id="__codelineno-0-861" name="__codelineno-0-861"></a>                <span class="s2">"perm_idx"</span><span class="p">:</span> <span class="n">perm_indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-862" name="__codelineno-0-862"></a>                <span class="s2">"max_cluster_size"</span><span class="p">:</span> <span class="n">null_stats</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-863" name="__codelineno-0-863"></a>            <span class="p">}</span>
+<a id="__codelineno-0-864" name="__codelineno-0-864"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-865" name="__codelineno-0-865"></a>        <span class="p">]</span>
+<a id="__codelineno-0-866" name="__codelineno-0-866"></a>        <span class="n">save_permutation_details</span><span class="p">(</span>
+<a id="__codelineno-0-867" name="__codelineno-0-867"></a>            <span class="n">info</span><span class="p">,</span>
+<a id="__codelineno-0-868" name="__codelineno-0-868"></a>            <span class="n">perm_log_file</span><span class="p">,</span>
+<a id="__codelineno-0-869" name="__codelineno-0-869"></a>            <span class="n">subject_ids_resp</span><span class="p">,</span>
+<a id="__codelineno-0-870" name="__codelineno-0-870"></a>            <span class="n">subject_ids_non_resp</span><span class="p">,</span>
+<a id="__codelineno-0-871" name="__codelineno-0-871"></a>        <span class="p">)</span>
+<a id="__codelineno-0-872" name="__codelineno-0-872"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Permutation log saved: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">)</span>
+<a id="__codelineno-0-873" name="__codelineno-0-873"></a>
+<a id="__codelineno-0-874" name="__codelineno-0-874"></a>    <span class="c1"># Identify significant clusters (MNE-style per-cluster p-values)</span>
+<a id="__codelineno-0-875" name="__codelineno-0-875"></a>    <span class="n">sig_mask</span><span class="p">,</span> <span class="n">sig_clusters</span><span class="p">,</span> <span class="n">all_observed</span> <span class="o">=</span> <span class="n">_identify_significant_clusters</span><span class="p">(</span>
+<a id="__codelineno-0-876" name="__codelineno-0-876"></a>        <span class="n">labeled_array</span><span class="p">,</span>
+<a id="__codelineno-0-877" name="__codelineno-0-877"></a>        <span class="n">n_clusters</span><span class="p">,</span>
+<a id="__codelineno-0-878" name="__codelineno-0-878"></a>        <span class="n">t_statistics</span><span class="p">,</span>
+<a id="__codelineno-0-879" name="__codelineno-0-879"></a>        <span class="n">null_stats</span><span class="p">,</span>
+<a id="__codelineno-0-880" name="__codelineno-0-880"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-881" name="__codelineno-0-881"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+<a id="__codelineno-0-882" name="__codelineno-0-882"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-883" name="__codelineno-0-883"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="p">,</span>
+<a id="__codelineno-0-884" name="__codelineno-0-884"></a>    <span class="p">)</span>
+<a id="__codelineno-0-885" name="__codelineno-0-885"></a>
+<a id="__codelineno-0-886" name="__codelineno-0-886"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-887" name="__codelineno-0-887"></a>        <span class="s2">"Significant: </span><span class="si">%d</span><span class="s2"> clusters, </span><span class="si">%d</span><span class="s2"> voxels"</span><span class="p">,</span>
+<a id="__codelineno-0-888" name="__codelineno-0-888"></a>        <span class="nb">len</span><span class="p">(</span><span class="n">sig_clusters</span><span class="p">),</span>
+<a id="__codelineno-0-889" name="__codelineno-0-889"></a>        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">),</span>
+<a id="__codelineno-0-890" name="__codelineno-0-890"></a>    <span class="p">)</span>
+<a id="__codelineno-0-891" name="__codelineno-0-891"></a>
+<a id="__codelineno-0-892" name="__codelineno-0-892"></a>    <span class="n">correlation_data</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-893" name="__codelineno-0-893"></a>        <span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_sizes</span><span class="p">),</span>
+<a id="__codelineno-0-894" name="__codelineno-0-894"></a>        <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_masses</span><span class="p">),</span>
+<a id="__codelineno-0-895" name="__codelineno-0-895"></a>    <span class="p">}</span>
+<a id="__codelineno-0-896" name="__codelineno-0-896"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-897" name="__codelineno-0-897"></a>        <span class="n">sig_mask</span><span class="p">,</span>
+<a id="__codelineno-0-898" name="__codelineno-0-898"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-899" name="__codelineno-0-899"></a>        <span class="n">sig_clusters</span><span class="p">,</span>
+<a id="__codelineno-0-900" name="__codelineno-0-900"></a>        <span class="n">null_stats</span><span class="p">,</span>
+<a id="__codelineno-0-901" name="__codelineno-0-901"></a>        <span class="n">all_observed</span><span class="p">,</span>
+<a id="__codelineno-0-902" name="__codelineno-0-902"></a>        <span class="n">correlation_data</span><span class="p">,</span>
+<a id="__codelineno-0-903" name="__codelineno-0-903"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5138,11 +5138,7 @@ correlation_data)</code>.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-901"> 901</a></span>
-<span class="normal"><a href="#__codelineno-0-902"> 902</a></span>
-<span class="normal"><a href="#__codelineno-0-903"> 903</a></span>
-<span class="normal"><a href="#__codelineno-0-904"> 904</a></span>
-<span class="normal"><a href="#__codelineno-0-905"> 905</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-905"> 905</a></span>
 <span class="normal"><a href="#__codelineno-0-906"> 906</a></span>
 <span class="normal"><a href="#__codelineno-0-907"> 907</a></span>
 <span class="normal"><a href="#__codelineno-0-908"> 908</a></span>
@@ -5323,192 +5319,196 @@ correlation_data)</code>.</p>
 <span class="normal"><a href="#__codelineno-0-1083">1083</a></span>
 <span class="normal"><a href="#__codelineno-0-1084">1084</a></span>
 <span class="normal"><a href="#__codelineno-0-1085">1085</a></span>
-<span class="normal"><a href="#__codelineno-0-1086">1086</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-901" name="__codelineno-0-901"></a><span class="k">def</span><span class="w"> </span><span class="nf">correct_correlation</span><span class="p">(</span>
-<a id="__codelineno-0-902" name="__codelineno-0-902"></a>    <span class="bp">self</span><span class="p">,</span>
-<a id="__codelineno-0-903" name="__codelineno-0-903"></a>    <span class="n">subject_data</span><span class="p">,</span>
-<a id="__codelineno-0-904" name="__codelineno-0-904"></a>    <span class="n">effect_sizes</span><span class="p">,</span>
-<a id="__codelineno-0-905" name="__codelineno-0-905"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-906" name="__codelineno-0-906"></a>    <span class="n">r_values</span><span class="p">,</span>
-<a id="__codelineno-0-907" name="__codelineno-0-907"></a>    <span class="n">t_statistics</span><span class="p">,</span>
-<a id="__codelineno-0-908" name="__codelineno-0-908"></a>    <span class="n">p_values</span><span class="p">,</span>
-<a id="__codelineno-0-909" name="__codelineno-0-909"></a>    <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-910" name="__codelineno-0-910"></a>    <span class="n">correlation_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pearson"</span><span class="p">,</span>
-<a id="__codelineno-0-911" name="__codelineno-0-911"></a>    <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-912" name="__codelineno-0-912"></a>    <span class="n">perm_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-913" name="__codelineno-0-913"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-914" name="__codelineno-0-914"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
-<a id="__codelineno-0-915" name="__codelineno-0-915"></a><span class="w">    </span><span class="sd">"""Cluster-based permutation correction for correlation analysis.</span>
-<a id="__codelineno-0-916" name="__codelineno-0-916"></a>
-<a id="__codelineno-0-917" name="__codelineno-0-917"></a><span class="sd">    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,</span>
-<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="sd">    correlation_data)``.</span>
-<a id="__codelineno-0-919" name="__codelineno-0-919"></a><span class="sd">    """</span>
-<a id="__codelineno-0-920" name="__codelineno-0-920"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.io_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_correlation_permutation_details</span>
-<a id="__codelineno-0-921" name="__codelineno-0-921"></a>
-<a id="__codelineno-0-922" name="__codelineno-0-922"></a>    <span class="n">effect_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">effect_sizes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-<a id="__codelineno-0-923" name="__codelineno-0-923"></a>    <span class="n">n_subjects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">effect_sizes</span><span class="p">)</span>
-<a id="__codelineno-0-924" name="__codelineno-0-924"></a>
-<a id="__codelineno-0-925" name="__codelineno-0-925"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-926" name="__codelineno-0-926"></a>        <span class="s2">"Correlation cluster correction (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
-<a id="__codelineno-0-927" name="__codelineno-0-927"></a>        <span class="n">correlation_type</span><span class="p">,</span>
-<a id="__codelineno-0-928" name="__codelineno-0-928"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-929" name="__codelineno-0-929"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-930" name="__codelineno-0-930"></a>    <span class="p">)</span>
-<a id="__codelineno-0-931" name="__codelineno-0-931"></a>
-<a id="__codelineno-0-932" name="__codelineno-0-932"></a>    <span class="c1"># Form initial clusters based on alternative</span>
-<a id="__codelineno-0-933" name="__codelineno-0-933"></a>    <span class="n">initial_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_values</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">valid_mask</span>
-<a id="__codelineno-0-934" name="__codelineno-0-934"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">n_clusters</span> <span class="o">=</span> <span class="n">label_signed</span><span class="p">(</span>
-<a id="__codelineno-0-935" name="__codelineno-0-935"></a>        <span class="n">initial_mask</span><span class="p">,</span> <span class="n">t_statistics</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span>
-<a id="__codelineno-0-936" name="__codelineno-0-936"></a>    <span class="p">)</span>
-<a id="__codelineno-0-937" name="__codelineno-0-937"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Clusters at p&lt;</span><span class="si">%.3f</span><span class="s2">: </span><span class="si">%d</span><span class="s2">"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span> <span class="n">n_clusters</span><span class="p">)</span>
-<a id="__codelineno-0-938" name="__codelineno-0-938"></a>
-<a id="__codelineno-0-939" name="__codelineno-0-939"></a>    <span class="n">empty</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])}</span>
-<a id="__codelineno-0-940" name="__codelineno-0-940"></a>    <span class="k">if</span> <span class="n">n_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-941" name="__codelineno-0-941"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No clusters found."</span><span class="p">)</span>
-<a id="__codelineno-0-942" name="__codelineno-0-942"></a>        <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-943" name="__codelineno-0-943"></a>            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">p_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
-<a id="__codelineno-0-944" name="__codelineno-0-944"></a>            <span class="mi">0</span><span class="p">,</span>
-<a id="__codelineno-0-945" name="__codelineno-0-945"></a>            <span class="p">[],</span>
-<a id="__codelineno-0-946" name="__codelineno-0-946"></a>            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
-<a id="__codelineno-0-947" name="__codelineno-0-947"></a>            <span class="p">[],</span>
-<a id="__codelineno-0-948" name="__codelineno-0-948"></a>            <span class="n">empty</span><span class="p">,</span>
-<a id="__codelineno-0-949" name="__codelineno-0-949"></a>        <span class="p">)</span>
-<a id="__codelineno-0-950" name="__codelineno-0-950"></a>
-<a id="__codelineno-0-951" name="__codelineno-0-951"></a>    <span class="c1"># Pre-extract voxel data</span>
-<a id="__codelineno-0-952" name="__codelineno-0-952"></a>    <span class="n">valid_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span>
-<a id="__codelineno-0-953" name="__codelineno-0-953"></a>    <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_coords</span><span class="p">)</span>
-<a id="__codelineno-0-954" name="__codelineno-0-954"></a>    <span class="n">voxel_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_valid</span><span class="p">,</span> <span class="n">n_subjects</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
-<a id="__codelineno-0-955" name="__codelineno-0-955"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">valid_coords</span><span class="p">):</span>
-<a id="__codelineno-0-956" name="__codelineno-0-956"></a>        <span class="n">voxel_data</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">subject_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span>
-<a id="__codelineno-0-957" name="__codelineno-0-957"></a>
-<a id="__codelineno-0-958" name="__codelineno-0-958"></a>    <span class="c1"># Pre-rank for Spearman</span>
-<a id="__codelineno-0-959" name="__codelineno-0-959"></a>    <span class="n">preranked</span> <span class="o">=</span> <span class="kc">False</span>
-<a id="__codelineno-0-960" name="__codelineno-0-960"></a>    <span class="k">if</span> <span class="n">correlation_type</span> <span class="o">==</span> <span class="s2">"spearman"</span><span class="p">:</span>
-<a id="__codelineno-0-961" name="__codelineno-0-961"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Pre-ranking voxel data for Spearman (</span><span class="si">%d</span><span class="s2"> voxels)"</span><span class="p">,</span> <span class="n">n_valid</span><span class="p">)</span>
-<a id="__codelineno-0-962" name="__codelineno-0-962"></a>        <span class="n">voxel_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">rankdata</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">voxel_data</span><span class="p">)</span>
-<a id="__codelineno-0-963" name="__codelineno-0-963"></a>        <span class="n">preranked</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-964" name="__codelineno-0-964"></a>
-<a id="__codelineno-0-965" name="__codelineno-0-965"></a>    <span class="n">actual_jobs</span> <span class="o">=</span> <span class="n">resolve_n_jobs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)</span>
-<a id="__codelineno-0-966" name="__codelineno-0-966"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-967" name="__codelineno-0-967"></a>        <span class="s2">"Running </span><span class="si">%d</span><span class="s2"> permutations on </span><span class="si">%d</span><span class="s2"> cores"</span><span class="p">,</span>
-<a id="__codelineno-0-968" name="__codelineno-0-968"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">,</span>
-<a id="__codelineno-0-969" name="__codelineno-0-969"></a>        <span class="n">actual_jobs</span><span class="p">,</span>
-<a id="__codelineno-0-970" name="__codelineno-0-970"></a>    <span class="p">)</span>
-<a id="__codelineno-0-971" name="__codelineno-0-971"></a>
-<a id="__codelineno-0-972" name="__codelineno-0-972"></a>    <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-973" name="__codelineno-0-973"></a>    <span class="n">track</span> <span class="o">=</span> <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">subject_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
-<a id="__codelineno-0-974" name="__codelineno-0-974"></a>
-<a id="__codelineno-0-975" name="__codelineno-0-975"></a>    <span class="k">if</span> <span class="n">actual_jobs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-<a id="__codelineno-0-976" name="__codelineno-0-976"></a>        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-977" name="__codelineno-0-977"></a>            <span class="n">_run_single_correlation_permutation</span><span class="p">(</span>
-<a id="__codelineno-0-978" name="__codelineno-0-978"></a>                <span class="n">voxel_data</span><span class="p">,</span>
-<a id="__codelineno-0-979" name="__codelineno-0-979"></a>                <span class="n">effect_sizes</span><span class="p">,</span>
-<a id="__codelineno-0-980" name="__codelineno-0-980"></a>                <span class="n">valid_coords</span><span class="p">,</span>
-<a id="__codelineno-0-981" name="__codelineno-0-981"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-982" name="__codelineno-0-982"></a>                <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-983" name="__codelineno-0-983"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-<a id="__codelineno-0-984" name="__codelineno-0-984"></a>                <span class="n">correlation_type</span><span class="o">=</span><span class="n">correlation_type</span><span class="p">,</span>
-<a id="__codelineno-0-985" name="__codelineno-0-985"></a>                <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
-<a id="__codelineno-0-986" name="__codelineno-0-986"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-987" name="__codelineno-0-987"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-988" name="__codelineno-0-988"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-989" name="__codelineno-0-989"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
-<a id="__codelineno-0-990" name="__codelineno-0-990"></a>                <span class="n">voxel_data_preranked</span><span class="o">=</span><span class="n">preranked</span><span class="p">,</span>
-<a id="__codelineno-0-991" name="__codelineno-0-991"></a>            <span class="p">)</span>
-<a id="__codelineno-0-992" name="__codelineno-0-992"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-993" name="__codelineno-0-993"></a>        <span class="p">]</span>
-<a id="__codelineno-0-994" name="__codelineno-0-994"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-995" name="__codelineno-0-995"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">actual_jobs</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span>
-<a id="__codelineno-0-996" name="__codelineno-0-996"></a>            <span class="n">delayed</span><span class="p">(</span><span class="n">_run_single_correlation_permutation</span><span class="p">)(</span>
-<a id="__codelineno-0-997" name="__codelineno-0-997"></a>                <span class="n">voxel_data</span><span class="p">,</span>
-<a id="__codelineno-0-998" name="__codelineno-0-998"></a>                <span class="n">effect_sizes</span><span class="p">,</span>
-<a id="__codelineno-0-999" name="__codelineno-0-999"></a>                <span class="n">valid_coords</span><span class="p">,</span>
-<a id="__codelineno-0-1000" name="__codelineno-0-1000"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-1001" name="__codelineno-0-1001"></a>                <span class="n">valid_mask</span><span class="p">,</span>
-<a id="__codelineno-0-1002" name="__codelineno-0-1002"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
-<a id="__codelineno-0-1003" name="__codelineno-0-1003"></a>                <span class="n">correlation_type</span><span class="o">=</span><span class="n">correlation_type</span><span class="p">,</span>
-<a id="__codelineno-0-1004" name="__codelineno-0-1004"></a>                <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
-<a id="__codelineno-0-1005" name="__codelineno-0-1005"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-1006" name="__codelineno-0-1006"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-1007" name="__codelineno-0-1007"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-1008" name="__codelineno-0-1008"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
-<a id="__codelineno-0-1009" name="__codelineno-0-1009"></a>                <span class="n">voxel_data_preranked</span><span class="o">=</span><span class="n">preranked</span><span class="p">,</span>
-<a id="__codelineno-0-1010" name="__codelineno-0-1010"></a>            <span class="p">)</span>
-<a id="__codelineno-0-1011" name="__codelineno-0-1011"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>        <span class="p">)</span>
-<a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-1014" name="__codelineno-0-1014"></a>
-<a id="__codelineno-0-1015" name="__codelineno-0-1015"></a>    <span class="k">del</span> <span class="n">voxel_data</span>
-<a id="__codelineno-0-1016" name="__codelineno-0-1016"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
-<a id="__codelineno-0-1017" name="__codelineno-0-1017"></a>
-<a id="__codelineno-0-1018" name="__codelineno-0-1018"></a>    <span class="k">if</span> <span class="n">track</span><span class="p">:</span>
-<a id="__codelineno-0-1019" name="__codelineno-0-1019"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-<a id="__codelineno-0-1020" name="__codelineno-0-1020"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-1021" name="__codelineno-0-1021"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-1022" name="__codelineno-0-1022"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-1023" name="__codelineno-0-1023"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
-<a id="__codelineno-0-1025" name="__codelineno-0-1025"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-1026" name="__codelineno-0-1026"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-1027" name="__codelineno-0-1027"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
-<a id="__codelineno-0-1028" name="__codelineno-0-1028"></a>
-<a id="__codelineno-0-1029" name="__codelineno-0-1029"></a>    <span class="n">sorted_null</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">null_stats</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
-<a id="__codelineno-0-1030" name="__codelineno-0-1030"></a>    <span class="n">ti</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_null</span><span class="p">)))</span>
-<a id="__codelineno-0-1031" name="__codelineno-0-1031"></a>    <span class="n">cluster_stat_threshold</span> <span class="o">=</span> <span class="n">sorted_null</span><span class="p">[</span><span class="n">ti</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-1086">1086</a></span>
+<span class="normal"><a href="#__codelineno-0-1087">1087</a></span>
+<span class="normal"><a href="#__codelineno-0-1088">1088</a></span>
+<span class="normal"><a href="#__codelineno-0-1089">1089</a></span>
+<span class="normal"><a href="#__codelineno-0-1090">1090</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-905" name="__codelineno-0-905"></a><span class="k">def</span><span class="w"> </span><span class="nf">correct_correlation</span><span class="p">(</span>
+<a id="__codelineno-0-906" name="__codelineno-0-906"></a>    <span class="bp">self</span><span class="p">,</span>
+<a id="__codelineno-0-907" name="__codelineno-0-907"></a>    <span class="n">subject_data</span><span class="p">,</span>
+<a id="__codelineno-0-908" name="__codelineno-0-908"></a>    <span class="n">effect_sizes</span><span class="p">,</span>
+<a id="__codelineno-0-909" name="__codelineno-0-909"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-910" name="__codelineno-0-910"></a>    <span class="n">r_values</span><span class="p">,</span>
+<a id="__codelineno-0-911" name="__codelineno-0-911"></a>    <span class="n">t_statistics</span><span class="p">,</span>
+<a id="__codelineno-0-912" name="__codelineno-0-912"></a>    <span class="n">p_values</span><span class="p">,</span>
+<a id="__codelineno-0-913" name="__codelineno-0-913"></a>    <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-914" name="__codelineno-0-914"></a>    <span class="n">correlation_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"pearson"</span><span class="p">,</span>
+<a id="__codelineno-0-915" name="__codelineno-0-915"></a>    <span class="n">weights</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-916" name="__codelineno-0-916"></a>    <span class="n">perm_log_file</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-917" name="__codelineno-0-917"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-918" name="__codelineno-0-918"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<a id="__codelineno-0-919" name="__codelineno-0-919"></a><span class="w">    </span><span class="sd">"""Cluster-based permutation correction for correlation analysis.</span>
+<a id="__codelineno-0-920" name="__codelineno-0-920"></a>
+<a id="__codelineno-0-921" name="__codelineno-0-921"></a><span class="sd">    Returns ``(sig_mask, threshold, sig_clusters, null_dist, observed_clusters,</span>
+<a id="__codelineno-0-922" name="__codelineno-0-922"></a><span class="sd">    correlation_data)``.</span>
+<a id="__codelineno-0-923" name="__codelineno-0-923"></a><span class="sd">    """</span>
+<a id="__codelineno-0-924" name="__codelineno-0-924"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">.io_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_correlation_permutation_details</span>
+<a id="__codelineno-0-925" name="__codelineno-0-925"></a>
+<a id="__codelineno-0-926" name="__codelineno-0-926"></a>    <span class="n">effect_sizes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">effect_sizes</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<a id="__codelineno-0-927" name="__codelineno-0-927"></a>    <span class="n">n_subjects</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">effect_sizes</span><span class="p">)</span>
+<a id="__codelineno-0-928" name="__codelineno-0-928"></a>
+<a id="__codelineno-0-929" name="__codelineno-0-929"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-930" name="__codelineno-0-930"></a>        <span class="s2">"Correlation cluster correction (</span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">, </span><span class="si">%s</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-931" name="__codelineno-0-931"></a>        <span class="n">correlation_type</span><span class="p">,</span>
+<a id="__codelineno-0-932" name="__codelineno-0-932"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-933" name="__codelineno-0-933"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-934" name="__codelineno-0-934"></a>    <span class="p">)</span>
+<a id="__codelineno-0-935" name="__codelineno-0-935"></a>
+<a id="__codelineno-0-936" name="__codelineno-0-936"></a>    <span class="c1"># Form initial clusters based on alternative</span>
+<a id="__codelineno-0-937" name="__codelineno-0-937"></a>    <span class="n">initial_mask</span> <span class="o">=</span> <span class="p">(</span><span class="n">p_values</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">)</span> <span class="o">&amp;</span> <span class="n">valid_mask</span>
+<a id="__codelineno-0-938" name="__codelineno-0-938"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">n_clusters</span> <span class="o">=</span> <span class="n">label_signed</span><span class="p">(</span>
+<a id="__codelineno-0-939" name="__codelineno-0-939"></a>        <span class="n">initial_mask</span><span class="p">,</span> <span class="n">t_statistics</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span>
+<a id="__codelineno-0-940" name="__codelineno-0-940"></a>    <span class="p">)</span>
+<a id="__codelineno-0-941" name="__codelineno-0-941"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Clusters at p&lt;</span><span class="si">%.3f</span><span class="s2">: </span><span class="si">%d</span><span class="s2">"</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span> <span class="n">n_clusters</span><span class="p">)</span>
+<a id="__codelineno-0-942" name="__codelineno-0-942"></a>
+<a id="__codelineno-0-943" name="__codelineno-0-943"></a>    <span class="n">empty</span> <span class="o">=</span> <span class="p">{</span><span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span> <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([])}</span>
+<a id="__codelineno-0-944" name="__codelineno-0-944"></a>    <span class="k">if</span> <span class="n">n_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-945" name="__codelineno-0-945"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">"No clusters found."</span><span class="p">)</span>
+<a id="__codelineno-0-946" name="__codelineno-0-946"></a>        <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-947" name="__codelineno-0-947"></a>            <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">p_values</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">),</span>
+<a id="__codelineno-0-948" name="__codelineno-0-948"></a>            <span class="mi">0</span><span class="p">,</span>
+<a id="__codelineno-0-949" name="__codelineno-0-949"></a>            <span class="p">[],</span>
+<a id="__codelineno-0-950" name="__codelineno-0-950"></a>            <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([]),</span>
+<a id="__codelineno-0-951" name="__codelineno-0-951"></a>            <span class="p">[],</span>
+<a id="__codelineno-0-952" name="__codelineno-0-952"></a>            <span class="n">empty</span><span class="p">,</span>
+<a id="__codelineno-0-953" name="__codelineno-0-953"></a>        <span class="p">)</span>
+<a id="__codelineno-0-954" name="__codelineno-0-954"></a>
+<a id="__codelineno-0-955" name="__codelineno-0-955"></a>    <span class="c1"># Pre-extract voxel data</span>
+<a id="__codelineno-0-956" name="__codelineno-0-956"></a>    <span class="n">valid_coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">valid_mask</span><span class="p">)</span>
+<a id="__codelineno-0-957" name="__codelineno-0-957"></a>    <span class="n">n_valid</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">valid_coords</span><span class="p">)</span>
+<a id="__codelineno-0-958" name="__codelineno-0-958"></a>    <span class="n">voxel_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">n_valid</span><span class="p">,</span> <span class="n">n_subjects</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">float64</span><span class="p">)</span>
+<a id="__codelineno-0-959" name="__codelineno-0-959"></a>    <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">valid_coords</span><span class="p">):</span>
+<a id="__codelineno-0-960" name="__codelineno-0-960"></a>        <span class="n">voxel_data</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span> <span class="o">=</span> <span class="n">subject_data</span><span class="p">[</span><span class="n">i</span><span class="p">,</span> <span class="n">j</span><span class="p">,</span> <span class="n">k</span><span class="p">,</span> <span class="p">:]</span>
+<a id="__codelineno-0-961" name="__codelineno-0-961"></a>
+<a id="__codelineno-0-962" name="__codelineno-0-962"></a>    <span class="c1"># Pre-rank for Spearman</span>
+<a id="__codelineno-0-963" name="__codelineno-0-963"></a>    <span class="n">preranked</span> <span class="o">=</span> <span class="kc">False</span>
+<a id="__codelineno-0-964" name="__codelineno-0-964"></a>    <span class="k">if</span> <span class="n">correlation_type</span> <span class="o">==</span> <span class="s2">"spearman"</span><span class="p">:</span>
+<a id="__codelineno-0-965" name="__codelineno-0-965"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Pre-ranking voxel data for Spearman (</span><span class="si">%d</span><span class="s2"> voxels)"</span><span class="p">,</span> <span class="n">n_valid</span><span class="p">)</span>
+<a id="__codelineno-0-966" name="__codelineno-0-966"></a>        <span class="n">voxel_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">apply_along_axis</span><span class="p">(</span><span class="n">rankdata</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">voxel_data</span><span class="p">)</span>
+<a id="__codelineno-0-967" name="__codelineno-0-967"></a>        <span class="n">preranked</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-968" name="__codelineno-0-968"></a>
+<a id="__codelineno-0-969" name="__codelineno-0-969"></a>    <span class="n">actual_jobs</span> <span class="o">=</span> <span class="n">resolve_n_jobs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_jobs</span><span class="p">)</span>
+<a id="__codelineno-0-970" name="__codelineno-0-970"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-971" name="__codelineno-0-971"></a>        <span class="s2">"Running </span><span class="si">%d</span><span class="s2"> permutations on </span><span class="si">%d</span><span class="s2"> cores"</span><span class="p">,</span>
+<a id="__codelineno-0-972" name="__codelineno-0-972"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">,</span>
+<a id="__codelineno-0-973" name="__codelineno-0-973"></a>        <span class="n">actual_jobs</span><span class="p">,</span>
+<a id="__codelineno-0-974" name="__codelineno-0-974"></a>    <span class="p">)</span>
+<a id="__codelineno-0-975" name="__codelineno-0-975"></a>
+<a id="__codelineno-0-976" name="__codelineno-0-976"></a>    <span class="n">seeds</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">**</span><span class="mi">31</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-977" name="__codelineno-0-977"></a>    <span class="n">track</span> <span class="o">=</span> <span class="n">perm_log_file</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">subject_ids</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+<a id="__codelineno-0-978" name="__codelineno-0-978"></a>
+<a id="__codelineno-0-979" name="__codelineno-0-979"></a>    <span class="k">if</span> <span class="n">actual_jobs</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
+<a id="__codelineno-0-980" name="__codelineno-0-980"></a>        <span class="n">results</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-981" name="__codelineno-0-981"></a>            <span class="n">_run_single_correlation_permutation</span><span class="p">(</span>
+<a id="__codelineno-0-982" name="__codelineno-0-982"></a>                <span class="n">voxel_data</span><span class="p">,</span>
+<a id="__codelineno-0-983" name="__codelineno-0-983"></a>                <span class="n">effect_sizes</span><span class="p">,</span>
+<a id="__codelineno-0-984" name="__codelineno-0-984"></a>                <span class="n">valid_coords</span><span class="p">,</span>
+<a id="__codelineno-0-985" name="__codelineno-0-985"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-986" name="__codelineno-0-986"></a>                <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-987" name="__codelineno-0-987"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+<a id="__codelineno-0-988" name="__codelineno-0-988"></a>                <span class="n">correlation_type</span><span class="o">=</span><span class="n">correlation_type</span><span class="p">,</span>
+<a id="__codelineno-0-989" name="__codelineno-0-989"></a>                <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+<a id="__codelineno-0-990" name="__codelineno-0-990"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-991" name="__codelineno-0-991"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-992" name="__codelineno-0-992"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-993" name="__codelineno-0-993"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
+<a id="__codelineno-0-994" name="__codelineno-0-994"></a>                <span class="n">voxel_data_preranked</span><span class="o">=</span><span class="n">preranked</span><span class="p">,</span>
+<a id="__codelineno-0-995" name="__codelineno-0-995"></a>            <span class="p">)</span>
+<a id="__codelineno-0-996" name="__codelineno-0-996"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-997" name="__codelineno-0-997"></a>        <span class="p">]</span>
+<a id="__codelineno-0-998" name="__codelineno-0-998"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-999" name="__codelineno-0-999"></a>        <span class="n">results</span> <span class="o">=</span> <span class="n">Parallel</span><span class="p">(</span><span class="n">n_jobs</span><span class="o">=</span><span class="n">actual_jobs</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="mi">0</span><span class="p">)(</span>
+<a id="__codelineno-0-1000" name="__codelineno-0-1000"></a>            <span class="n">delayed</span><span class="p">(</span><span class="n">_run_single_correlation_permutation</span><span class="p">)(</span>
+<a id="__codelineno-0-1001" name="__codelineno-0-1001"></a>                <span class="n">voxel_data</span><span class="p">,</span>
+<a id="__codelineno-0-1002" name="__codelineno-0-1002"></a>                <span class="n">effect_sizes</span><span class="p">,</span>
+<a id="__codelineno-0-1003" name="__codelineno-0-1003"></a>                <span class="n">valid_coords</span><span class="p">,</span>
+<a id="__codelineno-0-1004" name="__codelineno-0-1004"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">cluster_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-1005" name="__codelineno-0-1005"></a>                <span class="n">valid_mask</span><span class="p">,</span>
+<a id="__codelineno-0-1006" name="__codelineno-0-1006"></a>                <span class="n">p_values</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span>
+<a id="__codelineno-0-1007" name="__codelineno-0-1007"></a>                <span class="n">correlation_type</span><span class="o">=</span><span class="n">correlation_type</span><span class="p">,</span>
+<a id="__codelineno-0-1008" name="__codelineno-0-1008"></a>                <span class="n">weights</span><span class="o">=</span><span class="n">weights</span><span class="p">,</span>
+<a id="__codelineno-0-1009" name="__codelineno-0-1009"></a>                <span class="n">cluster_stat</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-1010" name="__codelineno-0-1010"></a>                <span class="n">alternative</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-1011" name="__codelineno-0-1011"></a>                <span class="n">seed</span><span class="o">=</span><span class="n">seeds</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-1012" name="__codelineno-0-1012"></a>                <span class="n">return_indices</span><span class="o">=</span><span class="n">track</span><span class="p">,</span>
+<a id="__codelineno-0-1013" name="__codelineno-0-1013"></a>                <span class="n">voxel_data_preranked</span><span class="o">=</span><span class="n">preranked</span><span class="p">,</span>
+<a id="__codelineno-0-1014" name="__codelineno-0-1014"></a>            <span class="p">)</span>
+<a id="__codelineno-0-1015" name="__codelineno-0-1015"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-1016" name="__codelineno-0-1016"></a>        <span class="p">)</span>
+<a id="__codelineno-0-1017" name="__codelineno-0-1017"></a>        <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-1018" name="__codelineno-0-1018"></a>
+<a id="__codelineno-0-1019" name="__codelineno-0-1019"></a>    <span class="k">del</span> <span class="n">voxel_data</span>
+<a id="__codelineno-0-1020" name="__codelineno-0-1020"></a>    <span class="n">gc</span><span class="o">.</span><span class="n">collect</span><span class="p">()</span>
+<a id="__codelineno-0-1021" name="__codelineno-0-1021"></a>
+<a id="__codelineno-0-1022" name="__codelineno-0-1022"></a>    <span class="k">if</span> <span class="n">track</span><span class="p">:</span>
+<a id="__codelineno-0-1023" name="__codelineno-0-1023"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+<a id="__codelineno-0-1024" name="__codelineno-0-1024"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-1025" name="__codelineno-0-1025"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-1026" name="__codelineno-0-1026"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-1027" name="__codelineno-0-1027"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-1028" name="__codelineno-0-1028"></a>        <span class="n">null_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">r</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">])</span>
+<a id="__codelineno-0-1029" name="__codelineno-0-1029"></a>        <span class="n">perm_indices</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-1030" name="__codelineno-0-1030"></a>        <span class="n">null_sizes</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
+<a id="__codelineno-0-1031" name="__codelineno-0-1031"></a>        <span class="n">null_masses</span> <span class="o">=</span> <span class="p">[</span><span class="n">r</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="n">results</span><span class="p">]</span>
 <a id="__codelineno-0-1032" name="__codelineno-0-1032"></a>
-<a id="__codelineno-0-1033" name="__codelineno-0-1033"></a>    <span class="n">stat_unit</span> <span class="o">=</span> <span class="s2">"voxels"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"size"</span> <span class="k">else</span> <span class="s2">"mass units"</span>
-<a id="__codelineno-0-1034" name="__codelineno-0-1034"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-1035" name="__codelineno-0-1035"></a>        <span class="s2">"Threshold (p&lt;</span><span class="si">%.3f</span><span class="s2">): </span><span class="si">%.2f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">  "</span> <span class="s2">"(null min=</span><span class="si">%.2f</span><span class="s2">, mean=</span><span class="si">%.2f</span><span class="s2">, max=</span><span class="si">%.2f</span><span class="s2">)"</span><span class="p">,</span>
-<a id="__codelineno-0-1036" name="__codelineno-0-1036"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
-<a id="__codelineno-0-1037" name="__codelineno-0-1037"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-1038" name="__codelineno-0-1038"></a>        <span class="n">stat_unit</span><span class="p">,</span>
-<a id="__codelineno-0-1039" name="__codelineno-0-1039"></a>        <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-1040" name="__codelineno-0-1040"></a>        <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-1041" name="__codelineno-0-1041"></a>        <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
-<a id="__codelineno-0-1042" name="__codelineno-0-1042"></a>    <span class="p">)</span>
-<a id="__codelineno-0-1043" name="__codelineno-0-1043"></a>
-<a id="__codelineno-0-1044" name="__codelineno-0-1044"></a>    <span class="k">if</span> <span class="n">perm_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-1045" name="__codelineno-0-1045"></a>        <span class="n">info</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-1046" name="__codelineno-0-1046"></a>            <span class="p">{</span>
-<a id="__codelineno-0-1047" name="__codelineno-0-1047"></a>                <span class="s2">"perm_num"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
-<a id="__codelineno-0-1048" name="__codelineno-0-1048"></a>                <span class="s2">"perm_idx"</span><span class="p">:</span> <span class="n">perm_indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-1049" name="__codelineno-0-1049"></a>                <span class="s2">"max_cluster_size"</span><span class="p">:</span> <span class="n">null_stats</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
-<a id="__codelineno-0-1050" name="__codelineno-0-1050"></a>            <span class="p">}</span>
-<a id="__codelineno-0-1051" name="__codelineno-0-1051"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
-<a id="__codelineno-0-1052" name="__codelineno-0-1052"></a>        <span class="p">]</span>
-<a id="__codelineno-0-1053" name="__codelineno-0-1053"></a>        <span class="n">save_correlation_permutation_details</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">)</span>
-<a id="__codelineno-0-1054" name="__codelineno-0-1054"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Permutation log saved: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">)</span>
-<a id="__codelineno-0-1055" name="__codelineno-0-1055"></a>
-<a id="__codelineno-0-1056" name="__codelineno-0-1056"></a>    <span class="c1"># Identify significant clusters</span>
-<a id="__codelineno-0-1057" name="__codelineno-0-1057"></a>    <span class="n">sig_mask</span><span class="p">,</span> <span class="n">sig_clusters</span><span class="p">,</span> <span class="n">all_observed</span> <span class="o">=</span> <span class="n">_identify_significant_clusters</span><span class="p">(</span>
-<a id="__codelineno-0-1058" name="__codelineno-0-1058"></a>        <span class="n">labeled_array</span><span class="p">,</span>
-<a id="__codelineno-0-1059" name="__codelineno-0-1059"></a>        <span class="n">n_clusters</span><span class="p">,</span>
-<a id="__codelineno-0-1060" name="__codelineno-0-1060"></a>        <span class="n">t_statistics</span><span class="p">,</span>
-<a id="__codelineno-0-1061" name="__codelineno-0-1061"></a>        <span class="n">null_stats</span><span class="p">,</span>
-<a id="__codelineno-0-1062" name="__codelineno-0-1062"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
-<a id="__codelineno-0-1063" name="__codelineno-0-1063"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
-<a id="__codelineno-0-1064" name="__codelineno-0-1064"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
-<a id="__codelineno-0-1065" name="__codelineno-0-1065"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="p">,</span>
-<a id="__codelineno-0-1066" name="__codelineno-0-1066"></a>        <span class="n">r_values</span><span class="o">=</span><span class="n">r_values</span><span class="p">,</span>
-<a id="__codelineno-0-1067" name="__codelineno-0-1067"></a>    <span class="p">)</span>
-<a id="__codelineno-0-1068" name="__codelineno-0-1068"></a>
-<a id="__codelineno-0-1069" name="__codelineno-0-1069"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-1070" name="__codelineno-0-1070"></a>        <span class="s2">"Significant: </span><span class="si">%d</span><span class="s2"> clusters, </span><span class="si">%d</span><span class="s2"> voxels"</span><span class="p">,</span>
-<a id="__codelineno-0-1071" name="__codelineno-0-1071"></a>        <span class="nb">len</span><span class="p">(</span><span class="n">sig_clusters</span><span class="p">),</span>
-<a id="__codelineno-0-1072" name="__codelineno-0-1072"></a>        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">),</span>
-<a id="__codelineno-0-1073" name="__codelineno-0-1073"></a>    <span class="p">)</span>
-<a id="__codelineno-0-1074" name="__codelineno-0-1074"></a>
-<a id="__codelineno-0-1075" name="__codelineno-0-1075"></a>    <span class="n">correlation_data</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-1076" name="__codelineno-0-1076"></a>        <span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_sizes</span><span class="p">),</span>
-<a id="__codelineno-0-1077" name="__codelineno-0-1077"></a>        <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_masses</span><span class="p">),</span>
-<a id="__codelineno-0-1078" name="__codelineno-0-1078"></a>    <span class="p">}</span>
-<a id="__codelineno-0-1079" name="__codelineno-0-1079"></a>    <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-1080" name="__codelineno-0-1080"></a>        <span class="n">sig_mask</span><span class="p">,</span>
-<a id="__codelineno-0-1081" name="__codelineno-0-1081"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
-<a id="__codelineno-0-1082" name="__codelineno-0-1082"></a>        <span class="n">sig_clusters</span><span class="p">,</span>
-<a id="__codelineno-0-1083" name="__codelineno-0-1083"></a>        <span class="n">null_stats</span><span class="p">,</span>
-<a id="__codelineno-0-1084" name="__codelineno-0-1084"></a>        <span class="n">all_observed</span><span class="p">,</span>
-<a id="__codelineno-0-1085" name="__codelineno-0-1085"></a>        <span class="n">correlation_data</span><span class="p">,</span>
-<a id="__codelineno-0-1086" name="__codelineno-0-1086"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1033" name="__codelineno-0-1033"></a>    <span class="n">sorted_null</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">null_stats</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-1034" name="__codelineno-0-1034"></a>    <span class="n">ti</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">alpha</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_null</span><span class="p">)))</span>
+<a id="__codelineno-0-1035" name="__codelineno-0-1035"></a>    <span class="n">cluster_stat_threshold</span> <span class="o">=</span> <span class="n">sorted_null</span><span class="p">[</span><span class="n">ti</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+<a id="__codelineno-0-1036" name="__codelineno-0-1036"></a>
+<a id="__codelineno-0-1037" name="__codelineno-0-1037"></a>    <span class="n">stat_unit</span> <span class="o">=</span> <span class="s2">"voxels"</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span> <span class="o">==</span> <span class="s2">"size"</span> <span class="k">else</span> <span class="s2">"mass units"</span>
+<a id="__codelineno-0-1038" name="__codelineno-0-1038"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-1039" name="__codelineno-0-1039"></a>        <span class="s2">"Threshold (p&lt;</span><span class="si">%.3f</span><span class="s2">): </span><span class="si">%.2f</span><span class="s2"> </span><span class="si">%s</span><span class="s2">  "</span> <span class="s2">"(null min=</span><span class="si">%.2f</span><span class="s2">, mean=</span><span class="si">%.2f</span><span class="s2">, max=</span><span class="si">%.2f</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-1040" name="__codelineno-0-1040"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+<a id="__codelineno-0-1041" name="__codelineno-0-1041"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-1042" name="__codelineno-0-1042"></a>        <span class="n">stat_unit</span><span class="p">,</span>
+<a id="__codelineno-0-1043" name="__codelineno-0-1043"></a>        <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-1044" name="__codelineno-0-1044"></a>        <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-1045" name="__codelineno-0-1045"></a>        <span class="n">np</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">null_stats</span><span class="p">),</span>
+<a id="__codelineno-0-1046" name="__codelineno-0-1046"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1047" name="__codelineno-0-1047"></a>
+<a id="__codelineno-0-1048" name="__codelineno-0-1048"></a>    <span class="k">if</span> <span class="n">perm_indices</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-1049" name="__codelineno-0-1049"></a>        <span class="n">info</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-1050" name="__codelineno-0-1050"></a>            <span class="p">{</span>
+<a id="__codelineno-0-1051" name="__codelineno-0-1051"></a>                <span class="s2">"perm_num"</span><span class="p">:</span> <span class="n">i</span><span class="p">,</span>
+<a id="__codelineno-0-1052" name="__codelineno-0-1052"></a>                <span class="s2">"perm_idx"</span><span class="p">:</span> <span class="n">perm_indices</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-1053" name="__codelineno-0-1053"></a>                <span class="s2">"max_cluster_size"</span><span class="p">:</span> <span class="n">null_stats</span><span class="p">[</span><span class="n">i</span><span class="p">],</span>
+<a id="__codelineno-0-1054" name="__codelineno-0-1054"></a>            <span class="p">}</span>
+<a id="__codelineno-0-1055" name="__codelineno-0-1055"></a>            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">n_permutations</span><span class="p">)</span>
+<a id="__codelineno-0-1056" name="__codelineno-0-1056"></a>        <span class="p">]</span>
+<a id="__codelineno-0-1057" name="__codelineno-0-1057"></a>        <span class="n">save_correlation_permutation_details</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">)</span>
+<a id="__codelineno-0-1058" name="__codelineno-0-1058"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Permutation log saved: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">perm_log_file</span><span class="p">)</span>
+<a id="__codelineno-0-1059" name="__codelineno-0-1059"></a>
+<a id="__codelineno-0-1060" name="__codelineno-0-1060"></a>    <span class="c1"># Identify significant clusters</span>
+<a id="__codelineno-0-1061" name="__codelineno-0-1061"></a>    <span class="n">sig_mask</span><span class="p">,</span> <span class="n">sig_clusters</span><span class="p">,</span> <span class="n">all_observed</span> <span class="o">=</span> <span class="n">_identify_significant_clusters</span><span class="p">(</span>
+<a id="__codelineno-0-1062" name="__codelineno-0-1062"></a>        <span class="n">labeled_array</span><span class="p">,</span>
+<a id="__codelineno-0-1063" name="__codelineno-0-1063"></a>        <span class="n">n_clusters</span><span class="p">,</span>
+<a id="__codelineno-0-1064" name="__codelineno-0-1064"></a>        <span class="n">t_statistics</span><span class="p">,</span>
+<a id="__codelineno-0-1065" name="__codelineno-0-1065"></a>        <span class="n">null_stats</span><span class="p">,</span>
+<a id="__codelineno-0-1066" name="__codelineno-0-1066"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">cluster_stat</span><span class="p">,</span>
+<a id="__codelineno-0-1067" name="__codelineno-0-1067"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alpha</span><span class="p">,</span>
+<a id="__codelineno-0-1068" name="__codelineno-0-1068"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">alternative</span><span class="p">,</span>
+<a id="__codelineno-0-1069" name="__codelineno-0-1069"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="p">,</span>
+<a id="__codelineno-0-1070" name="__codelineno-0-1070"></a>        <span class="n">r_values</span><span class="o">=</span><span class="n">r_values</span><span class="p">,</span>
+<a id="__codelineno-0-1071" name="__codelineno-0-1071"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1072" name="__codelineno-0-1072"></a>
+<a id="__codelineno-0-1073" name="__codelineno-0-1073"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-1074" name="__codelineno-0-1074"></a>        <span class="s2">"Significant: </span><span class="si">%d</span><span class="s2"> clusters, </span><span class="si">%d</span><span class="s2"> voxels"</span><span class="p">,</span>
+<a id="__codelineno-0-1075" name="__codelineno-0-1075"></a>        <span class="nb">len</span><span class="p">(</span><span class="n">sig_clusters</span><span class="p">),</span>
+<a id="__codelineno-0-1076" name="__codelineno-0-1076"></a>        <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">),</span>
+<a id="__codelineno-0-1077" name="__codelineno-0-1077"></a>    <span class="p">)</span>
+<a id="__codelineno-0-1078" name="__codelineno-0-1078"></a>
+<a id="__codelineno-0-1079" name="__codelineno-0-1079"></a>    <span class="n">correlation_data</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-1080" name="__codelineno-0-1080"></a>        <span class="s2">"sizes"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_sizes</span><span class="p">),</span>
+<a id="__codelineno-0-1081" name="__codelineno-0-1081"></a>        <span class="s2">"masses"</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">null_masses</span><span class="p">),</span>
+<a id="__codelineno-0-1082" name="__codelineno-0-1082"></a>    <span class="p">}</span>
+<a id="__codelineno-0-1083" name="__codelineno-0-1083"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-1084" name="__codelineno-0-1084"></a>        <span class="n">sig_mask</span><span class="p">,</span>
+<a id="__codelineno-0-1085" name="__codelineno-0-1085"></a>        <span class="n">cluster_stat_threshold</span><span class="p">,</span>
+<a id="__codelineno-0-1086" name="__codelineno-0-1086"></a>        <span class="n">sig_clusters</span><span class="p">,</span>
+<a id="__codelineno-0-1087" name="__codelineno-0-1087"></a>        <span class="n">null_stats</span><span class="p">,</span>
+<a id="__codelineno-0-1088" name="__codelineno-0-1088"></a>        <span class="n">all_observed</span><span class="p">,</span>
+<a id="__codelineno-0-1089" name="__codelineno-0-1089"></a>        <span class="n">correlation_data</span><span class="p">,</span>
+<a id="__codelineno-0-1090" name="__codelineno-0-1090"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -5542,11 +5542,7 @@ correlation_data)</code>.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/engine.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1233">1233</a></span>
-<span class="normal"><a href="#__codelineno-0-1234">1234</a></span>
-<span class="normal"><a href="#__codelineno-0-1235">1235</a></span>
-<span class="normal"><a href="#__codelineno-0-1236">1236</a></span>
-<span class="normal"><a href="#__codelineno-0-1237">1237</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-1237">1237</a></span>
 <span class="normal"><a href="#__codelineno-0-1238">1238</a></span>
 <span class="normal"><a href="#__codelineno-0-1239">1239</a></span>
 <span class="normal"><a href="#__codelineno-0-1240">1240</a></span>
@@ -5583,48 +5579,52 @@ correlation_data)</code>.</p>
 <span class="normal"><a href="#__codelineno-0-1271">1271</a></span>
 <span class="normal"><a href="#__codelineno-0-1272">1272</a></span>
 <span class="normal"><a href="#__codelineno-0-1273">1273</a></span>
-<span class="normal"><a href="#__codelineno-0-1274">1274</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1233" name="__codelineno-0-1233"></a><span class="k">def</span><span class="w"> </span><span class="nf">cluster_analysis</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
-<a id="__codelineno-0-1234" name="__codelineno-0-1234"></a><span class="w">    </span><span class="sd">"""Connected-component analysis with MNI coordinate mapping.</span>
-<a id="__codelineno-0-1235" name="__codelineno-0-1235"></a>
-<a id="__codelineno-0-1236" name="__codelineno-0-1236"></a><span class="sd">    Returns a list of cluster dicts sorted by size (descending).</span>
-<a id="__codelineno-0-1237" name="__codelineno-0-1237"></a><span class="sd">    """</span>
-<a id="__codelineno-0-1238" name="__codelineno-0-1238"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<span class="normal"><a href="#__codelineno-0-1274">1274</a></span>
+<span class="normal"><a href="#__codelineno-0-1275">1275</a></span>
+<span class="normal"><a href="#__codelineno-0-1276">1276</a></span>
+<span class="normal"><a href="#__codelineno-0-1277">1277</a></span>
+<span class="normal"><a href="#__codelineno-0-1278">1278</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-1237" name="__codelineno-0-1237"></a><span class="k">def</span><span class="w"> </span><span class="nf">cluster_analysis</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">,</span> <span class="n">affine</span><span class="p">,</span> <span class="n">log</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<a id="__codelineno-0-1238" name="__codelineno-0-1238"></a><span class="w">    </span><span class="sd">"""Connected-component analysis with MNI coordinate mapping.</span>
 <a id="__codelineno-0-1239" name="__codelineno-0-1239"></a>
-<a id="__codelineno-0-1240" name="__codelineno-0-1240"></a>    <span class="n">_log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logger</span>
-<a id="__codelineno-0-1241" name="__codelineno-0-1241"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">num_clusters</span> <span class="o">=</span> <span class="n">label</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">)</span>
-<a id="__codelineno-0-1242" name="__codelineno-0-1242"></a>
-<a id="__codelineno-0-1243" name="__codelineno-0-1243"></a>    <span class="k">if</span> <span class="n">num_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-1244" name="__codelineno-0-1244"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"No clusters found in significance mask"</span><span class="p">)</span>
-<a id="__codelineno-0-1245" name="__codelineno-0-1245"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-1240" name="__codelineno-0-1240"></a><span class="sd">    Returns a list of cluster dicts sorted by size (descending).</span>
+<a id="__codelineno-0-1241" name="__codelineno-0-1241"></a><span class="sd">    """</span>
+<a id="__codelineno-0-1242" name="__codelineno-0-1242"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">nibabel</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">nib</span>
+<a id="__codelineno-0-1243" name="__codelineno-0-1243"></a>
+<a id="__codelineno-0-1244" name="__codelineno-0-1244"></a>    <span class="n">_log</span> <span class="o">=</span> <span class="n">log</span> <span class="ow">or</span> <span class="n">logger</span>
+<a id="__codelineno-0-1245" name="__codelineno-0-1245"></a>    <span class="n">labeled_array</span><span class="p">,</span> <span class="n">num_clusters</span> <span class="o">=</span> <span class="n">label</span><span class="p">(</span><span class="n">sig_mask</span><span class="p">)</span>
 <a id="__codelineno-0-1246" name="__codelineno-0-1246"></a>
-<a id="__codelineno-0-1247" name="__codelineno-0-1247"></a>    <span class="n">clusters</span> <span class="o">=</span> <span class="p">[]</span>
-<a id="__codelineno-0-1248" name="__codelineno-0-1248"></a>    <span class="k">for</span> <span class="n">cid</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_clusters</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
-<a id="__codelineno-0-1249" name="__codelineno-0-1249"></a>        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">labeled_array</span> <span class="o">==</span> <span class="n">cid</span><span class="p">)</span>
-<a id="__codelineno-0-1250" name="__codelineno-0-1250"></a>        <span class="n">com_voxel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
-<a id="__codelineno-0-1251" name="__codelineno-0-1251"></a>        <span class="n">com_mni</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">affines</span><span class="o">.</span><span class="n">apply_affine</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">com_voxel</span><span class="p">)</span>
-<a id="__codelineno-0-1252" name="__codelineno-0-1252"></a>        <span class="n">clusters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
-<a id="__codelineno-0-1253" name="__codelineno-0-1253"></a>            <span class="p">{</span>
-<a id="__codelineno-0-1254" name="__codelineno-0-1254"></a>                <span class="s2">"cluster_id"</span><span class="p">:</span> <span class="n">cid</span><span class="p">,</span>
-<a id="__codelineno-0-1255" name="__codelineno-0-1255"></a>                <span class="s2">"size"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">),</span>
-<a id="__codelineno-0-1256" name="__codelineno-0-1256"></a>                <span class="s2">"center_voxel"</span><span class="p">:</span> <span class="n">com_voxel</span><span class="p">,</span>
-<a id="__codelineno-0-1257" name="__codelineno-0-1257"></a>                <span class="s2">"center_mni"</span><span class="p">:</span> <span class="n">com_mni</span><span class="p">,</span>
-<a id="__codelineno-0-1258" name="__codelineno-0-1258"></a>            <span class="p">}</span>
-<a id="__codelineno-0-1259" name="__codelineno-0-1259"></a>        <span class="p">)</span>
-<a id="__codelineno-0-1260" name="__codelineno-0-1260"></a>
-<a id="__codelineno-0-1261" name="__codelineno-0-1261"></a>    <span class="n">clusters</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="p">[</span><span class="s2">"size"</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-1262" name="__codelineno-0-1262"></a>
-<a id="__codelineno-0-1263" name="__codelineno-0-1263"></a>    <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Found </span><span class="si">%d</span><span class="s2"> clusters"</span><span class="p">,</span> <span class="n">num_clusters</span><span class="p">)</span>
-<a id="__codelineno-0-1264" name="__codelineno-0-1264"></a>    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">[:</span><span class="mi">10</span><span class="p">]:</span>
-<a id="__codelineno-0-1265" name="__codelineno-0-1265"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
-<a id="__codelineno-0-1266" name="__codelineno-0-1266"></a>            <span class="s2">"  Cluster </span><span class="si">%d</span><span class="s2">: </span><span class="si">%d</span><span class="s2"> voxels, MNI (</span><span class="si">%.1f</span><span class="s2">, </span><span class="si">%.1f</span><span class="s2">, </span><span class="si">%.1f</span><span class="s2">)"</span><span class="p">,</span>
-<a id="__codelineno-0-1267" name="__codelineno-0-1267"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"cluster_id"</span><span class="p">],</span>
-<a id="__codelineno-0-1268" name="__codelineno-0-1268"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"size"</span><span class="p">],</span>
-<a id="__codelineno-0-1269" name="__codelineno-0-1269"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
-<a id="__codelineno-0-1270" name="__codelineno-0-1270"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
-<a id="__codelineno-0-1271" name="__codelineno-0-1271"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
-<a id="__codelineno-0-1272" name="__codelineno-0-1272"></a>        <span class="p">)</span>
-<a id="__codelineno-0-1273" name="__codelineno-0-1273"></a>
-<a id="__codelineno-0-1274" name="__codelineno-0-1274"></a>    <span class="k">return</span> <span class="n">clusters</span>
+<a id="__codelineno-0-1247" name="__codelineno-0-1247"></a>    <span class="k">if</span> <span class="n">num_clusters</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-1248" name="__codelineno-0-1248"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"No clusters found in significance mask"</span><span class="p">)</span>
+<a id="__codelineno-0-1249" name="__codelineno-0-1249"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-1250" name="__codelineno-0-1250"></a>
+<a id="__codelineno-0-1251" name="__codelineno-0-1251"></a>    <span class="n">clusters</span> <span class="o">=</span> <span class="p">[]</span>
+<a id="__codelineno-0-1252" name="__codelineno-0-1252"></a>    <span class="k">for</span> <span class="n">cid</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">num_clusters</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+<a id="__codelineno-0-1253" name="__codelineno-0-1253"></a>        <span class="n">coords</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argwhere</span><span class="p">(</span><span class="n">labeled_array</span> <span class="o">==</span> <span class="n">cid</span><span class="p">)</span>
+<a id="__codelineno-0-1254" name="__codelineno-0-1254"></a>        <span class="n">com_voxel</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">coords</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+<a id="__codelineno-0-1255" name="__codelineno-0-1255"></a>        <span class="n">com_mni</span> <span class="o">=</span> <span class="n">nib</span><span class="o">.</span><span class="n">affines</span><span class="o">.</span><span class="n">apply_affine</span><span class="p">(</span><span class="n">affine</span><span class="p">,</span> <span class="n">com_voxel</span><span class="p">)</span>
+<a id="__codelineno-0-1256" name="__codelineno-0-1256"></a>        <span class="n">clusters</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+<a id="__codelineno-0-1257" name="__codelineno-0-1257"></a>            <span class="p">{</span>
+<a id="__codelineno-0-1258" name="__codelineno-0-1258"></a>                <span class="s2">"cluster_id"</span><span class="p">:</span> <span class="n">cid</span><span class="p">,</span>
+<a id="__codelineno-0-1259" name="__codelineno-0-1259"></a>                <span class="s2">"size"</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">coords</span><span class="p">),</span>
+<a id="__codelineno-0-1260" name="__codelineno-0-1260"></a>                <span class="s2">"center_voxel"</span><span class="p">:</span> <span class="n">com_voxel</span><span class="p">,</span>
+<a id="__codelineno-0-1261" name="__codelineno-0-1261"></a>                <span class="s2">"center_mni"</span><span class="p">:</span> <span class="n">com_mni</span><span class="p">,</span>
+<a id="__codelineno-0-1262" name="__codelineno-0-1262"></a>            <span class="p">}</span>
+<a id="__codelineno-0-1263" name="__codelineno-0-1263"></a>        <span class="p">)</span>
+<a id="__codelineno-0-1264" name="__codelineno-0-1264"></a>
+<a id="__codelineno-0-1265" name="__codelineno-0-1265"></a>    <span class="n">clusters</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">c</span><span class="p">:</span> <span class="n">c</span><span class="p">[</span><span class="s2">"size"</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-1266" name="__codelineno-0-1266"></a>
+<a id="__codelineno-0-1267" name="__codelineno-0-1267"></a>    <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Found </span><span class="si">%d</span><span class="s2"> clusters"</span><span class="p">,</span> <span class="n">num_clusters</span><span class="p">)</span>
+<a id="__codelineno-0-1268" name="__codelineno-0-1268"></a>    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">[:</span><span class="mi">10</span><span class="p">]:</span>
+<a id="__codelineno-0-1269" name="__codelineno-0-1269"></a>        <span class="n">_log</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-1270" name="__codelineno-0-1270"></a>            <span class="s2">"  Cluster </span><span class="si">%d</span><span class="s2">: </span><span class="si">%d</span><span class="s2"> voxels, MNI (</span><span class="si">%.1f</span><span class="s2">, </span><span class="si">%.1f</span><span class="s2">, </span><span class="si">%.1f</span><span class="s2">)"</span><span class="p">,</span>
+<a id="__codelineno-0-1271" name="__codelineno-0-1271"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"cluster_id"</span><span class="p">],</span>
+<a id="__codelineno-0-1272" name="__codelineno-0-1272"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"size"</span><span class="p">],</span>
+<a id="__codelineno-0-1273" name="__codelineno-0-1273"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
+<a id="__codelineno-0-1274" name="__codelineno-0-1274"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">1</span><span class="p">],</span>
+<a id="__codelineno-0-1275" name="__codelineno-0-1275"></a>            <span class="n">c</span><span class="p">[</span><span class="s2">"center_mni"</span><span class="p">][</span><span class="mi">2</span><span class="p">],</span>
+<a id="__codelineno-0-1276" name="__codelineno-0-1276"></a>        <span class="p">)</span>
+<a id="__codelineno-0-1277" name="__codelineno-0-1277"></a>
+<a id="__codelineno-0-1278" name="__codelineno-0-1278"></a>    <span class="k">return</span> <span class="n">clusters</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

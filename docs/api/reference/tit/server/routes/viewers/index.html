@@ -1138,9 +1138,7 @@ to <code>build_view</code>.</p>
 <p>D3 (<code>docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)</code>): the external Freeview/Gmsh
 launch routes (<code>POST /api/viewers/freeview</code>, <code>POST /api/viewers/gmsh</code>),
 <code>_require_x11</code> and the <code>viewer</code> job-kind submission they drove are
-<strong>removed</strong> -- there is no X11 in this runtime. <code>freeview_args</code> itself
-stays on the response for one release (deprecated) so an old client
-mid-migration does not break.</p>
+<strong>removed</strong> -- there is no X11 in this runtime.</p>
 <p>V2 (<code>docs/dev/DECISIONS.md § 2026-09-06 (Native panes, job rows and notebooks)</code>): viewing is the
 <strong>host-installed Tetravox desktop app</strong>, not an embed served from this
 origin. <code>POST /api/view/open</code> (bottom of this module) writes the scene
@@ -1209,19 +1207,19 @@ file it wrote, so no route is needed for the <em>viewing</em> half of this gap.<
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-159">159</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-157">157</a></span>
+<span class="normal"><a href="#__codelineno-0-158">158</a></span>
+<span class="normal"><a href="#__codelineno-0-159">159</a></span>
 <span class="normal"><a href="#__codelineno-0-160">160</a></span>
 <span class="normal"><a href="#__codelineno-0-161">161</a></span>
 <span class="normal"><a href="#__codelineno-0-162">162</a></span>
-<span class="normal"><a href="#__codelineno-0-163">163</a></span>
-<span class="normal"><a href="#__codelineno-0-164">164</a></span>
-<span class="normal"><a href="#__codelineno-0-165">165</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-159" name="__codelineno-0-159"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_scene_dir</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-160" name="__codelineno-0-160"></a><span class="w">    </span><span class="sd">"""``&lt;project&gt;/code/ti-toolbox/viewer/`` -- sibling of ``config/`` and ``jobs/``."""</span>
-<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-162" name="__codelineno-0-162"></a>
-<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="k">return</span> <span class="n">checked_viewer_path</span><span class="p">(</span>
-<a id="__codelineno-0-164" name="__codelineno-0-164"></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">config_dir</span><span class="p">()),</span> <span class="s2">"viewer"</span><span class="p">)</span>
-<a id="__codelineno-0-165" name="__codelineno-0-165"></a>    <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-163">163</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-157" name="__codelineno-0-157"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_scene_dir</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-158" name="__codelineno-0-158"></a><span class="w">    </span><span class="sd">"""``&lt;project&gt;/code/ti-toolbox/viewer/`` -- sibling of ``config/`` and ``jobs/``."""</span>
+<a id="__codelineno-0-159" name="__codelineno-0-159"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-160" name="__codelineno-0-160"></a>
+<a id="__codelineno-0-161" name="__codelineno-0-161"></a>    <span class="k">return</span> <span class="n">checked_viewer_path</span><span class="p">(</span>
+<a id="__codelineno-0-162" name="__codelineno-0-162"></a>        <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">config_dir</span><span class="p">()),</span> <span class="s2">"viewer"</span><span class="p">)</span>
+<a id="__codelineno-0-163" name="__codelineno-0-163"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1248,7 +1246,9 @@ delete or replace acts on a stored alias rather than on what it points to.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-168">168</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-166">166</a></span>
+<span class="normal"><a href="#__codelineno-0-167">167</a></span>
+<span class="normal"><a href="#__codelineno-0-168">168</a></span>
 <span class="normal"><a href="#__codelineno-0-169">169</a></span>
 <span class="normal"><a href="#__codelineno-0-170">170</a></span>
 <span class="normal"><a href="#__codelineno-0-171">171</a></span>
@@ -1262,25 +1262,23 @@ delete or replace acts on a stored alias rather than on what it points to.</p>
 <span class="normal"><a href="#__codelineno-0-179">179</a></span>
 <span class="normal"><a href="#__codelineno-0-180">180</a></span>
 <span class="normal"><a href="#__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#__codelineno-0-182">182</a></span>
-<span class="normal"><a href="#__codelineno-0-183">183</a></span>
-<span class="normal"><a href="#__codelineno-0-184">184</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-168" name="__codelineno-0-168"></a><span class="k">def</span><span class="w"> </span><span class="nf">checked_viewer_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="w">    </span><span class="sd">"""*path* with its parent resolved, or 403 if it or its leaf's target leaves the project.</span>
-<a id="__codelineno-0-170" name="__codelineno-0-170"></a>
-<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    The leaf is kept as named (:func:`tit.paths.resolve_leaf_within`), so a</span>
-<a id="__codelineno-0-172" name="__codelineno-0-172"></a><span class="sd">    delete or replace acts on a stored alias rather than on what it points to.</span>
-<a id="__codelineno-0-173" name="__codelineno-0-173"></a><span class="sd">    """</span>
-<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span><span class="p">,</span> <span class="n">resolve_leaf_within</span>
-<a id="__codelineno-0-175" name="__codelineno-0-175"></a>
-<a id="__codelineno-0-176" name="__codelineno-0-176"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span>
-<a id="__codelineno-0-177" name="__codelineno-0-177"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-178" name="__codelineno-0-178"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
-<a id="__codelineno-0-179" name="__codelineno-0-179"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"project directory not set"</span><span class="p">)</span>
-<a id="__codelineno-0-180" name="__codelineno-0-180"></a>        <span class="k">return</span> <span class="n">resolve_leaf_within</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Viewer storage must remain inside the project"</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<span class="normal"><a href="#__codelineno-0-182">182</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-166" name="__codelineno-0-166"></a><span class="k">def</span><span class="w"> </span><span class="nf">checked_viewer_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-167" name="__codelineno-0-167"></a><span class="w">    </span><span class="sd">"""*path* with its parent resolved, or 403 if it or its leaf's target leaves the project.</span>
+<a id="__codelineno-0-168" name="__codelineno-0-168"></a>
+<a id="__codelineno-0-169" name="__codelineno-0-169"></a><span class="sd">    The leaf is kept as named (:func:`tit.paths.resolve_leaf_within`), so a</span>
+<a id="__codelineno-0-170" name="__codelineno-0-170"></a><span class="sd">    delete or replace acts on a stored alias rather than on what it points to.</span>
+<a id="__codelineno-0-171" name="__codelineno-0-171"></a><span class="sd">    """</span>
+<a id="__codelineno-0-172" name="__codelineno-0-172"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span><span class="p">,</span> <span class="n">resolve_leaf_within</span>
+<a id="__codelineno-0-173" name="__codelineno-0-173"></a>
+<a id="__codelineno-0-174" name="__codelineno-0-174"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span>
+<a id="__codelineno-0-175" name="__codelineno-0-175"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-176" name="__codelineno-0-176"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">root</span><span class="p">:</span>
+<a id="__codelineno-0-177" name="__codelineno-0-177"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">"project directory not set"</span><span class="p">)</span>
+<a id="__codelineno-0-178" name="__codelineno-0-178"></a>        <span class="k">return</span> <span class="n">resolve_leaf_within</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-179" name="__codelineno-0-179"></a>    <span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-180" name="__codelineno-0-180"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-181" name="__codelineno-0-181"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">403</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Viewer storage must remain inside the project"</span>
+<a id="__codelineno-0-182" name="__codelineno-0-182"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1305,7 +1303,9 @@ delete or replace acts on a stored alias rather than on what it points to.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-187">187</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-185">185</a></span>
+<span class="normal"><a href="#__codelineno-0-186">186</a></span>
+<span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
 <span class="normal"><a href="#__codelineno-0-189">189</a></span>
 <span class="normal"><a href="#__codelineno-0-190">190</a></span>
@@ -1325,31 +1325,29 @@ delete or replace acts on a stored alias rather than on what it points to.</p>
 <span class="normal"><a href="#__codelineno-0-204">204</a></span>
 <span class="normal"><a href="#__codelineno-0-205">205</a></span>
 <span class="normal"><a href="#__codelineno-0-206">206</a></span>
-<span class="normal"><a href="#__codelineno-0-207">207</a></span>
-<span class="normal"><a href="#__codelineno-0-208">208</a></span>
-<span class="normal"><a href="#__codelineno-0-209">209</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-187" name="__codelineno-0-187"></a><span class="k">def</span><span class="w"> </span><span class="nf">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a><span class="w">    </span><span class="sd">"""Replace a whole document without following a predictable temporary-file symlink."""</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="c1"># Re-check now that the directory exists: its resolved form is what the leaf joins.</span>
-<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="n">temporary</span> <span class="o">=</span> <span class="kc">None</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">".viewer-</span><span class="si">{</span><span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span><span class="si">}</span><span class="s2">.partial"</span><span class="p">)</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="c1"># Exclusive creation refuses links/collisions; ordinary file mode preserves the</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>        <span class="c1"># process umask so a host-side Tetravox user can still read the exported document.</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="s2">"xb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>            <span class="n">temporary</span> <span class="o">=</span> <span class="n">candidate</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>            <span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
-<a id="__codelineno-0-202" name="__codelineno-0-202"></a>        <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">temporary</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-204" name="__codelineno-0-204"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a>        <span class="k">if</span> <span class="n">temporary</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>            <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>                <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">temporary</span><span class="p">)</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>                <span class="k">pass</span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-185" name="__codelineno-0-185"></a><span class="k">def</span><span class="w"> </span><span class="nf">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">content</span><span class="p">:</span> <span class="nb">bytes</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a><span class="w">    </span><span class="sd">"""Replace a whole document without following a predictable temporary-file symlink."""</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="c1"># Re-check now that the directory exists: its resolved form is what the leaf joins.</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>    <span class="n">temporary</span> <span class="o">=</span> <span class="kc">None</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-194" name="__codelineno-0-194"></a>        <span class="n">candidate</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="sa">f</span><span class="s2">".viewer-</span><span class="si">{</span><span class="n">secrets</span><span class="o">.</span><span class="n">token_hex</span><span class="p">(</span><span class="mi">16</span><span class="p">)</span><span class="si">}</span><span class="s2">.partial"</span><span class="p">)</span>
+<a id="__codelineno-0-195" name="__codelineno-0-195"></a>        <span class="c1"># Exclusive creation refuses links/collisions; ordinary file mode preserves the</span>
+<a id="__codelineno-0-196" name="__codelineno-0-196"></a>        <span class="c1"># process umask so a host-side Tetravox user can still read the exported document.</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">candidate</span><span class="p">,</span> <span class="s2">"xb"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="n">temporary</span> <span class="o">=</span> <span class="n">candidate</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="n">handle</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">content</span><span class="p">)</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="n">os</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">temporary</span><span class="p">,</span> <span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>        <span class="k">if</span> <span class="n">temporary</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>            <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>                <span class="n">os</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">temporary</span><span class="p">)</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>            <span class="k">except</span> <span class="ne">FileNotFoundError</span><span class="p">:</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>                <span class="k">pass</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1380,7 +1378,9 @@ could not find.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-219">219</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
 <span class="normal"><a href="#__codelineno-0-220">220</a></span>
 <span class="normal"><a href="#__codelineno-0-221">221</a></span>
 <span class="normal"><a href="#__codelineno-0-222">222</a></span>
@@ -1412,43 +1412,41 @@ could not find.</p>
 <span class="normal"><a href="#__codelineno-0-248">248</a></span>
 <span class="normal"><a href="#__codelineno-0-249">249</a></span>
 <span class="normal"><a href="#__codelineno-0-250">250</a></span>
-<span class="normal"><a href="#__codelineno-0-251">251</a></span>
-<span class="normal"><a href="#__codelineno-0-252">252</a></span>
-<span class="normal"><a href="#__codelineno-0-253">253</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="k">def</span><span class="w"> </span><span class="nf">localise_scene_paths</span><span class="p">(</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">scene</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">container_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">host_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="w">    </span><span class="sd">"""Every dataset/sidecar URL in *scene* rewritten to a filesystem path.</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    Returns a new document; *scene* is not mutated (the same object is still</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    the response body of ``GET /api/view/{kind}``, where the URL form is</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    correct).  With no *host_root* the container path is used, which is right</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    for a browser-mode download opened on a machine that mounts the project at</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    the same place, and honest everywhere else -- Tetravox says which file it</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="sd">    could not find.</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a><span class="sd">    """</span>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">localise</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a>        <span class="n">container</span> <span class="o">=</span> <span class="n">_container_path_from_raw_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="k">if</span> <span class="n">container</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>            <span class="k">return</span> <span class="n">url</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">if</span> <span class="n">host_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>            <span class="k">return</span> <span class="n">container</span>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="k">return</span> <span class="n">to_host</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span> <span class="ow">or</span> <span class="n">container</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"datasets"</span><span class="p">,</span> <span class="p">[]):</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a>        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a>            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">:</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a>                <span class="n">dataset</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">localise</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>        <span class="k">for</span> <span class="n">sidecar</span> <span class="ow">in</span> <span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sidecars"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sidecar</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>                <span class="k">continue</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">sidecar</span><span class="p">:</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>                    <span class="n">sidecar</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">localise</span><span class="p">(</span><span class="n">sidecar</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="k">return</span> <span class="n">out</span>
+<span class="normal"><a href="#__codelineno-0-251">251</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="k">def</span><span class="w"> </span><span class="nf">localise_scene_paths</span><span class="p">(</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>    <span class="n">scene</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="n">container_root</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">host_root</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="w">    </span><span class="sd">"""Every dataset/sidecar URL in *scene* rewritten to a filesystem path.</span>
+<a id="__codelineno-0-221" name="__codelineno-0-221"></a>
+<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    Returns a new document; *scene* is not mutated (the same object is still</span>
+<a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="sd">    the response body of ``GET /api/view/{kind}``, where the URL form is</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="sd">    correct).  With no *host_root* the container path is used, which is right</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a><span class="sd">    for a browser-mode download opened on a machine that mounts the project at</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a><span class="sd">    the same place, and honest everywhere else -- Tetravox says which file it</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a><span class="sd">    could not find.</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="sd">    """</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">localise</span><span class="p">(</span><span class="n">url</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>        <span class="n">container</span> <span class="o">=</span> <span class="n">_container_path_from_raw_url</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a>        <span class="k">if</span> <span class="n">container</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a>            <span class="k">return</span> <span class="n">url</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a>        <span class="k">if</span> <span class="n">host_root</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>            <span class="k">return</span> <span class="n">container</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>        <span class="k">return</span> <span class="n">to_host</span><span class="p">(</span><span class="n">container</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span> <span class="ow">or</span> <span class="n">container</span>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>    <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"datasets"</span><span class="p">,</span> <span class="p">[]):</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
+<a id="__codelineno-0-243" name="__codelineno-0-243"></a>            <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">dataset</span><span class="p">:</span>
+<a id="__codelineno-0-244" name="__codelineno-0-244"></a>                <span class="n">dataset</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">localise</span><span class="p">(</span><span class="n">dataset</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+<a id="__codelineno-0-245" name="__codelineno-0-245"></a>        <span class="k">for</span> <span class="n">sidecar</span> <span class="ow">in</span> <span class="p">(</span><span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sidecars"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sidecar</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a>                <span class="k">continue</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a>            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">sidecar</span><span class="p">:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a>                    <span class="n">sidecar</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">localise</span><span class="p">(</span><span class="n">sidecar</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1473,7 +1471,9 @@ could not find.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-256">256</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-254">254</a></span>
+<span class="normal"><a href="#__codelineno-0-255">255</a></span>
+<span class="normal"><a href="#__codelineno-0-256">256</a></span>
 <span class="normal"><a href="#__codelineno-0-257">257</a></span>
 <span class="normal"><a href="#__codelineno-0-258">258</a></span>
 <span class="normal"><a href="#__codelineno-0-259">259</a></span>
@@ -1527,65 +1527,63 @@ could not find.</p>
 <span class="normal"><a href="#__codelineno-0-307">307</a></span>
 <span class="normal"><a href="#__codelineno-0-308">308</a></span>
 <span class="normal"><a href="#__codelineno-0-309">309</a></span>
-<span class="normal"><a href="#__codelineno-0-310">310</a></span>
-<span class="normal"><a href="#__codelineno-0-311">311</a></span>
-<span class="normal"><a href="#__codelineno-0-312">312</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="k">def</span><span class="w"> </span><span class="nf">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="w">    </span><span class="sd">"""Resolve scene data into host paths, staging bundled resources in the project."""</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span><span class="p">,</span> <span class="n">is_within</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span><span class="p">,</span> <span class="n">to_container</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.files</span><span class="w"> </span><span class="kn">import</span> <span class="n">_resolve_jailed</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"datasets"</span><span class="p">,</span> <span class="p">[])</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">datasets</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene datasets must be a list"</span><span class="p">)</span>
-<a id="__codelineno-0-270" name="__codelineno-0-270"></a>
-<a id="__codelineno-0-271" name="__codelineno-0-271"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-272" name="__codelineno-0-272"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
-<a id="__codelineno-0-273" name="__codelineno-0-273"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-274" name="__codelineno-0-274"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene file paths must be nonempty strings"</span>
-<a id="__codelineno-0-275" name="__codelineno-0-275"></a>            <span class="p">)</span>
-<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">_container_path_from_raw_url</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">value</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a>        <span class="c1"># A scene previously saved for this host can be exported again.</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="k">if</span> <span class="n">host</span><span class="p">:</span>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a>            <span class="n">path</span> <span class="o">=</span> <span class="n">to_container</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span> <span class="ow">or</span> <span class="n">path</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a>        <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_jailed</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">roots</span><span class="o">=</span><span class="n">viewspec</span><span class="o">.</span><span class="n">raw_jail_roots</span><span class="p">())</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_within</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)):</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="c1"># References shipped inside the image are not mounted on the host. Copy only</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="c1"># allowed reference files beside exported scenes, with collision-safe names.</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a>            <span class="n">key</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a>                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">viewer_scene_dir</span><span class="p">(),</span> <span class="s2">"assets"</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="p">)</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a>            <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">resolved</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a>        <span class="k">return</span> <span class="p">(</span><span class="n">to_host</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">),</span> <span class="n">root</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span> <span class="k">if</span> <span class="n">host</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a>    <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene datasets must be objects"</span>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a>            <span class="p">)</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="n">sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">dataset</span><span class="p">]</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a>        <span class="n">sidecars</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sidecars"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sidecars</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene sidecars must be objects"</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a>            <span class="p">)</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a>        <span class="n">sources</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sidecars</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a>        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="n">sources</span><span class="p">:</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a>                <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a>                    <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene file references must be objects"</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a>                <span class="p">)</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a>            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a>                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">source</span><span class="p">:</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a>                    <span class="n">source</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolve</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a>    <span class="k">return</span> <span class="n">out</span>
+<span class="normal"><a href="#__codelineno-0-310">310</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="k">def</span><span class="w"> </span><span class="nf">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">    </span><span class="sd">"""Resolve scene data into host paths, staging bundled resources in the project."""</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span><span class="p">,</span> <span class="n">is_within</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span><span class="p">,</span> <span class="n">to_container</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.files</span><span class="w"> </span><span class="kn">import</span> <span class="n">_resolve_jailed</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>    <span class="n">out</span> <span class="o">=</span> <span class="n">copy</span><span class="o">.</span><span class="n">deepcopy</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">datasets</span> <span class="o">=</span> <span class="n">out</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"datasets"</span><span class="p">,</span> <span class="p">[])</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">datasets</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene datasets must be a list"</span><span class="p">)</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">resolve</span><span class="p">(</span><span class="n">value</span><span class="p">:</span> <span class="n">Any</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">value</span><span class="p">:</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-272" name="__codelineno-0-272"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene file paths must be nonempty strings"</span>
+<a id="__codelineno-0-273" name="__codelineno-0-273"></a>            <span class="p">)</span>
+<a id="__codelineno-0-274" name="__codelineno-0-274"></a>        <span class="n">path</span> <span class="o">=</span> <span class="n">_container_path_from_raw_url</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="ow">or</span> <span class="n">value</span>
+<a id="__codelineno-0-275" name="__codelineno-0-275"></a>        <span class="c1"># A scene previously saved for this host can be exported again.</span>
+<a id="__codelineno-0-276" name="__codelineno-0-276"></a>        <span class="k">if</span> <span class="n">host</span><span class="p">:</span>
+<a id="__codelineno-0-277" name="__codelineno-0-277"></a>            <span class="n">path</span> <span class="o">=</span> <span class="n">to_container</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">host</span><span class="p">,</span> <span class="n">root</span><span class="p">)</span> <span class="ow">or</span> <span class="n">path</span>
+<a id="__codelineno-0-278" name="__codelineno-0-278"></a>        <span class="n">resolved</span> <span class="o">=</span> <span class="n">_resolve_jailed</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">roots</span><span class="o">=</span><span class="n">viewspec</span><span class="o">.</span><span class="n">raw_jail_roots</span><span class="p">())</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_within</span><span class="p">(</span><span class="n">root</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)):</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>            <span class="c1"># References shipped inside the image are not mounted on the host. Copy only</span>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a>            <span class="c1"># allowed reference files beside exported scenes, with collision-safe names.</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a>            <span class="n">key</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()[:</span><span class="mi">16</span><span class="p">]</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a>            <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a>                <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">viewer_scene_dir</span><span class="p">(),</span> <span class="s2">"assets"</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">resolved</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a>            <span class="p">)</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a>            <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">resolved</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a>            <span class="n">resolved</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">target</span><span class="p">)</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a>        <span class="k">return</span> <span class="p">(</span><span class="n">to_host</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">),</span> <span class="n">root</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span> <span class="k">if</span> <span class="n">host</span> <span class="k">else</span> <span class="kc">None</span><span class="p">)</span> <span class="ow">or</span> <span class="nb">str</span><span class="p">(</span><span class="n">resolved</span><span class="p">)</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a>    <span class="k">for</span> <span class="n">dataset</span> <span class="ow">in</span> <span class="n">datasets</span><span class="p">:</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene datasets must be objects"</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a>            <span class="p">)</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a>        <span class="n">sources</span> <span class="o">=</span> <span class="p">[</span><span class="n">dataset</span><span class="p">]</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a>        <span class="n">sidecars</span> <span class="o">=</span> <span class="n">dataset</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"sidecars"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">sidecars</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene sidecars must be objects"</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a>            <span class="p">)</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a>        <span class="n">sources</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">sidecars</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a>        <span class="k">for</span> <span class="n">source</span> <span class="ow">in</span> <span class="n">sources</span><span class="p">:</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a>                <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a>                    <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene file references must be objects"</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a>                <span class="p">)</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a>            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"path"</span><span class="p">,</span> <span class="s2">"absPath"</span><span class="p">):</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a>                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">source</span><span class="p">:</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a>                    <span class="n">source</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">resolve</span><span class="p">(</span><span class="n">source</span><span class="p">[</span><span class="n">key</span><span class="p">])</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a>    <span class="k">return</span> <span class="n">out</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1610,7 +1608,9 @@ could not find.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-315">315</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-313">313</a></span>
+<span class="normal"><a href="#__codelineno-0-314">314</a></span>
+<span class="normal"><a href="#__codelineno-0-315">315</a></span>
 <span class="normal"><a href="#__codelineno-0-316">316</a></span>
 <span class="normal"><a href="#__codelineno-0-317">317</a></span>
 <span class="normal"><a href="#__codelineno-0-318">318</a></span>
@@ -1639,40 +1639,38 @@ could not find.</p>
 <span class="normal"><a href="#__codelineno-0-341">341</a></span>
 <span class="normal"><a href="#__codelineno-0-342">342</a></span>
 <span class="normal"><a href="#__codelineno-0-343">343</a></span>
-<span class="normal"><a href="#__codelineno-0-344">344</a></span>
-<span class="normal"><a href="#__codelineno-0-345">345</a></span>
-<span class="normal"><a href="#__codelineno-0-346">346</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a>    <span class="s2">"/api/view/export"</span><span class="p">,</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Write a native Tetravox scene from an explicit ViewSpec"</span><span class="p">,</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="p">)</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="k">def</span><span class="w"> </span><span class="nf">export_scene</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Body</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="w">    </span><span class="sd">"""Preserve camera/layers and write host-addressed files for the native viewer."""</span>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.viewer_library</span><span class="w"> </span><span class="kn">import</span> <span class="n">_slug</span><span class="p">,</span> <span class="n">_MAX_SCENE_BYTES</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">body</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scene"</span><span class="p">)</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">scene</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layers"</span><span class="p">):</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"A ViewSpec with at least one layer is required"</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="p">)</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">_MAX_SCENE_BYTES</span><span class="p">:</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene document is implausibly large"</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>        <span class="p">)</span>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">localised</span> <span class="o">=</span> <span class="n">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">_slug</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="s2">"preview"</span><span class="p">))</span> <span class="o">+</span> <span class="n">_SCENE_SUFFIX</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">viewer_scene_dir</span><span class="p">(),</span> <span class="n">name</span><span class="p">))</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">localised</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="s2">"path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>        <span class="s2">"host_path"</span><span class="p">:</span> <span class="n">to_host</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span> <span class="k">if</span> <span class="n">host</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="s2">"scene"</span><span class="p">:</span> <span class="n">localised</span><span class="p">,</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-344">344</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a>    <span class="s2">"/api/view/export"</span><span class="p">,</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Write a native Tetravox scene from an explicit ViewSpec"</span><span class="p">,</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="p">)</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="k">def</span><span class="w"> </span><span class="nf">export_scene</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Body</span><span class="p">(</span><span class="kc">None</span><span class="p">))</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="w">    </span><span class="sd">"""Preserve camera/layers and write host-addressed files for the native viewer."""</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.viewer_library</span><span class="w"> </span><span class="kn">import</span> <span class="n">_slug</span><span class="p">,</span> <span class="n">_MAX_SCENE_BYTES</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">body</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scene"</span><span class="p">)</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">scene</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"layers"</span><span class="p">):</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"A ViewSpec with at least one layer is required"</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a>        <span class="p">)</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a>    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span> <span class="o">&gt;</span> <span class="n">_MAX_SCENE_BYTES</span><span class="p">:</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">413</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Scene document is implausibly large"</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a>        <span class="p">)</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a>    <span class="n">localised</span> <span class="o">=</span> <span class="n">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a>    <span class="n">name</span> <span class="o">=</span> <span class="n">_slug</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"name"</span><span class="p">,</span> <span class="s2">"preview"</span><span class="p">))</span> <span class="o">+</span> <span class="n">_SCENE_SUFFIX</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">viewer_scene_dir</span><span class="p">(),</span> <span class="n">name</span><span class="p">))</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>    <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">localised</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a>    <span class="n">root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a>    <span class="n">host</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">root</span><span class="p">)</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a>        <span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a>        <span class="s2">"path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a>        <span class="s2">"host_path"</span><span class="p">:</span> <span class="n">to_host</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">root</span><span class="p">,</span> <span class="n">host</span><span class="p">)</span> <span class="k">if</span> <span class="n">host</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="s2">"scene"</span><span class="p">:</span> <span class="n">localised</span><span class="p">,</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1701,25 +1699,25 @@ outputs, which a scene may always mix in. The same rule, case for case, as the V
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-411">411</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-409">409</a></span>
+<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+<span class="normal"><a href="#__codelineno-0-411">411</a></span>
 <span class="normal"><a href="#__codelineno-0-412">412</a></span>
 <span class="normal"><a href="#__codelineno-0-413">413</a></span>
 <span class="normal"><a href="#__codelineno-0-414">414</a></span>
 <span class="normal"><a href="#__codelineno-0-415">415</a></span>
 <span class="normal"><a href="#__codelineno-0-416">416</a></span>
 <span class="normal"><a href="#__codelineno-0-417">417</a></span>
-<span class="normal"><a href="#__codelineno-0-418">418</a></span>
-<span class="normal"><a href="#__codelineno-0-419">419</a></span>
-<span class="normal"><a href="#__codelineno-0-420">420</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-411" name="__codelineno-0-411"></a><span class="k">def</span><span class="w"> </span><span class="nf">subject_of_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="w">    </span><span class="sd">"""The subject *path* belongs to, or ``None`` for a file that belongs to nobody.</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="sd">    ``None`` is the bundled MNI template and atlases, FreeSurfer's ``fsaverage`` and group</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="sd">    outputs, which a scene may always mix in. The same rule, case for case, as the Viewer's</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a><span class="sd">    ``subjectOfPath`` (``desktop/src/renderer/pages/viewer/lib.ts``); the shared table is</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a><span class="sd">    ``tests/fixtures/subject_paths.json``.</span>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a><span class="sd">    """</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="n">match</span> <span class="o">=</span> <span class="n">_SUBJECT_DIR</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a>    <span class="k">return</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">match</span> <span class="k">else</span> <span class="kc">None</span>
+<span class="normal"><a href="#__codelineno-0-418">418</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="k">def</span><span class="w"> </span><span class="nf">subject_of_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a><span class="w">    </span><span class="sd">"""The subject *path* belongs to, or ``None`` for a file that belongs to nobody.</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="sd">    ``None`` is the bundled MNI template and atlases, FreeSurfer's ``fsaverage`` and group</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a><span class="sd">    outputs, which a scene may always mix in. The same rule, case for case, as the Viewer's</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="sd">    ``subjectOfPath`` (``desktop/src/renderer/pages/viewer/lib.ts``); the shared table is</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="sd">    ``tests/fixtures/subject_paths.json``.</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a><span class="sd">    """</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="n">match</span> <span class="o">=</span> <span class="n">_SUBJECT_DIR</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>    <span class="k">return</span> <span class="n">match</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span> <span class="k">if</span> <span class="n">match</span> <span class="k">else</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1759,7 +1757,9 @@ about what is in the scene, with nothing to say which was right.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-459">459</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-457">457</a></span>
+<span class="normal"><a href="#__codelineno-0-458">458</a></span>
+<span class="normal"><a href="#__codelineno-0-459">459</a></span>
 <span class="normal"><a href="#__codelineno-0-460">460</a></span>
 <span class="normal"><a href="#__codelineno-0-461">461</a></span>
 <span class="normal"><a href="#__codelineno-0-462">462</a></span>
@@ -1862,114 +1862,112 @@ about what is in the scene, with nothing to say which was right.</p>
 <span class="normal"><a href="#__codelineno-0-559">559</a></span>
 <span class="normal"><a href="#__codelineno-0-560">560</a></span>
 <span class="normal"><a href="#__codelineno-0-561">561</a></span>
-<span class="normal"><a href="#__codelineno-0-562">562</a></span>
-<span class="normal"><a href="#__codelineno-0-563">563</a></span>
-<span class="normal"><a href="#__codelineno-0-564">564</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-459" name="__codelineno-0-459"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a>    <span class="s2">"/api/view/open"</span><span class="p">,</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Resolve a scene once: the embed ViewSpec, and the scene file on disk"</span><span class="p">,</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a>    <span class="n">response_model</span><span class="o">=</span><span class="n">ViewerOpen</span><span class="p">,</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a><span class="p">)</span>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="k">def</span><span class="w"> </span><span class="nf">view_open</span><span class="p">(</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="c1"># Annotated bare `Request` (never `Request | None`): FastAPI reads the annotation to know this</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="c1"># is the request object and not a body field, and a union is not something it can special-case.</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a>    <span class="c1"># The `= None` is for the direct calls the tests make, which have no app to hand.</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[assignment]</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="w">    </span><span class="sd">"""``{kind, subject, ...}`` -&gt; ``{name, path, host_path, scene, view, files}``.</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a><span class="sd">    Launches nothing, and never could: the server has no display (D3).  One</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">    resolution produces two addressings of the same scene --</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">    * ``view``  -- every dataset an ``/api/files/raw/...`` URL.  This is what</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">      the Viewer sub-page reads to describe and preview the selection, fetching</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">      those bytes back through this origin.</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    * ``scene`` -- the same document with every path re-rooted onto the host,</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">      also written to ``&lt;project&gt;/code/ti-toolbox/viewer/&lt;kind&gt;.tetravox.json``</span>
-<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">      so the file can be opened by a desktop Tetravox or kept as a record of</span>
-<a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="sd">      what was viewed.</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">    They come from one ``build_view`` call on purpose.  Two calls could resolve</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">    differently -- a job finishing between them is enough -- and then the list</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a><span class="sd">    the page shows, the file on disk and the scene on screen would disagree</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a><span class="sd">    about what is in the scene, with nothing to say which was right.</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a><span class="sd">    """</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>
-<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">body</span> <span class="ow">or</span> <span class="p">{}</span>
-<a id="__codelineno-0-493" name="__codelineno-0-493"></a>    <span class="n">kind</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"kind"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span>
-<a id="__codelineno-0-494" name="__codelineno-0-494"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SCENE_NAMES</span><span class="p">:</span>
-<a id="__codelineno-0-495" name="__codelineno-0-495"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-496" name="__codelineno-0-496"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span>
-<a id="__codelineno-0-497" name="__codelineno-0-497"></a>            <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"kind must be one of </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_SCENE_NAMES</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-<a id="__codelineno-0-498" name="__codelineno-0-498"></a>        <span class="p">)</span>
-<a id="__codelineno-0-499" name="__codelineno-0-499"></a>    <span class="n">extras</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extras"</span><span class="p">)</span>
-<a id="__codelineno-0-500" name="__codelineno-0-500"></a>    <span class="n">overrides</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"overrides"</span><span class="p">)</span>
-<a id="__codelineno-0-501" name="__codelineno-0-501"></a>    <span class="c1"># VM2: the Viewer page is one editable "what will open" list. When the</span>
-<a id="__codelineno-0-502" name="__codelineno-0-502"></a>    <span class="c1"># client sends that list it is *authoritative* -- these datasets, this</span>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a>    <span class="c1"># order -- and the view type contributes only each kept file's default</span>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a>    <span class="c1"># layer settings. Absent, nothing changes for any caller.</span>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">)</span>
-<a id="__codelineno-0-506" name="__codelineno-0-506"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a>        <span class="n">_refuse_a_scene_that_spans_two_subjects</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">build_view</span><span class="p">(</span>
-<a id="__codelineno-0-509" name="__codelineno-0-509"></a>        <span class="n">kind</span><span class="p">,</span>
-<a id="__codelineno-0-510" name="__codelineno-0-510"></a>        <span class="n">subject</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">),</span>
-<a id="__codelineno-0-511" name="__codelineno-0-511"></a>        <span class="n">simulation</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"simulation"</span><span class="p">),</span>
-<a id="__codelineno-0-512" name="__codelineno-0-512"></a>        <span class="n">space</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"space"</span><span class="p">),</span>
-<a id="__codelineno-0-513" name="__codelineno-0-513"></a>        <span class="n">field</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"field"</span><span class="p">),</span>
-<a id="__codelineno-0-514" name="__codelineno-0-514"></a>        <span class="n">analysis</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"analysis"</span><span class="p">),</span>
-<a id="__codelineno-0-515" name="__codelineno-0-515"></a>        <span class="n">atlas</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"atlas"</span><span class="p">),</span>
-<a id="__codelineno-0-516" name="__codelineno-0-516"></a>        <span class="n">roi</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"roi"</span><span class="p">),</span>
-<a id="__codelineno-0-517" name="__codelineno-0-517"></a>        <span class="n">path</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"path"</span><span class="p">),</span>
-<a id="__codelineno-0-518" name="__codelineno-0-518"></a>        <span class="n">extras</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">extras</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">extras</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-519" name="__codelineno-0-519"></a>        <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">overrides</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-520" name="__codelineno-0-520"></a>        <span class="n">files</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-521" name="__codelineno-0-521"></a>    <span class="p">)</span>
-<a id="__codelineno-0-522" name="__codelineno-0-522"></a>    <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-523" name="__codelineno-0-523"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Unknown subject/simulation/analysis"</span>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>        <span class="p">)</span>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scene"</span><span class="p">)</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
-<a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-529" name="__codelineno-0-529"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"The server built no scene for this selection"</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="p">)</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">container_root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a>    <span class="n">host_root</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">container_root</span><span class="p">)</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a>    <span class="n">localised</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="n">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dry_run"</span><span class="p">)</span>
-<a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="k">else</span> <span class="n">localise_scene_paths</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span>
-<a id="__codelineno-0-538" name="__codelineno-0-538"></a>    <span class="p">)</span>
-<a id="__codelineno-0-539" name="__codelineno-0-539"></a>
-<a id="__codelineno-0-540" name="__codelineno-0-540"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">viewer_scene_dir</span><span class="p">()</span>
-<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_SCENE_NAMES</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span><span class="si">}{</span><span class="n">_SCENE_SUFFIX</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-542" name="__codelineno-0-542"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
-<a id="__codelineno-0-543" name="__codelineno-0-543"></a>    <span class="n">dry_run</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dry_run"</span><span class="p">))</span>
-<a id="__codelineno-0-544" name="__codelineno-0-544"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
-<a id="__codelineno-0-545" name="__codelineno-0-545"></a>        <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">localised</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span>
-<a id="__codelineno-0-546" name="__codelineno-0-546"></a>
-<a id="__codelineno-0-547" name="__codelineno-0-547"></a>    <span class="k">return</span> <span class="p">{</span>
-<a id="__codelineno-0-548" name="__codelineno-0-548"></a>        <span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
-<a id="__codelineno-0-549" name="__codelineno-0-549"></a>        <span class="s2">"path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
-<a id="__codelineno-0-550" name="__codelineno-0-550"></a>        <span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
-<a id="__codelineno-0-551" name="__codelineno-0-551"></a>        <span class="s2">"host_path"</span><span class="p">:</span> <span class="p">(</span>
-<a id="__codelineno-0-552" name="__codelineno-0-552"></a>            <span class="n">to_host</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span> <span class="k">if</span> <span class="n">host_root</span> <span class="k">else</span> <span class="kc">None</span>
-<a id="__codelineno-0-553" name="__codelineno-0-553"></a>        <span class="p">),</span>
-<a id="__codelineno-0-554" name="__codelineno-0-554"></a>        <span class="s2">"scene"</span><span class="p">:</span> <span class="n">localised</span><span class="p">,</span>
-<a id="__codelineno-0-555" name="__codelineno-0-555"></a>        <span class="c1"># The in-origin addressing, from the SAME resolution: `scene` is what</span>
-<a id="__codelineno-0-556" name="__codelineno-0-556"></a>        <span class="c1"># `build_view` produced (every dataset an /api/files/raw URL) and</span>
-<a id="__codelineno-0-557" name="__codelineno-0-557"></a>        <span class="c1"># `localised` is that document re-rooted onto the host. Returning both</span>
-<a id="__codelineno-0-558" name="__codelineno-0-558"></a>        <span class="c1"># is what lets the Viewer sub-page and the written file describe the</span>
-<a id="__codelineno-0-559" name="__codelineno-0-559"></a>        <span class="c1"># same set of datasets, in the same order, without a second call that</span>
-<a id="__codelineno-0-560" name="__codelineno-0-560"></a>        <span class="c1"># could resolve differently in between.</span>
-<a id="__codelineno-0-561" name="__codelineno-0-561"></a>        <span class="s2">"view"</span><span class="p">:</span> <span class="n">scene</span><span class="p">,</span>
-<a id="__codelineno-0-562" name="__codelineno-0-562"></a>        <span class="s2">"files"</span><span class="p">:</span> <span class="n">_scene_files</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">localised</span><span class="p">),</span>
-<a id="__codelineno-0-563" name="__codelineno-0-563"></a>        <span class="s2">"dry_run"</span><span class="p">:</span> <span class="n">dry_run</span><span class="p">,</span>
-<a id="__codelineno-0-564" name="__codelineno-0-564"></a>    <span class="p">}</span>
+<span class="normal"><a href="#__codelineno-0-562">562</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-457" name="__codelineno-0-457"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>    <span class="s2">"/api/view/open"</span><span class="p">,</span>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Resolve a scene once: the embed ViewSpec, and the scene file on disk"</span><span class="p">,</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>    <span class="n">response_model</span><span class="o">=</span><span class="n">ViewerOpen</span><span class="p">,</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a><span class="p">)</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a><span class="k">def</span><span class="w"> </span><span class="nf">view_open</span><span class="p">(</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a>    <span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a>    <span class="c1"># Annotated bare `Request` (never `Request | None`): FastAPI reads the annotation to know this</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a>    <span class="c1"># is the request object and not a body field, and a union is not something it can special-case.</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>    <span class="c1"># The `= None` is for the direct calls the tests make, which have no app to hand.</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>    <span class="n">request</span><span class="p">:</span> <span class="n">Request</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>  <span class="c1"># type: ignore[assignment]</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="w">    </span><span class="sd">"""``{kind, subject, ...}`` -&gt; ``{name, path, host_path, scene, view, files}``.</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">    Launches nothing, and never could: the server has no display (D3).  One</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a><span class="sd">    resolution produces two addressings of the same scene --</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="sd">    * ``view``  -- every dataset an ``/api/files/raw/...`` URL.  This is what</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="sd">      the Viewer sub-page reads to describe and preview the selection, fetching</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a><span class="sd">      those bytes back through this origin.</span>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    * ``scene`` -- the same document with every path re-rooted onto the host,</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">      also written to ``&lt;project&gt;/code/ti-toolbox/viewer/&lt;kind&gt;.tetravox.json``</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">      so the file can be opened by a desktop Tetravox or kept as a record of</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">      what was viewed.</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="sd">    They come from one ``build_view`` call on purpose.  Two calls could resolve</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="sd">    differently -- a job finishing between them is enough -- and then the list</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a><span class="sd">    the page shows, the file on disk and the scene on screen would disagree</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a><span class="sd">    about what is in the scene, with nothing to say which was right.</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a><span class="sd">    """</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.paths</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_path_manager</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.host_path</span><span class="w"> </span><span class="kn">import</span> <span class="n">host_project_dir</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="n">payload</span> <span class="o">=</span> <span class="n">body</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>    <span class="n">kind</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"kind"</span><span class="p">)</span> <span class="ow">or</span> <span class="s2">""</span><span class="p">)</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>    <span class="k">if</span> <span class="n">kind</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_SCENE_NAMES</span><span class="p">:</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"kind must be one of </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">_SCENE_NAMES</span><span class="p">))</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>        <span class="p">)</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>    <span class="n">extras</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"extras"</span><span class="p">)</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>    <span class="n">overrides</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"overrides"</span><span class="p">)</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>    <span class="c1"># VM2: the Viewer page is one editable "what will open" list. When the</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>    <span class="c1"># client sends that list it is *authoritative* -- these datasets, this</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>    <span class="c1"># order -- and the view type contributes only each kept file's default</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a>    <span class="c1"># layer settings. Absent, nothing changes for any caller.</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">)</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a>        <span class="n">_refuse_a_scene_that_spans_two_subjects</span><span class="p">(</span><span class="n">files</span><span class="p">)</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a>    <span class="n">spec</span> <span class="o">=</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">build_view</span><span class="p">(</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a>        <span class="n">kind</span><span class="p">,</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a>        <span class="n">subject</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"subject"</span><span class="p">),</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a>        <span class="n">simulation</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"simulation"</span><span class="p">),</span>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a>        <span class="n">space</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"space"</span><span class="p">),</span>
+<a id="__codelineno-0-511" name="__codelineno-0-511"></a>        <span class="n">field</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"field"</span><span class="p">),</span>
+<a id="__codelineno-0-512" name="__codelineno-0-512"></a>        <span class="n">analysis</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"analysis"</span><span class="p">),</span>
+<a id="__codelineno-0-513" name="__codelineno-0-513"></a>        <span class="n">atlas</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"atlas"</span><span class="p">),</span>
+<a id="__codelineno-0-514" name="__codelineno-0-514"></a>        <span class="n">roi</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"roi"</span><span class="p">),</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a>        <span class="n">path</span><span class="o">=</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"path"</span><span class="p">),</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a>        <span class="n">extras</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">extras</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">extras</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a>        <span class="n">overrides</span><span class="o">=</span><span class="n">overrides</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">overrides</span><span class="p">,</span> <span class="nb">dict</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a>        <span class="n">files</span><span class="o">=</span><span class="nb">list</span><span class="p">(</span><span class="n">files</span><span class="p">)</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">files</span><span class="p">,</span> <span class="nb">list</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a>    <span class="p">)</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a>    <span class="k">if</span> <span class="n">spec</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Unknown subject/simulation/analysis"</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a>        <span class="p">)</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a>    <span class="n">scene</span> <span class="o">=</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"scene"</span><span class="p">)</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">404</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"The server built no scene for this selection"</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>        <span class="p">)</span>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a>    <span class="n">container_root</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">project_dir</span> <span class="ow">or</span> <span class="s2">""</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a>    <span class="n">host_root</span> <span class="o">=</span> <span class="n">host_project_dir</span><span class="p">(</span><span class="n">container_root</span><span class="p">)</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="n">localised</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a>        <span class="n">native_scene</span><span class="p">(</span><span class="n">scene</span><span class="p">)</span>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dry_run"</span><span class="p">)</span>
+<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="k">else</span> <span class="n">localise_scene_paths</span><span class="p">(</span><span class="n">scene</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span>
+<a id="__codelineno-0-536" name="__codelineno-0-536"></a>    <span class="p">)</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a>
+<a id="__codelineno-0-538" name="__codelineno-0-538"></a>    <span class="n">directory</span> <span class="o">=</span> <span class="n">viewer_scene_dir</span><span class="p">()</span>
+<a id="__codelineno-0-539" name="__codelineno-0-539"></a>    <span class="n">name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">_SCENE_NAMES</span><span class="p">[</span><span class="n">kind</span><span class="p">]</span><span class="si">}{</span><span class="n">_SCENE_SUFFIX</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-540" name="__codelineno-0-540"></a>    <span class="n">target</span> <span class="o">=</span> <span class="n">checked_viewer_path</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">directory</span><span class="p">,</span> <span class="n">name</span><span class="p">))</span>
+<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="n">dry_run</span> <span class="o">=</span> <span class="nb">bool</span><span class="p">(</span><span class="n">payload</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"dry_run"</span><span class="p">))</span>
+<a id="__codelineno-0-542" name="__codelineno-0-542"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">dry_run</span><span class="p">:</span>
+<a id="__codelineno-0-543" name="__codelineno-0-543"></a>        <span class="n">atomic_viewer_write</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">localised</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-544" name="__codelineno-0-544"></a>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a>    <span class="k">return</span> <span class="p">{</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a>        <span class="s2">"name"</span><span class="p">:</span> <span class="n">name</span><span class="p">,</span>
+<a id="__codelineno-0-547" name="__codelineno-0-547"></a>        <span class="s2">"path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-548" name="__codelineno-0-548"></a>        <span class="s2">"scene_path"</span><span class="p">:</span> <span class="n">target</span><span class="p">,</span>
+<a id="__codelineno-0-549" name="__codelineno-0-549"></a>        <span class="s2">"host_path"</span><span class="p">:</span> <span class="p">(</span>
+<a id="__codelineno-0-550" name="__codelineno-0-550"></a>            <span class="n">to_host</span><span class="p">(</span><span class="n">target</span><span class="p">,</span> <span class="n">container_root</span><span class="p">,</span> <span class="n">host_root</span><span class="p">)</span> <span class="k">if</span> <span class="n">host_root</span> <span class="k">else</span> <span class="kc">None</span>
+<a id="__codelineno-0-551" name="__codelineno-0-551"></a>        <span class="p">),</span>
+<a id="__codelineno-0-552" name="__codelineno-0-552"></a>        <span class="s2">"scene"</span><span class="p">:</span> <span class="n">localised</span><span class="p">,</span>
+<a id="__codelineno-0-553" name="__codelineno-0-553"></a>        <span class="c1"># The in-origin addressing, from the SAME resolution: `scene` is what</span>
+<a id="__codelineno-0-554" name="__codelineno-0-554"></a>        <span class="c1"># `build_view` produced (every dataset an /api/files/raw URL) and</span>
+<a id="__codelineno-0-555" name="__codelineno-0-555"></a>        <span class="c1"># `localised` is that document re-rooted onto the host. Returning both</span>
+<a id="__codelineno-0-556" name="__codelineno-0-556"></a>        <span class="c1"># is what lets the Viewer sub-page and the written file describe the</span>
+<a id="__codelineno-0-557" name="__codelineno-0-557"></a>        <span class="c1"># same set of datasets, in the same order, without a second call that</span>
+<a id="__codelineno-0-558" name="__codelineno-0-558"></a>        <span class="c1"># could resolve differently in between.</span>
+<a id="__codelineno-0-559" name="__codelineno-0-559"></a>        <span class="s2">"view"</span><span class="p">:</span> <span class="n">scene</span><span class="p">,</span>
+<a id="__codelineno-0-560" name="__codelineno-0-560"></a>        <span class="s2">"files"</span><span class="p">:</span> <span class="n">_scene_files</span><span class="p">(</span><span class="n">spec</span><span class="p">,</span> <span class="n">localised</span><span class="p">),</span>
+<a id="__codelineno-0-561" name="__codelineno-0-561"></a>        <span class="s2">"dry_run"</span><span class="p">:</span> <span class="n">dry_run</span><span class="p">,</span>
+<a id="__codelineno-0-562" name="__codelineno-0-562"></a>    <span class="p">}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1997,7 +1995,9 @@ guessing -- and one of these files is routinely 64 MB.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/viewers.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-567">567</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-565">565</a></span>
+<span class="normal"><a href="#__codelineno-0-566">566</a></span>
+<span class="normal"><a href="#__codelineno-0-567">567</a></span>
 <span class="normal"><a href="#__codelineno-0-568">568</a></span>
 <span class="normal"><a href="#__codelineno-0-569">569</a></span>
 <span class="normal"><a href="#__codelineno-0-570">570</a></span>
@@ -2010,24 +2010,22 @@ guessing -- and one of these files is routinely 64 MB.</p>
 <span class="normal"><a href="#__codelineno-0-577">577</a></span>
 <span class="normal"><a href="#__codelineno-0-578">578</a></span>
 <span class="normal"><a href="#__codelineno-0-579">579</a></span>
-<span class="normal"><a href="#__codelineno-0-580">580</a></span>
-<span class="normal"><a href="#__codelineno-0-581">581</a></span>
-<span class="normal"><a href="#__codelineno-0-582">582</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-567" name="__codelineno-0-567"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
-<a id="__codelineno-0-568" name="__codelineno-0-568"></a>    <span class="s2">"/api/viewer/candidates"</span><span class="p">,</span>
-<a id="__codelineno-0-569" name="__codelineno-0-569"></a>    <span class="n">summary</span><span class="o">=</span><span class="s1">'Every file this subject/simulation offers the Viewer</span><span class="se">\'</span><span class="s1">s "+ Add…"'</span><span class="p">,</span>
-<a id="__codelineno-0-570" name="__codelineno-0-570"></a><span class="p">)</span>
-<a id="__codelineno-0-571" name="__codelineno-0-571"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_candidates</span><span class="p">(</span>
-<a id="__codelineno-0-572" name="__codelineno-0-572"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-573" name="__codelineno-0-573"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">EntityName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-574" name="__codelineno-0-574"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
-<a id="__codelineno-0-575" name="__codelineno-0-575"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-576" name="__codelineno-0-576"></a><span class="w">    </span><span class="sd">"""A read: it opens nothing and writes nothing.</span>
-<a id="__codelineno-0-577" name="__codelineno-0-577"></a>
-<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="sd">    Only files a scene can actually use are listed (volumes and meshes), each</span>
-<a id="__codelineno-0-579" name="__codelineno-0-579"></a><span class="sd">    with its size, because the point of the picker is to choose without</span>
-<a id="__codelineno-0-580" name="__codelineno-0-580"></a><span class="sd">    guessing -- and one of these files is routinely 64 MB.</span>
-<a id="__codelineno-0-581" name="__codelineno-0-581"></a><span class="sd">    """</span>
-<a id="__codelineno-0-582" name="__codelineno-0-582"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"candidates"</span><span class="p">:</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">viewer_candidates</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">space</span><span class="p">)}</span>
+<span class="normal"><a href="#__codelineno-0-580">580</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-565" name="__codelineno-0-565"></a><span class="nd">@router</span><span class="o">.</span><span class="n">get</span><span class="p">(</span>
+<a id="__codelineno-0-566" name="__codelineno-0-566"></a>    <span class="s2">"/api/viewer/candidates"</span><span class="p">,</span>
+<a id="__codelineno-0-567" name="__codelineno-0-567"></a>    <span class="n">summary</span><span class="o">=</span><span class="s1">'Every file this subject/simulation offers the Viewer</span><span class="se">\'</span><span class="s1">s "+ Add…"'</span><span class="p">,</span>
+<a id="__codelineno-0-568" name="__codelineno-0-568"></a><span class="p">)</span>
+<a id="__codelineno-0-569" name="__codelineno-0-569"></a><span class="k">def</span><span class="w"> </span><span class="nf">viewer_candidates</span><span class="p">(</span>
+<a id="__codelineno-0-570" name="__codelineno-0-570"></a>    <span class="n">subject</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">SubjectId</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-571" name="__codelineno-0-571"></a>    <span class="n">simulation</span><span class="p">:</span> <span class="n">Annotated</span><span class="p">[</span><span class="n">EntityName</span> <span class="o">|</span> <span class="kc">None</span><span class="p">,</span> <span class="n">Query</span><span class="p">()]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-572" name="__codelineno-0-572"></a>    <span class="n">space</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="n">Query</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span>
+<a id="__codelineno-0-573" name="__codelineno-0-573"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-574" name="__codelineno-0-574"></a><span class="w">    </span><span class="sd">"""A read: it opens nothing and writes nothing.</span>
+<a id="__codelineno-0-575" name="__codelineno-0-575"></a>
+<a id="__codelineno-0-576" name="__codelineno-0-576"></a><span class="sd">    Only files a scene can actually use are listed (volumes and meshes), each</span>
+<a id="__codelineno-0-577" name="__codelineno-0-577"></a><span class="sd">    with its size, because the point of the picker is to choose without</span>
+<a id="__codelineno-0-578" name="__codelineno-0-578"></a><span class="sd">    guessing -- and one of these files is routinely 64 MB.</span>
+<a id="__codelineno-0-579" name="__codelineno-0-579"></a><span class="sd">    """</span>
+<a id="__codelineno-0-580" name="__codelineno-0-580"></a>    <span class="k">return</span> <span class="p">{</span><span class="s2">"candidates"</span><span class="p">:</span> <span class="n">viewspec</span><span class="o">.</span><span class="n">viewer_candidates</span><span class="p">(</span><span class="n">subject</span><span class="p">,</span> <span class="n">simulation</span><span class="p">,</span> <span class="n">space</span><span class="p">)}</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
