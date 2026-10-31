@@ -26,7 +26,7 @@ TI-Toolbox combines an Electron desktop application, one Docker image for the sc
 
 If you use TI-Toolbox in your research, please cite the journal article:
 
-> Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. (2025). TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. _Brain Stimulation_. https://doi.org/10.1016/j.brs.2025.103016
+> Haber, I., Jackson, A., Thielscher, A., Hai, A., & Tononi, G. (2026). TI-Toolbox: An Open-Source Software for Temporal Interference Stimulation Research. _Brain Stimulation_, 19(1), 103016. https://doi.org/10.1016/j.brs.2025.103016
 
 If you additionally need to reference the exact software version used in your
 analysis, cite the Zenodo archive alongside the article.
