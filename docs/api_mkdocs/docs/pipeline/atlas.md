@@ -36,7 +36,7 @@ atlases = manager.list_atlases()
 
 # List regions for a specific atlas
 regions = manager.list_regions("DK40")
-# ['bankssts-lh', 'bankssts-rh', 'caudalanteriorcingulate-lh', ...]
+# ['lh.bankssts', 'lh.caudalanteriorcingulate', ..., 'rh.bankssts', ...]
 
 # Find the .annot file for a specific atlas and hemisphere
 annot_path = manager.find_atlas_file("DK40", "lh")

@@ -690,7 +690,7 @@ channel fields along the node normals, beside them (none for a carrier-only run)
 surface overlays, `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
 `_normal.msh`, `grey_`/`white_` meshes, mTI per-pair `TI_AB`… meshes and Gmsh `.opt` views of our
 meshes are not written. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
-per mesh field for the whole brain tissue and its grey- and white-matter crops (`grey_`/`white_`
+per mesh field for all head tissues (electrodes and gel removed) and its grey- and white-matter crops (`grey_`/`white_`
 names, cropped on the fly, `tit.tools.mesh2nii.TISSUE_TAGS`), and `map_to_mni` (which requires
 it) their MNI copies and the MNI T1; the NIfTI set must equal the mesh field set or the run fails
 (`check_niftis_match_meshes`). The Viewer shows the volume mesh as grey matter only (the scene's
@@ -923,6 +923,12 @@ and a planning error on a proposal step, which blocks its approval. The run page
 the server resolved under the project. Excluded alternative: a jail per config field (every new
 output field would need its own; the plan already names each job's destination).
 
+**A queued or running job's output folder is taken.** `POST /api/jobs`, `/api/jobs/groups` and a
+proposal step's approval refuse (HTTP 422, `refuse_outputs_of_active_jobs`) a job whose named output
+folder another queued or running job will write, whatever `overwrite` says: the 409 check reads the
+disk, where a queued job has written nothing yet. A finished, failed or cancelled job releases its
+folder, so Replace and rerun and retries are unaffected.
+
 Sources: [`overwrite_policy.py`](../../tit/server/overwrite_policy.py),
 [`ExistingOutputsDialog.tsx`](../../desktop/src/renderer/pages/_shared/run/ExistingOutputsDialog.tsx),
 [`JobDetailPane.tsx`](../../desktop/src/renderer/app/jobs-rail/JobDetailPane.tsx).
@@ -950,6 +956,12 @@ group's flags, not per stage, because an early stage supplies what a later one n
 desktop turns the body into one persistent notice, one line per input (`notifySubmitError`,
 `notify.blocked`); `ApiError.missing` carries the list. Kinds with nothing on disk to check
 (`project_init`, `tools`, whose arguments are jailed separately) return nothing.
+
+Preflight also refuses another subject's files: an `ex`/`mex` `leadfield_hdf`, or a subject-space
+flex/ex atlas or mask, that lies outside that subject's own SimNIBS, FastSurfer and FreeSurfer folders
+(its folder resolved, a symlinked file counted as its own) is a missing input, because an absolute path
+wins the join with the subject's leadfields folder. A plan step runs one config on every subject, so the
+Optimizer refuses to save a multi-subject step whose per-subject configs differ.
 
 Sources: [`preflight.py`](../../tit/jobs/preflight.py), [`jobs.py`](../../tit/server/routes/jobs.py),
 [`client.ts`](../../desktop/src/renderer/api/client.ts), [`Toast.tsx`](../../desktop/src/renderer/ui/Toast.tsx).

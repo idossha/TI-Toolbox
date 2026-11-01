@@ -5,7 +5,7 @@
 ``TISimulation`` and ``mTISimulation``:
 
 * ``__init__`` -- config, montage, logger, path manager, m2m_dir
-* ``_apply_tissue_conductivities`` -- env-var conductivity overrides
+* ``_apply_tissue_conductivities`` -- ``SimulationConfig.tissue_conductivities`` overrides
 * ``run`` -- template method (setup dirs, viz, build session, post-process)
 * ``_init_session`` -- common SESSION setup (subpath, tensor, eeg_cap, flags)
 * ``_add_electrode_pair`` -- electrode creation on a TDCS list
@@ -427,8 +427,6 @@ class BaseSimulation(ABC):
             finish_t1_to_mni(t1_proc, self.logger)
 
     def _apply_tissue_conductivities(self, tdcs) -> None:
-        """Override tissue conductivities from environment variables if set."""
-        for i in range(len(tdcs.cond)):
-            env_var = f"TISSUE_COND_{i + 1}"
-            if env_var in os.environ:
-                tdcs.cond[i].value = float(os.environ[env_var])
+        """Override tissue conductivities (S/m) from ``config.tissue_conductivities``."""
+        for tissue, value in (self.config.tissue_conductivities or {}).items():
+            tdcs.cond[tissue - 1].value = value

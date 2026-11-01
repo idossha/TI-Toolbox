@@ -119,7 +119,7 @@ function ClusterPermutationPanel() {
   const [alternative, setAlternative] = usePageSession("classification.alternative", "two-sided");
   const [group1Name, setGroup1Name] = usePageSession("classification.group1Name", "Responders");
   const [group2Name, setGroup2Name] = usePageSession("classification.group2Name", "Non-Responders");
-  const [valueMetric, setValueMetric] = usePageSession("classification.valueMetric", "Current intensity");
+  const [valueMetric, setValueMetric] = usePageSession("classification.valueMetric", "Electric Field Magnitude");
 
   // correlation-only
   const [correlationType, setCorrelationType] = usePageSession("correlation.type", "pearson");

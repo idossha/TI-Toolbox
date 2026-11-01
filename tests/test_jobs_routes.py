@@ -257,8 +257,11 @@ def test_an_agent_cannot_submit_until_the_user_allows_it(
     client: TestClient, route: str
 ) -> None:
     """ARCHITECTURE §6: the setting is off by default, an agent's direct submission is a 403
-    naming propose_pipeline, and the app's own submission (no created_by) is unaffected."""
-    assert client.get("/api/settings", headers=BEARER).json()["agent_auto_submit"] is False
+    naming propose_pipeline, and the app's own submission (no created_by) is unaffected.
+    """
+    assert (
+        client.get("/api/settings", headers=BEARER).json()["agent_auto_submit"] is False
+    )
     body = {"kind": "sim", "config": _sim_config("001"), "subject_ids": ["001"]}
     refused = client.post(route, headers=BEARER, json={**body, "created_by": "agent"})
     assert refused.status_code == 403
@@ -267,10 +270,13 @@ def test_an_agent_cannot_submit_until_the_user_allows_it(
     assert client.post(route, headers=BEARER, json=body).status_code == 201
 
     allow_agent_submissions(client)
+    # Another montage: the first job may still be queued, and its folder is taken.
+    second = _sim_config("001")
+    second["montages"] = [{**second["montages"][0], "name": "m2"}]
     allowed = client.post(
         route,
         headers=BEARER,
-        json={**body, "created_by": "agent", "overwrite": True},
+        json={**body, "config": second, "created_by": "agent", "overwrite": True},
     )
     assert allowed.status_code == 201, allowed.text
     allow_agent_submissions(client, on=False)
@@ -284,7 +290,9 @@ def test_submit_records_who_submitted_defaulting_to_gui(
     """The agent plugin names itself; the app sends nothing and stays "gui" (contract JobSpec)."""
     allow_agent_submissions(client)
     job = {"kind": "tools", "config": {"__fake": {"duration_s": 0.01}}}
-    plain = client.post("/api/jobs", headers=BEARER, json={**job, "subject_ids": ["001"]})
+    plain = client.post(
+        "/api/jobs", headers=BEARER, json={**job, "subject_ids": ["001"]}
+    )
     agent = client.post(
         "/api/jobs",
         headers=BEARER,
@@ -314,7 +322,9 @@ def test_group_records_the_agent_on_every_member(
     )
     assert r.status_code == 201, r.text
     jobs = r.json()["jobs"]
-    assert len(jobs) == 2  # DICOM conversion + charm: the Pre-processing page's defaults
+    assert (
+        len(jobs) == 2
+    )  # DICOM conversion + charm: the Pre-processing page's defaults
     assert {_recorded_creator(project, j["id"]) for j in jobs} == {"agent"}
 
 
@@ -337,9 +347,13 @@ def test_an_agents_config_gets_the_run_pages_defaults(
     agent = client.post(
         route, headers=BEARER, json={**body, "config": config, "created_by": "agent"}
     )
-    plain = client.post(route, headers=BEARER, json={**body, "config": config})
+    # Another montage: the agent's job may still be queued, and its folder is taken.
+    other = {**config, "montages": [{**config["montages"][0], "name": "m2"}]}
+    plain = client.post(route, headers=BEARER, json={**body, "config": other})
     assert agent.status_code == plain.status_code == 201, (agent.text, plain.text)
-    agent_id, plain_id = (r.json().get("jobs", [r.json()])[0]["id"] for r in (agent, plain))
+    agent_id, plain_id = (
+        r.json().get("jobs", [r.json()])[0]["id"] for r in (agent, plain)
+    )
     filled = _recorded_config(project, agent_id)
     assert filled["map_to_fsavg"] is False and filled["conductivity"] == "vn"
     assert _recorded_config(project, plain_id).get("map_to_fsavg") is not False
@@ -741,6 +755,30 @@ def _sim_config(subject_id: str) -> dict:
     }
 
 
+@pytest.mark.parametrize(
+    "route,kind,config",
+    [
+        ("/api/jobs", "sim", _sim_config("002")),
+        ("/api/jobs", "pre", {"subject_ids": ["002"], "create_m2m": True}),
+        ("/api/jobs/groups", "pre", {"subject_ids": ["002"], "create_m2m": True}),
+    ],
+)
+def test_the_body_and_the_config_name_the_same_subjects(
+    client: TestClient, route: str, kind: str, config: dict
+) -> None:
+    """The job record and its locks name the body's subjects; the runner reads the config's.
+    Before, a body naming 001 with a config naming 002 was queued: locks and record said 001
+    while the runner processed 002."""
+    r = client.post(
+        route,
+        headers=BEARER,
+        json={"kind": kind, "config": config, "subject_ids": ["001"]},
+    )
+    assert r.status_code == 422, r.text
+    assert "do not match" in r.json()["detail"] and "002" in r.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
 def test_sim_group_is_one_job_per_subject_with_isolated_configs(
     client: TestClient,
 ) -> None:
@@ -836,7 +874,9 @@ def test_sim_group_invalid_config_is_422(client: TestClient) -> None:
 
 
 @pytest.mark.parametrize("stale_field", [{}, {"parallel_subjects": 2}])
-def test_a_group_runs_one_member_at_a_time(client: TestClient, stale_field: dict) -> None:
+def test_a_group_runs_one_member_at_a_time(
+    client: TestClient, stale_field: dict
+) -> None:
     """One job per product (DECISIONS 2026-09-22): the whole group is created queued in one
     request and the scheduler never has two Simulator members `running`. A `parallel_subjects`
     from an older client is ignored, not a 422 and not a cap."""
@@ -942,6 +982,43 @@ def test_ws_jobs_subscribe_streams_events(client: TestClient) -> None:
         ws.send_text(json.dumps({"unsubscribe": [job_id]}))
 
 
+def test_ws_jobs_closes_when_its_sender_fails(client: TestClient, monkeypatch) -> None:
+    """A sender that dies (here: serialising a frame raises) closes the socket with 1011.
+
+    Before, the exception was swallowed and the socket stayed open, silent: the client saw no
+    more frames and no close, so it never reconnected (G3-7).
+    """
+    import threading
+
+    def boom(message):
+        raise RuntimeError("cannot serialise this frame")
+
+    monkeypatch.setattr("tit.server.routes.ws_jobs.json_finite", boom)
+    outcome: dict[str, object] = {}
+    with client.websocket_connect(f"{WS}?token={TOKEN}") as ws:
+
+        def read() -> None:
+            try:
+                outcome["frame"] = ws.receive_text()
+            except WebSocketDisconnect as exc:
+                outcome["code"] = exc.code
+
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        client.post(
+            "/api/jobs",
+            headers=BEARER,
+            json={
+                "kind": "tools",
+                "config": {"__fake": {"duration_s": 0.1}},
+                "subject_ids": [],
+            },
+        )
+        reader.join(timeout=10)
+        assert not reader.is_alive(), "the socket stayed open after its sender died"
+    assert outcome == {"code": 1011}
+
+
 def test_ws_jobs_rejects_missing_token(client: TestClient) -> None:
     with pytest.raises(WebSocketDisconnect) as exc:
         with client.websocket_connect(WS):
@@ -1005,6 +1082,74 @@ def test_existing_sim_without_explicit_overwrite_is_rejected(client):
     )
     assert response.status_code == 409
     assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+@pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
+def test_a_queued_jobs_output_folder_is_taken(client: TestClient, route: str) -> None:
+    """The overwrite check reads the disk, where a queued job has written nothing yet: a second
+    job into the same folder (a double-pressed Run) used to be queued and replaced the first's
+    results. A queued or running job's folder is taken -- refused whatever `overwrite` says.
+    """
+    blocker = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "tools",
+            "config": {"__fake": {"duration_s": 5.0}},
+            "subject_ids": [],
+        },
+    ).json()
+    first = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={
+            "kind": "sim",
+            "config": _sim_config("001"),
+            "subject_ids": ["001"],
+            "after": [blocker["id"]],
+        },
+    )
+    assert first.status_code == 201, first.text
+    body = {"kind": "sim", "subject_ids": ["001"], "overwrite": True}
+    again = client.post(
+        route, headers=BEARER, json={**body, "config": _sim_config("001")}
+    )
+    assert again.status_code == 422, again.text
+    folder = get_path_manager().simulation("001", "m1")
+    assert (
+        first.json()["id"] in again.json()["detail"]
+        and folder in again.json()["detail"]
+    )
+    other = _sim_config("001")
+    other["montages"] = [{**other["montages"][0], "name": "m2"}]
+    assert (
+        client.post(route, headers=BEARER, json={**body, "config": other}).status_code
+        == 201
+    )
+    client.post(f"/api/jobs/{blocker['id']}/cancel", headers=BEARER)
+
+
+def test_a_cancelled_jobs_folder_is_free_again(client: TestClient) -> None:
+    """Only a queued or running job takes its folder: once it is cancelled, the same run can be
+    queued again (the retry and the replace-and-rerun flows)."""
+    blocker = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={"kind": "tools", "config": {"__fake": {"duration_s": 5.0}}, "subject_ids": []},
+    ).json()
+    body = {
+        "kind": "sim",
+        "config": _sim_config("001"),
+        "subject_ids": ["001"],
+        "after": [blocker["id"]],
+    }
+    first = client.post("/api/jobs", headers=BEARER, json=body)
+    assert first.status_code == 201, first.text
+    assert client.post("/api/jobs", headers=BEARER, json=body).status_code == 422
+    client.post(f"/api/jobs/{first.json()['id']}/cancel", headers=BEARER)
+    again = client.post("/api/jobs", headers=BEARER, json=body)
+    assert again.status_code == 201, again.text
+    client.post(f"/api/jobs/{blocker['id']}/cancel", headers=BEARER)
 
 
 def test_overwrite_refusal_names_the_kind_not_simulation(monkeypatch):

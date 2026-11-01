@@ -98,10 +98,20 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
     os.makedirs(logs_dir, exist_ok=True)
     log_file = os.path.join(logs_dir, f'ex_search_{time.strftime("%Y%m%d_%H%M%S")}.log')
     logger_name = f"tit.opt.ex_search.{config.subject_id}"
-    add_file_handler(log_file, logger_name=logger_name)
-    add_file_handler(log_file, logger_name="simnibs")
-    logger = logging.getLogger(logger_name)
+    handlers = [
+        (name, add_file_handler(log_file, logger_name=name))
+        for name in (logger_name, "simnibs")
+    ]
+    try:
+        return _ex_search(config, pm, logging.getLogger(logger_name))
+    finally:
+        # One process may run many searches (a notebook): close this run's log file.
+        for name, handler in handlers:
+            logging.getLogger(name).removeHandler(handler)
+            handler.close()
 
+
+def _ex_search(config, pm, logger):
     logger.info(f"{'=' * 60}\nTI Exhaustive Search\n{'=' * 60}")
     logger.info(f"Project: {pm.project_dir}")
     logger.info(f"Subject: {config.subject_id}")
@@ -199,7 +209,9 @@ def _run_ex_search_inner(config: ExConfig) -> ExResult:
         symmetry_pairing=config.symmetry_pairing,
     )
 
-    output_info = process_and_save(results, config, output_dir, logger)
+    output_info = process_and_save(
+        results, config, output_dir, logger, leadfield_path=leadfield_path
+    )
     logger.info(f"Config: {output_info['config_json_path']}")
     logger.info(f"CSV: {output_info['csv_path']}")
     _write_report(config.subject_id, output_dir, logger)

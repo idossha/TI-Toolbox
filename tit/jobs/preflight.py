@@ -157,6 +157,43 @@ def _atlas_files(paths: Any, what: str, how_to_fix: str) -> list[MissingInput]:
     return missing
 
 
+def _not_own(pm: PathManager, sid: str, path: str | Path) -> bool:
+    """Whether *path* lies outside sub-<sid>'s own derivatives (SimNIBS, FastSurfer, FreeSurfer).
+
+    The folder is resolved, the file is not: a mask or leadfield symlinked into the subject's
+    folder from shared storage is that subject's own file.
+    """
+    head, name = os.path.split(os.path.abspath(path))
+    real = os.path.join(os.path.realpath(head), name)
+    roots = (pm.sub(sid), pm.fastsurfer_subject(sid), pm.freesurfer_subject(sid))
+    return not any(real.startswith(os.path.realpath(root) + os.sep) for root in roots)
+
+
+def _subject_atlas_files(
+    pm: PathManager, sid: str, roi: dict[str, Any], what: str
+) -> list[MissingInput]:
+    """:func:`_atlas_files` for an ROI's ``atlas_path``; a subject-space one (every space but
+    ``mni``) must also be sub-<sid>'s own file, never another subject's.
+    """
+    fix = (
+        f"Pick an atlas or mask file that exists for sub-{sid} (a subject atlas "
+        "needs FastSurfer/recon-all; a custom mask must be imported first)."
+    )
+    paths = [p for p in _as_list(roi.get("atlas_path")) if isinstance(p, str) and p]
+    if roi.get("atlas_space") == "mni":
+        return _atlas_files(paths, what, fix)
+    foreign = [p for p in dict.fromkeys(paths) if _not_own(pm, sid, p)]
+    return [
+        MissingInput(
+            f"sub-{sid}'s own {what} (this one is not in sub-{sid}'s derivatives)",
+            p,
+            f"Pick sub-{sid}'s own atlas or mask; a subject-space file belongs to "
+            "one subject's anatomy.",
+        )
+        for p in foreign
+    ] + _atlas_files([p for p in paths if p not in foreign], what, fix)
+
+
 def _subject_ids(config: dict[str, Any]) -> list[str]:
     sid = config.get("subject_id")
     if isinstance(sid, str) and sid:
@@ -309,12 +346,7 @@ def _check_flex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
         roi = config.get(key)
         if isinstance(roi, dict):
             missing.extend(
-                _atlas_files(
-                    roi.get("atlas_path"),
-                    f"{label} atlas/mask file",
-                    f"Pick an atlas or mask file that exists for sub-{sid} (a subject atlas "
-                    "needs FastSurfer/recon-all; a custom mask must be imported first).",
-                )
+                _subject_atlas_files(pm, sid, roi, f"{label} atlas/mask file")
             )
     return missing
 
@@ -384,8 +416,18 @@ def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     if missing:
         return missing  # everything else lives under the head model
     hdf = config.get("leadfield_hdf")
-    if isinstance(hdf, str) and hdf:
-        path = Path(pm.leadfields(sid)) / hdf
+    path = Path(pm.leadfields(sid)) / hdf if isinstance(hdf, str) and hdf else None
+    if path is not None and _not_own(pm, sid, path):
+        # An absolute (or climbing) path wins the join: another subject's leadfield would run.
+        missing.append(
+            MissingInput(
+                f"sub-{sid}'s own leadfield ({hdf!r} is not in sub-{sid}'s derivatives)",
+                hdf,
+                f"Use sub-{sid}'s leadfield from {pm.leadfields(sid)}; a leadfield is "
+                "computed on one subject's head model.",
+            )
+        )
+    elif path is not None:
         if not path.is_file():
             missing.append(
                 MissingInput(
@@ -433,12 +475,7 @@ def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     for i, entry in enumerate(config.get("roi_atlas") or []):
         if isinstance(entry, dict):
             missing.extend(
-                _atlas_files(
-                    entry.get("atlas_path"),
-                    f"roi_atlas[{i}] atlas/mask file",
-                    f"Pick an atlas or mask file that exists for sub-{sid} (a subject atlas "
-                    "needs FastSurfer/recon-all; a custom mask must be imported first).",
-                )
+                _subject_atlas_files(pm, sid, entry, f"roi_atlas[{i}] atlas/mask file")
             )
     sym = config.get("symmetry_eeg_csv")
     if isinstance(sym, str) and sym and not Path(sym).is_file():

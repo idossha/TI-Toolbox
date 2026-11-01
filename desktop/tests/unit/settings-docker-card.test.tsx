@@ -32,7 +32,7 @@ vi.mock("../../src/renderer/pages/settings/api", () => ({
   putCpuLimit: vi.fn(),
   putFreeSurferLicense: vi.fn(),
   deleteFreeSurferLicense: vi.fn(),
-  getSettings: vi.fn(async () => ({ telemetry: { consented: true, enabled: false }, panels: [], image_tag: null, theme: "system" })),
+  getSettings: vi.fn(async () => ({ telemetry: { consented: true, enabled: false }, panels: [], theme: "system" })),
   putSettings: vi.fn(async (s: unknown) => s),
   getProject: vi.fn(async () => ({ name: "example", container_path: "/mnt/example", host_path: "/Users/x/example" })),
   getCapabilities: vi.fn(async () => ({ docker_socket: true, bpy: true, jupyter: false, fastsurfer: false })),

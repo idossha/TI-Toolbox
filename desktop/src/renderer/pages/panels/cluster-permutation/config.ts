@@ -29,6 +29,8 @@ function sharedConfig(shared: SharedStatsFields) {
     n_permutations: shared.nPermutations,
     alpha: shared.alpha,
     n_jobs: shared.nJobs,
+    // A fresh seed each run; the runner writes the one it drew into the run's summary.
+    seed: null,
     tissue_type: shared.tissueType,
     nifti_file_pattern: shared.niftiPattern.trim() || null,
     space: shared.space,

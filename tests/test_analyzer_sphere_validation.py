@@ -203,6 +203,7 @@ def test_group_refuses_a_bad_sphere_once_and_blames_no_subject(
                 ["101", "102"],
                 "M1",
                 analysis_type="spherical",
+                coordinate_space="MNI",
                 output_dir=str(out),
                 **target,
             )

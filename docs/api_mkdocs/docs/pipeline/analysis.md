@@ -53,10 +53,10 @@ The `region` parameter accepts a single region name or a list of region names
 whose masks are combined into one ROI.
 
 ```python
-result = analyzer.analyze_cortex(atlas="DK40", region="precentral-lh")
+result = analyzer.analyze_cortex(atlas="DK40", region="lh.precentral")
 
 # Multiple regions combined into a single ROI
-result = analyzer.analyze_cortex(atlas="DK40", region=["precentral-lh", "postcentral-lh"])
+result = analyzer.analyze_cortex(atlas="DK40", region=["lh.precentral", "lh.postcentral"])
 ```
 
 ## Analysis Spaces
@@ -90,13 +90,13 @@ result = analyzer.analyze_cortex(atlas="DK40", region=["precentral-lh", "postcen
     ```python
     result = analyzer.analyze_cortex(
         atlas="DK40",
-        region="precentral-lh",
+        region="lh.precentral",
     )
 
     # Or combine multiple regions into one ROI
     result = analyzer.analyze_cortex(
         atlas="HCP_MMP1",
-        region=["4-lh", "3a-lh", "3b-lh"],
+        region=["lh.4", "lh.3a", "lh.3b"],
     )
     ```
 
@@ -109,7 +109,7 @@ Each analysis returns an `AnalysisResult` dataclass with these fields:
 | `field_name` | SimNIBS field name (e.g., `"TI_max"`) |
 | `region_name` | Human-readable ROI identifier |
 | `space` | `"mesh"` or `"voxel"` |
-| `analysis_type` | `"spherical"` or `"cortical"` |
+| `analysis_type` | `"spherical"`, `"cortical"`, `"mask"` or `"subcortical"` |
 | `roi_mean` | Weighted mean field intensity within the ROI |
 | `roi_max` | Maximum field intensity within the ROI |
 | `roi_min` | Minimum field intensity within the ROI |
@@ -169,7 +169,7 @@ group_result = run_group_analysis(
     space="mesh",
     analysis_type="cortical",
     atlas="DK40",
-    region="precentral-lh",
+    region="lh.precentral",
     visualize=True,
 )
 ```

@@ -45,7 +45,7 @@ Understanding these field quantities is critical because they are the primary ou
 
   **`TI_normal` is mesh-only, by design** — it only exists on the cortical surface, so a voxel-space analysis of it is an error, not a bug. It is written for both TI and mTI runs onto the run's central surface `<TI|mTI>/mesh/surfaces/<montage>_<TI|mTI>_central.msh` (`tit.volume_fields.central_surface`: every volume field and each channel's `E` interpolated onto the m2m central surfaces, then `tit.calc.envelope(e_fields, normals)` over every channel); a carrier-only run has none. A run made before the surface carried it gets it on demand (from its old normal-component mesh, else the channel meshes) when an analysis or the fsaverage projection needs it.
 
-- **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_rms` (not `TI_avg` or `hf_power_density`), and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh` (fsaverage central surfaces, lh then rh, one node field per quantity; opens in the Viewer and Gmsh). This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact. Confirm mTI coverage against the module before promising it — the source and `docs/wiki/simulator.md` disagree today.
+- **fsaverage projection**: `tit/source/fsaverage.py` projects finished simulations onto the fsaverage surface *post hoc* (spacings 5/6/7 = 10242/40962/163842 nodes per hemisphere), covering `TI_max`, `TI_normal`, `hf_peak` and `hf_rms` (not `TI_avg` or `hf_power_density`), and writing `sub-<id>_sim-<sim>_space-fsaverage<spacing>_fields.msh` (fsaverage central surfaces, lh then rh, one node field per quantity; opens in the Viewer and Gmsh). This is what makes surface-space group statistics possible. Unlike SimNIBS's native `map_to_fsavg` (simulation time, `TI_max` only) it can be run after the fact, for TI and mTI runs alike.
 
 - **Modulation depth**: A dimensionless ratio between 0 and 1 that indicates how effectively the two fields interfere at a given point:
 
@@ -495,7 +495,7 @@ Focality = max(E_ROI) / percentile(E_nonROI, 95)
 Higher focality means the stimulation is more concentrated at the target and weaker elsewhere. A focality of 1.0 means the target receives no more stimulation than the rest of the brain.
 
 Flex-search also offers `focality_tf`, a threshold-free variant
-`mean_ROI^(1+w) / p95_nonROI`, which avoids picking an arbitrary cut-off.
+`mean_ROI^(1+w) / mean_nonROI`, which avoids picking an arbitrary cut-off.
 
 #### Modulation vs stimulation focality
 

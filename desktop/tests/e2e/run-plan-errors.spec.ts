@@ -190,10 +190,11 @@ test("Analyzer: an edit drops the refusal of the table it replaced, before the n
   const dialog = await openAnalysisTarget(page, row);
   await pauseTime();
   // Radius 8 is another table. Its plan has not been asked for (the debounce is frozen), so the
-  // only plan on hand is radius 7's refusal — which is not this table's.
+  // only plan on hand is radius 7's refusal — which is not this table's. Run waits for the new
+  // table's own plan instead of speaking for the old one.
   await dialog.getByLabel("Sphere 1 radius").fill("8");
   await expect(run).not.toHaveAttribute("title", `Job 1: ${DETAIL}`);
-  await expect(run).toBeEnabled();
+  await expect(run).toHaveAttribute("title", "Resolving the plan…");
   await page.clock.resume();
   await closeAnalysisTarget(page);
   // The new table's own plan (the mock's, accepted) arrives and the bar counts it.

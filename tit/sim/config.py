@@ -452,12 +452,9 @@ class SimulationConfig:
         ``{"<tissue number>": <S/m>}`` on disk; :func:`tit.config_io.deserialize_config`
         coerces the keys back to ``int``, and this dataclass's own
         ``__post_init__`` does the same for an instance built directly
-        with string keys. Consumed by ``tit.sim.__main__`` via
-        ``TISSUE_COND_<n>`` environment variables (the mechanism
-        ``tit.sim.base.BaseSimulation._apply_tissue_conductivities``
-        already reads) -- deprecated in favor of this field, which is
-        visible in the job's config and its manifest instead of being an
-        invisible process-environment side channel.
+        with string keys. Applied to every channel's TDCS list by
+        ``tit.sim.base.BaseSimulation._apply_tissue_conductivities`` and
+        recorded in the run's ``config.json``.
     carrier_only : bool
         Carrier-only control: both channels run at the same frequency, in
         phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
@@ -474,8 +471,10 @@ class SimulationConfig:
         *output_fields* contains an unknown name or is empty, if any
         montage has a channel that is not exactly two electrodes, if
         *intensities* is shorter than a montage needs (2 for TI, one per
-        channel for mTI), if *tissue_conductivities* contains a
-        non-positive value, if *carrier_only* is set with an envelope
+        channel for mTI), if *tissue_conductivities* contains a tissue
+        number below 1 or a non-positive value, if *electrode_shape* is not
+        ``"ellipse"`` or ``"rect"`` or any electrode dimension, *gel_thickness*
+        or *rubber_thickness* is not a finite number above 0, if *carrier_only* is set with an envelope
         output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
         EEG-net CSV) happen later, in :func:`run_simulation`.
 
@@ -542,6 +541,20 @@ class SimulationConfig:
             raise ValueError(
                 f"Invalid conductivity {self.conductivity!r}, "
                 f"must be one of {_VALID_CONDUCTIVITIES}"
+            )
+        if self.electrode_shape not in ("ellipse", "rect"):
+            raise ValueError(
+                f"electrode_shape must be 'ellipse' or 'rect' (was {self.electrode_shape!r})"
+            )
+        sizes = [*self.electrode_dimensions, self.gel_thickness, self.rubber_thickness]
+        if len(self.electrode_dimensions) != 2 or not all(
+            _is_finite_number(v) and v > 0 for v in sizes
+        ):
+            raise ValueError(
+                "electrode_dimensions ([width, height]), gel_thickness and "
+                "rubber_thickness must be finite numbers above 0 mm; got "
+                f"{self.electrode_dimensions!r}, {self.gel_thickness!r}, "
+                f"{self.rubber_thickness!r}"
             )
         if self.output_fields is None:
             # One rule for both modes: every default field the run defines.
@@ -634,6 +647,11 @@ class SimulationConfig:
             self.tissue_conductivities = {
                 int(k): float(v) for k, v in self.tissue_conductivities.items()
             }
+            if any(k < 1 for k in self.tissue_conductivities):
+                raise ValueError(
+                    "tissue_conductivities keys are SimNIBS tissue numbers (1-based); got "
+                    f"{sorted(self.tissue_conductivities)}"
+                )
             non_positive = {
                 k: v for k, v in self.tissue_conductivities.items() if v <= 0
             }
@@ -647,9 +665,10 @@ class SimulationConfig:
 def parse_intensities(s: str) -> list[float]:
     """Parse a comma-separated intensity string into a list of floats.
 
-    A single value is duplicated to form a pair (``"2.0"`` becomes
-    ``[2.0, 2.0]``).  Otherwise the value count must be even so that
-    each electrode pair receives two intensities.
+    Intensities are one current per channel (electrode pair).  A single
+    value is used for both channels of a TI montage (``"2.0"`` becomes
+    ``[2.0, 2.0]``).  Otherwise the value count must be even: two channels
+    for TI, four or more for mTI.
 
     Parameters
     ----------

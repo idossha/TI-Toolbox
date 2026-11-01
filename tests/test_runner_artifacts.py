@@ -304,6 +304,7 @@ class TestAnalyzerArtifactRoot:
                     "analysis_type": "spherical",
                     "center": [0, 0, 0],
                     "radius": 5,
+                    "coordinate_space": "mni",
                 }
             )
         )
@@ -340,7 +341,12 @@ class TestAnalyzerArtifactRoot:
     def test_a_group_run_without_a_subject_has_no_root(self):
         from tit.analyzer.__main__ import analysis_artifact_root
 
-        cfg = self._config(mode="group", subject_id=None, subject_ids=["a", "b"])
+        cfg = self._config(
+            mode="group",
+            subject_id=None,
+            subject_ids=["a", "b"],
+            coordinate_space="mni",
+        )
         assert analysis_artifact_root(cfg, MagicMock()) is None
 
     def test_an_output_dir_outside_the_simulation_says_so(self, tmp_path, capsys):

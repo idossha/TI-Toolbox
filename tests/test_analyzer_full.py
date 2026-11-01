@@ -197,7 +197,7 @@ class TestSphereVoxel:
     """Lines 250-276: _sphere_voxel builds voxel mask and delegates."""
 
     def test_sphere_voxel_constructs_mask(self):
-        a = _make_analyzer(space="voxel", field_path=Path("/fake/field.nii.gz"))
+        a = _make_analyzer(space="voxel", field_path=Path("/fake/grey_field.nii.gz"))
         # 5x5x5 volume, positive values everywhere
         field_arr = np.ones((5, 5, 5), dtype=float) * 2.0
         affine = np.eye(4)

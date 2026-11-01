@@ -124,7 +124,8 @@ def run_group_analysis(
     coordinate_space : str, optional
         ``"subject"`` or ``"MNI"`` (spherical, subcortical and mask): the
         space of the sphere centre, the volume atlas or the mask. Default
-        ``"subject"``; a group mask analysis requires ``"MNI"``.
+        ``"subject"``; a group spherical or mask analysis requires ``"MNI"``
+        (one target for every subject).
     spheres : sequence of tuple of float or None, optional
         One ``(x, y, z, r)`` per sphere, unioned into a single ROI
         (spherical only). Takes precedence over *center*/*radius*.
@@ -157,11 +158,14 @@ def run_group_analysis(
     ------
     KeyError
         If *analysis_type* is not ``"spherical"``, ``"cortical"``,
-        ``"subcortical"`` or ``"mask"``.
+        ``"subcortical"`` or ``"mask"``; or if a subject's atlas lacks a
+        region, and then the message starts with ``sub-<id>:``.
     ValueError
-        If ``analysis_type="mask"`` with a non-MNI *coordinate_space* or an
-        unreadable *mask_path*; if a sphere lacks a finite centre or a
-        positive, finite radius (checked once, before any subject); or if a
+        If *coordinate_space* is not ``"subject"``/``"MNI"``; if
+        ``analysis_type="mask"`` or ``"spherical"`` with a non-MNI
+        *coordinate_space*, or an unreadable *mask_path*; if a sphere is
+        missing or lacks a finite centre or a positive, finite radius
+        (checked once, before any subject); or if a
         subject's analysis is refused (for example its ROI is empty), and
         then the message starts with ``sub-<id>:``.
     FileNotFoundError
@@ -189,6 +193,10 @@ def run_group_analysis(
     from tit.telemetry import track_operation
     from tit import constants as _const
 
+    if coordinate_space.lower() not in ("subject", "mni"):
+        raise ValueError(
+            f"coordinate_space must be 'subject' or 'MNI'; got {coordinate_space!r}"
+        )
     if analysis_type == "mask":
         from tit.opt.masks import validate_mask
 
@@ -197,6 +205,16 @@ def run_group_analysis(
         validate_mask(mask_path)
     if analysis_type == "spherical":
         # The same sphere for every subject: refuse it once, blaming no subject.
+        if coordinate_space.lower() != "mni":
+            raise ValueError(
+                "A group spherical analysis needs coordinate_space 'MNI': one centre "
+                "is used for every subject"
+            )
+        if not spheres and (center is None or radius is None):
+            raise ValueError(
+                "center and radius (or spheres) are required for "
+                "analysis_type='spherical'"
+            )
         Analyzer._checked_spheres(spheres or [(*center, radius)])
 
     with track_operation(_const.TELEMETRY_OP_GROUP_ANALYSIS):
@@ -262,6 +280,7 @@ def run_group_analysis(
             analyze_fn = dispatch[analysis_type]
 
             results: dict[str, AnalysisResult] = {}
+            tissue = ""
             for sid in subject_ids:
                 logger.info("Analyzing subject %s", sid)
                 analyzer = None
@@ -270,18 +289,23 @@ def run_group_analysis(
                         sid, simulation, space, tissue_type, field=field
                     )
                     results[sid] = analyze_fn(analyzer)
+                    tissue = "+".join(analyzer._tissue_type_list())
                 except ValueError as exc:
                     # An empty or invalid target is per subject (anatomy differs): say whose.
                     raise ValueError(f"sub-{sid}: {exc}") from exc
+                except KeyError as exc:  # a region missing from this subject's atlas
+                    raise KeyError(
+                        f"sub-{sid}: {exc.args[0] if exc.args else exc}"
+                    ) from exc
                 finally:
                     # Each subject's own log holds its own analysis only, not the next one's.
                     handler = getattr(analyzer, "_log_handler", None)
                     if handler is not None:
                         _detach_log_handler(handler)
 
-            df = _build_summary_df(results)
+            df = _build_summary_df(results, tissue)
             csv_path = out / "group_summary.csv"
-            df.to_csv(csv_path, index=False, float_format="%.3f")
+            df.to_csv(csv_path, index=False, float_format="%.6g")
             logger.info("Summary CSV written to %s", csv_path)
 
             plot_path = _generate_comparison_plot(df, out)
@@ -419,8 +443,13 @@ def _detach_log_handler(handler) -> None:
     handler.close()
 
 
-def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
+def _build_summary_df(
+    results: dict[str, AnalysisResult], tissue: str = ""
+) -> pd.DataFrame:
     """One row per subject plus an AVERAGE row at the bottom.
+
+    ``GM_*`` hold the whole selected *tissue* (``GM``, ``WM`` or ``GM+WM``), which the
+    ``Tissue`` column names; ``Field`` is each subject's analysed field.
 
     A subject without normal-component statistics (every voxel analysis; a mesh run
     without a normal mesh) has empty ``Normal_*`` cells, not ``0``: the AVERAGE of a
@@ -443,12 +472,19 @@ def _build_summary_df(results: dict[str, AnalysisResult]) -> pd.DataFrame:
             "HFpeak_Focality": r.hf_peak_focality,
             "HFrms_Focality": r.hf_rms_focality,
             "TI_Selectivity": r.ti_selectivity,
+            "Tissue": tissue,
+            "Field": r.field_name,
         }
         for sid, r in results.items()
     ]
     df = pd.DataFrame(rows)
     df[_NUMERIC_COLS] = df[_NUMERIC_COLS].astype(float)  # None -> NaN
-    avg = {"Subject": "AVERAGE", **df[_NUMERIC_COLS].mean().to_dict()}
+    avg = {
+        "Subject": "AVERAGE",
+        **df[_NUMERIC_COLS].mean().to_dict(),
+        "Tissue": tissue,
+        "Field": "+".join(sorted({r.field_name for r in results.values()})),
+    }
     return pd.concat([df, pd.DataFrame([avg])], ignore_index=True)
 
 

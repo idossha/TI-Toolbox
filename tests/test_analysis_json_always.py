@@ -43,6 +43,7 @@ def _saved_fields_only(monkeypatch):
 
     monkeypatch.setattr(Analyzer, "_produce_missing_fields", lambda self, field: ())
 
+
 SID = "101"
 SIM = "M1"
 
@@ -232,6 +233,11 @@ def test_group_analysis_with_the_default_visualize_lists_every_subject_run(
         patch("tit.analyzer.group.add_file_handler"),
         # matplotlib is mocked on the host; the bar chart is not what this test is about.
         patch("tit.analyzer.group._generate_comparison_plot", return_value=None),
+        # A group sphere is in MNI coordinates; this stand-in subject has no MNI warp.
+        patch(
+            "tit.analyzer.analyzer.Analyzer._maybe_transform_coords",
+            lambda self, c, space: np.asarray(c, dtype=float),
+        ),
     ):
         run_group_analysis(
             [SID],
@@ -240,6 +246,7 @@ def test_group_analysis_with_the_default_visualize_lists_every_subject_run(
             analysis_type="spherical",
             center=(2.0, 2.0, 2.0),
             radius=1.5,
+            coordinate_space="MNI",
             output_dir=str(project / "group_out"),
         )
 

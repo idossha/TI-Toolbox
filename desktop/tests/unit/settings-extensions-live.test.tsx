@@ -32,7 +32,7 @@ Object.defineProperty(window, "matchMedia", {
   value: (query: string) => ({ matches: false, media: query, onchange: null, addListener() {}, removeListener() {}, addEventListener() {}, removeEventListener() {}, dispatchEvent: () => false }),
 });
 
-const server = vi.hoisted(() => ({ settings: { telemetry: { consented: true, enabled: false }, panels: ["source"] as string[], image_tag: null, theme: "system" as const } }));
+const server = vi.hoisted(() => ({ settings: { telemetry: { consented: true, enabled: false }, panels: ["source"] as string[], theme: "system" as const } }));
 
 vi.mock("../../src/renderer/pages/settings/api", () => ({
   getSurferSettings: vi.fn(async () => ({ available_threads: 12, default_threads: 9, fastsurfer_threads: null, freesurfer_threads: null, effective_fastsurfer_threads: 9, effective_freesurfer_threads: 9, freesurfer_license: { configured: false, source: null, email: null } })),
@@ -93,7 +93,7 @@ describe("Settings ▸ Extensions save", () => {
   let realLocation: Location;
 
   beforeEach(() => {
-    server.settings = { telemetry: { consented: true, enabled: false }, panels: ["source"], image_tag: null, theme: "system" };
+    server.settings = { telemetry: { consented: true, enabled: false }, panels: ["source"], theme: "system" };
     Object.defineProperty(window, "localStorage", { configurable: true, value: memoryStorage() });
     reload.mockClear();
     realLocation = window.location;

@@ -112,14 +112,16 @@ def _step_config(
 
 
 def _job_folder(config: FlexConfig) -> str:
-    """The job's run folder: ``config.output_folder``, or a new ``flex-search/<timestamp>``."""
+    """The job's run folder: ``config.output_folder`` (a relative name under the subject's
+    ``flex-search/``), or a new ``flex-search/<timestamp>``."""
+    from tit.paths import get_path_manager
+
+    flex_root = get_path_manager().flex_search(config.subject_id)
     if config.output_folder:
-        folder = config.output_folder
+        folder = os.path.join(flex_root, config.output_folder)
     else:
         from tit.opt.flex.utils import generate_run_dirname
-        from tit.paths import get_path_manager
 
-        flex_root = get_path_manager().flex_search(config.subject_id)
         os.makedirs(flex_root, exist_ok=True)
         folder = os.path.join(flex_root, generate_run_dirname(flex_root))
     os.makedirs(folder, exist_ok=True)

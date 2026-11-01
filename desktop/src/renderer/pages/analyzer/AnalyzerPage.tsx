@@ -399,6 +399,9 @@ export function AnalyzerPage() {
         .filter((b): b is { id: string; reason: string } => !!b.reason),
     ),
     planFailure,
+    // The 400 ms debounce, or the request itself: until the plan of THESE specs is in, the
+    // collision check and the retry key would speak for an older table.
+    planPending: configsValid && (!planCurrent || plan.isFetching || !plan.data),
     outputCollision,
     rowCount: runnableRows.length,
     groupMismatch,
@@ -549,6 +552,8 @@ export function blockedReasonFor(state: {
   targetReady: boolean;
   /** The server's refusal of a job's plan (`planFailureReason`), quoted with its row. */
   planFailure?: string | null;
+  /** The plan of the current specs has not resolved yet (debounce pending or request in flight). */
+  planPending?: boolean;
   /** Two jobs writing one analysis folder (`collisionReason`). */
   outputCollision?: string | null;
 }): string | null {
@@ -562,6 +567,7 @@ export function blockedReasonFor(state: {
   if (!state.targetReady) return "Complete the target before running.";
   // Only a complete table is planned, so what the plan says comes last.
   if (state.planFailure) return state.planFailure;
+  if (state.planPending) return "Resolving the plan…";
   if (state.outputCollision) return state.outputCollision;
   return null;
 }

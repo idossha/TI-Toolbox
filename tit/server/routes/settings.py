@@ -10,7 +10,8 @@ Two files, read-modify-write with an atomic replace on every write:
 - ``code/ti-toolbox/config/settings.json`` (project-level, new in v1 --
   no prior file covered this shape) for ``panels`` (replaces
   ``extensions.json``'s ``{"extensions": {name: bool}}`` with a plain enabled
-  list), ``image_tag``, and ``theme``.
+  list), ``theme`` and ``agent_auto_submit``. A retired key an older file still
+  carries (``image_tag``, ``allow_unsafe_overrides``) is never read back.
 """
 
 from __future__ import annotations
@@ -31,7 +32,6 @@ router = APIRouter()
 _SETTINGS_FILENAME = "settings.json"
 _DEFAULTS: dict[str, Any] = {
     "panels": [],
-    "image_tag": None,
     "theme": "system",
 }
 
@@ -99,7 +99,6 @@ class Settings(BaseModel):
             "Nilearn Visuals, 3D Visual Exporter, EEG Caps)"
         )
     )
-    image_tag: str | None = None
     theme: Literal["system", "light", "dark"]
     agent_auto_submit: bool = Field(
         default=False,
@@ -127,7 +126,6 @@ def _read_settings() -> dict[str, Any]:
         # must never return something `PUT` would reject. `quick-notes` was retired the same way
         # on 2026-10-21: its toggle gated nothing, and the drawer is always available.
         "panels": [p for p in project.get("panels", []) if p in _VALID_PANELS],
-        "image_tag": project.get("image_tag"),
         "theme": project.get("theme", "system"),
         "agent_auto_submit": project.get("agent_auto_submit") is True,
     }
@@ -182,7 +180,6 @@ def put_settings(body: dict[str, Any]) -> Settings:
     telemetry_body = _validate_telemetry(body.get("telemetry"))
     project_settings = {
         "panels": _validate_panels(body.get("panels", [])),
-        "image_tag": body.get("image_tag"),
         "theme": _validate_theme(body.get("theme", "system")),
         # Absent (an older client) is off: the safe direction for a permission.
         "agent_auto_submit": body.get("agent_auto_submit") is True,

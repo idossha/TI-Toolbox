@@ -176,6 +176,20 @@ class TestBuildSummaryDf:
         df = _build_summary_df(results)
         assert df is not None
 
+    def test_rows_name_the_tissue_and_field(self):
+        """GM_* hold the selected tissue's values: the Tissue and Field columns say which."""
+        results = {"001": _make_result(), "002": _make_result()}
+        results["002"].field_name = "mTI_max"
+        with patch("tit.analyzer.group.pd") as pd:
+            _build_summary_df(results, "WM")
+        rows = pd.DataFrame.call_args_list[0].args[0]
+        assert [(r["Subject"], r["Tissue"], r["Field"]) for r in rows] == [
+            ("001", "WM", "TI_max"),
+            ("002", "WM", "mTI_max"),
+        ]
+        (average,) = pd.DataFrame.call_args_list[1].args[0]
+        assert (average["Tissue"], average["Field"]) == ("WM", "TI_max+mTI_max")
+
     def test_numeric_cols_constant(self):
         """_NUMERIC_COLS contains expected column names."""
         assert "ROI_Mean" in _NUMERIC_COLS
@@ -289,7 +303,7 @@ class TestRunGroupAnalysis:
             analysis_type="spherical",
             center=(10.0, 20.0, 30.0),
             radius=5.0,
-            coordinate_space="subject",
+            coordinate_space="MNI",  # a group sphere is one MNI centre for every subject
         )
 
         assert isinstance(gr, GroupResult)
@@ -297,6 +311,8 @@ class TestRunGroupAnalysis:
         assert "001" in gr.subject_results
         assert "002" in gr.subject_results
         assert mock_instance.analyze_sphere.call_count == 2
+        # Six significant digits: %.3f printed a 4e-4 V/m mean as 0.000.
+        assert mock_df.to_csv.call_args.kwargs["float_format"] == "%.6g"
 
     @patch("tit.analyzer.group._generate_comparison_plot")
     @patch("tit.analyzer.group._build_summary_df")
@@ -365,6 +381,7 @@ class TestRunGroupAnalysis:
             analysis_type="spherical",
             center=(0, 0, 0),
             radius=10.0,
+            coordinate_space="MNI",
         )
 
         # CSV should have been written
@@ -404,6 +421,7 @@ class TestRunGroupAnalysis:
             analysis_type="spherical",
             center=(0, 0, 0),
             radius=5.0,
+            coordinate_space="MNI",
             output_dir=str(custom_dir),
         )
 
@@ -459,6 +477,7 @@ class TestRunGroupAnalysisField:
             simulation="sim1",
             center=(0.0, 0.0, 0.0),
             radius=5.0,
+            coordinate_space="MNI",
             field="hf_peak",
         )
 
@@ -486,7 +505,11 @@ class TestRunGroupAnalysisField:
         mock_plot.return_value = None
 
         run_group_analysis(
-            subject_ids=["001"], simulation="sim1", center=(0.0, 0.0, 0.0), radius=5.0
+            subject_ids=["001"],
+            simulation="sim1",
+            center=(0.0, 0.0, 0.0),
+            radius=5.0,
+            coordinate_space="MNI",
         )
 
         assert mock_analyzer_cls.call_args.kwargs["field"] is None

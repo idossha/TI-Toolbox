@@ -36,7 +36,7 @@ config = FlexConfig(
     current_mA=1.0,
     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
     roi=FlexConfig.SphericalROI(x=-42, y=-20, z=55, radius=10, use_mni=True),
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
     n_multistart=3,
 )
 
@@ -52,7 +52,7 @@ print(f"Output: {result.output_folder}")
 | `"mean"` | Maximize mean field intensity within the ROI |
 | `"max"` | Maximize peak field intensity within the ROI |
 | `"focality"` | Optimize the threshold-based ROI-to-non-ROI ROC measure |
-| `"focality_tf"` | Optimize threshold-free contrast: `mean(E_ROI) ** (1 + intensity_weight) / p95(E_nonROI)` |
+| `"focality_tf"` | Optimize threshold-free contrast: `mean(E_ROI) ** (1 + intensity_weight) / mean(E_nonROI)` |
 
 ### ROI Types
 

@@ -176,6 +176,16 @@ def _validate_test_parameters(n_permutations, alpha, cluster_threshold) -> int:
     return n_permutations
 
 
+def _validate_seed(seed) -> None:
+    """``seed`` is ``None`` (fresh entropy each run) or a non-negative whole number."""
+    if seed is not None and (
+        isinstance(seed, bool) or not isinstance(seed, numbers.Integral) or seed < 0
+    ):
+        raise ValueError(
+            f"seed must be None or a non-negative whole number, got {seed!r}"
+        )
+
+
 def _validate_surface_options(space, field, spacing) -> None:
     """Shared fsaverage-option validation for both config classes."""
     if space != _AnalysisSpace.FSAVERAGE:
@@ -239,6 +249,10 @@ class GroupComparisonConfig:
     n_jobs : int
         Number of parallel workers (``-1``, the default, for the global
         CPU limit -- :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
+    seed : int or None
+        Seed of the permutation generator; ``None`` (default) draws a fresh
+        one. Either way the seed used is written in the run's summary
+        (``analysis_summary.txt``; ``surface_stats.json`` for fsaverage).
     tissue_type : TissueType or str
         Which tissue compartment to analyze: ``"grey"`` (default),
         ``"white"`` or ``"all"``.  Ignored when *space* is
@@ -266,7 +280,8 @@ class GroupComparisonConfig:
         Display label for the non-responder group.  Default
         ``"Non-Responders"``.
     value_metric : str
-        Label for the field value axis in plots.
+        Label for the field values in the summary.  Default
+        ``"Electric Field Magnitude"``.
     atlas_files : list of str
         Atlas filenames for overlap analysis (looked up in the bundled
         atlas directory).  Default empty.
@@ -378,6 +393,7 @@ class GroupComparisonConfig:
     n_permutations: int = 1000
     alpha: float = 0.05
     n_jobs: int = -1
+    seed: int | None = None
 
     # Data selection
     tissue_type: TissueType = _TissueType.GREY
@@ -393,7 +409,7 @@ class GroupComparisonConfig:
     # Labels
     group1_name: str = "Responders"
     group2_name: str = "Non-Responders"
-    value_metric: str = "Current Intensity"
+    value_metric: str = "Electric Field Magnitude"
 
     # Atlas
     atlas_files: list[str] = field(default_factory=list)
@@ -416,6 +432,7 @@ class GroupComparisonConfig:
         self.n_permutations = _validate_test_parameters(
             self.n_permutations, self.alpha, self.cluster_threshold
         )
+        _validate_seed(self.seed)
 
         for index, subject in enumerate(self.subjects):
             # A response other than 0/1 put the subject in neither group, silently.
@@ -510,6 +527,8 @@ class CorrelationConfig:
     n_jobs : int
         Number of parallel workers (``-1`` for the global CPU limit --
         :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
+    seed : int or None
+        Seed of the permutation generator; see :class:`GroupComparisonConfig`.
     use_weights : bool
         Whether to apply per-subject weights during correlation.  Default
         ``True``.
@@ -593,6 +612,7 @@ class CorrelationConfig:
     n_permutations: int = 1000
     alpha: float = 0.05
     n_jobs: int = -1
+    seed: int | None = None
     use_weights: bool = True
 
     # Data selection
@@ -634,6 +654,7 @@ class CorrelationConfig:
         self.n_permutations = _validate_test_parameters(
             self.n_permutations, self.alpha, self.cluster_threshold
         )
+        _validate_seed(self.seed)
 
         for index, subject in enumerate(self.subjects):
             if not _is_real(subject.effect_size):

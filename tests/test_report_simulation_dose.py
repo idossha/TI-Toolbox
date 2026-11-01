@@ -9,10 +9,11 @@ Pins (2026-10-22, package p03):
 * The report reads only one current per pair, also from a config.json written before the fix, and
   its total is the sum of the channel amplitudes ``|I|`` (a negative current is a polarity, not a
   negative dose).
-* config.json records the tissue-conductivity overrides the run applied (``TISSUE_COND_<n>``,
-  which ``tit.sim.__main__`` sets from ``SimulationConfig.tissue_conductivities`` -- pinned by
-  ``tests/test_runners_deserialize.py``), and the report names them instead of claiming SimNIBS
-  standard values.
+* config.json records the tissue-conductivity overrides the run applied
+  (``SimulationConfig.tissue_conductivities``, applied by
+  ``BaseSimulation._apply_tissue_conductivities`` -- pinned by
+  ``tests/test_sim_scripting_surface.py``), and the report names them instead of claiming
+  SimNIBS standard values.
 
 Expected values are worked out by hand from the inputs written in each test: [1, 2] mA is
 "1 / 2 mA per channel", 3 mA total; [1, -2] mA is 3 mA total; tissue 2 at 0.4 S/m is
@@ -89,12 +90,9 @@ def test_config_json_records_each_montages_own_currents(tmp_path, no_tissue_over
 
 
 def test_config_json_records_the_tissue_overrides_that_ran(
-    tmp_path, monkeypatch, no_tissue_overrides
+    tmp_path, no_tissue_overrides
 ):
-    # tit.sim.__main__ copies SimulationConfig.tissue_conductivities into these variables, which is
-    # what BaseSimulation._apply_tissue_conductivities reads when it builds each channel.
-    monkeypatch.setenv("TISSUE_COND_2", "0.4")
-    monkeypatch.setenv("TISSUE_COND_10", "0.16")
+    # BaseSimulation._apply_tissue_conductivities applies the config's overrides to each channel.
     cfg = SimulationConfig(
         subject_id="X", montages=[_ti()], tissue_conductivities={2: 0.4, 10: 0.16}
     )
@@ -104,13 +102,13 @@ def test_config_json_records_the_tissue_overrides_that_ran(
     }
 
 
-def test_config_json_records_an_override_set_only_in_the_environment(
+def test_config_json_ignores_a_tissue_variable_left_in_the_environment(
     tmp_path, monkeypatch, no_tissue_overrides
 ):
-    # The older channel: an exported TISSUE_COND_3 still changes the run, so config.json says so.
+    # The removed side channel: an exported TISSUE_COND_3 no longer changes the run.
     monkeypatch.setenv("TISSUE_COND_3", "1.654")
     cfg = SimulationConfig(subject_id="X", montages=[_ti()])
-    assert _written(tmp_path, cfg, _ti())["tissue_conductivities"] == {"3": 1.654}
+    assert _written(tmp_path, cfg, _ti())["tissue_conductivities"] == {}
 
 
 def test_config_json_records_no_overrides_when_none_ran(tmp_path, no_tissue_overrides):

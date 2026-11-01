@@ -29,6 +29,7 @@ from tit.server.job_outputs import RUN_FOLDER_FIELD, job_output_dir
 from tit.server.overwrite_policy import (
     check_overwrite_permission,
     planned_outputs,
+    refuse_outputs_of_active_jobs,
     refuse_unconfirmed_overwrite,
 )
 from tit.server.routes.validate import refuse_unknown_keys
@@ -124,6 +125,28 @@ def _check_config(kind: str, config: dict[str, Any]) -> None:
         refuse_unknown_keys(kind, config)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+def _check_subjects_agree(
+    kind: str, config: dict[str, Any], subject_ids: list[str]
+) -> None:
+    """HTTP 422 when the body's *subject_ids* and the config's subjects differ.
+
+    The record and the locks name the body's subjects, the runner reads the config's: a body
+    naming A over a config naming B held A's locks while B was processed. A cohort config
+    (:func:`runs_once_for_all_subjects`) names its own rows and is not compared.
+    """
+    if not subject_ids or runs_once_for_all_subjects(kind, config):
+        return
+    field = "subject_ids" if kind == "pre" else "subject_id"
+    named = config.get(field)
+    named = named if isinstance(named, list) else [named] if named else []
+    if named and set(named) != set(subject_ids):
+        raise HTTPException(
+            status_code=422,
+            detail=f"subject_ids {subject_ids} do not match the config's {field} "
+            f"{config.get(field)!r}; send the same subjects in both.",
+        )
 
 
 def _check_freesurfer_inputs(
@@ -226,12 +249,17 @@ def submit_job(request: Request, body: dict[str, Any] = Body(...)) -> dict[str, 
     # used to be accepted, written to config.json, and only died minutes later inside
     # `tit/sim/__main__.py`; one with a misspelled key ran with that key ignored.
     _check_config(kind, config)
+    _check_subjects_agree(kind, config, subject_ids)
     _check_freesurfer_inputs(kind, config, subject_ids)
     refused = _missing_inputs(_manager(request), [(kind, config, subject_ids)])
     if refused is not None:
         return refused
     check_overwrite_permission(
-        kind, config, subject_ids, overwrite=bool(body.get("overwrite", False))
+        kind,
+        config,
+        subject_ids,
+        manager=_manager(request),
+        overwrite=bool(body.get("overwrite", False)),
     )
     try:
         return _manager(request).submit(
@@ -371,6 +399,7 @@ def plan_submission(
     tags = list(tags or [])
     if kind == "pre":
         _check_config(kind, config)
+        _check_subjects_agree(kind, config, subject_ids)
         planned = _plan_pre_group(config, subject_ids)
         _check_freesurfer_inputs(kind, config, subject_ids)
         # The whole group's flags at once: an early stage (DICOM conversion) supplies what a
@@ -430,6 +459,9 @@ def plan_submission(
     # Two jobs into one folder is refused before the overwrite question is asked: no answer
     # to "replace what is on disk?" makes such a group safe.
     _refuse_shared_output_dirs(receipts)
+    refuse_outputs_of_active_jobs(
+        manager, [(job.kind, job.config, outputs) for job, outputs in receipts]
+    )
     for job, outputs in receipts:
         refuse_unconfirmed_overwrite(job.kind, outputs, overwrite=job.overwrite)
     return planned

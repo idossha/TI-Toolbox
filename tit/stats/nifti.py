@@ -13,6 +13,8 @@ load_group_data_ti_toolbox
     Stack multiple subjects into a 4-D array.
 load_grouped_subjects_ti_toolbox
     Load multiple subjects organized by named groups.
+covered_mean
+    Group mean over the voxels every subject covers.
 
 See Also
 --------
@@ -31,6 +33,19 @@ import nibabel as nib
 from tit.analyzer.field_selector import simulation_nifti_path
 
 logger = logging.getLogger(__name__)
+
+
+def covered_mean(data_4d):
+    """Mean over the last axis, kept only where every subject has a value.
+
+    A 0 is outside that subject's coverage (warped grey matter), not a field value, so a
+    voxel any subject lacks is 0 in the result rather than a mean shrunk by that zero. Returns
+    ``(mean, covered)``: *mean* is float32, *covered* the boolean every-subject-non-zero mask.
+    """
+    covered = np.all(data_4d != 0, axis=-1)
+    mean = np.where(covered, np.mean(data_4d, axis=-1, dtype=np.float64), 0)
+    return mean.astype(np.float32), covered
+
 
 # ==============================================================================
 # TI-TOOLBOX INTEGRATED LOADING

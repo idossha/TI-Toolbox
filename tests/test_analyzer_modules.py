@@ -619,6 +619,7 @@ class TestRunGroupAnalysis:
                 analysis_type="spherical",
                 center=(0, 0, 0),
                 radius=10.0,
+                coordinate_space="MNI",
                 output_dir=str(out_dir),
             )
 
@@ -628,7 +629,7 @@ class TestRunGroupAnalysis:
         a2.analyze_sphere.assert_called_once()
         # The run's own folder is named from its simulation, space and target.
         mock_output.assert_called_once_with(
-            str(out_dir), "sim1_mesh_sphere_x0.00_y0.00_z0.00_r10.0_subject"
+            str(out_dir), "sim1_mesh_sphere_x0.00_y0.00_z0.00_r10.0_MNI"
         )
 
     @pytest.mark.unit

@@ -62,13 +62,13 @@ Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI
 - **E2+**: Electrodes for positive channel 2
 - **E2-**: Electrodes for negative channel 2
 
-**Combinations**: $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$.
+**Combinations**: at most $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$ (a choice that uses one electrode twice is skipped).
 
 ### All combinations
 
 **Electrodes ▸ Search space ▸ All combinations** pools the electrodes: any of them can be assigned to any channel position, with each electrode used only once per montage.
 
-**Combinations**: $$\binom{N}{4} \times 4!$$, where $$N$$ is the total number of electrodes — every 4-electrode subset in every channel assignment.
+**Combinations**: $$\binom{N}{4} \times 3$$, where $$N$$ is the total number of electrodes — every 4-electrode subset split into two pairs in its three ways (a pair's polarity and the channel order do not change the envelope); ×2 when the current splits are not mirror-symmetric, because the channel order then matters.
 
 **Trade-off**: Larger search space and longer compute time but with absolute certainty to find optimal solution with given electrode space.
 
@@ -127,7 +127,7 @@ Every evaluated candidate is scored on the closed-form two-channel TI envelope (
 | `TI_Selectivity`  | `Focality / HFpeak_Focality`                                |
 | `n_elements`      | ROI element count                                       |
 
-`Focality` here has the same definition as the analyzer's `roi_focality`, so search results and post-hoc analyses are directly comparable.
+`Focality` is the same ratio as the analyzer's `roi_focality`, but averaged over the leadfield's volume elements (grey and white matter, volume-weighted) rather than the analyzer's surface nodes or voxels, so the two values differ.
 
 `HFpeak_Focality` is the focality of the stimulation intensity, from the same leadfield, over the same ROI and GM elements and volumes as `Focality`. `TI_Selectivity` above 1 means the envelope is more focal than the carriers that produce it; at or below 1 a plain kHz field reaches the target as selectively. Both are reported only: `Composite_Index` and the ranking do not use them. A candidate with no ROI or grey-matter elements, or no carrier field in grey matter, has empty `HFpeak_Focality` and `TI_Selectivity` cells, where `Focality` reads 0. mEx computes `hf_peak` over all four channels. The analyzer's `hf_peak_focality` and `ti_selectivity` are the same ratios on a full simulation ([Modulation and stimulation focality]({{ site.baseurl }}/wiki/analyzer/#carrier-focality)). `final_output.csv` writes them after `Composite_Index`, and the **Evaluated candidates** table and the report show them as **HF focality** and **TI selectivity** when the run has them.
 
@@ -136,7 +136,7 @@ Every evaluated candidate is scored on the closed-form two-channel TI envelope (
 Each run writes to `derivatives/SimNIBS/sub-{id}/ex-search/{run_name}/`:
 
 - `run_config.json` — provenance snapshot of the search configuration.
-- `final_output.csv` — one row per evaluation. The `Montage` column carries the current split as a suffix (e.g. `F7_CP5 <> AF7_P3_I1-1.0mA_I2-1.0mA`); currents are written with one decimal, so a 0.25 mA step appears as 0.2/0.8/1.2/1.8 in the CSV.
+- `final_output.csv` — one row per evaluation. The `Montage` column carries the current split as a suffix (e.g. `F7_CP5 <> AF7_P3_I1-1.0mA_I2-1.0mA`); currents are written with as many decimals as they need (up to 10), so a 0.25 mA step appears as 0.25/0.75/1.25/1.75.
 - Five PNG figures: `montage_distributions.png` (histograms of TImax, TImean, focality), `intensity_vs_focality_scatter.png`, and three EEG-map figures — `electrode_score_heatmap.png` (electrode participation across the top-50 montages: colour = summed Composite Index, size = frequency), `montage_strength_map.png` and `montage_focality_map.png` (the top-150 montages drawn as arcs on the cap, coloured by `TImean_ROI` / `Focality`, best montage highlighted). The maps need the net's EEG-position CSV (resolved like `symmetry_eeg_csv`) and are skipped with a log line otherwise; regenerate them for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir> [--eeg-csv CSV]`.
 
 <div class="image-row">

@@ -610,7 +610,7 @@ const SHARED: SharedStatsFields = {
   atlasFiles: [],
 };
 /** The panel's session-backed defaults (cluster-permutation/index.tsx `usePageSession` seeds). */
-const CLASSIFICATION_EXTRA = { testType: "unpaired" as const, alternative: "two-sided" as const, group1Name: "Responders", group2Name: "Non-Responders", valueMetric: "Current intensity" };
+const CLASSIFICATION_EXTRA = { testType: "unpaired" as const, alternative: "two-sided" as const, group1Name: "Responders", group2Name: "Non-Responders", valueMetric: "Electric Field Magnitude" };
 const CORRELATION_EXTRA = { correlationType: "pearson" as const, useWeights: true, effectMetric: "Effect size", fieldMetric: "Electric field magnitude" };
 
 interface StatsRow { subjectId: string; simulationName: string; response: 0 | 1; effectSize?: number; weight?: number }
@@ -741,7 +741,7 @@ async function blenderCase(slug: string, title: string, session: Record<string, 
   // One Run click submits every config the mode builds (regions: an STL and a PLY job); a blocked
   // panel's click (its Run stays enabled and explains itself in a toast) submits nothing.
   await panel.click();
-  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId]]) : []);
+  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId], false]) : []);
   panel.unmount();
   return {
     id: `visual-exporter/${slug}`,

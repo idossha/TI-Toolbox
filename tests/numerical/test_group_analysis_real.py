@@ -15,12 +15,17 @@ What this pins
        write two folders, both named by the simulation, space, target, field and tissue.
     6. Each subject's analyzer log holds its own analysis only: no "Analyzing subject <next>"
        line (each Analyzer added a file handler that was never removed).
+    7. (2026-10-31) A WM run says so: ``group_summary.csv`` has ``Tissue`` (``WM``) and
+       ``Field`` (``TI_max``) columns, each subject's ``results.csv`` a ``tissue`` row, and
+       values keep six significant digits (``%.6g``; ``%.3f`` printed 0.000 for a 4e-4 V/m
+       field).
 
 Where the numbers come from
     Authored NIfTI fields (values below) and the per-subject results.csv files the same run
-    wrote, averaged with ``statistics.fmean``; the summary is written with ``%.3f``, so the
-    comparison tolerance is half its last digit. Mesh normal statistics are authored
-    ``AnalysisResult`` values.
+    wrote, averaged with ``statistics.fmean``; the summary is written with ``%.6g``, so the
+    comparison tolerance (5e-4) is loose for these values. Mesh normal statistics are authored
+    ``AnalysisResult`` values. A group sphere must be in MNI coordinates; these synthetic
+    subjects have no MNI warp, so the script makes the MNI-to-subject transform the identity.
 
 Run (in the image; pandas and matplotlib are real there, and the runs happen in a
 subprocess because tests/conftest.py mocks pandas in-process)::
@@ -57,7 +62,10 @@ time.strftime = lambda fmt, *a: __import__("os").environ["P33_STAMP"]
 from tit.paths import get_path_manager
 get_path_manager(str(root))
 from tit.analyzer import group
-from tit.analyzer.analyzer import AnalysisResult
+from tit.analyzer.analyzer import AnalysisResult, Analyzer
+import numpy as np
+# No MNI warp in these synthetic subjects: MNI coordinates are taken as subject coordinates.
+Analyzer._maybe_transform_coords = lambda self, c, space: np.asarray(c, dtype=float)
 
 titles = []
 real_savefig = group.plt.savefig
@@ -73,7 +81,7 @@ if mode == "voxel":
         res = group.run_group_analysis(
             subject_ids=subjects, simulation="M1", space="voxel", tissue_type="WM",
             analysis_type="spherical", center=(9.0, 9.0, 9.0), radius=4.0,
-            coordinate_space="subject", field="TI_max",
+            coordinate_space="MNI", field="TI_max",
         )
         runs.append({"csv": str(res.summary_csv_path), "pdf": str(res.comparison_plot_path)})
     out["runs"] = runs
@@ -199,7 +207,7 @@ def test_voxel_normal_cells_are_empty_and_the_pdf_has_no_normal_panel(
             "",
         )
         # The fixture's hf_peak is its TI_max field, so the two focalities are one ratio.
-        assert row["TI_Selectivity"] == "1.000"
+        assert float(row["TI_Selectivity"]) == 1.0
     pdf = Path(out["runs"][0]["pdf"])
     assert _is_pdf(pdf)
     titles = out["titles"][0]
@@ -208,6 +216,22 @@ def test_voxel_normal_cells_are_empty_and_the_pdf_has_no_normal_panel(
         "ROI Max (V/m)",
         "ROI Mean (V/m)",
     ]
+
+
+def test_a_wm_summary_names_its_tissue_and_field_at_six_digits(voxel_runs) -> None:
+    project, out = voxel_runs
+    rows = _rows(Path(out["runs"][0]["csv"]))
+    for row in rows.values():
+        assert (row["Tissue"], row["Field"]) == ("WM", "TI_max")
+    for sid in SUBJECTS:
+        own = _subject_results(project, sid)
+        assert rows[sid]["ROI_Mean"] == "%.6g" % own["ROI_Mean"]
+        analyses = (
+            project / "derivatives" / "SimNIBS" / f"sub-{sid}" / "Simulations" / SIM
+        )
+        (path,) = list((analyses / "Analyses").rglob("results.csv"))
+        with open(path, newline="") as fh:
+            assert {r[0]: r[1] for r in csv.reader(fh) if r}["tissue"] == "WM"
 
 
 def test_one_subject_average_is_that_subject(voxel_runs) -> None:

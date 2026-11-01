@@ -220,6 +220,8 @@ function OptimizerPage() {
   /** The open existing-outputs question and its count — from the plan, or from a refetched one. */
   const [confirmExisting, setConfirmExisting] = useState<number | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  /** Groups a Run press queued before a later group failed, for that job list: a re-press sends only the rest. */
+  const [accepted, setAccepted] = useState<{ sig: string; kinds: GroupKind[]; ids: string[] } | null>(null);
   const scenePane = usePaneController({ pageId: "optimizer", name: "run" });
 
   // Only subjects with a head model are asked about: `GET /api/catalog/{leadfields,atlases}`
@@ -457,6 +459,8 @@ function OptimizerPage() {
         const resolved = { ...job, config: planned.config };
         byKind.set(job.kind, [...(byKind.get(job.kind) ?? []), resolved]);
       }
+      const resumed = accepted?.sig === jobsSig ? accepted : null;
+      for (const kind of resumed?.kinds ?? []) byKind.delete(kind);
       if (byKind.size === 0) return { jobs: 0, kinds: [], startedIds: [] };
 
       // Validate EVERY config before anything is queued — not one representative per kind, which
@@ -472,16 +476,32 @@ function OptimizerPage() {
       }
       setValidationErrors([]);
 
-      const startedIds: string[] = [];
+      const startedIds: string[] = [...(resumed?.ids ?? [])];
+      const queued: GroupKind[] = [];
       for (const [kind, group] of byKind) {
         const subjectIds = [...new Set(group.map((j) => j.subject))];
-        const result = await submitJobGroup(kind, group[0]!.config, subjectIds, {
-          subjectConfigs: group.map((j) => ({ subject_id: j.subject, config: j.config })),
-          tags: group.length > 1 ? [`${kind}-batch`] : [],
-          overwrite: overwriteFlag,
-        });
-        startedIds.push(...result.jobs.map((job) => job.id));
+        try {
+          const result = await submitJobGroup(kind, group[0]!.config, subjectIds, {
+            subjectConfigs: group.map((j) => ({ subject_id: j.subject, config: j.config })),
+            tags: group.length > 1 ? [`${kind}-batch`] : [],
+            overwrite: overwriteFlag,
+          });
+          startedIds.push(...result.jobs.map((job) => job.id));
+          queued.push(kind);
+        } catch (error) {
+          // Earlier groups are queued (not atomic, §7.5): say so, follow them, remember them so a
+          // re-press sends only the rest, and re-plan so a flex folder they took is not reused.
+          if (queued.length > 0) {
+            setAccepted({ sig: jobsSig, kinds: [...(resumed?.kinds ?? []), ...queued], ids: startedIds });
+            setPinnedJobId(null);
+            setStartedJobIds(startedIds);
+            notify.success(`Queued the ${queued.join(", ")} searches; the ${kind} searches were not queued.`);
+            void queryClient.invalidateQueries({ queryKey: ["plan"] });
+          }
+          throw error;
+        }
       }
+      setAccepted(null);
       return { jobs: [...byKind.values()].reduce((n, group) => n + group.length, 0), kinds: [...byKind.keys()], startedIds };
     },
     onSuccess: async ({ jobs: n, kinds, startedIds }) => {

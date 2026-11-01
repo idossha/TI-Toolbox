@@ -70,6 +70,14 @@ def _positive(value, name: str) -> float:
     return number
 
 
+def _check_tissues(value, owner: str) -> None:
+    """Refuse a ROI *tissues* value the SimNIBS ROI builder would read as grey matter."""
+    if str(value).strip().upper() not in ("GM", "WM", "BOTH"):
+        raise ValueError(
+            f"{owner} tissues must be 'GM', 'WM' or 'both' (was {value!r})"
+        )
+
+
 def _count(value, name: str) -> int:
     """*value* as a whole number of at least 1, or a ValueError naming *name*."""
     if isinstance(value, bool) or not float(_finite(value, name)).is_integer():
@@ -285,7 +293,8 @@ class FlexConfig:
         callable goals it is incompatible with *detailed_results*.
         Default ``False``.
     output_folder : str or None
-        Override for the output directory path.  Defaults to an
+        Override for the output directory path; a relative name is a
+        folder under the subject's ``flex-search/``.  Defaults to an
         auto-generated timestamped folder.
     run_final_electrode_simulation : bool
         If True, run a full SimNIBS simulation with the winning
@@ -635,7 +644,8 @@ class FlexConfig:
         ------
         ValueError
             If *x*/*y*/*z* are empty or unequal length, or *radius* is a list
-            whose length neither equals 1 nor the number of centers.
+            whose length neither equals 1 nor the number of centers, or
+            *tissues* is not ``"GM"``, ``"WM"`` or ``"both"``.
         """
 
         x: float | list[float]
@@ -662,6 +672,7 @@ class FlexConfig:
                     _finite(value, f"SphericalROI {name}")
             for value in _as_list(self.radius):
                 _positive(value, "SphericalROI radius (mm)")
+            _check_tissues(self.tissues, "SphericalROI")
 
     @dataclass
     class AtlasROI:
@@ -687,7 +698,8 @@ class FlexConfig:
         ------
         ValueError
             If *label* is empty, or *atlas_path*/*hemisphere* is a list whose
-            length neither equals 1 nor the number of labels.
+            length neither equals 1 nor the number of labels, or a
+            *hemisphere* is not ``"lh"`` or ``"rh"``.
         """
 
         atlas_path: str | list[str]
@@ -707,6 +719,11 @@ class FlexConfig:
                 raise ValueError(
                     "AtlasROI hemisphere must be a scalar or match the number "
                     "of labels"
+                )
+            bad = [h for h in _as_list(self.hemisphere) if h not in ("lh", "rh")]
+            if bad:
+                raise ValueError(
+                    f"AtlasROI hemisphere must be 'lh' or 'rh' (was {bad})"
                 )
 
     @dataclass
@@ -736,7 +753,8 @@ class FlexConfig:
         ------
         ValueError
             If *label* is empty, or *atlas_path* is a list whose length
-            neither equals 1 nor the number of labels.
+            neither equals 1 nor the number of labels, or *tissues* is not
+            ``"GM"``, ``"WM"`` or ``"both"``.
         """
 
         atlas_path: str | list[str]
@@ -764,6 +782,7 @@ class FlexConfig:
                     "SubcorticalROI atlas_path must be a scalar or match the "
                     "number of labels"
                 )
+            _check_tissues(self.tissues, "SubcorticalROI")
 
     # ── Nested electrode config ───────────────────────────────────────
 
@@ -1179,8 +1198,8 @@ class ExConfig:
     Raises
     ------
     ValueError
-        If *current_step*, *total_current*, or *channel_limit* are
-        non-positive, if *symmetric_bucket* is set with pool electrodes,
+        If *current_step*, *total_current*, *channel_limit* or
+        *roi_radius* is not a finite number above 0, if *symmetric_bucket* is set with pool electrodes,
         if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
         or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
 
@@ -1244,6 +1263,7 @@ class ExConfig:
         atlas_space: Literal["subject", "mni"] = "subject"
 
         def __post_init__(self):
+            self.atlas_space = str(self.atlas_space).strip().lower()
             if self.atlas_space not in ("subject", "mni"):
                 raise ValueError("atlas_space must be subject or mni")
 
@@ -1347,12 +1367,15 @@ class ExConfig:
             )
 
         # Validation
-        if self.current_step <= 0:
+        # `not 0 < x < inf` also refuses nan, which every comparison answers False.
+        if not 0 < self.current_step < math.inf:
             raise ValueError("current_step must be positive")
-        if self.total_current <= 0:
+        if not 0 < self.total_current < math.inf:
             raise ValueError("total_current must be positive")
-        if self.channel_limit is not None and self.channel_limit <= 0:
+        if self.channel_limit is not None and not 0 < self.channel_limit < math.inf:
             raise ValueError("channel_limit must be positive")
+        if not 0 < self.roi_radius < math.inf:
+            raise ValueError("roi_radius must be positive")
         if self.symmetric_bucket and isinstance(
             self.electrodes, ExConfig.PoolElectrodes
         ):
@@ -1466,7 +1489,8 @@ class MExConfig:
     Raises
     ------
     ValueError
-        If *current_mA* is non-positive, if *symmetric_bucket* is set
+        If *current_mA* or *roi_radius* is not a finite number above 0,
+        if *symmetric_bucket* is set
         with pool electrodes, if *symmetry_pairing* is not one of
         ``"within_pairs"``/``"cross_pairs"``, or if *roi_coordinate_space*
         is not ``"subject"`` or ``"mni"``.
@@ -1524,6 +1548,7 @@ class MExConfig:
         atlas_space: Literal["subject", "mni"] = "subject"
 
         def __post_init__(self):
+            self.atlas_space = str(self.atlas_space).strip().lower()
             if self.atlas_space not in ("subject", "mni"):
                 raise ValueError("atlas_space must be subject or mni")
 
@@ -1622,8 +1647,10 @@ class MExConfig:
                 f"{self.roi_coordinate_space!r})"
             )
 
-        if self.current_mA <= 0:
+        if not 0 < self.current_mA < math.inf:
             raise ValueError("current_mA must be positive")
+        if not 0 < self.roi_radius < math.inf:
+            raise ValueError("roi_radius must be positive")
         if self.symmetric_bucket and isinstance(
             self.electrodes, MExConfig.PoolElectrodes
         ):

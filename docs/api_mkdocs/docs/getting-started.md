@@ -35,7 +35,7 @@ from tit.sim import (
 # Load montages from the project's montage_list.json
 montages = load_montages(
     montage_names=["motor_cortex"],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
 )
 
 # Configure the simulation (montages are part of the config)
@@ -82,7 +82,7 @@ print(f"GM Mean:      {result.gm_mean:.4f} V/m")
 print(f"N elements:   {result.n_elements}")
 
 # Cortical atlas ROI analysis
-result = analyzer.analyze_cortex(atlas="DK40", region="precentral-lh")
+result = analyzer.analyze_cortex(atlas="DK40", region="lh.precentral")
 ```
 
 ### Group Analysis
@@ -120,7 +120,7 @@ config = FlexConfig(
     current_mA=1.0,
     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),
     roi=FlexConfig.SphericalROI(x=-42, y=-20, z=55, radius=10, use_mni=True),
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
     n_multistart=3,
 )
 
@@ -260,7 +260,7 @@ convert_mesh_dir(
 visualize_montage(
     montage_name="motor_cortex",
     electrode_pairs=[["E030", "E020"], ["E095", "E070"]],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
     output_dir="/data/output/montage_imgs",
     sim_mode="U",  # "U" for TI, "M" for mTI
 )
@@ -275,7 +275,8 @@ All paths are managed by `PathManager`, which enforces a BIDS-compliant director
 - **TI_max**: Maximum TI envelope over all directions (two-channel simulations; `tit.calc.envelope_max`)
 - **TI_normal**: TI envelope along the cortical surface normal (`tit.calc.envelope`)
 - **mTI_max**: Maximum of the joint envelope of all channels (mTI simulations, 4 or more channels; `tit.calc.envelope_max`)
-- **TI_avg**, **hf_peak**, **hf_rms**, **hf_power_density**: optional outputs (direction-averaged envelope, peak carrier field, `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field in V/m, and the absorbed (Joule) power density in W/m³)
+- **hf_peak**, **hf_rms**: saved by default with `TI_max`/`mTI_max` (peak carrier field, and `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field in V/m)
+- **TI_avg**, **hf_power_density**: optional outputs (direction-averaged envelope, and the absorbed (Joule) power density in W/m³)
 
 ### Coordinate Spaces
 - **Subject space**: Native coordinates aligned to the individual's head mesh

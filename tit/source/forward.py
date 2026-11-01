@@ -14,8 +14,10 @@ transform (``*-trans.fif``) they are derived from.  All outputs land under
 optimizer's ``leadfields/`` (which uses *modeled* electrodes for stimulation
 dose; the EEG forward uses *point* electrodes per the SimNIBS EEG convention).
 
-The expensive FEM leadfield is computed at most once per (subject, net): a
-re-run reuses the cached HDF5 and only re-assembles the MNE files.
+The expensive FEM leadfield is computed at most once per (subject, net, net CSV,
+head mesh): ``sub-<id>_net-<net>-provenance.json`` records the sha256 of the net
+CSV and head mesh (and the fsaverage spacing of the assembled files), and a
+re-run reuses the leadfield / MNE files only when they match exactly.
 
 Runs under ``simnibs_python`` (imports both ``mne`` and ``simnibs``)::
 
@@ -32,6 +34,7 @@ from __future__ import annotations
 
 import csv
 import itertools
+import json
 import logging
 import multiprocessing as mp
 import subprocess
@@ -41,6 +44,7 @@ from pathlib import Path
 import mne
 import numpy as np
 
+from tit.mesh_identity import sha256_file
 from tit.paths import get_path_manager
 from tit.source.config import ForwardConfig
 
@@ -249,10 +253,20 @@ def _forward_outputs_valid(fwd_path: Path, src_path: Path, morph_path: Path) -> 
     return True
 
 
-def _find_existing_leadfield(forward_dir: Path) -> Path | None:
-    """Return a reusable point-electrode leadfield HDF5, if one is present."""
-    candidates = [p for p in forward_dir.glob("*.hdf5") if _exists_real(p)]
-    return candidates[0] if candidates else None
+def _write_provenance(path: Path, provenance: dict) -> None:
+    """Replace the sidecar whole: a crash leaves the old one or none, never half."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(provenance, indent=2) + "\n")
+    tmp.replace(path)
+
+
+def _read_provenance(path: Path) -> dict:
+    """The recorded inputs of a net's cached outputs; ``{}`` (stale) if unreadable."""
+    try:
+        recorded = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return {}
+    return recorded if isinstance(recorded, dict) else {}
 
 
 def _check_forward_dependencies() -> None:
@@ -324,7 +338,7 @@ def _compute_leadfield(
     from simnibs.eeg.forward import compute_tdcs_leadfield
 
     logger.info("Computing point-electrode leadfield (cpus=%d)", cpus)
-    compute_tdcs_leadfield(
+    leadfield = compute_tdcs_leadfield(
         m2m_dir=str(m2m_dir),
         fem_dir=str(forward_dir),
         fname_montage=str(eeg_csv),
@@ -332,26 +346,29 @@ def _compute_leadfield(
         point_electrodes=True,
         run_kwargs={"save_mat": False, "cpus": cpus},
     )
-    leadfield = _find_existing_leadfield(forward_dir)
-    if leadfield is None:
-        raise FileNotFoundError(f"No HDF5 leadfield generated in {forward_dir}")
-    return leadfield
+    if not _exists_real(Path(leadfield)):
+        raise FileNotFoundError(f"No HDF5 leadfield generated at {leadfield}")
+    return Path(leadfield)
 
 
-def _rename_generated_outputs(forward_dir: Path, stem: str) -> tuple[Path, Path, Path]:
-    """Rename ``prepare_eeg_forward`` outputs to canonical MNE-suffixed names."""
+def _rename_generated_outputs(
+    forward_dir: Path, stem: str, generated: str
+) -> tuple[Path, Path, Path]:
+    """Rename this run's worker outputs (``<generated>-fwd.fif`` ..., named after
+    its leadfield) to canonical MNE-suffixed names; other nets' files are left be.
+    """
     expected_fwd = forward_dir / f"{stem}-fwd.fif"
     expected_src = forward_dir / f"{stem}-src.fif"
     expected_morph = forward_dir / f"{stem}-morph.h5"
 
-    for pattern, target in (
-        ("*-fwd.fif", expected_fwd),
-        ("*-src.fif", expected_src),
-        ("*-morph.h5", expected_morph),
+    for suffix, target in (
+        ("-fwd.fif", expected_fwd),
+        ("-src.fif", expected_src),
+        ("-morph.h5", expected_morph),
     ):
-        for candidate in forward_dir.glob(pattern):
-            if candidate != target:
-                candidate.replace(target)
+        candidate = forward_dir / f"{generated}{suffix}"
+        if candidate != target and candidate.exists():
+            candidate.replace(target)
 
     missing = [
         p for p in (expected_fwd, expected_src, expected_morph) if not _exists_real(p)
@@ -415,22 +432,39 @@ def prepare_forward(
         forward_dir / f"{stem}-src.fif",
         forward_dir / f"{stem}-morph.h5",
     )
+    electrodes, fiducials = _read_simnibs_montage(m2m_dir, cfg.eeg_net)
+
+    # Cached files are reused only if built from these exact inputs: a net CSV
+    # rewritten in place (the v3.1.1 cap re-apply) or a new head mesh rebuilds.
+    eeg_csv = m2m_dir / "eeg_positions" / f"{cfg.eeg_net}.csv"
+    provenance_path = forward_dir / f"{stem}-provenance.json"
+    inputs = {
+        "net_csv_sha256": sha256_file(eeg_csv),
+        "head_mesh_sha256": sha256_file(m2m_dir / f"{subject_id}.msh"),
+    }
+    recorded = {} if cfg.overwrite else _read_provenance(provenance_path)
+    same_inputs = all(recorded.get(k) == v for k, v in inputs.items())
     # Cached outputs may hold another recording's geometry, so a supplied
     # ``info``/``trans`` always rebuilds (the FEM leadfield is still reused).
-    reuse = not cfg.overwrite and info is None and trans is None
-    if reuse and _forward_outputs_valid(*expected):
+    default_frame = info is None and trans is None
+    if (
+        same_inputs
+        and default_frame
+        and recorded.get("fsaverage_spacing") == cfg.fsaverage_spacing
+        and _forward_outputs_valid(*expected)
+    ):
         logger.info("Forward outputs already present for %s; skipping.", subject_id)
         return expected
 
-    electrodes, fiducials = _read_simnibs_montage(m2m_dir, cfg.eeg_net)
-
-    # Redundancy guard: reuse the FEM leadfield if one is already cached.
-    leadfield_hdf5 = None if cfg.overwrite else _find_existing_leadfield(forward_dir)
-    if leadfield_hdf5 is not None:
+    # SimNIBS names the leadfield <head mesh stem>_leadfield_<net>.hdf5.
+    leadfield_hdf5 = forward_dir / f"{subject_id}_leadfield_{cfg.eeg_net}.hdf5"
+    if same_inputs and _exists_real(leadfield_hdf5):
         logger.info("Reusing cached leadfield: %s", leadfield_hdf5.name)
     else:
-        eeg_csv = m2m_dir / "eeg_positions" / f"{cfg.eeg_net}.csv"
+        provenance_path.unlink(missing_ok=True)
+        leadfield_hdf5.unlink(missing_ok=True)  # never append to a stale HDF5
         leadfield_hdf5 = _compute_leadfield(m2m_dir, forward_dir, eeg_csv, cfg.cpus)
+        _write_provenance(provenance_path, inputs)
 
     # The Info is built *after* the leadfield, in the leadfield's channel order:
     # SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by
@@ -468,7 +502,12 @@ def prepare_forward(
         f"MNE forward assembly for sub-{subject_id}",
         cwd=forward_dir,
     )
-    return _rename_generated_outputs(forward_dir, stem)
+    outputs = _rename_generated_outputs(forward_dir, stem, leadfield_hdf5.stem)
+    provenance = dict(inputs)
+    if default_frame:  # a recording-frame forward is never reused as the default
+        provenance["fsaverage_spacing"] = cfg.fsaverage_spacing
+    _write_provenance(provenance_path, provenance)
+    return outputs
 
 
 def _ensure_fork_start_method() -> None:

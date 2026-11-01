@@ -332,6 +332,73 @@ def test_ex_and_mex_leadfield_and_roi_csvs(project: Path) -> None:
     assert "leadfield" in found[0].how_to_fix.lower()
 
 
+def test_a_subjects_leadfield_and_atlas_must_be_its_own(project: Path) -> None:
+    """A per-subject path that lies in another subject's derivatives is refused.
+
+    Regression: a multi-subject Optimizer plan step carried sub-101's absolute leadfield and
+    atlas paths to every subject; ``Path(leadfields(sid)) / hdf`` lets an absolute path win,
+    so sub-102 ran on sub-101's leadfield (and target) with no error.
+    """
+    pm = get_path_manager()
+    other = "102"
+    touch(Path(pm.m2m(other)) / f"{other}.msh")
+    hdf = touch(Path(pm.leadfields(SID)) / f"{SID}_leadfield_GSN.hdf5")
+    aseg = touch(Path(pm.freesurfer_mri(SID)) / "aseg.mgz")
+    annot = touch(Path(pm.segmentation(SID)) / "lh.DK40.annot")
+    sub_roi = {"_type": "SubcorticalROI", "atlas_path": [str(aseg)], "label": [10]}
+    cortical = {"_type": "AtlasROI", "atlas_path": str(annot), "label": 17}
+    ex_atlas = {"roi_names": [], "roi_atlas": [{"atlas_path": str(aseg), "label": 10}]}
+    # Each file is sub-101's own: nothing missing.
+    assert (
+        preflight("ex", {"subject_id": SID, "leadfield_hdf": str(hdf)}, str(project))
+        == []
+    )
+    assert preflight("ex", {"subject_id": SID, **ex_atlas}, str(project)) == []
+    for roi in (sub_roi, cortical):
+        assert preflight("flex", {"subject_id": SID, "roi": roi}, str(project)) == []
+    # The same files for sub-102 -- absolute, or climbing out of its leadfields folder.
+    climbing = f"../../sub-{SID}/leadfields/{hdf.name}"
+    for leadfield in (str(hdf), climbing):
+        found = preflight(
+            "mex", {"subject_id": other, "leadfield_hdf": leadfield}, str(project)
+        )
+        assert missing_paths(found) == [leadfield]
+        assert (
+            f"sub-{other}" in found[0].what
+            and pm.leadfields(other) in found[0].how_to_fix
+        )
+    for roi in (sub_roi, cortical, {**sub_roi, "atlas_space": "subject"}):
+        found = preflight("flex", {"subject_id": other, "non_roi": roi}, str(project))
+        assert len(found) == 1 and f"sub-{other}" in found[0].what
+    found = preflight("ex", {"subject_id": other, **ex_atlas}, str(project))
+    assert missing_paths(found) == [str(aseg)]
+    # An MNI-space atlas is not a subject's file.
+    mni = {**sub_roi, "atlas_space": "mni"}
+    assert preflight("flex", {"subject_id": other, "roi": mni}, str(project)) == []
+    mni_ex = {
+        "roi_names": [],
+        "roi_atlas": [{"atlas_path": str(aseg), "atlas_space": "mni"}],
+    }
+    assert preflight("ex", {"subject_id": other, **mni_ex}, str(project)) == []
+
+
+def test_a_file_symlinked_into_a_subjects_folder_is_its_own(
+    project: Path, tmp_path: Path
+) -> None:
+    """A leadfield or mask linked in from shared storage belongs to the subject whose folder
+    holds the link; only the folder is resolved, not the file."""
+    pm = get_path_manager()
+    shared = touch(tmp_path / "shared_storage" / "big.hdf5")
+    link = Path(pm.leadfields(SID)) / f"{SID}_leadfield_GSN.hdf5"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(shared)
+    found = preflight(
+        "ex", {"subject_id": SID, "leadfield_hdf": str(link)}, str(project)
+    )
+    assert found == []
+    assert preflight("ex", {"subject_id": SID, "leadfield_hdf": link.name}, str(project)) == []
+
+
 def test_leadfield_needs_the_cap(project: Path) -> None:
     pm = get_path_manager()
     assert (

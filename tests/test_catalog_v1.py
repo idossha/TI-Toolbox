@@ -1489,7 +1489,6 @@ def test_settings_roundtrip(client: TestClient) -> None:
         json={
             "telemetry": {"consented": True, "enabled": True},
             "panels": ["source", "caps"],
-            "image_tag": "v3.0.0",
             "theme": "dark",
         },
         headers=BEARER,
@@ -1497,7 +1496,8 @@ def test_settings_roundtrip(client: TestClient) -> None:
     assert r.status_code == 200
     body = r.json()
     assert body["panels"] == ["source", "caps"]
-    assert body["image_tag"] == "v3.0.0"
+    # "Image tag override" was saved and never read by any launcher: retired, not round-tripped.
+    assert "image_tag" not in body
     assert body["theme"] == "dark"
     assert body["telemetry"] == {"consented": True, "enabled": True}
 
@@ -1578,7 +1578,8 @@ def test_settings_get_ignores_a_stale_allow_unsafe_overrides_key(
     client: TestClient,
 ) -> None:
     """A project's ``settings.json`` written before 2026-09-15 may still carry the retired
-    ``allow_unsafe_overrides`` key. Reading it must not crash or surface the key."""
+    ``allow_unsafe_overrides`` key, and one written before 2026-10-31 the retired ``image_tag``.
+    Reading it must not crash or surface either key."""
     from tit.server.routes import settings as settings_route
 
     settings_route._save_project_settings(
@@ -1587,6 +1588,7 @@ def test_settings_get_ignores_a_stale_allow_unsafe_overrides_key(
 
     body = client.get("/api/settings", headers=BEARER).json()
     assert "allow_unsafe_overrides" not in body
+    assert "image_tag" not in body
 
 
 def test_system_terminate_refuses_pid_1(client: TestClient) -> None:

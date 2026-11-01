@@ -156,12 +156,13 @@ test("settings, results, jobs and viewer keep session-only page state beyond the
 
   await gotoPage(page, "settings");
   await expectPage(page, "settings");
-  await expect(page.locator("#settings-image-tag")).toBeVisible({ timeout: 20_000 });
-  await page.locator("#settings-image-tag").fill("idossha/session-memory:round1");
+  const agent = page.getByRole("switch", { name: "Agent may submit without approval" });
+  await expect(agent).toBeVisible({ timeout: 20_000 });
+  if (!(await agent.isChecked())) await agent.click();
   const telemetry = page.getByRole("switch", { name: "Send anonymous usage data" });
   if (!(await telemetry.isChecked())) await telemetry.click();
   await awayAndBack("settings");
-  await expect(page.locator("#settings-image-tag")).toHaveValue("idossha/session-memory:round1");
+  await expect(page.getByRole("switch", { name: "Agent may submit without approval" })).toBeChecked();
   await expect(page.getByRole("switch", { name: "Send anonymous usage data" })).toBeChecked();
 
   await gotoPage(page, "results");

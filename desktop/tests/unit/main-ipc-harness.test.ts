@@ -130,6 +130,19 @@ describe("paths handed to the shell", () => {
     expect(await invoke("tit:showItemInFolder", page, `${mount}/derivatives`)).toEqual({ ok: true });
     expect(state.shell.showItemInFolder).toHaveBeenCalledExactlyOnceWith(join(dir, "derivatives"));
   });
+
+  it("after a manual connect to another server, the stack this app started no longer maps its paths", async () => {
+    // G3-3: the owned stack outlives a manual Connect; its project is not the new session's, and
+    // the other server (whose /api/project the fake answers 404) names no host root of its own.
+    const dir = projectDir("p");
+    const win = await connectedTo(dir);
+    expect(await invoke("tit:connect", eventFrom(win, "app://launcher/"), { url: "http://127.0.0.1:18999", token: "other" })).toMatchObject({ ok: true });
+    expect(state.stack.current, "the owned stack is still running").not.toBeNull();
+
+    const page = eventFrom(win, "http://127.0.0.1:18999/");
+    expect(await invoke("tit:openPath", page, `/mnt/${basename(dir)}/derivatives/report.html`)).toMatchObject({ ok: false });
+    expect(state.shell.openPath).not.toHaveBeenCalled();
+  });
 });
 
 describe("saveFile", () => {

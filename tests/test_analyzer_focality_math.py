@@ -93,6 +93,23 @@ def test_a_cumulative_fraction_equal_to_q_is_that_percentile() -> None:
     assert m["focality_95_area"] == pytest.approx(0.01)
 
 
+@pytest.mark.parametrize("n", [1000, 2000, 3000, 7000, 10000, 123457])
+@pytest.mark.parametrize("pct", [95, 99, 99.9])
+def test_a_percentile_landing_exactly_on_k_over_n_is_the_kth_value(n, pct) -> None:
+    """``99.9 / 100`` is the double 0.9990000000000001, one ulp above 999/1000: a comparison of
+    the cumulative fraction with ``pct / 100`` skipped the 999th of 1000 equal-weight values.
+    """
+    from fractions import Fraction
+
+    from tit.analyzer.analyzer import weighted_percentiles
+
+    values = np.arange(1, n + 1, dtype=float)  # value k is the k-th smallest
+    # Exact rational arithmetic: the smallest k with k / n >= pct / 100.
+    q = Fraction(str(pct)) / 100
+    expected = math.ceil(q * n)
+    assert weighted_percentiles(values, np.ones(n), (pct,)) == [float(expected)]
+
+
 def test_nan_and_infinities_are_not_field_values() -> None:
     clean = metrics([1, 2, 3, 4], [1, 1, 1, 97])
     dirty = metrics([np.nan, 1, 2, np.inf, 3, -np.inf, 4], [50, 1, 1, 50, 1, 50, 97])

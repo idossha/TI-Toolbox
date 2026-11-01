@@ -152,6 +152,7 @@ cfg = FlexConfig(
     subject_id="101",
     goal="mean",                       # mean | max | focality | focality_tf
     postproc="max_TI",                 # max_TI | dir_TI_normal | dir_TI_tangential
+    current_mA=1.0,                    # per channel (+/-, 1:1 split)
     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8, 8],
                                          gel_thickness=1),
     roi=FlexConfig.SphericalROI(x=-35, y=5, z=5, radius=10, use_mni=True),
@@ -162,7 +163,7 @@ res.success, res.best_value, res.output_folder, res.function_values
 ROIs: `SphericalROI(..., volumetric=, tissues=)`, `AtlasROI(atlas_path, label,
 hemisphere)`, `SubcorticalROI(atlas_path, label, tissues, atlas_space)`. Scalar
 fields accept lists to union several regions. `focality_tf` = threshold-free
-focality (`mean_ROI^(1+w) / p95_nonROI`). `cpus` does **not** parallelise the
+focality (`mean_ROI^(1+w) / mean_nonROI`). `cpus` does **not** parallelise the
 search itself — only the multi-start restarts benefit.
 
 ## Ex-search (exhaustive over a leadfield — global within its discretisation)
@@ -180,7 +181,8 @@ cfg = ExConfig(
 run_ex_search(cfg)
 ```
 `roi_names=[...]` unions spherical CSVs; `roi_atlas=[ExConfig.AtlasROI(atlas_path,
-label)]` adds volumetric regions (always subject space);
+label, atlas_space="subject"|"mni")]` adds volumetric regions (MNI masks are warped
+to subject space);
 `roi_coordinate_space="subject"|"mni"`. `MExConfig` / `run_m_ex_search` is the
 multipolar variant (no `total_current` / `current_step` / `channel_limit`).
 
@@ -243,9 +245,7 @@ nodes then rh, one node field per quantity, with a `.msh.opt` Gmsh view and a `.
 provenance sidecar. It opens in the Viewer and Gmsh. Read values under `simnibs_python`
 with `tit.source.fsaverage.read_fsaverage_field(path, "TI_max")` (or
 `mesh_io.read_msh(path).field["TI_max"].value`). It is the only format surface stats
-read; a simulation without it needs its projection re-run. Confirm the mTI coverage
-against `read_source_file("tit/source/fsaverage.py")` before promising it — the
-module and `docs/wiki/simulator.md` disagree today.
+read; a simulation without it needs its projection re-run. It covers TI and mTI runs.
 
 A surface stats run (`space="fsaverage"`) writes `surface_stats.msh` in its output dir
 (node fields `t`, `p`, `sig_mask`, `cluster_id`, `r` for correlation, and

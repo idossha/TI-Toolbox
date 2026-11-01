@@ -33,6 +33,10 @@ run_ex_search
     Run exhaustive grid search over electrode combinations.
 run_m_ex_search
     Run multipolar exhaustive grid search over four electrode pairs.
+run_adaptive_focality
+    Flex-search mean calibration, then focality with thresholds from it.
+run_pareto_sweep
+    Flex-search mean calibration, then a grid of focality thresholds.
 
 See Also
 --------
@@ -55,9 +59,9 @@ Examples
 
 Notes
 -----
-``run_flex_search``, ``run_ex_search`` and ``run_m_ex_search`` are loaded
-lazily on first attribute access so that importing ``tit.opt`` for its
-config classes does not import SimNIBS.
+The runners (``run_flex_search``, the flex drivers, ``run_ex_search`` and
+``run_m_ex_search``) are loaded lazily on first attribute access so that
+importing ``tit.opt`` for its config classes does not import SimNIBS.
 """
 
 from typing import TYPE_CHECKING
@@ -73,6 +77,7 @@ from tit.opt.config import (
 
 if TYPE_CHECKING:  # static analysers see the lazily loaded runners for hover/completion
     from tit.opt.ex.ex import run_ex_search
+    from tit.opt.flex.drivers import run_adaptive_focality, run_pareto_sweep
     from tit.opt.flex.flex import run_flex_search
     from tit.opt.mex.mex import run_m_ex_search
 
@@ -85,6 +90,8 @@ def __getattr__(name: str):
         "run_ex_search": "tit.opt.ex.ex",
         "run_flex_search": "tit.opt.flex.flex",
         "run_m_ex_search": "tit.opt.mex.mex",
+        "run_adaptive_focality": "tit.opt.flex.drivers",
+        "run_pareto_sweep": "tit.opt.flex.drivers",
     }
     if name not in modules:
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
@@ -105,4 +112,6 @@ __all__ = [
     "run_flex_search",
     "run_ex_search",
     "run_m_ex_search",
+    "run_adaptive_focality",
+    "run_pareto_sweep",
 ]

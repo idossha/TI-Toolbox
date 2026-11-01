@@ -82,10 +82,12 @@ CASES = {
     "extra-columns": Case(
         CANON.replace("Fz\n", "Fz,frontal,x\n"), (FZ, CZ, FP), True, False
     ),
+    # SimNIBS reads this form cleanly; it is refused because TI-Toolbox's readers take
+    # the name from cell 5 (tit.caps.validate_mni_cap), not because of SimNIBS.
     "second-position": Case(
         "Electrode,10,0,80,11,0,80,Fz\nElectrode,-10,0,80,-11,0,80,Cz\n",
         (FZ, CZ),
-        True,
+        False,
         False,
     ),
     "quoted-name-with-comma": Case(

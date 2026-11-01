@@ -61,7 +61,7 @@ from tit.opt import FlexConfig, run_flex_search
 get_path_manager("/mnt/project")
 
 # Run a simulation
-montages = load_montages(["my_montage"], "GSN-HydroCel-185")
+montages = load_montages(["my_montage"], "GSN-HydroCel-185.csv")
 config = SimulationConfig(
     subject_id="001",
     montages=montages,
@@ -72,7 +72,7 @@ results = run_simulation(config)
 
 # Analyze results
 analyzer = Analyzer(subject_id="001", simulation="my_montage", space="mesh")
-result = analyzer.analyze_sphere(center=(-42, -20, 55), radius=10)
+result = analyzer.analyze_sphere(center=(-42, -20, 55), radius=10, coordinate_space="MNI")
 print(f"ROI Mean: {result.roi_mean:.4f} V/m")
 print(f"Focality: {result.roi_focality:.2f}")
 ```

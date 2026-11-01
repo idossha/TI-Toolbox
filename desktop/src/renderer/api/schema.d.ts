@@ -6939,7 +6939,6 @@ export interface components {
             telemetry: components["schemas"]["Telemetry"];
             /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, 3D Visual Exporter, EEG Caps) */
             panels: string[];
-            image_tag?: string | null;
             /** @enum {string} */
             theme: "system" | "light" | "dark";
             /** @description "Agent may submit without approval" (Settings > Project > AI assistant). Off (the default, and what an absent field means on PUT) makes POST /api/jobs and /api/jobs/groups refuse created_by agent with 403; the agent proposes instead (/api/proposals). */
@@ -7035,12 +7034,9 @@ export interface components {
          *         ``{"<tissue number>": <S/m>}`` on disk; :func:`tit.config_io.deserialize_config`
          *         coerces the keys back to ``int``, and this dataclass's own
          *         ``__post_init__`` does the same for an instance built directly
-         *         with string keys. Consumed by ``tit.sim.__main__`` via
-         *         ``TISSUE_COND_<n>`` environment variables (the mechanism
-         *         ``tit.sim.base.BaseSimulation._apply_tissue_conductivities``
-         *         already reads) -- deprecated in favor of this field, which is
-         *         visible in the job's config and its manifest instead of being an
-         *         invisible process-environment side channel.
+         *         with string keys. Applied to every channel's TDCS list by
+         *         ``tit.sim.base.BaseSimulation._apply_tissue_conductivities`` and
+         *         recorded in the run's ``config.json``.
          *     carrier_only : bool
          *         Carrier-only control: both channels run at the same frequency, in
          *         phase (ΔF = 0), so there is no beat.  The carrier fields ``hf_peak``,
@@ -7057,8 +7053,10 @@ export interface components {
          *         *output_fields* contains an unknown name or is empty, if any
          *         montage has a channel that is not exactly two electrodes, if
          *         *intensities* is shorter than a montage needs (2 for TI, one per
-         *         channel for mTI), if *tissue_conductivities* contains a
-         *         non-positive value, if *carrier_only* is set with an envelope
+         *         channel for mTI), if *tissue_conductivities* contains a tissue
+         *         number below 1 or a non-positive value, if *electrode_shape* is not
+         *         ``"ellipse"`` or ``"rect"`` or any electrode dimension, *gel_thickness*
+         *         or *rubber_thickness* is not a finite number above 0, if *carrier_only* is set with an envelope
          *         output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
          *         EEG-net CSV) happen later, in :func:`run_simulation`.
          *
@@ -7366,7 +7364,8 @@ export interface components {
          *         callable goals it is incompatible with *detailed_results*.
          *         Default ``False``.
          *     output_folder : str or None
-         *         Override for the output directory path.  Defaults to an
+         *         Override for the output directory path; a relative name is a
+         *         folder under the subject's ``flex-search/``.  Defaults to an
          *         auto-generated timestamped folder.
          *     run_final_electrode_simulation : bool
          *         If True, run a full SimNIBS simulation with the winning
@@ -7735,8 +7734,8 @@ export interface components {
          *     Raises
          *     ------
          *     ValueError
-         *         If *current_step*, *total_current*, or *channel_limit* are
-         *         non-positive, if *symmetric_bucket* is set with pool electrodes,
+         *         If *current_step*, *total_current*, *channel_limit* or
+         *         *roi_radius* is not a finite number above 0, if *symmetric_bucket* is set with pool electrodes,
          *         if *symmetry_pairing* is not ``"within_pairs"``/``"cross_pairs"``,
          *         or if *roi_coordinate_space* is not ``"subject"`` or ``"mni"``.
          *
@@ -7910,7 +7909,8 @@ export interface components {
          *     Raises
          *     ------
          *     ValueError
-         *         If *current_mA* is non-positive, if *symmetric_bucket* is set
+         *         If *current_mA* or *roi_radius* is not a finite number above 0,
+         *         if *symmetric_bucket* is set
          *         with pool electrodes, if *symmetry_pairing* is not one of
          *         ``"within_pairs"``/``"cross_pairs"``, or if *roi_coordinate_space*
          *         is not ``"subject"`` or ``"mni"``.
@@ -8462,6 +8462,10 @@ export interface components {
          *     n_jobs : int
          *         Number of parallel workers (``-1``, the default, for the global
          *         CPU limit -- :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
+         *     seed : int or None
+         *         Seed of the permutation generator; ``None`` (default) draws a fresh
+         *         one. Either way the seed used is written in the run's summary
+         *         (``analysis_summary.txt``; ``surface_stats.json`` for fsaverage).
          *     tissue_type : TissueType or str
          *         Which tissue compartment to analyze: ``"grey"`` (default),
          *         ``"white"`` or ``"all"``.  Ignored when *space* is
@@ -8489,7 +8493,8 @@ export interface components {
          *         Display label for the non-responder group.  Default
          *         ``"Non-Responders"``.
          *     value_metric : str
-         *         Label for the field value axis in plots.
+         *         Label for the field values in the summary.  Default
+         *         ``"Electric Field Magnitude"``.
          *     atlas_files : list of str
          *         Atlas filenames for overlap analysis (looked up in the bundled
          *         atlas directory).  Default empty.
@@ -8564,6 +8569,11 @@ export interface components {
              * @default -1
              */
             n_jobs: number;
+            /**
+             * Seed
+             * @default null
+             */
+            seed: number | null;
             /** @default grey */
             tissue_type: components["schemas"]["_TissueType"];
             /**
@@ -8595,7 +8605,7 @@ export interface components {
             group2_name: string;
             /**
              * Value Metric
-             * @default Current Intensity
+             * @default Electric Field Magnitude
              */
             value_metric: string;
             /** Atlas Files */
@@ -8631,6 +8641,8 @@ export interface components {
          *     n_jobs : int
          *         Number of parallel workers (``-1`` for the global CPU limit --
          *         :func:`tit.cpu.cpu_limit`; larger values are clamped to it).
+         *     seed : int or None
+         *         Seed of the permutation generator; see :class:`GroupComparisonConfig`.
          *     use_weights : bool
          *         Whether to apply per-subject weights during correlation.  Default
          *         ``True``.
@@ -8698,6 +8710,11 @@ export interface components {
              * @default -1
              */
             n_jobs: number;
+            /**
+             * Seed
+             * @default null
+             */
+            seed: number | null;
             /**
              * Use Weights
              * @default true
@@ -9676,7 +9693,8 @@ export interface components {
          *     ------
          *     ValueError
          *         If *label* is empty, or *atlas_path*\/*hemisphere* is a list whose
-         *         length neither equals 1 nor the number of labels.
+         *         length neither equals 1 nor the number of labels, or a
+         *         *hemisphere* is not ``"lh"`` or ``"rh"``.
          */
         FlexConfigAtlasROI: {
             /** Atlas Path */
@@ -9826,7 +9844,8 @@ export interface components {
          *     ------
          *     ValueError
          *         If *x*\/*y*\/*z* are empty or unequal length, or *radius* is a list
-         *         whose length neither equals 1 nor the number of centers.
+         *         whose length neither equals 1 nor the number of centers, or
+         *         *tissues* is not ``"GM"``, ``"WM"`` or ``"both"``.
          */
         SphericalROI: {
             /** X */
@@ -9888,7 +9907,8 @@ export interface components {
          *     ------
          *     ValueError
          *         If *label* is empty, or *atlas_path* is a list whose length
-         *         neither equals 1 nor the number of labels.
+         *         neither equals 1 nor the number of labels, or *tissues* is not
+         *         ``"GM"``, ``"WM"`` or ``"both"``.
          */
         SubcorticalROI: {
             /** Atlas Path */

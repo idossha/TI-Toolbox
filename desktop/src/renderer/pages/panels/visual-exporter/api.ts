@@ -60,6 +60,7 @@ export async function planBlender(config: BlenderConfig, subjectIds: string[]): 
   );
 }
 
-export async function createBlenderJob(config: BlenderConfig, subjectIds: string[]): Promise<JobStatus> {
-  return unwrap(await api.POST("/api/jobs", { body: { kind: "blender", config: asPipelineConfig(config), subject_ids: subjectIds } }), "/api/jobs");
+/** `overwrite` is the user's "Replace and rerun"; without it the server refuses (409) an existing export. */
+export async function createBlenderJob(config: BlenderConfig, subjectIds: string[], overwrite = false): Promise<JobStatus> {
+  return unwrap(await api.POST("/api/jobs", { body: { kind: "blender", config: asPipelineConfig(config), subject_ids: subjectIds, overwrite } }), "/api/jobs");
 }

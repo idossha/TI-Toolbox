@@ -30,7 +30,7 @@ from tit.sim import (
 # Load montages from the project's montage_list.json
 montages = load_montages(
     montage_names=["motor_cortex"],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
 )
 
 # Configure the simulation (montages are part of the config)
@@ -67,7 +67,7 @@ Montages define which electrodes form each channel (`electrode_pairs`, one pair 
 ```json
 {
   "nets": {
-    "GSN-HydroCel-185": {
+    "GSN-HydroCel-185.csv": {
       "uni_polar_montages": {
         "motor_cortex": [["E36", "E224"], ["E104", "E148"]]
       }
@@ -83,7 +83,7 @@ from tit.sim import load_montages
 
 montages = load_montages(
     montage_names=["motor_cortex", "frontal_target"],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
 )
 ```
 
@@ -126,8 +126,8 @@ After simulation, TI-Toolbox produces several derived field types:
 
 The selected fields are written into one field mesh, `<montage>_TI.msh` (`<montage>_mTI.msh`), and
 onto its central surface with `TI_normal` (`tit.volume_fields.central_surface`). NIfTI volumes are
-opt-in: `map_to_vol=True` writes one 3-D NIfTI per mesh field for the whole brain tissue and its
-grey- and white-matter parts (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
+opt-in: `map_to_vol=True` writes one 3-D NIfTI per mesh field for all head tissues (electrodes and
+gel removed) and its grey- and white-matter parts (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
 analysis or group tool needs and the run did not save is computed from the kept channel meshes
 (`high_Frequency/mesh/`) and saved by `tit.volume_fields` (`ensure_mesh_fields`, `ensure_niftis`),
 except `hf_power_density`, whose conductivity is not kept.

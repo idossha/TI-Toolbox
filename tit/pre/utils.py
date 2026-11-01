@@ -30,7 +30,13 @@ from datetime import date
 from pathlib import Path
 from typing import Iterable, Sequence
 
-from tit.paths import get_path_manager, is_within, resolve_under, validate_subject_id
+from tit.paths import (
+    PathManager,
+    get_path_manager,
+    is_within,
+    resolve_under,
+    validate_subject_id,
+)
 
 DATASET_TEMPLATES = {
     "root": "root.dataset_description.json",
@@ -195,14 +201,8 @@ def check_m2m_exists(project_dir: str, subject_id: str) -> bool:
     discover_subjects : Find all subject IDs in a BIDS project.
     run_charm : Generate the m2m head mesh.
     """
-    m2m_dir = os.path.join(
-        project_dir,
-        "derivatives",
-        "SimNIBS",
-        f"sub-{subject_id}",
-        f"m2m_{subject_id}",
-    )
-    return os.path.exists(m2m_dir)
+    # Its own PathManager: a yes/no check must not re-point the process-wide singleton.
+    return os.path.exists(PathManager(project_dir).m2m(subject_id))
 
 
 def _find_anat_files(subject_id: str) -> tuple[Path | None, Path | None]:

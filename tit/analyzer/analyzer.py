@@ -99,11 +99,15 @@ def weighted_percentiles(
     order = np.argsort(values)
     data_sorted = values[order]
     cumulative = np.cumsum(weights[order])
-    normalised = cumulative / cumulative[-1]
+    # cumulative >= pct * total / 100, not cumulative / total >= pct / 100: 99.9 / 100 is one
+    # ulp above 999/1000 and skipped the 999th of 1000 equal weights.
     return [
         float(
             data_sorted[
-                min(int(np.searchsorted(normalised, pct / 100.0)), len(data_sorted) - 1)
+                min(
+                    int(np.searchsorted(cumulative, pct * cumulative[-1] / 100.0)),
+                    len(data_sorted) - 1,
+                )
             ]
         )
         for pct in percentiles
@@ -174,12 +178,15 @@ class AnalysisResult:
     roi_min : float
         Minimum field value inside the ROI.
     roi_focality : float
-        Ratio of ROI mean to whole-GM mean (> 1 means the ROI is stronger
-        than the GM average).
+        Ratio of ROI mean to the whole selected tissue's mean (> 1 means the
+        ROI is stronger than that tissue's average).
     gm_mean : float
-        Mean field value across all positive GM elements.
+        Mean field value across all positive elements of the whole selected
+        tissue: the GM surface in mesh space; the GM, WM or GM+WM voxels of
+        the tissue selection in voxel space (``results.csv`` says which in its
+        ``tissue`` row). The ``gm_`` name is kept for every tissue.
     gm_max : float
-        Maximum field value across all GM elements.
+        Maximum field value across the same elements.
     normal_mean : float or None
         Weighted mean of the normal-component field in the ROI (mesh only;
         ``None`` when unavailable).
@@ -188,11 +195,11 @@ class AnalysisResult:
     normal_focality : float or None
         Normal-component focality ratio.
     percentile_95 : float or None
-        95th percentile of the whole-GM field distribution.
+        95th percentile of the whole selected tissue's field distribution.
     percentile_99 : float or None
-        99th percentile of the whole-GM field distribution.
+        99th percentile of the same distribution.
     percentile_99_9 : float or None
-        99.9th percentile of the whole-GM field distribution.
+        99.9th percentile of the same distribution.
     focality_50_area : float or None
         Area/volume where the field exceeds 50 % of the 99.9th percentile
         value -- **cm^2 in mesh space, cm^3 in voxel space** (the ``_area``
@@ -454,9 +461,10 @@ class Analyzer:
         """Produce what this analysis reads and the simulation did not save; the notices said.
 
         :meth:`volume_fields_read`, into the field mesh and central surface (mesh space), or as
-        the tissue's subject-space NIfTIs (voxel space). In voxel space the field selector is
-        asked first: a NIfTI it finds (an older or renamed one included) is analysed as it is,
-        and only its missing carrier siblings are produced. The analysed field must be saved
+        the tissue's subject-space NIfTIs (voxel space; for ``BOTH`` also the analysed field's
+        grey and white NIfTIs, whose union is its tissue mask). In voxel space the field
+        selector is asked first: a NIfTI it finds (an older or renamed one included) is
+        analysed as it is, and only its missing carrier siblings are produced. The analysed field must be saved
         or producible (else :class:`~tit.volume_fields.FieldUnavailableError`); carriers that
         cannot be produced (a NIfTI-only archive, deleted channel meshes) leave the carrier
         metrics empty with that reason in ``carrier_note``.
@@ -498,6 +506,12 @@ class Analyzer:
                     for c in carriers
                     if not (carrier_nifti(found, found_name, c) or found).is_file()
                 ]
+            if tissue is None:
+                # "both" masks the whole-tissue NIfTI with its grey_ | white_ siblings.
+                for part in ("grey", "white"):
+                    notices += ensure_niftis(
+                        sid, sim, analysed, tissue=part, say=logger.info
+                    )[1]
 
             def produce_carriers():
                 return ensure_niftis(
@@ -1200,7 +1214,10 @@ class Analyzer:
                 analysis_type=analysis_type,
             )
 
-        save_results_csv(asdict(result), Path(out_dir))
+        save_results_csv(
+            {**asdict(result), "tissue": "+".join(self._tissue_type_list())},
+            Path(out_dir),
+        )
         self._save_metadata(out_dir, "mesh", analysis_type, kwargs)
         logger.info("Analysis complete for %s (%s)", region_name, analysis_type)
         return result
@@ -1292,7 +1309,10 @@ class Analyzer:
                 analysis_type=analysis_type,
             )
 
-        save_results_csv(asdict(result), Path(out_dir))
+        save_results_csv(
+            {**asdict(result), "tissue": "+".join(self._tissue_type_list())},
+            Path(out_dir),
+        )
         self._save_metadata(out_dir, "voxel", analysis_type, kwargs)
         logger.info("Analysis complete for %s (%s)", region_name, analysis_type)
         return result
@@ -1790,7 +1810,17 @@ class Analyzer:
         center: tuple[float, float, float],
         coordinate_space: str,
     ) -> np.ndarray:
-        """Return *center* in subject space, transforming from MNI if needed."""
+        """Return *center* in subject space, transforming from MNI if needed.
+
+        Raises
+        ------
+        ValueError
+            If *coordinate_space* is not ``"subject"`` or ``"MNI"`` (any case).
+        """
+        if coordinate_space.lower() not in ("subject", "mni"):
+            raise ValueError(
+                f"coordinate_space must be 'subject' or 'MNI'; got {coordinate_space!r}"
+            )
         arr = np.array([list(center)], dtype=float)
         if coordinate_space.upper() == "MNI":
             from simnibs import mni2subject_coords
@@ -1878,6 +1908,11 @@ class Analyzer:
         analyses. ``GM`` and ``WM`` can use the tissue-specific field NIfTIs directly.
         ``BOTH`` requires an explicit GM|WM union mask so that non-brain voxels from the
         full-field NIfTI are excluded.
+
+        Raises
+        ------
+        FileNotFoundError
+            If a tissue NIfTI the mask is built from is missing.
         """
         if self.tissue_type == "GM" and self.field_path.name.startswith("grey_"):
             return np.ones(target_shape[:3], dtype=bool)
@@ -1898,13 +1933,15 @@ class Analyzer:
 
         import nibabel as nib
 
+        tissue_paths = [self.field_path.parent / f"{p}{base_name}" for p in prefixes]
+        missing = [str(p) for p in tissue_paths if not p.exists()]
+        if missing:
+            raise FileNotFoundError(
+                f"The {self.tissue_type} tissue mask cannot be built (it would cover the "
+                f"wrong tissue); missing: {', '.join(missing)}"
+            )
         mask = np.zeros(target_shape[:3], dtype=bool)
-        for prefix in prefixes:
-            tissue_path = self.field_path.parent / f"{prefix}{base_name}"
-            if not tissue_path.exists():
-                logger.warning("Tissue mask NIfTI not found: %s", tissue_path)
-                continue
-
+        for tissue_path in tissue_paths:
             tissue_img = nib.load(str(tissue_path))
             tissue_arr = self._squeeze_4d(tissue_img.get_fdata())
             tissue_arr = self._resample_if_needed(

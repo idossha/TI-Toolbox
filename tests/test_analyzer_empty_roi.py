@@ -275,6 +275,7 @@ def test_group_analysis_names_the_subject_whose_roi_is_empty(project: Path) -> N
     class _Analyzer(Analyzer):  # keeps the real sphere check the group runs up front
         def __init__(self, sid, *args, **kwargs):
             self.sid = sid
+            self.tissue_type = "GM"  # what Analyzer.__init__ sets for a mesh run
 
         def analyze_sphere(self, **kwargs):
             if self.sid == "102":
@@ -305,6 +306,7 @@ def test_group_analysis_names_the_subject_whose_roi_is_empty(project: Path) -> N
                 analysis_type="spherical",
                 center=(500.0, 0.0, 0.0),
                 radius=5.0,
+                coordinate_space="MNI",
                 output_dir=str(project / "group_out"),
             )
     message = str(err.value)

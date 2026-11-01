@@ -73,6 +73,10 @@ class TestGetHostProjectDir:
         monkeypatch.setenv("LOCAL_PROJECT_DIR", "/host/proj")
         assert get_host_project_dir() == "/host/proj"
 
+    def test_keeps_a_trailing_space(self, monkeypatch):
+        monkeypatch.setenv("LOCAL_PROJECT_DIR", "/host/proj ")
+        assert get_host_project_dir() == "/host/proj "
+
     def test_missing_raises(self, monkeypatch):
         monkeypatch.delenv("LOCAL_PROJECT_DIR", raising=False)
         with pytest.raises(ValueError, match="LOCAL_PROJECT_DIR"):

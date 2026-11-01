@@ -68,8 +68,8 @@ Cluster-based permutation testing addresses this by:
 #### Group Comparison (Binary Outcomes)
 **Traditional Approach**: Compare electric field distributions between responders and non-responders.
 
-- **Statistical Test**: Two-sample t-test at each voxel
-- **Permutation Strategy**: Randomly reassign subjects to responder/non-responder groups
+- **Statistical Test**: Welch's two-sample t at each voxel (paired t for a paired design); small or very unbalanced groups remain approximate
+- **Permutation Strategy**: Randomly reassign subjects to responder/non-responder groups (a paired run flips signs within pairs instead)
 - **Null Hypothesis**: No difference in electric field strength between groups
 - **Use Case**: Clinical trials with binary outcomes (response vs non-response)
 
@@ -268,9 +268,10 @@ So **zero significant clusters from three subjects is the correct answer, not a 
 The run is still worth doing — the uncorrected `pvalues_map.nii.gz` and the effect map
 (`difference_map.nii.gz` for a group comparison, `correlation_map.nii.gz` and
 `t_statistics_map.nii.gz` for a correlation) are real and show you where and how large the effect is — but cluster-level inference needs more subjects. As a
-rule of thumb, a two-sided test at `α = 0.05` needs at least `1/0.05 = 20` distinct
-relabellings, which a balanced group comparison first reaches at **three per group**
-(`C(6,3) = 20`); six or more per group is where the null becomes finely enough resolved to
+rule of thumb, a two-sided balanced group comparison first reaches `α = 0.05` at **four per
+group**: three per group gives `C(6,3) = 20` relabellings, but each split and its mirror give
+the same two-sided statistic, so its smallest p-value is `2/20 = 0.100`, while four per group
+gives `2/70 ≈ 0.029`; six or more per group is where the null becomes finely enough resolved to
 be informative.
 
 ### CSV files for Python scripts
@@ -309,8 +310,8 @@ subject_id,simulation_name,effect_size,weight
 ### Statistical Implementation
 
 #### Classification Analysis
-- **Test**: Two-sample t-test (paired or unpaired)
-- **Permutations**: Random group reassignment
+- **Test**: Welch's two-sample t (unpaired) or paired t
+- **Permutations**: Random group reassignment (unpaired); sign flips within pairs (paired)
 - **Cluster Correction**: Family-wise error control at cluster level
 
 #### Correlation Analysis
