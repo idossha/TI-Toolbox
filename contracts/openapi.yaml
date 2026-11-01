@@ -790,7 +790,10 @@ paths:
         - { name: run, in: query, required: true, schema: { type: string } }
         - { name: offset, in: query, schema: { type: integer, minimum: 0, default: 0 } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
-        - { name: sort, in: query, schema: { type: string, default: roi_mean } }
+        - name: sort
+          in: query
+          schema: { type: string, default: roi_mean }
+          description: a metric key, objective, or (ex/mEx) a final_output.csv column name
         - { name: descending, in: query, schema: { type: boolean, default: true } }
       responses:
         "200":
@@ -3793,6 +3796,10 @@ components:
           type: object
           additionalProperties: { type: string }
         comparison_key: { type: string }
+        csv:
+          type: object
+          additionalProperties: { type: string }
+          description: ex/mEx only -- the candidate's final_output.csv row as written, keyed by column in the file's order
         replay_note: { type: string }
         optimizer_termination:
           type: object

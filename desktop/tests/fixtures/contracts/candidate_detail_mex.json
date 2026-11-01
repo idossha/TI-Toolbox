@@ -28,6 +28,14 @@
         "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak"
       },
       "comparison_key": "/mnt/example/derivatives/SimNIBS/sub-ernie/m-ex-search/mex_Thalamus_20260814_140000",
+      "csv": {
+        "Montage": "E024_E124 <> E067_E077 <> E031_E080 <> E055_E110_I-1.0mA",
+        "TImax_ROI": "1.3",
+        "TImean_ROI": "0.55",
+        "TImean_GM": "0.5",
+        "Focality": "1.1",
+        "Composite_Index": "0.605"
+      },
       "pairs": [
         [
           "E024",

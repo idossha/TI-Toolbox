@@ -189,13 +189,33 @@ test("an ex run previews its search config and paginated evaluated candidates", 
   // Its four electrode buckets.
   await expect(page.getByTestId("results-summary-ex")).toContainText("F7 FT7 T7 F5 FC5 AF7 F3");
 
-  // The metric columns are named by what they measure (`candidates/model.ts` METRIC_LABELS): the
-  // ROI mean, and the non-ROI exposure it is traded against.
+  // The table is the run's final_output.csv: the columns the real server answers for an ex run, in
+  // the file's order (fixtures/contracts/candidate_detail_ex.json), ranked by Composite_Index.
+  const columns = Object.keys(JSON.parse(readFileSync(join(__dirname, "../fixtures/contracts/candidate_detail_ex.json"), "utf8")).response.candidate.csv);
   const table = page.getByTestId("candidate-browser").locator(".candidate-table");
-  await expect(table.getByRole("table")).toContainText("ROI mean (V/m)");
-  await expect(table.getByRole("table")).toContainText("Non-ROI p95 (V/m)");
+  await expect(table.locator("thead th")).toHaveText(columns);
+  await expect(table.locator('th[aria-sort="descending"]')).toHaveText("Composite_Index");
   await expect(table.getByRole("row")).toHaveCount(51); // header + one page
   await expect(page.getByTestId("candidate-browser")).toContainText("of 60");
+  // A header sorts the whole run on the server: the next page carries on below this one.
+  await table.getByRole("button", { name: "TImax_ROI", exact: true }).click();
+  await expect(table.locator('th[aria-sort="descending"]')).toHaveText("TImax_ROI");
+  const cells = table.locator(`tbody tr td:nth-child(${columns.indexOf("TImax_ROI") + 1})`);
+  await expect(page.getByTestId("candidate-browser")).toContainText("1–50 of 60");
+  const first = (await cells.allTextContents()).map(Number);
+  expect(first).toEqual(first.toSorted((a, b) => b - a));
+  await page.getByTestId("candidate-browser").getByRole("button", { name: "Next", exact: true }).click();
+  await expect(table.locator("tbody tr")).toHaveCount(10);
+  const second = (await cells.allTextContents()).map(Number);
+  expect(second).toEqual(second.toSorted((a, b) => b - a));
+  expect(second[0]).toBeLessThanOrEqual(first.at(-1)!);
+  // The plot's vertical axis offers the CSV's metric columns; the axes are labelled by column.
+  const plot = page.getByTestId("candidate-browser").locator(".candidate-plot-panel");
+  await plot.getByRole("combobox", { name: "Vertical axis" }).click();
+  await expect(page.getByRole("option")).toHaveText(["TImax_ROI", "TImean_GM", "Focality", "Composite_Index", "HFpeak_Focality", "TI_Selectivity"]);
+  await page.keyboard.press("Escape");
+  await expect(plot.locator("svg.candidate-plot > text")).toHaveText(["Focality ↑", "TImean_ROI →"]);
+  expect(await plot.locator(".candidate-ticks text").count()).toBeGreaterThan(3);
 });
 
 test("selecting an ex-search run and an analysis swaps the preview for their tables", async () => {
@@ -204,8 +224,8 @@ test("selecting an ex-search run and an analysis swaps the preview for their tab
 
   await page.getByTestId("results-node-ex:ernie:ex_L_Insula_20260812_090000").click();
   await expect(page.getByTestId("candidate-browser").locator(".candidate-table")).toBeVisible();
-  // Candidate metrics keep their named ROI / non-ROI definitions.
-  await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("ROI mean (V/m)");
+  // Its candidates are the rows of its final_output.csv.
+  await expect(page.getByTestId("candidate-browser").locator(".candidate-table").getByRole("table")).toContainText("TImean_ROI");
   // The run's own artifacts, from the same cached list read the tree was built from.
   // Labelled the way tit.catalog labels a run's files: the file name, underscores as spaces.
   await expect(page.getByText("final output", { exact: true })).toBeVisible();

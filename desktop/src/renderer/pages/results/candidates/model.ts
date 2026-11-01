@@ -1,6 +1,6 @@
 /** Candidate metrics are optimization estimates, comparable only within their recorded domain. */
 export type CandidateKind = "flex" | "ex" | "mex";
-export type Metric = "roi_mean" | "roi_p99_9" | "background_mean" | "background_p95" | "contrast" | "hf_peak_focality" | "ti_selectivity";
+export type Metric = "roi_mean" | "roi_p99_9" | "background_mean" | "background_p95" | "contrast";
 export interface Candidate {
   id: string;
   objective: number | null;
@@ -9,6 +9,8 @@ export interface Candidate {
   metrics: Partial<Record<Metric, number | null>>;
   metric_labels: Partial<Record<Metric, string>>;
   comparison_key: string | null;
+  /** Ex/mEx: the row of `final_output.csv` as written, keyed by column in the file's order. */
+  csv?: Record<string, string>;
   positions?: [number, number, number][];
   pairs?: [string, string][];
   eeg_net?: string;
@@ -26,36 +28,58 @@ export interface CandidateRun { subject: string; kind: CandidateKind; run: strin
 export const METRIC_LABELS: Record<Metric, string> = {
   roi_mean: "ROI mean (V/m)", roi_p99_9: "ROI p99.9 (V/m)",
   background_mean: "Non-ROI mean (V/m)", background_p95: "Non-ROI p95 (V/m)", contrast: "ROI / non-ROI ratio (see definition)",
-  hf_peak_focality: "HF_{peak} focality (ROI / GM)", ti_selectivity: "TI selectivity (focality / HF_{peak} focality)",
 };
-/** Ex/mEx report these beside the ranking; flex never does, so their columns show only when a row has them. */
-export const CARRIER_METRICS: ReadonlySet<Metric> = new Set<Metric>(["hf_peak_focality", "ti_selectivity"]);
-/** The metric columns to show: every one, minus a carrier metric no candidate has a value for. */
-export function shownMetrics(candidates: Candidate[]): Metric[] {
-  return (Object.keys(METRIC_LABELS) as Metric[]).filter((m) => !CARRIER_METRICS.has(m) || candidates.some((c) => finite(c.metrics[m])));
-}
 export const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
-export function tradeoffCandidates(candidates: Candidate[], key: string | null, background: Metric): Candidate[] {
-  return key ? candidates.filter((c) => c.comparison_key === key && finite(c.metrics.roi_mean) && finite(c.metrics[background])) : [];
+/** The plot's horizontal axis for ex/mEx: the CSV's ROI mean (flex plots its recorded `roi_mean`). */
+export const EX_X_COLUMN = "TImean_ROI";
+/** A plot coordinate: an ex/mEx CSV cell as a number (empty is missing), or a flex metric. */
+export function axisValue(candidate: Candidate, axis: string): number | null | undefined {
+  if (!candidate.csv) return candidate.metrics[axis as Metric];
+  const cell = candidate.csv[axis]?.trim();
+  return cell ? Number(cell) : null;
+}
+const roiMean = (candidate: Candidate) => axisValue(candidate, candidate.csv ? EX_X_COLUMN : "roi_mean");
+/** Ex/mEx vertical axes: the CSV's metric columns some row has a number for (not its montage, currents or x axis). */
+export function csvMetricColumns(candidates: Candidate[]): string[] {
+  return Object.keys(candidates[0]?.csv ?? {}).filter((column) => column !== EX_X_COLUMN && !column.startsWith("Current_") && candidates.some((c) => finite(axisValue(c, column))));
+}
+/** Which way an axis is better: 1 higher, -1 lower; 0 (e.g. HFpeak_Focality) records no preference, so no frontier. */
+const AXIS_DIRECTION = new Map<string, 1 | -1>([["contrast", 1], ["background_mean", -1], ["background_p95", -1], ["TImax_ROI", 1], ["TImean_GM", -1], ["Focality", 1], ["Composite_Index", 1], ["TI_Selectivity", 1]]);
+export const axisDirection = (axis: string): -1 | 0 | 1 => AXIS_DIRECTION.get(axis) ?? 0;
+export function tradeoffCandidates(candidates: Candidate[], key: string | null, axis: string): Candidate[] {
+  return key ? candidates.filter((c) => c.comparison_key === key && finite(roiMean(c)) && finite(axisValue(c, axis))) : [];
 }
 /** Nondominance among the displayed candidates; never compare raw optimization objectives. */
-export function frontierIds(candidates: Candidate[], background: Metric): Set<string> {
-  const ordered = candidates.filter((c) => finite(c.metrics.roi_mean) && finite(c.metrics[background]))
-    .toSorted((a, b) => (background === "contrast" ? -1 : 1) * (a.metrics[background]! - b.metrics[background]!) || b.metrics.roi_mean! - a.metrics.roi_mean!);
+export function frontierIds(candidates: Candidate[], axis: string): Set<string> {
+  const direction = axisDirection(axis);
+  if (!direction) return new Set();
+  const y = (c: Candidate) => axisValue(c, axis)!;
+  const ordered = candidates.filter((c) => finite(roiMean(c)) && finite(axisValue(c, axis)))
+    .toSorted((a, b) => -direction * (y(a) - y(b)) || roiMean(b)! - roiMean(a)!);
   const ids = new Set<string>();
   let best = -Infinity;
   for (let i = 0; i < ordered.length;) {
     const first = ordered[i]!;
-    const target = first.metrics.roi_mean!;
+    const target = roiMean(first)!;
     let end = i + 1;
-    while (end < ordered.length && ordered[end]!.metrics[background] === first.metrics[background]) end++;
+    while (end < ordered.length && y(ordered[end]!) === y(first)) end++;
     if (target > best) {
-      for (let j = i; j < end && ordered[j]!.metrics.roi_mean === target; j++) ids.add(ordered[j]!.id);
+      for (let j = i; j < end && roiMean(ordered[j]!) === target; j++) ids.add(ordered[j]!.id);
     }
     best = Math.max(best, target);
     i = end;
   }
   return new Set(candidates.filter((c) => ids.has(c.id)).map((c) => c.id));
+}
+
+/** Round-number ticks inside [min, max]: steps of 1, 2 or 5 x 10^k, about `count` of them. */
+export function niceTicks(min: number, max: number, count = 5): { value: number; label: string }[] {
+  if (!(max > min)) return Number.isFinite(min) ? [{ value: min, label: String(min) }] : [];
+  const raw = (max - min) / count, power = 10 ** Math.floor(Math.log10(raw)), ratio = raw / power;
+  const step = power * (ratio >= Math.sqrt(50) ? 10 : ratio >= Math.sqrt(10) ? 5 : ratio >= Math.SQRT2 ? 2 : 1);
+  const decimals = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  const first = Math.ceil(min / step - 1e-9), last = Math.floor(max / step + 1e-9);
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, k) => ({ value: (first + k) * step, label: ((first + k) * step).toFixed(decimals) }));
 }
 
 /** Translate archived display prose without changing its percentile or measurement domain. */

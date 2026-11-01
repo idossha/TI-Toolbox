@@ -31,6 +31,8 @@ export function DataTable<T>({
   onRowClick,
   minRows = 0,
   fill = false,
+  sorting,
+  onSortingChange,
 }: {
   data: T[];
   columns: DataTableColumn<T>[];
@@ -56,8 +58,12 @@ export function DataTable<T>({
    * scroll height and never the box's client height: one observation, one answer, no oscillation.
    */
   fill?: boolean;
+  /** Sorting the caller owns (a server-side sort over every row): rows are drawn in the order given. */
+  sorting?: SortingState;
+  onSortingChange?: (sorting: SortingState) => void;
 }) {
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [ownSorting, setOwnSorting] = useState<SortingState>([]);
+  const sortingState = sorting ?? ownSorting;
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const [fitRows, setFitRows] = useState(0);
   const measure = useCallback((el: HTMLDivElement | null) => {
@@ -91,8 +97,9 @@ export function DataTable<T>({
   const table = useReactTable({
     data,
     columns: columns as ColumnDef<T, unknown>[],
-    state: { sorting, rowSelection: selected ?? {} },
-    onSortingChange: setSorting,
+    state: { sorting: sortingState, rowSelection: selected ?? {} },
+    onSortingChange: onSortingChange ? (updater) => onSortingChange(typeof updater === "function" ? updater(sortingState) : updater) : setOwnSorting,
+    manualSorting: sorting !== undefined,
     onRowSelectionChange: (updater) => {
       if (!onSelectedChange) return;
       const next = typeof updater === "function" ? updater(selected ?? {}) : updater;
@@ -124,6 +131,7 @@ export function DataTable<T>({
                     key={header.id}
                     data-sortable={sortable || undefined}
                     data-align={numeric ? "right" : undefined}
+                    aria-sort={sortState === "asc" ? "ascending" : sortState === "desc" ? "descending" : undefined}
                     onClick={sortable ? header.column.getToggleSortingHandler() : undefined}
                   >
                     {header.isPlaceholder ? null : flexRender(header.column.columnDef.header, header.getContext())}

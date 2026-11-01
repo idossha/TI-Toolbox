@@ -229,6 +229,7 @@ describe("contract coverage: every openapi.yaml path+method", () => {
       "/api/catalog/flex-runs/flex_Thalamus_20260810_101500/mapping?subject=ernie&eeg_net=EGI_template",
     );
     await call("/api/catalog/optimization-candidates", "GET", "/api/catalog/optimization-candidates?subject=ernie&kind=flex&run=flex_Thalamus_20260810_101500");
+    await call("/api/catalog/optimization-candidates", "GET", "/api/catalog/optimization-candidates?subject=ernie&kind=ex&run=ex_L_Insula_20260812_090000&sort=TImax_ROI");
     await call("/api/catalog/optimization-candidates/{candidate_id}", "GET", "/api/catalog/optimization-candidates/trial-2?subject=ernie&kind=flex&run=flex_Thalamus_20260810_101500");
     await call("/api/catalog/optimization-candidates/{candidate_id}/mapping", "GET", "/api/catalog/optimization-candidates/trial-2/mapping?subject=ernie&run=flex_Thalamus_20260810_101500&eeg_net=GSN-HydroCel-185");
     await call("/api/catalog/ex-runs", "GET", "/api/catalog/ex-runs?subject=ernie&kind=ex");

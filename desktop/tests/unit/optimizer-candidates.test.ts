@@ -1,8 +1,10 @@
 /** 2026-09-13: authored asymmetric metrics and rotated poses pin candidate comparison/replay.
- * Run npx vitest run tests/unit/optimizer-candidates.test.ts. FEM and rendered anatomy are separate.
+ * 2026-11-01: ex/mEx plot axes come from final_output.csv (header as tit.opt.ex.results.build_csv_rows
+ * writes it); tick values are hand-derived below. Run npx vitest run tests/unit/optimizer-candidates.test.ts.
+ * FEM and rendered anatomy are separate.
  */
 import { describe, expect, it } from "vitest";
-import { frontierIds, intensityColor, metricDefinition, shownMetrics, tradeoffCandidates, type Candidate } from "../../src/renderer/pages/results/candidates/model";
+import { csvMetricColumns, frontierIds, intensityColor, metricDefinition, niceTicks, tradeoffCandidates, type Candidate } from "../../src/renderer/pages/results/candidates/model";
 import { candidateMetricsChanged, candidateRow, patchCandidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { buildSimulationConfig } from "../../src/renderer/pages/simulator/buildConfig";
 import { defaultJobSettings } from "../../src/renderer/pages/simulator/types";
@@ -17,14 +19,38 @@ const config = {
 };
 const handoff = { id: "trial-8", subject: "ernie", kind: "flex", run: "test-run", config };
 
-describe("carrier metric columns", () => {
-  const base = ["roi_mean", "roi_p99_9", "background_mean", "background_p95", "contrast"];
-  it("hides HF focality and TI selectivity for a run that has none (flex, or an older ex CSV)", () => {
-    expect(shownMetrics([candidate("a", 3, 2), candidate("b", 2, 3)])).toEqual(base);
+describe("ex/mEx plot axes are final_output.csv columns", () => {
+  const header = "Montage,Current_Ch1_mA,Current_Ch2_mA,TImax_ROI,TImean_ROI,TImean_GM,Focality,Composite_Index,HFpeak_Focality,TI_Selectivity".split(",");
+  const row = (id: string, line: string): Candidate => ({ ...candidate(id, NaN, NaN), metrics: {}, csv: Object.fromEntries(line.split(",").map((cell, i) => [header[i]!, cell])) });
+  // (TImean_ROI, Focality, TImean_GM): c is dominated by a on every stated axis.
+  const a = row("a", "A_B <> C_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.4000,0.2000,0.1000,2.0000,0.4000,,");
+  const b = row("b", "A_C <> B_D_I1-1.0mA_I2-1.0mA,1.0,1.0,0.5000,0.3000,0.2000,1.5000,0.4500,,");
+  const c = row("c", "A_D <> B_C_I1-1.0mA_I2-1.0mA,1.0,1.0,0.3000,0.1000,0.3000,1.0000,0.1000,,");
+  it("offers the metric columns some row has a number for: never the montage, its currents, the x axis or an empty column", () => {
+    expect(csvMetricColumns([a, b, c])).toEqual(["TImax_ROI", "TImean_GM", "Focality", "Composite_Index"]);
+    const carrier = { ...c, csv: { ...c.csv, HFpeak_Focality: "1.2500", TI_Selectivity: "0.8000" } };
+    expect(csvMetricColumns([a, b, carrier])).toEqual(["TImax_ROI", "TImean_GM", "Focality", "Composite_Index", "HFpeak_Focality", "TI_Selectivity"]);
+    expect(csvMetricColumns([candidate("flex", 1, 2)])).toEqual([]);
   });
-  it("shows them as soon as one ex/mEx candidate carries a value", () => {
-    const ex = { ...candidate("ex-0", 3, 2), metrics: { roi_mean: 3, contrast: 1.6, hf_peak_focality: 1.2, ti_selectivity: null } };
-    expect(shownMetrics([candidate("a", 3, 2), ex])).toEqual([...base, "hf_peak_focality"]);
+  it("plots CSV cells against TImean_ROI, and draws a frontier only for a column with a stated direction", () => {
+    expect(tradeoffCandidates([a, b, c], "same-head-domain", "HFpeak_Focality")).toEqual([]);
+    expect(new Set(frontierIds([a, b, c], "Focality"))).toEqual(new Set(["a", "b"]));
+    expect(new Set(frontierIds([a, b, c], "TImean_GM"))).toEqual(new Set(["a", "b"]));
+    expect(frontierIds([a, b, { ...c, csv: { ...c.csv, HFpeak_Focality: "1.0" } }], "HFpeak_Focality").size).toBe(0);
+  });
+});
+
+describe("round-number plot ticks", () => {
+  // Hand-derived: span / 5 is rounded to a 1, 2 or 5 x 10^k step; ticks are its multiples inside the range.
+  it("labels the axis at round steps inside the data range, never only at its ends", () => {
+    expect(niceTicks(0.0448, 0.0952).map((tick) => tick.label)).toEqual(["0.05", "0.06", "0.07", "0.08", "0.09"]);
+    expect(niceTicks(0.9664, 2.048).map((tick) => tick.label)).toEqual(["1.0", "1.2", "1.4", "1.6", "1.8", "2.0"]);
+    expect(niceTicks(-1, 1).map((tick) => tick.label)).toEqual(["-1.0", "-0.5", "0.0", "0.5", "1.0"]);
+    expect(niceTicks(0.9664, 2.048)[0]!.value).toBeCloseTo(1, 12);
+  });
+  it("gives one tick for a single value and none for no data", () => {
+    expect(niceTicks(3, 3)).toEqual([{ value: 3, label: "3" }]);
+    expect(niceTicks(Infinity, -Infinity)).toEqual([]);
   });
 });
 

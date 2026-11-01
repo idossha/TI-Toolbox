@@ -1,8 +1,12 @@
 .candidate-browser { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
 .candidate-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .candidate-table { max-height: 300px; overflow: auto; min-width: 0; }
-.candidate-pick { border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.candidate-pick, .candidate-sort { border: 0; background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .candidate-pick[aria-pressed="true"] { font-weight: 700; }
+/* CSV column names keep their case (TImax_ROI), so the header matches the file. */
+.candidate-sort { text-transform: none; letter-spacing: 0; padding: 0; }
+/* A CSV montage is the row's identity (its current split is at the end): never truncated. */
+.candidate-browser .candidate-table[data-csv] .data-table tbody td:first-child { max-width: none; }
 .candidate-axis { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .candidate-plot { display: block; width: 100%; color: var(--ink-2); overflow: visible; }
 .candidate-plot text { font-size: 10px; fill: currentColor; }

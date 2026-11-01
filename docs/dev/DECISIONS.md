@@ -4110,3 +4110,22 @@ peak the reports already headline, and two "peaks" on one page invite the wrong 
 
 **Alternatives rejected.** Computing an ROI 99.9th percentile in ex-search (changes the engine and
 its CSV for a display value); keeping the maximum beside the percentile.
+
+## 2026-11-01 — Ex/mEx candidate review shows `final_output.csv` itself
+
+**Decision.** For Ex and mEx runs, **Results ▸ Evaluated candidates** is the run's
+`final_output.csv`: `tit.opt.candidate_catalog` passes each row through as `csv` (column order
+kept), the table renders those columns and cells as written, a header click sorts every row on the
+server (`sort` accepts any CSV column), and the plot's vertical axis lists only the CSV metric
+columns with a number, against `TImean_ROI`, with 1-2-5 ticks. Flex review is unchanged (its DOM is
+byte-identical before and after, checked 2026-11-01). Pinned by
+`tests/test_candidate_catalog.py::test_ex_rows_carry_their_csv_row_verbatim_and_sort_by_any_column`,
+`desktop/tests/unit/candidate-browser.test.tsx` and `desktop/tests/e2e/results.spec.ts`.
+
+**Why.** The table mapped CSV columns onto flex metric slots: it renamed them (ROI mean, whole-GM
+mean, ROI / whole-GM mean), showed two flex-only columns as "Unavailable" in every row, left out
+`TImax_ROI` and the currents and named rows `ex-<index>`, so the CSV and the table could not be
+matched column for column (user report, 2026-11-01).
+
+**Alternatives rejected.** Parsing the CSV in the renderer (a second reader, and up to 250,000 rows
+in the page); mapping more CSV columns into `metrics` (still a translation of the file, not the file).

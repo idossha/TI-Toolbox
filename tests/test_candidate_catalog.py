@@ -216,6 +216,72 @@ def test_actual_ex_csv_writer_roundtrips_currents_and_labels(history, kind, expe
     assert "Simulator defaults" in detail["candidate"]["replay_note"]
 
 
+def test_ex_rows_carry_their_csv_row_verbatim_and_sort_by_any_column(history):
+    """2026-11-01: the Ex review table is ``final_output.csv``. The file comes from the real
+    writer and is read back with ``csv.reader`` (not the catalog's DictReader); the sort orders
+    are hand-derived from the authored values below."""
+    from pathlib import Path
+
+    from tit.opt.ex.results import build_csv_rows
+
+    pm, _ = history
+    directory = Path(pm.project_dir) / "ex" / "run"
+    directory.mkdir(parents=True)
+    # (TImax_ROI, Focality, HFpeak_Focality); ex-1 has no carrier metric (empty cells).
+    authored = [(1.2, 2.0, 1.5), (0.9, 3.0, None), (1.5, 1.0, 0.8)]
+    results = {}
+    for index, (peak, focality, carrier) in enumerate(authored):
+        data = {
+            "t_TImax_ROI": peak,
+            "t_TImean_ROI": 0.4,
+            "t_TImean_GM": 0.2,
+            "t_Focality": focality,
+            "current_ch1_mA": 1.0,
+            "current_ch2_mA": 1.0,
+        }
+        if carrier is not None:
+            data |= {
+                "t_HFpeak_Focality": carrier,
+                "t_TI_Selectivity": focality / carrier,
+            }
+        results[f"TI_field_E{index}_E9_and_E7_E8_I1-1.0mA_I2-1.0mA.msh"] = data
+    rows, *_ = build_csv_rows(results, "t")
+    with (directory / "final_output.csv").open("w", newline="") as stream:
+        csv.writer(stream).writerows(rows)
+    (directory / "run_config.json").write_text(
+        json.dumps(
+            {"subject_id": "ernie", "leadfield_hdf": "/x/ernie_leadfield_N.hdf5"}
+        )
+    )
+    with (directory / "final_output.csv").open(newline="") as stream:
+        header, *body = list(csv.reader(stream))
+
+    page = catalog.list_candidates(pm, "ernie", "ex", "run", limit=500)
+    by_id = {row["id"]: row["csv"] for row in page["candidates"]}
+    assert by_id == {
+        f"ex-{i}": dict(zip(header, cells)) for i, cells in enumerate(body)
+    }
+    assert all(list(cells) == header for cells in by_id.values())
+    assert by_id["ex-1"]["HFpeak_Focality"] == ""
+
+    def order(sort, descending):
+        # One row per page, so the order is the server's sort over all rows, not one page's.
+        return [
+            catalog.list_candidates(
+                pm, "ernie", "ex", "run", offset, 1, sort, descending
+            )["candidates"][0]["id"]
+            for offset in range(3)
+        ]
+
+    assert order("TImax_ROI", False) == ["ex-1", "ex-0", "ex-2"]
+    assert order("Focality", True) == ["ex-1", "ex-0", "ex-2"]
+    assert order("HFpeak_Focality", True) == ["ex-0", "ex-2", "ex-1"]
+    assert order("HFpeak_Focality", False) == ["ex-2", "ex-0", "ex-1"]  # empty last
+    assert order("Montage", True) == ["ex-2", "ex-1", "ex-0"]
+    with pytest.raises(ValueError, match="Unknown sort"):
+        catalog.list_candidates(pm, "ernie", "ex", "run", sort="Not_A_Column")
+
+
 def test_new_zero_candidate_history_is_not_legacy(history):
     pm, directory = history
     (directory / "candidates.csv").write_text("candidate_id,objective\n")

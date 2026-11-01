@@ -28,6 +28,18 @@
         "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak"
       },
       "comparison_key": "/mnt/example/derivatives/SimNIBS/sub-ernie/ex-search/ex_L_Insula_20260812_090000",
+      "csv": {
+        "Montage": "E020_E074 <> E101_E133_I1-1.5mA_I2-0.5mA",
+        "Current_Ch1_mA": "1.5",
+        "Current_Ch2_mA": "0.5",
+        "TImax_ROI": "0.4",
+        "TImean_ROI": "0.25",
+        "TImean_GM": "0.12",
+        "Focality": "1.6",
+        "Composite_Index": "0.4",
+        "HFpeak_Focality": "1.25",
+        "TI_Selectivity": "1.28"
+      },
       "pairs": [
         [
           "E020",

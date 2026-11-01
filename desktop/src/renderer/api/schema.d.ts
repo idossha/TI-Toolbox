@@ -5573,6 +5573,10 @@ export interface components {
                 [key: string]: string;
             };
             comparison_key: string;
+            /** @description ex/mEx only -- the candidate's final_output.csv row as written, keyed by column in the file's order */
+            csv?: {
+                [key: string]: string;
+            };
             replay_note?: string;
             optimizer_termination?: {
                 /** @enum {string} */
@@ -10670,6 +10674,7 @@ export interface operations {
                 run: string;
                 offset?: number;
                 limit?: number;
+                /** @description a metric key, objective, or (ex/mEx) a final_output.csv column name */
                 sort?: string;
                 descending?: boolean;
             };

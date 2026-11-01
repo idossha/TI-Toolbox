@@ -187,7 +187,8 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
     if not isinstance(leadfield, str) or not leadfield.strip():
         raise ValueError("Saved results do not identify their leadfield EEG net.")
     with _file(root, directory / "final_output.csv").open(newline="") as stream:
-        for index, row in enumerate(csv.DictReader(stream)):
+        reader = csv.DictReader(stream)
+        for index, row in enumerate(reader):
             if index >= _MAX_ROWS:
                 raise ValueError(
                     "Results are too large for interactive review; use the CSV."
@@ -226,6 +227,9 @@ def _ex_rows(root: Path, directory: Path, kind: str) -> list[dict]:
                         "ti_selectivity": "ROI / whole-GM ratio of the envelope over that of hf_peak",
                     },
                     "comparison_key": str(directory),
+                    # The row as written, in the file's column order: the review table shows
+                    # these cells, so it cannot disagree with the CSV.
+                    "csv": {name: row[name] or "" for name in reader.fieldnames},
                     "pairs": [labels[i : i + 2] for i in range(0, len(labels), 2)],
                     "eeg_net": _net_from_leadfield_hdf(leadfield),
                     # mEx drives every pair at the one configured current; its CSV
@@ -381,26 +385,32 @@ def list_candidates(
     sort: str = "roi_mean",
     descending: bool = True,
 ) -> dict:
-    """Return a deterministic page, with unavailable metrics sorted last."""
+    """Return a deterministic page, with unavailable metrics sorted last.
+
+    ``sort`` is a metric key, ``objective`` or, for ex/mEx, a ``final_output.csv`` column.
+    """
     root = Path(pm.project_dir)
     directory = run_directory(pm, subject, kind, run)
     rows = _rows(root, directory, subject, kind)
-    if sort not in {*_FIELDS, *_CARRIER_METRICS, "objective"}:
+    columns = rows[0].get("csv", {}) if rows else {}
+    if rows and sort not in {*_FIELDS, *_CARRIER_METRICS, "objective", *columns}:
         raise ValueError("Unknown sort metric.")
 
-    def key(row):
-        value = (
-            row.get("objective") if sort == "objective" else row["metrics"].get(sort)
-        )
-        return (
-            value is None,
-            (-value if descending else value) if value is not None else 0,
-            row["id"],
-        )
+    def value(row):
+        if sort == "objective":
+            return row["objective"]
+        if sort == "Montage":  # the one text column of final_output.csv
+            return row["csv"]["Montage"]
+        if sort in columns:
+            return _number(row["csv"][sort])
+        return row["metrics"].get(sort)
 
     if offset < 0 or not 1 <= limit <= 500:
         raise ValueError("Invalid candidate page.")
-    rows.sort(key=key)
+    rows.sort(key=lambda row: row["id"])
+    ranked = [row for row in rows if value(row) is not None]
+    ranked.sort(key=value, reverse=descending)  # stable: ties keep id order
+    rows = ranked + [row for row in rows if value(row) is None]
     page = rows[offset : offset + limit]
     geometries = _geometries(root, page)
     return {

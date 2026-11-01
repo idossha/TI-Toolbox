@@ -1468,7 +1468,8 @@
             "schema": {
               "type": "string",
               "default": "roi_mean"
-            }
+            },
+            "description": "a metric key, objective, or (ex/mEx) a final_output.csv column name"
           },
           {
             "name": "descending",
@@ -7423,6 +7424,13 @@
           },
           "comparison_key": {
             "type": "string"
+          },
+          "csv": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "ex/mEx only -- the candidate's final_output.csv row as written, keyed by column in the file's order"
           },
           "replay_note": {
             "type": "string"

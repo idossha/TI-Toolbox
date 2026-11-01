@@ -1209,6 +1209,13 @@ reveals the corresponding row. Responsive columns use the preview pane width. Mi
 incompatible definitions and loading limits stay visible; the frontier is only over recorded
 comparable candidates. No new 2D coordinate projection or visualization dependency is introduced.
 
+Ex and mEx review is their `final_output.csv`. Each candidate carries its row as written (`csv`,
+keyed in the file's column order); the table renders exactly those columns and cells, and
+`GET /api/catalog/optimization-candidates` sorts on any of them over every row (`Montage` as text,
+empty cells last; default `Composite_Index`, descending). The plot's vertical axis offers only the
+CSV's metric columns that hold a number, against `TImean_ROI`, with round-number ticks. Flex review
+keeps its recorded metric columns.
+
 The candidate plot loads at most 10,000 records in the selected sort order, using abortable
 500-record requests and an O(n log n) frontier calculation. The limit is displayed and does
 not limit table pagination or recorded files. This bounds client geometry/SVG work without
