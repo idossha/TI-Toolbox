@@ -854,6 +854,23 @@ def test_source_fsavg_map_writes_where_the_plan_says_and_replaces_only_on_overwr
     assert (replaced["exists"], replaced["will_overwrite"]) == (True, True)
 
 
+def test_source_fsavg_map_plans_the_recompute_of_a_projection_lacking_requested_fields(
+    client, project, tmp_path, monkeypatch
+) -> None:
+    """Without overwrite the runner still recomputes a cached projection that lacks a requested
+    field (tit.source.fsaverage.project_subject), so the plan must predict the overwrite.
+    """
+    from tests.test_sim_fields_on_demand import write_msh
+
+    cached = Path(get_path_manager(str(project)).sim_fsaverage_fields("001", SIM, 5))
+    cached.parent.mkdir(parents=True)
+    write_msh(cached, 1, {"TI_max": [1.0]})  # an earlier TI_max-only projection
+
+    job = _plan(client, "source", _fsavg_config(False))["jobs"][0]  # all four fields
+    assert _fsavg_run(project, tmp_path, monkeypatch, overwrite=False) == ["001"]
+    assert (job["exists"], job["will_overwrite"]) == (True, True)
+
+
 def test_source_fsavg_map_of_another_spacing_is_not_an_existing_output(
     client, project, tmp_path, monkeypatch
 ) -> None:

@@ -59,7 +59,8 @@ Per-kind output-dir resolution
 ``source``
     ``forward`` mode: :meth:`PathManager.forward` per subject. ``fsavg_map`` mode:
     :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair; it exists when
-    that spacing's projection does, and is overwritten only with ``fsavg_map.overwrite``.
+    that spacing's projection does, and is overwritten with ``fsavg_map.overwrite`` or
+    when it lacks a requested field.
 ``stats``
     Project-level (``PlanJob.subject`` is ``""``): :meth:`PathManager.stats_output` with the
     literal ``analysis_type`` ``tit.stats.permutation`` itself uses (``"group_comparison"`` /
@@ -753,6 +754,7 @@ def _plan_source(
     kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
 ) -> tuple[list[PlanJob], None]:
     from tit.source.config import SourceMode
+    from tit.tools.msh_fields import msh_field_names
 
     jobs: list[PlanJob] = []
     if config.mode == SourceMode.FORWARD:
@@ -773,18 +775,21 @@ def _plan_source(
         spacing = config.fsavg_map.fsaverage_spacing
         for pair in config.pairs:
             output_dir = pm.sim_fsaverage(pair.subject_id, pair.simulation)
-            # The runner keeps an existing projection unless overwrite is set
-            # (tit.source.fsaverage.project_subject), so only then is it replaced.
-            exists = os.path.isfile(
-                pm.sim_fsaverage_fields(pair.subject_id, pair.simulation, spacing)
-            )
+            # The runner keeps an existing projection unless overwrite is set or it
+            # lacks a requested field (tit.source.fsaverage.project_subject's check).
+            # shortcut: a carrier-only run's TI fields are not dropped from the request
+            # first, so its cache is predicted replaced when the runner keeps it.
+            path = pm.sim_fsaverage_fields(pair.subject_id, pair.simulation, spacing)
+            exists = os.path.isfile(path)
+            names = msh_field_names(path) if exists else None
+            lacks = names is not None and not set(config.fsavg_map.fields) <= names
             jobs.append(
                 PlanJob(
                     kind=kind,
                     subject=pair.subject_id,
                     output_dir=output_dir,
                     exists=exists,
-                    will_overwrite=exists and config.fsavg_map.overwrite,
+                    will_overwrite=exists and (config.fsavg_map.overwrite or lacks),
                 )
             )
     return jobs, None
