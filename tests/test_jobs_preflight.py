@@ -382,6 +382,23 @@ def test_a_subjects_leadfield_and_atlas_must_be_its_own(project: Path) -> None:
     assert preflight("ex", {"subject_id": other, **mni_ex}, str(project)) == []
 
 
+def test_a_file_symlinked_into_a_subjects_folder_is_its_own(
+    project: Path, tmp_path: Path
+) -> None:
+    """A leadfield or mask linked in from shared storage belongs to the subject whose folder
+    holds the link; only the folder is resolved, not the file."""
+    pm = get_path_manager()
+    shared = touch(tmp_path / "shared_storage" / "big.hdf5")
+    link = Path(pm.leadfields(SID)) / f"{SID}_leadfield_GSN.hdf5"
+    link.parent.mkdir(parents=True, exist_ok=True)
+    link.symlink_to(shared)
+    found = preflight(
+        "ex", {"subject_id": SID, "leadfield_hdf": str(link)}, str(project)
+    )
+    assert found == []
+    assert preflight("ex", {"subject_id": SID, "leadfield_hdf": link.name}, str(project)) == []
+
+
 def test_leadfield_needs_the_cap(project: Path) -> None:
     pm = get_path_manager()
     assert (

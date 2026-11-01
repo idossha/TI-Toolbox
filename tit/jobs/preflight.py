@@ -158,8 +158,13 @@ def _atlas_files(paths: Any, what: str, how_to_fix: str) -> list[MissingInput]:
 
 
 def _not_own(pm: PathManager, sid: str, path: str | Path) -> bool:
-    """Whether *path* lies outside sub-<sid>'s own derivatives (SimNIBS, FastSurfer, FreeSurfer)."""
-    real = os.path.realpath(path)
+    """Whether *path* lies outside sub-<sid>'s own derivatives (SimNIBS, FastSurfer, FreeSurfer).
+
+    The folder is resolved, the file is not: a mask or leadfield symlinked into the subject's
+    folder from shared storage is that subject's own file.
+    """
+    head, name = os.path.split(os.path.abspath(path))
+    real = os.path.join(os.path.realpath(head), name)
     roots = (pm.sub(sid), pm.fastsurfer_subject(sid), pm.freesurfer_subject(sid))
     return not any(real.startswith(os.path.realpath(root) + os.sep) for root in roots)
 
