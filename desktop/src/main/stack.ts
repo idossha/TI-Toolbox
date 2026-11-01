@@ -343,6 +343,9 @@ export class StackManager {
     const port = state.publishedPort ?? Number(state.env.TIT_SERVER_PORT);
     const token = state.env.TIT_SERVER_TOKEN;
     if (!port || !token) throw new StackStartError("unknown", "the running container does not carry a server port and token");
+    // The project is the one the container mounts, as adopt() reads it; the folder the user picked may be another.
+    const attachedDir = state.labels[LABEL_HOST_DIR] || state.env.LOCAL_PROJECT_DIR;
+    if (!attachedDir) throw new StackStartError("unknown", `${state.Name} records no project folder (no ${LABEL_HOST_DIR} label or LOCAL_PROJECT_DIR); it was left unchanged.`);
     const origin = `http://127.0.0.1:${port}`;
     try {
       await this.host.waitForHealth(origin, attachHealthTimeoutMs());
@@ -355,7 +358,7 @@ export class StackManager {
           `TIT_STACK_ATTACH_HEALTH_TIMEOUT_MS, or check "docker logs ${state.Name}"`,
       );
     }
-    this.current = { projectName, hostProjectDir: state.labels[LABEL_HOST_DIR] || hostProjectDir, containerId: running.Id, containerName: state.Name, image: state.image, origin, token, port };
+    this.current = { projectName, hostProjectDir: attachedDir, containerId: running.Id, containerName: state.Name, image: state.image, origin, token, port };
     this.emit({ type: "started", origin, port, attached: true });
     return { ok: true, url: origin, token, attached: true };
   }

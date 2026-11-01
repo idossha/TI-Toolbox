@@ -81,6 +81,22 @@ describe("explicit running-container selection", () => {
     expect(host.waitForHealth).not.toHaveBeenCalled();
   });
 
+  it("records an unlabelled container's own LOCAL_PROJECT_DIR, not the folder the user picked", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "attach", containerId: "existing" });
+    state.env.LOCAL_PROJECT_DIR = "/legacy/project";
+    const manager = new StackManager(host);
+    expect(await manager.start(root)).toMatchObject({ ok: true, attached: true });
+    expect(manager.getCurrent()?.hostProjectDir).toBe("/legacy/project");
+  });
+
+  it("refuses to attach a container that names no project folder at all", async () => {
+    host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "attach", containerId: "existing" });
+    const manager = new StackManager(host);
+    expect(await manager.start(root)).toMatchObject({ ok: false, error: expect.stringContaining("project folder") });
+    expect(manager.getCurrent()).toBeNull();
+    expect(StackApi.prototype.removeContainerById).not.toHaveBeenCalled();
+  });
+
   it("leaves a legacy container unchanged when it has no server credentials", async () => {
     host.chooseRunningContainer = vi.fn().mockResolvedValue({ action: "attach", containerId: "existing" });
     delete state.env.TIT_SERVER_TOKEN;
