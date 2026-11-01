@@ -492,7 +492,9 @@ def test_a_step_plan_names_its_target_from_the_atlas(
     seg = Path(get_path_manager(str(project)).m2m("001")) / "segmentation"
     seg.mkdir(parents=True, exist_ok=True)
     (seg / "labeling.nii.gz").write_bytes(b"")
-    (seg / "labeling_LUT.txt").write_text("10 Left-Thalamus 0 118 14 0\n49 Right-Thalamus 0 118 14 0\n")
+    (seg / "labeling_LUT.txt").write_text(
+        "10 Left-Thalamus 0 118 14 0\n49 Right-Thalamus 0 118 14 0\n"
+    )
     roi = {
         "_type": "SubcorticalROI",
         "atlas_path": [str(seg / "labeling.nii.gz")] * 2,
@@ -500,8 +502,81 @@ def test_a_step_plan_names_its_target_from_the_atlas(
         "tissues": "GM",
         "atlas_space": "subject",
     }
-    flex = {"id": "opt", "kind": "flex", "config": {**FLEX, "roi": roi, "output_folder": "thal"}, "subject_ids": ["001"]}
+    flex = {
+        "id": "opt",
+        "kind": "flex",
+        "config": {**FLEX, "roi": roi, "output_folder": "thal"},
+        "subject_ids": ["001"],
+    }
     proposal = propose(client, flex, sim_step())
     opt, sim = proposal["steps"]
     assert opt["plan"]["target"] == "Left-Thalamus, Right-Thalamus"
     assert sim["plan"]["target"] is None  # a simulation has no ROI
+
+
+def test_unnamed_flex_steps_get_their_own_run_folders(
+    client: TestClient, monkeypatch
+) -> None:
+    """A flex step the agent left unnamed is named when proposed. The name was a
+    second-resolution timestamp alone, so two such steps of one proposal got one folder and
+    the second run's clear_previous_run wiped the first's result."""
+    from tit.server import proposals
+
+    monkeypatch.setattr(proposals.time, "strftime", lambda fmt: "20261031_120000")
+    left = {"id": "left", "kind": "flex", "config": dict(FLEX), "subject_ids": ["001"]}
+    steps = propose(client, left, {**left, "id": "right"})["steps"]
+    folders = [s["config"]["output_folder"] for s in steps]
+    assert len(set(folders)) == 2
+    assert all(s["id"] in s["config"]["output_folder"] for s in steps)
+    assert all(not s["plan"]["errors"] for s in steps)
+
+
+def test_two_steps_planning_one_folder_cannot_be_approved(
+    client: TestClient,
+) -> None:
+    first = {
+        "id": "a",
+        "kind": "flex",
+        "config": {**FLEX, "output_folder": "same"},
+        "subject_ids": ["001"],
+    }
+    proposal = propose(client, first, {**first, "id": "b"})
+    a, b = proposal["steps"]
+    assert not a["plan"]["errors"]
+    assert any("step a" in e and "same" in e for e in b["plan"]["errors"]), b["plan"]
+    refused = client.post(f"/api/proposals/{proposal['id']}/approve", headers=BEARER)
+    assert refused.status_code == 409 and "step b" in refused.text
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+
+def test_a_multi_subject_step_never_runs_on_another_subjects_leadfield(
+    client: TestClient, project: Path
+) -> None:
+    """One step config runs on every subject; an absolute leadfield path in it is one
+    subject's file. sub-002 used to run silently on sub-001's leadfield; now its plan names
+    sub-002's own leadfield as missing and the approval is refused."""
+    pm = get_path_manager(str(project))
+    hdf = Path(pm.leadfields("001")) / "001_leadfield_GSN-HydroCel-185.hdf5"
+    hdf.parent.mkdir(parents=True)
+    hdf.write_bytes(b"")
+    step = {
+        "id": "ex",
+        "kind": "ex",
+        "config": {
+            "leadfield_hdf": str(hdf),
+            "roi_name": "target",
+            "run_name": "r1",
+            "electrodes": {
+                "_type": "PoolElectrodes",
+                "electrodes": ["E1", "E2", "E3", "E4"],
+            },
+        },
+        "subject_ids": ["001", "002"],
+    }
+    proposal = propose(client, step)
+    missing = proposal["steps"][0]["plan"]["missing_inputs"]
+    assert [m["what"] for m in missing if m["expected_path"] == str(hdf)] == [
+        "sub-002's own leadfield " f"({str(hdf)!r} is not in sub-002's derivatives)"
+    ]
+    refused = client.post(f"/api/proposals/{proposal['id']}/approve", headers=BEARER)
+    assert refused.status_code == 409 and "sub-002's own leadfield" in refused.text

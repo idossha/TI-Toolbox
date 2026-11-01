@@ -128,13 +128,14 @@ def _text(value: Any, name: str, limit: int, required: bool = False) -> str:
     return value.strip()
 
 
-def _flex_run_name(config: dict[str, Any]) -> str:
+def _flex_run_name(config: dict[str, Any], step_id: str) -> str:
     """A flex step's run folder name, assigned now when the agent left it empty, so the step's
-    output folder (and a later ``sim_from_flex``'s source) is known before anything runs.
+    output folder (and a later ``sim_from_flex``'s source) is known before anything runs. The
+    step id keeps two unnamed steps of one proposal (named in the same second) apart.
     """
     name = str(config.get("output_folder") or "").strip()
     if not name:
-        return time.strftime("%Y%m%d_%H%M%S") + "_agent"
+        return f"{time.strftime('%Y%m%d_%H%M%S')}_agent_{step_id}"
     if not name.startswith("/") and (
         "/" in name or "\\" in name or name in (".", "..")
     ):
@@ -170,7 +171,7 @@ def _checked_step(raw: Any, earlier: dict[str, dict[str, Any]]) -> dict[str, Any
     # The run pages' defaults under what the agent sent; a sim_from_flex step is a simulation.
     config = with_app_defaults("sim" if kind == SIM_FROM_FLEX else kind, config)
     if kind in FLEX_KINDS:
-        config["output_folder"] = _flex_run_name(config)
+        config["output_folder"] = _flex_run_name(config, step_id)
     if kind == SIM_FROM_FLEX:
         source = config.get("flex_step")
         if bool(source) == bool(config.get("flex_run")):
@@ -368,6 +369,36 @@ def _plan_step(record: dict[str, Any], step: dict[str, Any], manager: Any) -> No
         if result.cost.eta_minutes:
             eta += result.cost.eta_minutes
     out["eta_minutes"] = eta or None
+    _refuse_an_earlier_steps_folder(record, step, kind)
+
+
+def _refuse_an_earlier_steps_folder(
+    record: dict[str, Any], step: dict[str, Any], kind: str
+) -> None:
+    """A plan error on *step* for each folder an earlier step of the proposal also plans: the
+    later run would replace the earlier one's results (a flex run clears its folder first).
+    ``pre`` stages share subject folders by design and an unnamed search's folder is the
+    runner's to pick, so neither is compared.
+    """
+    from tit.server.job_outputs import RUN_FOLDER_FIELD
+
+    def folders(s: dict[str, Any], job_kind: str) -> set[str]:
+        field = RUN_FOLDER_FIELD.get(job_kind)
+        if job_kind == "pre" or (field and not s["config"].get(field)):
+            return set()
+        return {o["output_dir"] for o in (s["plan"] or {}).get("outputs", [])}
+
+    mine = folders(step, kind)
+    for earlier in record["steps"]:
+        if earlier is step:
+            break
+        kind_of = "sim" if earlier["kind"] == SIM_FROM_FLEX else earlier["kind"]
+        shared = mine & folders(earlier, kind_of)
+        if shared:
+            step["plan"]["errors"].append(
+                f"writes {', '.join(sorted(shared))}, as step {earlier['id']} does; the "
+                "later run would replace its results. Give each step its own run name."
+            )
 
 
 # -- derived state ----------------------------------------------------------------------------
