@@ -46,6 +46,7 @@ def covered_mean(data_4d):
     mean = np.where(covered, np.mean(data_4d, axis=-1, dtype=np.float64), 0)
     return mean.astype(np.float32), covered
 
+
 # ==============================================================================
 # TI-TOOLBOX INTEGRATED LOADING
 # ==============================================================================
