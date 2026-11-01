@@ -270,7 +270,7 @@ class _Killed(Exception):
     pass
 
 
-def test_a_killed_volume_write_leaves_no_result_mesh(tmp_path):
+def test_a_failed_volume_write_leaves_no_result_mesh_and_no_partial(tmp_path):
     """The volume mesh is the "result exists" marker (``refuse_existing_result``), so a write
     killed half-way must leave nothing under its name: it is written aside and moved in.
     """
@@ -304,3 +304,4 @@ def test_a_killed_volume_write_leaves_no_result_mesh(tmp_path):
         with pytest.raises(_Killed):
             sim._write_volume_mesh(meshes, const.FIELD_TI_MAX, str(final))
     assert not final.exists()
+    assert list(tmp_path.iterdir()) == [], "the half-written .partial is removed too"
