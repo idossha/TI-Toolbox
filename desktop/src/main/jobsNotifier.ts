@@ -22,6 +22,7 @@ interface JobsWsMessage {
 }
 
 let socket: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
 const notified = new Set<string>();
 /** Proposals already seen pending this session: one banner per plan, never for an edit. */
 const proposed = new Set<string>();
@@ -43,6 +44,8 @@ export function setJobFinishedListener(listener?: JobFinishedListener): void {
 }
 
 export function stopNotifyingJobCompletions(): void {
+  clearTimeout(reconnectTimer);
+  reconnectTimer = undefined;
   try {
     socket?.close();
   } catch {
@@ -134,49 +137,60 @@ export function notifyJobCompletions(origin: string, token: string, win?: Browse
     return;
   }
   const wsUrl = origin.replace(/^http/, "ws") + `/ws/jobs?token=${encodeURIComponent(token)}`;
-  try {
-    const ws = new WebSocket(wsUrl);
-    socket = ws;
-    ws.addEventListener("open", () => log("info", `jobs notifier: listening on ${origin}/ws/jobs`));
-    ws.addEventListener("message", (ev: MessageEvent) => {
-      let data: JobsWsMessage;
-      try {
-        data = JSON.parse(String(ev.data)) as JobsWsMessage;
-      } catch {
-        return;
-      }
-      const p = data.proposal;
-      if (data.type === "proposal" && p?.id && p.status === "pending" && !proposed.has(p.id)) {
-        proposed.add(p.id);
-        const prefs = normalizeNotificationPrefs(readSettings().notifications);
-        // ponytail: banner only, no TI-Toolbox sound; add `tit:notificationSound` if users ask.
-        const text = proposalNotification(prefs, p, !!win && !win.isDestroyed() && win.isFocused());
-        if (text) void showNativeNotification({ ...text, silent: soundPlan(prefs.sound).silent }, win);
-        return;
-      }
-      const job = data.job;
-      if (data.type !== "job" || !job?.id || !job.state) return;
-      const finishedLive = observeTransition(seen, job.id, job.state);
-      if (job.state !== "succeeded" && job.state !== "failed") return;
-      if (notified.has(job.id)) return;
-      notified.add(job.id);
-      try {
-        onJobFinished?.(job.id, job.state as "succeeded" | "failed");
-      } catch (err) {
-        log("warn", `job-finished listener threw: ${err instanceof Error ? err.message : String(err)}`);
-      }
-      if (!finishedLive) log("info", `job ${job.id} ${job.state}: no notification (not seen running this session)`);
-      else {
-        const finished = { id: job.id, kind: job.kind ?? "", state: job.state as FinishedState, subject_ids: job.subject_ids ?? [] };
-        void showJobNotification(origin, token, win, finished).catch((err: unknown) => log("warn", `job notification failed: ${err instanceof Error ? err.message : String(err)}`));
-      }
-    });
-    ws.addEventListener("error", () => log("warn", "jobs notifier: WebSocket error"));
-    ws.addEventListener("close", (ev: CloseEvent) => {
-      log("info", `jobs notifier: socket closed (${ev.code})`);
-      if (socket === ws) socket = null;
-    });
-  } catch (err) {
-    log("warn", `jobs notifier failed to connect: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  const listen = (attempt: number): void => {
+    try {
+      const ws = new WebSocket(wsUrl);
+      socket = ws;
+      let retries = attempt;
+      ws.addEventListener("open", () => {
+        retries = 0;
+        log("info", `jobs notifier: listening on ${origin}/ws/jobs`);
+      });
+      ws.addEventListener("message", (ev: MessageEvent) => {
+        let data: JobsWsMessage;
+        try {
+          data = JSON.parse(String(ev.data)) as JobsWsMessage;
+        } catch {
+          return;
+        }
+        const p = data.proposal;
+        if (data.type === "proposal" && p?.id && p.status === "pending" && !proposed.has(p.id)) {
+          proposed.add(p.id);
+          const prefs = normalizeNotificationPrefs(readSettings().notifications);
+          // ponytail: banner only, no TI-Toolbox sound; add `tit:notificationSound` if users ask.
+          const text = proposalNotification(prefs, p, !!win && !win.isDestroyed() && win.isFocused());
+          if (text) void showNativeNotification({ ...text, silent: soundPlan(prefs.sound).silent }, win);
+          return;
+        }
+        const job = data.job;
+        if (data.type !== "job" || !job?.id || !job.state) return;
+        const finishedLive = observeTransition(seen, job.id, job.state);
+        if (job.state !== "succeeded" && job.state !== "failed") return;
+        if (notified.has(job.id)) return;
+        notified.add(job.id);
+        try {
+          onJobFinished?.(job.id, job.state as "succeeded" | "failed");
+        } catch (err) {
+          log("warn", `job-finished listener threw: ${err instanceof Error ? err.message : String(err)}`);
+        }
+        if (!finishedLive) log("info", `job ${job.id} ${job.state}: no notification (not seen running this session)`);
+        else {
+          const finished = { id: job.id, kind: job.kind ?? "", state: job.state as FinishedState, subject_ids: job.subject_ids ?? [] };
+          void showJobNotification(origin, token, win, finished).catch((err: unknown) => log("warn", `job notification failed: ${err instanceof Error ? err.message : String(err)}`));
+        }
+      });
+      ws.addEventListener("error", () => log("warn", "jobs notifier: WebSocket error"));
+      ws.addEventListener("close", (ev: CloseEvent) => {
+        log("info", `jobs notifier: socket closed (${ev.code})`);
+        // Stopped or replaced (a disconnect or another session): nothing to resume.
+        if (socket !== ws) return;
+        socket = null;
+        // A bare drop of the current session's socket: reopen it, 1 s doubling to 30 s.
+        reconnectTimer = setTimeout(() => listen(retries + 1), Math.min(30_000, 1000 * 2 ** retries));
+      });
+    } catch (err) {
+      log("warn", `jobs notifier failed to connect: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+  listen(0);
 }
