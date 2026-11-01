@@ -52,6 +52,8 @@ function renamer(c: CountCase): (label: string) => string {
   return (label) => `E${order.indexOf(label) + 1}`;
 }
 const n = (v: number) => v.toLocaleString("en-US");
+/** The cost line's singular for a count of one ("1 montage"), as cost.ts writes it. */
+const counted = (v: number, noun: string) => `${n(v)} ${noun}${v === 1 ? "" : "s"}`;
 
 let app: ElectronApplication;
 let page: Page;
@@ -129,7 +131,7 @@ test("step 0.05 with a channel limit: the line states the runner's count and the
   await setNumber(dialog, 2, String(c.channel_limit));
   const distinct = new Set(Object.values(c.buckets).flat()).size;
   await expect(dialog.getByTestId("optimizer-cost-ex")).toHaveText(
-    `${distinct} electrodes · ${n(c.expected_montages)} montages · ${n(c.splits!.length)} current splits · ${n(c.expected_combinations)} iterations`,
+    `${distinct} electrodes · ${counted(c.expected_montages, "montage")} · ${counted(c.splits!.length, "current split")} · ${counted(c.expected_combinations, "iteration")}`,
   );
   await closeOptEditor(page);
 
