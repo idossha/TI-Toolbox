@@ -46,9 +46,7 @@ def create_proposal(
     return _engine().create(get_manager(request.app), body)
 
 
-@router.get(
-    "/api/proposals/{id}", summary="One proposal with live step states"
-)
+@router.get("/api/proposals/{id}", summary="One proposal with live step states")
 def get_proposal(request: Request, id: str) -> dict[str, Any]:
     return _engine().get_view(get_manager(request.app), id)
 

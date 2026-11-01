@@ -28,7 +28,14 @@ import asyncio
 import logging
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    Body,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 
 from tit.server.auth import origin_allowed, websocket_authorized
 from tit.server.kernels import DEFAULT_KERNEL_NAME, KernelError, get_kernel_registry
@@ -89,11 +96,15 @@ def list_kernels(request: Request) -> dict[str, Any]:
     response_model=Kernel,
     responses={
         429: {"description": "the concurrent-kernel limit is already reached"},
-        501: {"description": "no jupyter_client, or no such kernelspec, in this container"},
+        501: {
+            "description": "no jupyter_client, or no such kernelspec, in this container"
+        },
     },
     summary="Start a kernel for a notebook session",
 )
-def start_kernel(request: Request, body: dict[str, Any] = Body(default={})) -> dict[str, Any]:
+def start_kernel(
+    request: Request, body: dict[str, Any] = Body(default={})
+) -> dict[str, Any]:
     """Start a kernel whose working directory is the project.
 
     The cwd is the project root and not the notebook's own directory: a
@@ -112,7 +123,9 @@ def start_kernel(request: Request, body: dict[str, Any] = Body(default={})) -> d
 
 
 @router.delete(
-    "/api/kernels/{kernel_id}", response_model=KernelStopped, summary="Shut a kernel down"
+    "/api/kernels/{kernel_id}",
+    response_model=KernelStopped,
+    summary="Shut a kernel down",
 )
 def stop_kernel(kernel_id: str) -> dict[str, Any]:
     try:
@@ -217,11 +230,17 @@ async def ws_kernel(ws: WebSocket, kernel_id: str) -> None:
                     registry.restart(kernel_id)
                 elif op == "complete":
                     registry.complete(
-                        kernel_id, req_id, str(message.get("code", "")), int(message.get("cursorPos", 0))
+                        kernel_id,
+                        req_id,
+                        str(message.get("code", "")),
+                        int(message.get("cursorPos", 0)),
                     )
                 elif op == "inspect":
                     registry.inspect(
-                        kernel_id, req_id, str(message.get("code", "")), int(message.get("cursorPos", 0))
+                        kernel_id,
+                        req_id,
+                        str(message.get("code", "")),
+                        int(message.get("cursorPos", 0)),
                     )
                 else:
                     logger.debug("kernel %s: unknown op %r", kernel_id, op)

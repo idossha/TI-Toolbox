@@ -176,9 +176,9 @@ def decode(blob: bytes | bytearray | memoryview) -> TvscPayload:
         data, dtype="<f4", count=3 * n_vertices, offset=offset
     ).reshape(n_vertices, 3)
     offset += pos_bytes
-    indices = np.frombuffer(
-        data, dtype="<u4", count=n_indices, offset=offset
-    ).reshape(-1, 3)
+    indices = np.frombuffer(data, dtype="<u4", count=n_indices, offset=offset).reshape(
+        -1, 3
+    )
     offset += idx_bytes
     labels = None
     if flags & FLAG_LABELS:

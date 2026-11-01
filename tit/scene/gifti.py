@@ -105,9 +105,7 @@ def label_table_from_legend(
     ``name`` and ``color`` as ``"#rrggbb"``. The result always begins with
     :data:`NO_REGION`, whatever the legend holds.
     """
-    entries = [
-        LabelEntry(key=NO_REGION, name=unlabelled_name, rgba=unlabelled_rgba)
-    ]
+    entries = [LabelEntry(key=NO_REGION, name=unlabelled_name, rgba=unlabelled_rgba)]
     for row in legend:
         key = int(row["label"])
         if key == NO_REGION:
@@ -174,13 +172,13 @@ def _darray(
         )
     return (
         "   <DataArray "
-        f"ArrayIndexingOrder=\"RowMajorOrder\" "
+        f'ArrayIndexingOrder="RowMajorOrder" '
         f"DataType={quoteattr(dtype)} "
-        f"Dimensionality=\"{len(dims)}\" "
+        f'Dimensionality="{len(dims)}" '
         f"{dim_attrs} "
         f"Encoding={quoteattr(_ENCODING)} "
-        f"Endian=\"LittleEndian\" "
-        f"ExternalFileName=\"\" ExternalFileOffset=\"\" "
+        f'Endian="LittleEndian" '
+        f'ExternalFileName="" ExternalFileOffset="" '
         f"Intent={quoteattr(intent)}>"
         f"{meta}{csys}\n"
         f"      <Data>{payload}</Data>\n"
@@ -299,4 +297,3 @@ def _label_table_xml(entries: list[LabelEntry]) -> str:
             f'Blue="{b:.6f}" Alpha="{a:.6f}"><![CDATA[{entry.name}]]></Label>\n'
         )
     return "   <LabelTable>\n" + "".join(rows) + "   </LabelTable>\n"
-

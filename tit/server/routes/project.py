@@ -73,14 +73,18 @@ def patch_project_status(body: ProjectStatus) -> dict[str, Any]:
     updates = body.model_dump(exclude_none=True)
     initialize_project_status(project_dir)
     if updates and not update_project_status(project_dir, updates):
-        raise HTTPException(status_code=500, detail="Could not write project_status.json.")
+        raise HTTPException(
+            status_code=500, detail="Could not write project_status.json."
+        )
     return load_project_status(project_dir)
 
 
 def _bound_project_dir() -> str:
     project_dir = get_path_manager().project_dir
     if not project_dir:
-        raise HTTPException(status_code=409, detail="This server is not bound to a project.")
+        raise HTTPException(
+            status_code=409, detail="This server is not bound to a project."
+        )
     return str(project_dir)
 
 

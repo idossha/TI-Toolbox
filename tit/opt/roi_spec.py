@@ -670,7 +670,9 @@ def config_target(config: dict) -> str | None:
         centres = zip(*(_as_list(roi.get(axis)) for axis in "xyz"))
         for i, (x, y, z) in enumerate(centres):
             r = radii[i] if i < len(radii) else radii[0]
-            names.append(f"sphere at ({_mm(x)}, {_mm(y)}, {_mm(z)}) mm{mni}, radius {_mm(r)} mm")
+            names.append(
+                f"sphere at ({_mm(x)}, {_mm(y)}, {_mm(z)}) mm{mni}, radius {_mm(r)} mm"
+            )
     elif isinstance(roi, dict) and roi.get("_type") in ("AtlasROI", "SubcorticalROI"):
         labels = _as_list(roi.get("label"))
         paths = _as_list(roi.get("atlas_path"))
@@ -683,5 +685,11 @@ def config_target(config: dict) -> str | None:
     names += [str(name).removesuffix(".csv") for name in _as_list(csvs)]
     for atlas in config.get("roi_atlas") or []:
         if isinstance(atlas, dict):
-            names.append(region_name(atlas.get("atlas_path", ""), atlas.get("label"), atlas.get("atlas_space", "subject")))
+            names.append(
+                region_name(
+                    atlas.get("atlas_path", ""),
+                    atlas.get("label"),
+                    atlas.get("atlas_space", "subject"),
+                )
+            )
     return ", ".join(dict.fromkeys(names)) or None

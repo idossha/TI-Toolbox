@@ -9,7 +9,14 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tit.examples import DEFAULT_PART, catalogue, dataset_by_id, fetch, parse_part_id, status
+from tit.examples import (
+    DEFAULT_PART,
+    catalogue,
+    dataset_by_id,
+    fetch,
+    parse_part_id,
+    status,
+)
 
 
 def _expand(token: str) -> list[tuple[str, str]]:
@@ -25,8 +32,12 @@ def main(argv: list[str] | None = None) -> int:
         description="Download example data (raw MRIs or finished head models) into a project.",
     )
     parser.add_argument("--project", required=True, help="BIDS project root")
-    parser.add_argument("--list", action="store_true", help="list the catalogue and what is installed")
-    parser.add_argument("--force", action="store_true", help="re-download even if present")
+    parser.add_argument(
+        "--list", action="store_true", help="list the catalogue and what is installed"
+    )
+    parser.add_argument(
+        "--force", action="store_true", help="re-download even if present"
+    )
     parser.add_argument(
         "parts",
         nargs="*",

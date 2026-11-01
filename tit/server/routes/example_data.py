@@ -79,7 +79,9 @@ _STATE = _Download()
 def _bound_project_dir() -> Path:
     project_dir = get_path_manager().project_dir
     if not project_dir:
-        raise HTTPException(status_code=409, detail="This server is not bound to a project.")
+        raise HTTPException(
+            status_code=409, detail="This server is not bound to a project."
+        )
     return Path(project_dir)
 
 
@@ -102,7 +104,9 @@ def _run(part_id: str, project_dir: Path, force: bool) -> None:
                 progress=progress,
                 log=lambda *a, **k: None,
             )
-        except Exception as exc:  # noqa: BLE001 - any failure must reach the user, not the log alone
+        except (
+            Exception
+        ) as exc:  # noqa: BLE001 - any failure must reach the user, not the log alone
             with _STATE.lock:
                 _STATE.errors[part_id] = str(exc)
         else:
@@ -125,11 +129,15 @@ def _run(part_id: str, project_dir: Path, force: bool) -> None:
 )
 def example_data() -> dict[str, Any]:
     """``{datasets, status}``. ``status`` is one entry per *part*, read off disk (no network) plus
-    the live progress of whichever part is downloading right now, so one poll answers the page."""
+    the live progress of whichever part is downloading right now, so one poll answers the page.
+    """
     from tit import examples
 
     project_dir = _bound_project_dir()
-    status = [{**entry, **_STATE.snapshot(entry["id"])} for entry in examples.status(project_dir)]
+    status = [
+        {**entry, **_STATE.snapshot(entry["id"])}
+        for entry in examples.status(project_dir)
+    ]
     return {"datasets": [d.to_dict() for d in examples.catalogue()], "status": status}
 
 
@@ -142,7 +150,9 @@ def example_data() -> dict[str, Any]:
         422: {"description": "unknown dataset or part"},
     },
 )
-def start_example_data(dataset_id: str, part_id: str, force: bool = False) -> dict[str, Any]:
+def start_example_data(
+    dataset_id: str, part_id: str, force: bool = False
+) -> dict[str, Any]:
     """Start (or queue) the fetch and return immediately; the renderer polls ``GET`` for progress.
 
     Returns this part's ``{id, dataset, part, installed, bytes, downloading, queued, received,
@@ -160,7 +170,9 @@ def start_example_data(dataset_id: str, part_id: str, force: bool = False) -> di
     full_id = part.full_id
     with _STATE.lock:
         if _STATE.active():
-            if _STATE.part_id != full_id and not any(q == full_id for q, _ in _STATE.queue):
+            if _STATE.part_id != full_id and not any(
+                q == full_id for q, _ in _STATE.queue
+            ):
                 _STATE.queue.append((full_id, force))
                 _STATE.errors.pop(full_id, None)
         else:
