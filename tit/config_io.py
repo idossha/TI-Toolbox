@@ -213,10 +213,12 @@ def _discriminator_for(cls: type) -> str | None:
 #: ``name -> "package.module.ClassName"`` for every config dataclass that
 #: participates in :func:`json_schema` / :func:`deserialize_config` and the
 #: generated ``contracts/generated/config.schema.json`` (see ``dev/build_schema.py``). Kept as
-#: strings, not imported class objects, so importing ``tit.config_io`` never
-#: pulls in a per-module heavy dependency (SimNIBS, bpy, trimesh) that some
-#: registered class's *package* needs merely to import -- callers resolve
-#: only the classes they actually need via :func:`resolve_config_class`. The
+#: strings, not imported class objects, so the registry adds no per-module
+#: heavy dependency (bpy, trimesh, matplotlib) that some registered class's
+#: *package* needs merely to import -- callers resolve only the classes they
+#: actually need via :func:`resolve_config_class`. (The module itself imports
+#: ``tit.sim.config`` for ``Montage``, and ``tit/sim/__init__`` imports SimNIBS;
+#: ``dev/build_contracts._ensure_importable`` relies on that failing on a host.) The
 #: dotted paths double as the ``"x-tit-classes"`` index in
 #: ``contracts/generated/config.schema.json``.
 CONFIG_CLASS_REGISTRY: dict[str, str] = {
