@@ -766,6 +766,8 @@ function existsForFixture(kind, subject, config) {
     const dir = analyzerOutputDir(subject, cfg);
     return !!dir && Object.values(analyses[subject] ?? {}).some((list) => list.some((a) => dirname(a.csv) === dir));
   }
+  // One leadfield per subject and net: the catalog fixture says which exist.
+  if (kind === "leadfield") return (leadfields[subject] ?? []).some((l) => l.net === cfg.eeg_net && l.exists);
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -1034,7 +1036,9 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
   const jobsPlan = planned.map((subject) => {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
-    return { kind, subject, output_dir, exists, will_overwrite: exists && (REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite) };
+    // `_plan_leadfield`: a leadfield is replaced when its config asks to compute (`overwrite`).
+    const replaces = kind === "leadfield" ? !!cfg.overwrite : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
+    return { kind, subject, output_dir, exists, will_overwrite: exists && replaces };
   });
   const lock_conflicts = [];
   for (const subject of ids) {
@@ -3629,7 +3633,7 @@ route("POST", "/api/jobs", async (ctx) => {
   }
   // `check_overwrite_permission`: the kinds whose runner replaces an existing folder need an
   // explicit overwrite. Other kinds' mock plans never set `will_overwrite` without one.
-  if (REPLACES_WHEN_EXISTS_KINDS.has(body.kind) && !body.overwrite) {
+  if ((REPLACES_WHEN_EXISTS_KINDS.has(body.kind) || body.kind === "leadfield") && !body.overwrite) {
     const conflicts = planFor(body.kind, body.config, body.subject_ids ?? [], false).jobs.filter((j) => j.will_overwrite);
     if (conflicts.length) {
       return json(ctx.res, 409, { detail: `Outputs of this ${body.kind} job already exist. Explicit overwrite confirmation is required: ${conflicts.map((j) => j.output_dir).join("; ")}` });

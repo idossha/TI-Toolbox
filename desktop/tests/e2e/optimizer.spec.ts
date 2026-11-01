@@ -760,6 +760,51 @@ test("the leadfield strip states the fact and estimates THIS net, with no 'requi
   await closeOptEditor(page);
 });
 
+test("an existing leadfield can be regenerated with another electrode, after the replace question", async () => {
+  // G1-5: a net has one leadfield, so another electrode replaces it. The step starts at the
+  // electrode the leadfield records; the server's 409 is the shared existing-outputs question, and
+  // "Replace and rerun" resends the same job with `overwrite: true`.
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "ernie");
+  await setOptCell(page, row, "method", "Ex");
+  const dialog = await openOptEditor(page, row);
+  const strip = dialog.getByTestId("leadfield-strip");
+  await strip.getByRole("combobox", { name: "EEG net" }).click();
+  await page.getByRole("option", { name: /^GSN-HydroCel-185/ }).click();
+  await expect(strip.getByTestId("leadfield-electrode")).toHaveText("ellipse 8×8 mm, gel 1 mm");
+  await page.screenshot({ path: "tests/e2e/artifacts/optimizer-leadfield-regenerate-row.png" });
+
+  const posts = collectGroups();
+  await strip.getByRole("button", { name: "Regenerate…" }).click();
+  const step = page.getByRole("dialog", { name: "Regenerate leadfield" });
+  await expect(step).toContainText("ernie · GSN-HydroCel-185");
+  await expect(step).toContainText("regenerating replaces the current one");
+  await expect(step.getByRole("spinbutton", { name: "Electrode width" })).toHaveValue("8");
+  await step.getByRole("spinbutton", { name: "Electrode width" }).fill("10");
+  await page.screenshot({ path: "tests/e2e/artifacts/optimizer-leadfield-regenerate-step.png" });
+  expect(posts.bodies, "nothing is queued before the electrode is confirmed").toHaveLength(0);
+
+  const refused = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/api/jobs"));
+  await step.getByRole("button", { name: "Regenerate", exact: true }).click();
+  expect((await refused).status()).toBe(409);
+  const confirm = page.getByRole("dialog", { name: "Some outputs already exist" });
+  await expect(confirm).toContainText("1 of 1 planned job already has leadfield output on disk.");
+  await page.screenshot({ path: "tests/e2e/artifacts/optimizer-leadfield-regenerate-confirm.png" });
+
+  const accepted = page.waitForResponse((r) => r.request().method() === "POST" && r.url().endsWith("/api/jobs"));
+  await confirm.getByTestId("existing-outputs-replace").click();
+  expect((await accepted).status()).toBe(201);
+  await expect(confirm).toHaveCount(0);
+  posts.stop();
+  expect(posts.bodies.map((b) => b.overwrite)).toEqual([false, true]);
+  for (const body of posts.bodies) {
+    expect(body.kind).toBe("leadfield");
+    expect(body.config).toMatchObject({ subject_id: "ernie", eeg_net: "GSN-HydroCel-185", overwrite: true, electrode_dimensions: [10, 8] });
+  }
+  await closeOptEditor(page);
+});
+
 /**
  * Evidence for a reviewer, not an assertion: the table, and one row editor per family. Written to
  * `tests/e2e/artifacts/` like the other lanes' jobs-table shots.

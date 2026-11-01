@@ -63,17 +63,20 @@ export function defaultLeadfieldElectrode(): LeadfieldElectrode {
   };
 }
 
-/** The `LeadfieldConfig` the Generate-leadfield step submits: this net, with this electrode. */
+/** The `LeadfieldConfig` the leadfield step submits: this net, with this electrode. `overwrite` is
+ *  "compute this electrode" (off, the runner keeps an existing file whatever electrode was asked
+ *  for); replacing a leadfield on disk still needs the request's own confirmation, the server's 409. */
 export function leadfieldJobConfig(subjectId: string, net: string, electrode: LeadfieldElectrode): LeadfieldConfigBody {
-  return { subject_id: subjectId, eeg_net: net, tissues: [1, 2], interpolation: null, overwrite: false, ...electrode };
+  return { subject_id: subjectId, eeg_net: net, tissues: [1, 2], interpolation: null, overwrite: true, ...electrode };
 }
 
-/** Queues leadfield generation for a net that has none, with the electrode the user confirmed. */
-export async function submitLeadfieldJob(subjectId: string, net: string, electrode: LeadfieldElectrode): Promise<JobStatus> {
+/** Queues leadfield generation with the electrode the user confirmed; `overwrite` is the answer
+ *  "Replace and rerun" to the existing-outputs question for a net that already has one. */
+export async function submitLeadfieldJob(subjectId: string, net: string, electrode: LeadfieldElectrode, overwrite = false): Promise<JobStatus> {
   const config = leadfieldJobConfig(subjectId, net, electrode);
   const path = "/api/jobs";
   return unwrap(
-    await api.POST(path, { body: { kind: "leadfield", config: config as never, subject_ids: [subjectId] } }),
+    await api.POST(path, { body: { kind: "leadfield", config: config as never, subject_ids: [subjectId], overwrite } }),
     path,
   );
 }

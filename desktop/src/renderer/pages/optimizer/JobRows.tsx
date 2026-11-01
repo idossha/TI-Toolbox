@@ -31,7 +31,7 @@ import { SelectionPicker } from "../../ui/SelectionList";
 import { RoiPicker, type RoiValue } from "../_shared/roi";
 import { roiForSubject } from "../_shared/roi/subjectChange";
 import { notify } from "../../ui/Toast";
-import type { EegNet, Leadfield } from "./api";
+import type { EegNet, Leadfield, LeadfieldElectrode } from "./api";
 import { GOAL_OPTIONS, ElectrodesSection, ObjectiveSection, PostRunSection, SolverSection } from "./FlexSections";
 import { ExCurrentSection, ExElectrodesSection, LeadfieldStrip, MExCarrierSection, MExElectrodesSection } from "./ExSections";
 import { formatBytes } from "./exConfig";
@@ -136,7 +136,7 @@ export function OptimizerJobRows({
   activeRowId: string | null;
   onActiveRowChange: (id: string) => void;
   /** Queues leadfield generation for (subject, net) — the "create one" the refusal offers. */
-  onGenerateLeadfield: (subject: string, net: string) => void;
+  onGenerateLeadfield: (subject: string, net: string, replaces?: LeadfieldElectrode | null) => void;
   leadfieldGenerationState: (subject: string, net: string | null) => string | null;
   onOpenViewer?: () => void;
   /** The bucket the scene pane's next electrode click fills; the editor reports the one the user
@@ -501,7 +501,7 @@ function RowEditor({
   onChange: (next: OptimizerRow) => void;
   nets: EegNet[];
   leadfields: Leadfield[] | undefined;
-  onGenerateLeadfield: (subject: string, net: string) => void;
+  onGenerateLeadfield: (subject: string, net: string, replaces?: LeadfieldElectrode | null) => void;
   generatingLeadfield: boolean;
   onOpenViewer?: () => void;
   activeBucket?: string | null;
@@ -575,7 +575,7 @@ function RowEditor({
             selectedNet={row.net}
             subjectId={row.subjectId || undefined}
             onSelectNet={(n) => onChange({ ...row, net: n })}
-            onGenerate={(n) => row.subjectId && onGenerateLeadfield(row.subjectId, n)}
+            onGenerate={(n, replaces) => row.subjectId && onGenerateLeadfield(row.subjectId, n, replaces)}
             generating={generatingLeadfield}
           />
         )}

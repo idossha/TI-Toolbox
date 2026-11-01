@@ -112,7 +112,8 @@ describe("Optimizer Ex/mEx defaults validate against contracts/generated/config.
     const electrode = { electrode_shape: "rect" as const, electrode_dimensions: [12, 6], gel_thickness: 2.5, rubber_thickness: 2 };
     const config: LeadfieldConfigBody = leadfieldJobConfig("ernie", "GSN-HydroCel-185", electrode);
     expect(validate("LeadfieldConfig", config as unknown as Record<string, unknown>)).toEqual([]);
-    expect(config).toMatchObject({ subject_id: "ernie", eeg_net: "GSN-HydroCel-185", ...electrode });
+    // `overwrite` is "compute this electrode"; replacing a file on disk still takes the 409 answer.
+    expect(config).toMatchObject({ subject_id: "ernie", eeg_net: "GSN-HydroCel-185", overwrite: true, ...electrode });
   });
 });
 
