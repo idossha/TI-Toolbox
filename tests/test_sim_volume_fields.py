@@ -24,7 +24,9 @@ from __future__ import annotations
 
 import contextlib
 import os
+import shutil
 import sys
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -78,21 +80,25 @@ class _VolumeWritten(Exception):
 def _post_process(
     sim_cls, n_channels, output_fields, carrier_only=False, through_surface=False
 ):
-    """Run ``_post_process`` until the volume mesh is written; return every mesh written.
+    """Run ``_post_process`` until the central surface is made, right after the volume mesh is
+    written; return every mesh written, by file name.
 
-    With *through_surface*, run on until the central surface is made instead, and also return
-    what ``central_surface`` was given: ``(volume mesh, e_fields)``.
+    With *through_surface*, also return what ``central_surface`` was given:
+    ``(volume mesh, e_fields)``.
     """
     rng = np.random.default_rng(3)
     carriers = [rng.normal(size=(len(_TAGS), 3)) for _ in range(n_channels)]
     reads = iter(carriers)
-    written = {}
+    meshes = []
     surface_calls = []
+    out_dir = tempfile.mkdtemp()
 
     def write_msh(mesh, path):
-        written[os.path.basename(path)] = mesh
-        if not through_surface and path.endswith(("m_TI.msh", "m_mTI.msh")):
-            raise _VolumeWritten
+        # A real file holding the mesh's index: the simulator moves what it writes into place,
+        # so what was written is read back from the directory under its final name.
+        with open(path, "w") as f:
+            f.write(str(len(meshes)))
+        meshes.append(mesh)
 
     def read_msh(path):
         return _Mesh(_TAGS, {"E": next(reads)})
@@ -129,11 +135,16 @@ def _post_process(
         )
         sim = sim_cls(config, config.montages[0], MagicMock())
         dirs = {
-            k: "/fake"
+            k: out_dir
             for k in ("hf_dir", "ti_mesh", "mti_mesh", "ti_surfaces", "mti_surfaces")
         }
         with pytest.raises(_VolumeWritten):
             sim._post_process(dirs)
+    written = {}
+    for name in os.listdir(out_dir):
+        with open(os.path.join(out_dir, name)) as f:
+            written[name] = meshes[int(f.read())]
+    shutil.rmtree(out_dir)
     kept = [c[_KEEP] for c in carriers]
     if through_surface:
         return written, kept, surface_calls
@@ -253,3 +264,43 @@ def test_a_carrier_only_surface_gets_no_channel_fields():
 def test_no_gmsh_view_is_written():
     written, _ = _post_process(tit.sim.TI.TISimulation, 2, [const.FIELD_HF_PEAK])
     assert not hasattr(written["m_TI.msh"], "viewed")
+
+
+class _Killed(Exception):
+    pass
+
+
+def test_a_killed_volume_write_leaves_no_result_mesh(tmp_path):
+    """The volume mesh is the "result exists" marker (``refuse_existing_result``), so a write
+    killed half-way must leave nothing under its name: it is written aside and moved in.
+    """
+    from tit.sim.config import Montage, SimulationConfig
+
+    def write_msh(mesh, path):
+        with open(path, "wb") as f:
+            f.write(b"$MeshFormat\n")  # truncated, then the run dies
+        raise _Killed
+
+    config = SimulationConfig(
+        subject_id="001",
+        montages=[
+            Montage(
+                name="m",
+                mode=Montage.Mode.NET,
+                electrode_pairs=[("E0", "E1"), ("E2", "E3")],
+                eeg_net="x.csv",
+            )
+        ],
+        intensities=[1.0, 1.0],
+    )
+    rng = np.random.default_rng(3)
+    meshes = [_Mesh(_TAGS, {"E": rng.normal(size=(len(_TAGS), 3))}) for _ in "ab"]
+    final = tmp_path / "m_TI.msh"
+    with (
+        patch("tit.sim.base.get_path_manager"),
+        patch.object(tit.sim.base, "mesh_io", SimpleNamespace(write_msh=write_msh)),
+    ):
+        sim = tit.sim.TI.TISimulation(config, config.montages[0], MagicMock())
+        with pytest.raises(_Killed):
+            sim._write_volume_mesh(meshes, const.FIELD_TI_MAX, str(final))
+    assert not final.exists()

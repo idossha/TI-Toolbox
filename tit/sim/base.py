@@ -365,7 +365,11 @@ class BaseSimulation(ABC):
             ),
         ):
             mout.add_element_field(values, name)
-        mesh_io.write_msh(mout, path)
+        # The volume mesh marks a finished result (refuse_existing_result): a killed
+        # write must not leave a truncated one under its name.
+        partial = f"{path}.partial"
+        mesh_io.write_msh(mout, partial)
+        os.replace(partial, path)
         self.logger.info(f"{self._montage_type_label} mesh saved: {path}")
         return mout
 
