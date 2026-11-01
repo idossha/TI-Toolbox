@@ -42,7 +42,6 @@ import textwrap
 import types
 from dataclasses import dataclass
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import pytest
 
@@ -332,12 +331,7 @@ def _docs_blocks() -> list[Block]:
 # -- tests ------------------------------------------------------------------------
 
 
-def test_the_docs_python_blocks_compile_and_resolve_against_tit(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    # conftest mocks nibabel.freesurfer but not .io, which tit.tools.read_annot imports.
-    if isinstance(sys.modules.get("nibabel.freesurfer"), MagicMock):
-        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", MagicMock())
+def test_the_docs_python_blocks_compile_and_resolve_against_tit() -> None:
     blocks = _docs_blocks()
     assert len(blocks) >= 30, f"only {len(blocks)} python blocks found -- fence parser?"
     problems, imports, calls = check_blocks(blocks)
@@ -345,6 +339,14 @@ def test_the_docs_python_blocks_compile_and_resolve_against_tit(
     assert not problems, "\n".join(problems)
     assert imports >= 60, f"only {imports} tit imports resolved (73 on 2026-10-22)"
     assert len(calls) >= 70, f"only {len(calls)} calls bound (78 on 2026-10-22)"
+
+
+def test_tit_tools_read_annot_imports_under_the_host_mocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # It imports nibabel.freesurfer.io, which the conftest must mock with its parent.
+    monkeypatch.delitem(sys.modules, "tit.tools.read_annot", raising=False)
+    importlib.import_module("tit.tools.read_annot")
 
 
 def test_an_indented_fence_inside_a_list_item_is_checked() -> None:
