@@ -167,6 +167,71 @@ class TestFsavgHelpers:
         ]
         assert "config.json" not in results[1][2]
 
+    @staticmethod
+    def _cache_project(monkeypatch, tmp_path, cached_fields, computed):
+        """A pm whose fsaverage .msh holds *cached_fields*; _compute_fields returns
+        *computed* and records each call."""
+        from types import SimpleNamespace
+
+        import numpy as np
+
+        from tit.source import fsaverage
+
+        out = tmp_path / "out.msh"
+        if cached_fields is not None:
+            # Gmsh 2.2 ASCII, one NodeData block per field (read by msh_field_names).
+            lines = ["$MeshFormat", "2.2 0 8", "$EndMeshFormat"]
+            lines += ["$Nodes", "1", "1 0 0 0", "$EndNodes"]
+            lines += ["$Elements", "1", "1 15 2 1 1 1", "$EndElements"]
+            for name in cached_fields:
+                lines += ["$NodeData", "1", f'"{name}"', "1", "0.0", "3", "0", "1"]
+                lines += ["1", "1 0.5", "$EndNodeData"]
+            out.write_text("\n".join(lines) + "\n")
+        pm = SimpleNamespace(sim_fsaverage_fields=lambda sid, sim, sp: str(out))
+        calls = []
+        monkeypatch.setattr(fsaverage, "get_path_manager", lambda: pm)
+        monkeypatch.setattr(fsaverage, "_recorded_carrier_only", lambda *a: False)
+        monkeypatch.setattr(
+            fsaverage,
+            "_compute_fields",
+            lambda *a: calls.append(a) or {k: np.zeros(1) for k in computed},
+        )
+        monkeypatch.setattr(fsaverage, "write_fsaverage_msh", lambda *a: None)
+        return fsaverage, calls
+
+    def test_cached_only_when_every_requested_field_is_in_the_msh(
+        self, monkeypatch, tmp_path
+    ):
+        from tit.source.config import FsavgMapConfig
+
+        cfg = FsavgMapConfig(fields=("TI_max", "hf_peak"))
+        fsaverage, calls = self._cache_project(
+            monkeypatch, tmp_path, ["TI_max", "hf_peak", "hf_rms"], []
+        )
+        assert fsaverage.project_subject("001", "s", cfg)[1] == "cached"
+        assert calls == []
+
+    def test_a_msh_missing_a_requested_field_is_recomputed(self, monkeypatch, tmp_path):
+        from tit.source.config import FsavgMapConfig
+
+        cfg = FsavgMapConfig(fields=("TI_max", "hf_peak"))
+        fsaverage, calls = self._cache_project(
+            monkeypatch, tmp_path, ["TI_max"], ["TI_max", "hf_peak"]
+        )
+        assert fsaverage.project_subject("001", "s", cfg)[1] == "ok"
+        assert len(calls) == 1
+
+    def test_a_projection_missing_a_requested_field_is_partial(
+        self, monkeypatch, tmp_path
+    ):
+        from tit.source.config import FsavgMapConfig
+
+        cfg = FsavgMapConfig(fields=("TI_max", "hf_peak"))
+        fsaverage, _ = self._cache_project(monkeypatch, tmp_path, None, ["TI_max"])
+        sid, status, message = fsaverage.project_subject("001", "s", cfg)
+        assert status == "partial"
+        assert "hf_peak" in message
+
     def test_morph_split_node_mismatch_raises(self):
         import numpy as np
 

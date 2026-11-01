@@ -353,11 +353,18 @@ def project_subject(
     """Project one (subject, simulation) and write it as an fsaverage ``.msh``.
 
     Returns ``(subject_id, status, message)`` where status is one of
-    ``{"ok", "cached", "failed"}`` so batch runs can record and continue.
+    ``{"ok", "partial", "cached", "failed"}`` so batch runs can record and
+    continue; "partial" means some requested fields could not be projected.
     """
+    from tit.tools.msh_fields import msh_field_names
+
     pm = get_path_manager()
     out_path = Path(pm.sim_fsaverage_fields(subject_id, sim, cfg.fsaverage_spacing))
-    if out_path.exists() and not cfg.overwrite:
+    if (
+        out_path.exists()
+        and not cfg.overwrite
+        and set(cfg.fields) <= (msh_field_names(out_path) or set())
+    ):
         return subject_id, "cached", out_path.name
     try:
         carrier_only = _recorded_carrier_only(pm, subject_id, sim)
@@ -371,6 +378,9 @@ def project_subject(
         {"subject_id": subject_id, "simulation": sim, "carrier_only": carrier_only},
     )
     medians = ", ".join(f"{k} med={np.median(v):.3f}" for k, v in maps.items())
+    missing = [f for f in cfg.fields if f not in maps]
+    if missing:
+        return subject_id, "partial", f"{medians} -> {out_path.name}; missing {missing}"
     return subject_id, "ok", f"{medians} -> {out_path.name}"
 
 
@@ -416,5 +426,6 @@ def project_fields_to_fsaverage(
 
 def _log_result(result: tuple[str, str, str]) -> None:
     subject_id, status, msg = result
-    tag = {"ok": "✓", "cached": "CACHED", "failed": "✗ FAILED"}.get(status, status)
+    tag = {"ok": "✓", "partial": "PARTIAL", "cached": "CACHED", "failed": "✗ FAILED"}
+    tag = tag.get(status, status)
     print(f"[{tag}] {subject_id}: {msg}", flush=True)
