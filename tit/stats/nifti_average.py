@@ -26,7 +26,7 @@ import numpy as np
 from tit import constants as const
 from tit.config_io import deserialize_config
 from tit.jobs import locks
-from tit.stats.nifti import load_grouped_subjects_ti_toolbox
+from tit.stats.nifti import covered_mean, load_grouped_subjects_ti_toolbox
 from tit.stats.nifti_average_config import NiftiAverageConfig
 
 
@@ -98,10 +98,7 @@ def main() -> None:
                     f"Group {group_name}: averaging {data_4d.shape[-1]} subjects "
                     "(only voxels non-zero in every one of them)"
                 )
-                covered[group_name] = np.all(data_4d != 0, axis=-1)
-                avg_data = np.where(
-                    covered[group_name], np.mean(data_4d, axis=-1), 0
-                ).astype(np.float32)
+                avg_data, covered[group_name] = covered_mean(data_4d)
                 group_averages[group_name] = avg_data
                 output_path = os.path.join(output_dir, f"average_{group_name}.nii.gz")
                 nib.save(

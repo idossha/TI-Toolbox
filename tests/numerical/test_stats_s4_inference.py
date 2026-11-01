@@ -157,3 +157,44 @@ def test_correlation_admits_only_voxels_every_subject_covers():
     effect = np.linspace(0.0, 1.0, data.shape[-1])
     *_, valid = correlation_voxelwise(data, effect, log=_LOG)
     np.testing.assert_array_equal(valid, covered_by_all)
+
+
+# ─── S4-2: the label-shuffling test holds its level under unequal variances ──
+
+
+def _shuffle_rejection_rate(statistic, data, n_resp, rng, n_shuffles=199):
+    """Share of rows a label-shuffling test rejects at 0.05: p = (1 + #{|T*| >= |T|}) / (B + 1)."""
+    observed = np.abs(statistic(data))
+    at_least = np.ones(len(data))
+    for _ in range(n_shuffles):
+        at_least += np.abs(statistic(data[:, rng.permutation(data.shape[1])])) >= observed
+    return float(np.mean(at_least / (n_shuffles + 1) < 0.05))
+
+
+def test_welch_shuffle_test_is_not_worse_than_pooled_under_unequal_variances():
+    """12 vs 4, SD 1:3, no effect: shuffling the pooled t over-rejects; Welch's t does not.
+
+    600 independent null "voxels" per seed, rates computed here from scipy's pooled
+    ``ttest_ind`` and the engine's Welch ``ttest_ind``. Measured at these seeds: pooled
+    0.19-0.25, Welch 0.09-0.10 (nominal 0.05; Welch is approximate at 4 subjects).
+    """
+    import scipy.stats as sp_stats
+
+    from tit.stats.engine import ttest_ind
+
+    rows = 600
+    for seed in (1, 2, 3):
+        rng = np.random.default_rng(seed)
+        data = np.hstack([rng.normal(0, 1, (rows, 12)), rng.normal(0, 3, (rows, 4))])
+        welch = _shuffle_rejection_rate(
+            lambda d: ttest_ind(d, 12, 4)[0], data, 12, rng
+        )
+        pooled = _shuffle_rejection_rate(
+            lambda d: sp_stats.ttest_ind(d[:, :12], d[:, 12:], axis=1).statistic,
+            data,
+            12,
+            rng,
+        )
+        assert welch < 0.13
+        assert pooled > 0.15
+        assert welch + 0.07 < pooled

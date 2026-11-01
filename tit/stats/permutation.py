@@ -38,7 +38,7 @@ from .engine import (
     significant_cluster_table,
     ttest_voxelwise,
 )
-from .nifti import load_group_data_ti_toolbox
+from .nifti import covered_mean, load_group_data_ti_toolbox
 from .reporting import generate_correlation_summary, generate_summary
 from tit.plotting.stats import (
     plot_cluster_size_mass_correlation,
@@ -398,17 +398,20 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
 
     # ── 6. Average maps ─────────────────────────────────────────────────
     log.info("[6/8] Average intensity maps")
-    avg_resp = np.mean(responders, axis=-1).astype(np.float32)
+    # Only where every subject of the group has a field (a 0 is outside its coverage).
+    avg_resp, resp_covered = covered_mean(responders)
     _save_nifti(
         avg_resp, template_img, os.path.join(output_dir, "average_responders.nii.gz")
     )
 
-    avg_non = np.mean(non_responders, axis=-1).astype(np.float32)
+    avg_non, non_covered = covered_mean(non_responders)
     _save_nifti(
         avg_non, template_img, os.path.join(output_dir, "average_non_responders.nii.gz")
     )
 
-    diff = (avg_resp - avg_non).astype(np.float32)
+    diff = np.where(resp_covered & non_covered, avg_resp - avg_non, 0).astype(
+        np.float32
+    )
     _save_nifti(diff, template_img, os.path.join(output_dir, "difference_map.nii.gz"))
 
     # ── 7. Atlas overlap ─────────────────────────────────────────────────
@@ -770,7 +773,7 @@ def _run_correlation_inner(
         os.path.join(output_dir, "correlation_map_thresholded.nii.gz"),
     )
 
-    avg = np.mean(subject_data, axis=-1).astype(np.float32)
+    avg, _ = covered_mean(subject_data)
     _save_nifti(avg, template_img, os.path.join(output_dir, "average_efield.nii.gz"))
 
     summary_path = os.path.join(output_dir, "analysis_summary.txt")
