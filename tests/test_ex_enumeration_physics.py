@@ -176,6 +176,67 @@ def test_overlapping_buckets_yield_every_physical_montage_and_split_exactly_once
     assert count_combinations(*buckets, splits, False) == len(keys)
 
 
+def _random_overlapping_buckets(rng, labels):
+    return [
+        [label for label in labels if rng.random() < 0.6] * rng.integers(1, 3)
+        for _ in range(4)
+    ]
+
+
+@pytest.mark.parametrize("splits", [SYMMETRIC_SPLITS, ASYMMETRIC_SPLITS])
+def test_random_overlapping_buckets_lose_no_physical_montage(splits):
+    # The proof that dropping equivalent tuples drops no stimulation: the physical montage+split
+    # set of the kept tuples equals the one of every distinct tuple of the product.
+    rng = np.random.default_rng(20261101)
+    for _ in range(60):
+        buckets = _random_overlapping_buckets(rng, "ABCDEFG")
+        quads = _quads(buckets, False, splits)
+        keys = [_physical(*quad, split) for quad in quads for split in splits]
+        assert len(keys) == len(set(keys)), buckets
+        assert set(keys) == _brute_force_physical_buckets(buckets, splits), buckets
+        assert all(
+            all(e in b for e, b in zip(quad, buckets)) and len(set(quad)) == 4
+            for quad in quads
+        ), "a kept tuple is not an assignment of the buckets"
+        assert count_combinations(*buckets, splits, False) == len(keys)
+
+
+MIRROR = {"A": "B", "B": "A", "C": "D", "D": "C", "E": "F", "F": "E", "G": "G"}
+
+
+@pytest.mark.parametrize("pairing", ["within_pairs", "cross_pairs"])
+@pytest.mark.parametrize("splits", [SYMMETRIC_SPLITS, ASYMMETRIC_SPLITS])
+def test_symmetric_search_evaluates_each_physical_montage_once(pairing, splits):
+    def mirrored(a, b, c, d):
+        if pairing == "within_pairs":
+            return MIRROR.get(a) == b and MIRROR.get(c) == d
+        return MIRROR.get(a) == c and MIRROR.get(b) == d
+
+    rng = np.random.default_rng(20261102)
+    for _ in range(60):
+        buckets = _random_overlapping_buckets(rng, "ABCDEFG")
+        expected = {
+            _physical(*quad, split)
+            for quad in product(*buckets)
+            if len(set(quad)) == 4 and mirrored(*quad)
+            for split in splits
+        }
+        quads = list(
+            _electrode_combinations(
+                *buckets,
+                False,
+                MIRROR,
+                pairing,
+                both_channel_orders=not ratios_mirror_symmetric(splits),
+            )
+        )
+        keys = [_physical(*quad, split) for quad in quads for split in splits]
+        assert len(keys) == len(set(keys)), buckets
+        assert set(keys) == expected, buckets
+        assert all(mirrored(*quad) for quad in quads)
+        assert count_combinations(*buckets, splits, False, MIRROR, pairing) == len(keys)
+
+
 def test_bucket_mode_never_shares_an_electrode_between_channels():
     quads = _quads([["A"], ["B"], ["A", "C"], ["D", "B"]], False, [(1.0, 1.0)])
     # Product is 1*1*2*2 = 4 tuples; only C-D for channel 2 keeps all four distinct.

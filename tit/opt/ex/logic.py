@@ -143,23 +143,33 @@ def _distinct_product(buckets):
     yield from walk(0)
 
 
-def _bucket_montages(buckets, both_channel_orders):
-    """One tuple of the distinct bucket product per physical montage.
+def _one_per_montage(quads, buckets, both_channel_orders, mirrored=None):
+    """Keep one of *quads* per physical montage.
 
     A tuple is kept when it is the smallest of its equivalent tuples (either
     channel's polarity flipped; the channels swapped too when not
-    *both_channel_orders*) that the product also holds -- no seen-set.
+    *both_channel_orders*) that the enumeration also holds -- no seen-set. A
+    twin is held when each electrode is in its bucket and, for a symmetric
+    search, *mirrored(a, b, c, d)* accepts it.
     """
     sets = [set(bucket) for bucket in buckets]
-    for quad in _distinct_product(buckets):
+    for quad in quads:
         a, b, c, d = quad
         twins = [(b, a, c, d), (a, b, d, c), (b, a, d, c)]
         if not both_channel_orders:
             twins += [(c, d, a, b), (d, c, a, b), (c, d, b, a), (d, c, b, a)]
         if not any(
-            twin < quad and all(e in s for e, s in zip(twin, sets)) for twin in twins
+            twin < quad
+            and all(e in s for e, s in zip(twin, sets))
+            and (mirrored is None or mirrored(*twin))
+            for twin in twins
         ):
             yield quad
+
+
+def _bucket_montages(buckets, both_channel_orders):
+    """One tuple of the distinct bucket product per physical montage."""
+    return _one_per_montage(_distinct_product(buckets), buckets, both_channel_orders)
 
 
 def _pool_montages(pool, both_channel_orders):
@@ -225,8 +235,9 @@ def _electrode_combinations(
     Bucket and pool mode (*all_combinations*) yield one tuple per physical
     montage, in both channel orders only when *both_channel_orders* (see
     :func:`_bucket_montages`, :func:`_pool_montages`). With a
-    *symmetry_mirror_map* (bucket mode only) the enumeration is restricted to left/right mirrored montages, following
-    *symmetry_pairing* (``"within_pairs"`` or ``"cross_pairs"``).
+    *symmetry_mirror_map* (bucket mode only) the enumeration is restricted to
+    left/right mirrored montages, following *symmetry_pairing*
+    (``"within_pairs"`` or ``"cross_pairs"``), again one per physical montage.
     """
     if all_combinations:
         yield from _pool_montages(e1_plus, both_channel_orders)
@@ -238,14 +249,29 @@ def _electrode_combinations(
         return
     if symmetry_pairing not in SYMMETRY_PAIRINGS:
         raise ValueError(f"Unsupported ex-search symmetry pairing: {symmetry_pairing}")
+    mm = symmetry_mirror_map
     if symmetry_pairing == SYMMETRY_PAIRING_CROSS_PAIRS:
-        yield from _cross_pair_symmetric_combinations(
-            e1_plus, e1_minus, e2_plus, e2_minus, symmetry_mirror_map
+        quads = _cross_pair_symmetric_combinations(
+            e1_plus, e1_minus, e2_plus, e2_minus, mm
         )
+
+        def mirrored(a, b, c, d):
+            return mm.get(a) == c and mm.get(b) == d
+
     else:
-        yield from _within_pair_symmetric_combinations(
-            e1_plus, e1_minus, e2_plus, e2_minus, symmetry_mirror_map
+        quads = _within_pair_symmetric_combinations(
+            e1_plus, e1_minus, e2_plus, e2_minus, mm
         )
+
+        def mirrored(a, b, c, d):
+            return mm.get(a) == b and mm.get(c) == d
+
+    yield from _one_per_montage(
+        quads,
+        (e1_plus, e1_minus, e2_plus, e2_minus),
+        both_channel_orders,
+        mirrored,
+    )
 
 
 def explain_zero_combinations(
