@@ -137,6 +137,30 @@ def test_a_row_without_a_subject_or_a_simulation_requests_no_simulation_lock() -
     ]
 
 
+def test_writers_into_a_simulation_take_its_write_lock() -> None:
+    """An analyzer job persists on-demand fields and NIfTIs into its simulation, and a source
+    ``fsavg_map`` job writes ``<sim>/fsaverage/`` for each pair; both write-lock the resource a
+    simulation of that montage writes, so a Replace-rerun of it cannot interleave with them.
+    """
+    analyzer = locks.keys_for(
+        "analyzer", ["101", "LA"], {"simulation": "L_Insula", "output_dir": "a1"}
+    )
+    for sid in ("101", "LA"):
+        assert (_sim_write_key(sid, "L_Insula"), "write") in _pairs(analyzer)
+    pairs = [
+        {"subject_id": "101", "simulation": "L_Insula"},
+        {"subject_id": "LA", "simulation": "Thalamus"},
+    ]
+    source = locks.keys_for(
+        "source", ["101", "LA"], {"mode": "fsavg_map", "pairs": pairs}
+    )
+    sims = [p for p in _pairs(source) if ":sim:" in p[0]]
+    assert sims == [
+        (_sim_write_key("101", "L_Insula"), "write"),
+        (_sim_write_key("LA", "Thalamus"), "write"),
+    ]
+
+
 def _spec(job_id: str, kind: str, config: dict, subject_ids: list[str]) -> JobSpec:
     return JobSpec(
         id=job_id, kind=kind, config=config, subject_ids=subject_ids, cost=Cost(1, 1)

@@ -429,9 +429,28 @@ def keys_for(
             )
             requests.append(LockRequest(f"subject:{sid}:analysis:{output_dir}"))
             requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
+            # On-demand fields and NIfTIs are persisted into the simulation it analyses.
+            if config.get("simulation"):
+                requests.append(
+                    LockRequest(f"subject:{sid}:sim:{config['simulation']}")
+                )
         elif kind == "source":
             requests.append(LockRequest(f"subject:{sid}:forward"))
             requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
+
+    if kind == "source":
+        # An fsavg_map pair writes <sim>/fsaverage/ inside that simulation.
+        for pair in config.get("pairs") or []:
+            if (
+                isinstance(pair, dict)
+                and pair.get("subject_id")
+                and pair.get("simulation")
+            ):
+                requests.append(
+                    LockRequest(
+                        f"subject:{pair['subject_id']}:sim:{pair['simulation']}"
+                    )
+                )
 
     if kind == "stats":
         # GroupComparisonConfig / CorrelationConfig (tit/stats/config.py) -- neither carries an
