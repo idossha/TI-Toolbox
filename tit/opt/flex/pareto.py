@@ -187,6 +187,8 @@ def build_focality_config(base_config: FlexConfig, point: SweepPoint) -> FlexCon
     - ``goal`` to ``"focality"``
     - ``thresholds`` to ``"<nonroi_threshold>,<roi_threshold>"``
     - ``output_folder`` to ``point.output_folder``
+    - ``mode`` to ``"flex"`` (one run, so ``run_flex_search`` does not
+      dispatch back to the sweep)
 
     This decouples the Pareto sweep from subprocess command-line building
     and allows calling ``run_flex_search()`` directly.
@@ -202,6 +204,7 @@ def build_focality_config(base_config: FlexConfig, point: SweepPoint) -> FlexCon
     cfg.goal = FlexConfig.OptGoal.FOCALITY
     cfg.thresholds = f"{point.nonroi_threshold:.4f},{point.roi_threshold:.4f}"
     cfg.output_folder = point.output_folder
+    cfg.mode = FlexConfig.Mode.FLEX
     return cfg
 
 

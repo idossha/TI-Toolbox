@@ -44,7 +44,14 @@ MONTAGE_MAP_TOP_N = 150
 HEATMAP_TOP_N = 50
 
 
-def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -> str:
+def save_run_config(
+    config,
+    n_combinations: int,
+    output_dir: str,
+    logger: Any,
+    *,
+    leadfield_path: str | None = None,
+) -> str:
     """Write run configuration metadata to JSON for reproducibility.
 
     Parameters
@@ -60,6 +67,10 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
         Directory where ``run_config.json`` will be written.
     logger : logging.Logger
         Logger instance for status messages.
+    leadfield_path : str or None, optional
+        The leadfield the search read, whose sidecar names its electrode;
+        defaults to ``config.leadfield_hdf`` (a bare file name is then
+        relative to the working directory).
 
     Returns
     -------
@@ -94,7 +105,7 @@ def save_run_config(config, n_combinations: int, output_dir: str, logger: Any) -
         # The electrode the leadfield was computed with (``None`` = not recorded), copied here
         # so the run keeps it after the leadfield is regenerated.
         "leadfield_electrode": read_leadfield_electrode(
-            leadfield_sidecar(config.leadfield_hdf)
+            leadfield_sidecar(leadfield_path or config.leadfield_hdf)
         ),
         "electrode_mode": electrode_mode,
         "electrodes": electrode_info,
@@ -526,7 +537,14 @@ def regenerate_plots(
     return generate_electrode_maps(records, eeg_csv, str(run_dir), logger)
 
 
-def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dict:
+def process_and_save(
+    results: dict,
+    config,
+    output_dir: str,
+    logger: Any,
+    *,
+    leadfield_path: str | None = None,
+) -> dict:
     """Run the full post-search output pipeline (JSON + CSV + plots).
 
     Parameters
@@ -539,6 +557,8 @@ def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dic
         Root output directory for this search run.
     logger : logging.Logger
         Logger instance.
+    leadfield_path : str or None, optional
+        The resolved leadfield path, passed to :func:`save_run_config`.
 
     Returns
     -------
@@ -547,7 +567,9 @@ def process_and_save(results: dict, config, output_dir: str, logger: Any) -> dic
         ``'visualization_paths'``, and ``'summary_stats'``.
     """
     roi_name = config.roi_name
-    config_json_path = save_run_config(config, len(results), output_dir, logger)
+    config_json_path = save_run_config(
+        config, len(results), output_dir, logger, leadfield_path=leadfield_path
+    )
     rows, timax_vals, timean_vals, foc_vals, comp_vals = build_csv_rows(
         results, roi_name
     )

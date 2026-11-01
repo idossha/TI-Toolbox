@@ -634,14 +634,9 @@ class TestResolveRoiTissues:
         result = _resolve_roi_tissues(config)
         assert len(result) == 2
 
-    def test_unknown_defaults_to_gm(self):
-        from tit.opt.flex.utils import _resolve_roi_tissues
-
-        config = _make_config(
-            roi=SubcorticalROI(atlas_path="/fake", label=11, tissues="xyz"),
-        )
-        result = _resolve_roi_tissues(config)
-        assert len(result) == 1  # defaults to GM
+    def test_unknown_is_refused_not_read_as_gm(self):
+        with pytest.raises(ValueError, match="tissues"):
+            SubcorticalROI(atlas_path="/fake", label=11, tissues="xyz")
 
 
 # ---------------------------------------------------------------------------

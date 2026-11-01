@@ -92,10 +92,20 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         logs_dir, f'm_ex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
     )
     logger_name = f"tit.opt.m_ex_search.{config.subject_id}"
-    add_file_handler(log_file, logger_name=logger_name)
-    add_file_handler(log_file, logger_name="simnibs")
-    logger = logging.getLogger(logger_name)
+    handlers = [
+        (name, add_file_handler(log_file, logger_name=name))
+        for name in (logger_name, "simnibs")
+    ]
+    try:
+        return _m_ex_search(config, pm, logging.getLogger(logger_name))
+    finally:
+        # One process may run many searches (a notebook): close this run's log file.
+        for name, handler in handlers:
+            logging.getLogger(name).removeHandler(handler)
+            handler.close()
 
+
+def _m_ex_search(config, pm, logger):
     logger.info("%s\nmTI Multipolar Exhaustive Search\n%s", "=" * 60, "=" * 60)
     logger.info("Project: %s", pm.project_dir)
     logger.info("Subject: %s", config.subject_id)
@@ -192,7 +202,9 @@ def _run_m_ex_search_inner(config: MExConfig) -> MExResult:
         n_jobs=config.n_jobs,
     )
 
-    output_info = process_and_save(results, config, output_dir, logger)
+    output_info = process_and_save(
+        results, config, output_dir, logger, leadfield_path=leadfield_path
+    )
     logger.info("Config: %s", output_info["config_json_path"])
     logger.info("CSV: %s", output_info["csv_path"])
     _write_report(config.subject_id, output_dir, logger)

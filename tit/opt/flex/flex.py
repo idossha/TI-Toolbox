@@ -44,6 +44,14 @@ def run_flex_search(config: FlexConfig, *, report: bool = True) -> FlexResult:
     ``config.n_multistart``) are executed sequentially; the best run's
     output is promoted to the base output folder.
 
+    ``config.mode`` ``"flex_adaptive"`` or ``"flex_pareto"`` runs
+    :func:`~tit.opt.flex.drivers.run_adaptive_focality` or
+    :func:`~tit.opt.flex.drivers.run_pareto_sweep` instead (they write
+    their own report; *report* applies to a single run).
+
+    A relative ``output_folder`` names a run folder under the subject's
+    ``flex-search/`` directory.
+
     An existing ``output_folder`` is re-used in place: the outputs a
     previous run wrote there (:data:`RUN_OUTPUTS`) are removed first, so
     the folder describes exactly this run; other files are left alone.
@@ -105,10 +113,32 @@ def run_flex_search(config: FlexConfig, *, report: bool = True) -> FlexResult:
 
     from tit.opt.masks import validate_mask_paths
 
+    if config.mode is not FlexConfig.Mode.FLEX:
+        from .drivers import run_adaptive_focality, run_pareto_sweep
+
+        if config.mode is FlexConfig.Mode.FLEX_ADAPTIVE:
+            return run_adaptive_focality(config)
+        return run_pareto_sweep(config)
+
     validate_mask_paths(config)
     _validate_flex_inputs(config)
-    with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
-        return _run_flex_search_inner(config, report=report)
+    # Set up file logging -- capture both tit and simnibs output -- for this run only.
+    logs_dir = get_path_manager().logs(config.subject_id)
+    os.makedirs(logs_dir, exist_ok=True)
+    log_file = os.path.join(
+        logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
+    )
+    handlers = [
+        (name, add_file_handler(log_file, logger_name=name))
+        for name in (f"tit.opt.flex.{config.subject_id}", "simnibs")
+    ]
+    try:
+        with track_operation(const.TELEMETRY_OP_FLEX_SEARCH):
+            return _run_flex_search_inner(config, report=report)
+    finally:
+        for name, handler in handlers:
+            logging.getLogger(name).removeHandler(handler)
+            handler.close()
 
 
 #: What a flex-search run, or a sweep built from runs, writes into its folder: restart folders
@@ -273,25 +303,15 @@ def _run_flex_search_inner(config: FlexConfig, report: bool = True) -> FlexResul
     from .utils import generate_label, generate_run_dirname
 
     pm = get_path_manager()
-
-    # Set up file logging — capture both tit and simnibs output
-    logs_dir = pm.logs(config.subject_id)
-    os.makedirs(logs_dir, exist_ok=True)
-    log_file = os.path.join(
-        logs_dir, f'flex_search_{time.strftime("%Y%m%d_%H%M%S")}.log'
-    )
-    logger_name = f"tit.opt.flex.{config.subject_id}"
-    add_file_handler(log_file, logger_name=logger_name)
-    add_file_handler(log_file, logger_name="simnibs")
-    logger = logging.getLogger(logger_name)
+    logger = logging.getLogger(f"tit.opt.flex.{config.subject_id}")
 
     n = config.n_multistart
 
-    # Resolve base output folder
+    # Resolve base output folder; a relative name is a run under flex-search/, as the server's.
+    flex_root = pm.flex_search(config.subject_id)
     if config.output_folder:
-        base_folder = config.output_folder
+        base_folder = os.path.join(flex_root, config.output_folder)
     else:
-        flex_root = pm.flex_search(config.subject_id)
         os.makedirs(flex_root, exist_ok=True)
         dirname = generate_run_dirname(flex_root)
         base_folder = os.path.join(flex_root, dirname)
