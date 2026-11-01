@@ -690,7 +690,7 @@ channel fields along the node normals, beside them (none for a carrier-only run)
 surface overlays, `msh2cortex`, FreeSurfer `lh|rh.*` files, a separate
 `_normal.msh`, `grey_`/`white_` meshes, mTI per-pair `TI_AB`… meshes and Gmsh `.opt` views of our
 meshes are not written. `map_to_vol` (the Simulator's **Write NIfTI volumes**) adds one 3-D NIfTI
-per mesh field for the whole brain tissue and its grey- and white-matter crops (`grey_`/`white_`
+per mesh field for all head tissues (electrodes and gel removed) and its grey- and white-matter crops (`grey_`/`white_`
 names, cropped on the fly, `tit.tools.mesh2nii.TISSUE_TAGS`), and `map_to_mni` (which requires
 it) their MNI copies and the MNI T1; the NIfTI set must equal the mesh field set or the run fails
 (`check_niftis_match_meshes`). The Viewer shows the volume mesh as grey matter only (the scene's
