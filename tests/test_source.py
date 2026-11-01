@@ -500,6 +500,37 @@ class TestMainDispatch:
             entry.main()
         assert emitted == [(str(msh), "mesh")]
 
+    @pytest.mark.parametrize("status", ["partial", "failed"])
+    def test_fsavg_mode_fails_when_a_requested_field_is_missing(
+        self, tmp_project, tmp_path, monkeypatch, capsys, status
+    ):
+        from tit.source import __main__ as entry
+
+        monkeypatch.setattr(
+            "tit.source.fsaverage.project_fields_to_fsaverage",
+            lambda pairs, cfg: [
+                ("001", "ok", "x"),
+                ("002", status, "TI_max med=1 -> a.msh; missing ['hf_peak']"),
+            ],
+        )
+        config_path = self._write_config(
+            tmp_path,
+            str(tmp_project),
+            mode="fsavg_map",
+            pairs=[
+                {"subject_id": "001", "simulation": "TI_sim"},
+                {"subject_id": "002", "simulation": "TI_sim"},
+            ],
+        )
+        monkeypatch.setattr("sys.argv", ["tit.source", config_path])
+        with pytest.raises(SystemExit) as exc_info:
+            entry.main()
+        assert exc_info.value.code == 1
+        err = capsys.readouterr().err
+        assert "002" in err and "001" not in err
+        if status == "partial":
+            assert "hf_peak" in err
+
 
 # ---------------------------------------------------------------------------
 # SimNIBS 4.6 EEG-bridge compatibility (tit/source/_simnibs_compat.py)
@@ -1075,6 +1106,7 @@ class TestForwardCache:
         def fem(m2m_dir, forward_dir, eeg_csv, cpus):
             # SimNIBS TDCSLEADFIELD._lf_name(): <head mesh stem>_leadfield_<cap>.hdf5
             out = forward_dir / f"001_leadfield_{eeg_csv.stem}.hdf5"
+            assert not out.exists(), "a stale leadfield must not be appended to"
             out.write_text(f"{eeg_csv.read_text()}|{(m2m_dir / '001.msh').read_text()}")
             calls["fem"].append(eeg_csv.stem)
             return out
@@ -1170,6 +1202,29 @@ class TestForwardCache:
 
         assert calls["fem"] == ["A"]
         assert len(calls["worker"]) == 3
+
+    def test_a_failed_assembly_records_no_forward_to_reuse(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        """The sidecar vouches for outputs only once they exist: after a worker
+        crash the next run reassembles (on the paid-for leadfield), never skips."""
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        worker = fwd._run
+
+        def crash(*a, **k):
+            raise RuntimeError("worker died")
+
+        monkeypatch.setattr(fwd, "_run", crash)
+        with pytest.raises(RuntimeError):
+            fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+        monkeypatch.setattr(fwd, "_run", worker)
+        paths = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+
+        assert calls == {"fem": ["A"], "worker": ["001_leadfield_A.hdf5"]}
+        assert self._contents(paths) == ["csv-A|mesh-1|fsavg5"] * 3
+        assert not list(Path(init_pm.forward("001")).glob("*.tmp"))
 
     def test_outputs_without_provenance_are_rebuilt(
         self, init_pm, tmp_project, monkeypatch
