@@ -610,7 +610,7 @@ const SHARED: SharedStatsFields = {
   atlasFiles: [],
 };
 /** The panel's session-backed defaults (cluster-permutation/index.tsx `usePageSession` seeds). */
-const CLASSIFICATION_EXTRA = { testType: "unpaired" as const, alternative: "two-sided" as const, group1Name: "Responders", group2Name: "Non-Responders", valueMetric: "Current intensity" };
+const CLASSIFICATION_EXTRA = { testType: "unpaired" as const, alternative: "two-sided" as const, group1Name: "Responders", group2Name: "Non-Responders", valueMetric: "Electric Field Magnitude" };
 const CORRELATION_EXTRA = { correlationType: "pearson" as const, useWeights: true, effectMetric: "Effect size", fieldMetric: "Electric field magnitude" };
 
 interface StatsRow { subjectId: string; simulationName: string; response: 0 | 1; effectSize?: number; weight?: number }

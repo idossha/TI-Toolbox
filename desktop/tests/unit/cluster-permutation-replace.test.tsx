@@ -148,6 +148,15 @@ it("asks instead of failing when the analysis name exists, and Replace resubmits
   expect(toast.error).not.toHaveBeenCalled();
 });
 
+it("labels the compared values as field magnitudes by default, as GroupComparisonConfig does", async () => {
+  // The values compared are TI field magnitudes (V/m), not currents; the backend default
+  // value_metric is "Electric Field Magnitude" and the page's untouched default must match it.
+  jobAnswers = [ok({ id: "job-1" })];
+  await pressRun();
+  expect(document.querySelector<HTMLInputElement>("#cbp-value-metric")!.value).toBe("Electric Field Magnitude");
+  expect(jobBodies[0]!.config).toMatchObject({ value_metric: "Electric Field Magnitude" });
+});
+
 it("Skip leaves the existing analysis alone and queues nothing", async () => {
   jobAnswers = [CONFLICT()];
   await pressRun();

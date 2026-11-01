@@ -34,7 +34,7 @@
         ],
         "test_type": "unpaired",
         "tissue_type": "grey",
-        "value_metric": "Current intensity"
+        "value_metric": "Electric Field Magnitude"
       },
       "kind": "stats",
       "subject_ids": [
