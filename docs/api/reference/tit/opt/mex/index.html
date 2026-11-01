@@ -1420,7 +1420,8 @@ symmetry_pairing : str
     channel 2 (<code>e3+ = mirror(e1+)</code>, <code>e3- = mirror(e1-)</code>, and so on).</p>
 <h5 id="tit.opt.mex.MExConfig--raises">Raises<a class="headerlink" href="#tit.opt.mex.MExConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>current_mA</em> is non-positive, if <em>symmetric_bucket</em> is set
+    If <em>current_mA</em> or <em>roi_radius</em> is not a finite number above 0,
+    if <em>symmetric_bucket</em> is set
     with pool electrodes, if <em>symmetry_pairing</em> is not one of
     <code>"within_pairs"</code>/<code>"cross_pairs"</code>, or if <em>roi_coordinate_space</em>
     is not <code>"subject"</code> or <code>"mni"</code>.</p>

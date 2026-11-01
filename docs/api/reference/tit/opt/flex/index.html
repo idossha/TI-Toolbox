@@ -1189,6 +1189,12 @@ field strength, peak intensity, or focality in a target ROI.</p>
 <p>Multiple independent restarts (controlled by
 <code>config.n_multistart</code>) are executed sequentially; the best run's
 output is promoted to the base output folder.</p>
+<p><code>config.mode</code> <code>"flex_adaptive"</code> or <code>"flex_pareto"</code> runs
+:func:<code>~tit.opt.flex.drivers.run_adaptive_focality</code> or
+:func:<code>~tit.opt.flex.drivers.run_pareto_sweep</code> instead (they write
+their own report; <em>report</em> applies to a single run).</p>
+<p>A relative <code>output_folder</code> names a run folder under the subject's
+<code>flex-search/</code> directory.</p>
 <p>An existing <code>output_folder</code> is re-used in place: the outputs a
 previous run wrote there (:data:<code>RUN_OUTPUTS</code>) are removed first, so
 the folder describes exactly this run; other files are left alone.</p>
@@ -1317,7 +1323,37 @@ tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</p>
 <span class="normal"><a href="#__codelineno-0-108">108</a></span>
 <span class="normal"><a href="#__codelineno-0-109">109</a></span>
 <span class="normal"><a href="#__codelineno-0-110">110</a></span>
-<span class="normal"><a href="#__codelineno-0-111">111</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">FlexConfig</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlexResult</span><span class="p">:</span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span>
+<span class="normal"><a href="#__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span>
+<span class="normal"><a href="#__codelineno-0-129">129</a></span>
+<span class="normal"><a href="#__codelineno-0-130">130</a></span>
+<span class="normal"><a href="#__codelineno-0-131">131</a></span>
+<span class="normal"><a href="#__codelineno-0-132">132</a></span>
+<span class="normal"><a href="#__codelineno-0-133">133</a></span>
+<span class="normal"><a href="#__codelineno-0-134">134</a></span>
+<span class="normal"><a href="#__codelineno-0-135">135</a></span>
+<span class="normal"><a href="#__codelineno-0-136">136</a></span>
+<span class="normal"><a href="#__codelineno-0-137">137</a></span>
+<span class="normal"><a href="#__codelineno-0-138">138</a></span>
+<span class="normal"><a href="#__codelineno-0-139">139</a></span>
+<span class="normal"><a href="#__codelineno-0-140">140</a></span>
+<span class="normal"><a href="#__codelineno-0-141">141</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-36" name="__codelineno-0-36"></a><span class="k">def</span><span class="w"> </span><span class="nf">run_flex_search</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">FlexConfig</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">report</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">FlexResult</span><span class="p">:</span>
 <a id="__codelineno-0-37" name="__codelineno-0-37"></a><span class="w">    </span><span class="sd">"""Run differential-evolution electrode placement optimization.</span>
 <a id="__codelineno-0-38" name="__codelineno-0-38"></a>
 <a id="__codelineno-0-39" name="__codelineno-0-39"></a><span class="sd">    Uses ``scipy.optimize.differential_evolution`` (via SimNIBS</span>
@@ -1328,71 +1364,101 @@ tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</p>
 <a id="__codelineno-0-44" name="__codelineno-0-44"></a><span class="sd">    ``config.n_multistart``) are executed sequentially; the best run's</span>
 <a id="__codelineno-0-45" name="__codelineno-0-45"></a><span class="sd">    output is promoted to the base output folder.</span>
 <a id="__codelineno-0-46" name="__codelineno-0-46"></a>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    An existing ``output_folder`` is re-used in place: the outputs a</span>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    previous run wrote there (:data:`RUN_OUTPUTS`) are removed first, so</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    the folder describes exactly this run; other files are left alone.</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    config : FlexConfig</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a><span class="sd">        Fully specified optimization configuration including subject,</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">        ROI definition, electrode geometry, and DE hyperparameters.</span>
-<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    report : bool, optional</span>
-<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">        Write the flex-search report (default). The adaptive and Pareto</span>
-<a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="sd">        drivers pass ``False`` for their intermediate steps and write one</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">        report for the job's own folder.</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    FlexResult</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">        ``success``, ``output_folder`` (the run directory under the</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        subject's ``flex-search/``), per-restart ``function_values``,</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">        ``best_value`` and ``best_run_index``.</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">        If the subject's m2m directory or head mesh is missing, a</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">        referenced ROI/atlas/EEG-net file is missing, ``cpus`` or</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">        ``n_multistart`` is below 1, ``min_electrode_distance`` is not</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">        positive, ``enable_mapping`` is set without ``eeg_net``, or an</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="sd">        ``"ellipse"`` electrode has unequal dimensions (flex-search</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">        supports circular electrodes only).</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    Notes</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    -----</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    When every restart fails the function does not raise: it returns a</span>
-<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    :class:`FlexResult` with ``success=False``, ``best_value=inf`` and</span>
-<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    ``best_run_index=-1``.  Always check ``result.success``.</span>
-<a id="__codelineno-0-83" name="__codelineno-0-83"></a>
-<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">    Examples</span>
-<a id="__codelineno-0-85" name="__codelineno-0-85"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    &gt;&gt;&gt; from tit.opt import FlexConfig, run_flex_search</span>
-<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    &gt;&gt;&gt; cfg = FlexConfig(</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    ...     subject_id="ernie", goal="mean", postproc="max_TI", current_mA=1.0,</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="sd">    ...     n_multistart=3, output_folder="insula_mean",</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    ... )</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    &gt;&gt;&gt; res = run_flex_search(cfg)  # doctest: +SKIP</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="sd">    &gt;&gt;&gt; res.success, res.best_run_index, len(res.function_values)  # doctest: +SKIP</span>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    (True, 1, 3)</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    FlexConfig : Configuration dataclass for flex-search.</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    FlexResult : Result container with per-restart function values.</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    """</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_paths</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>    <span class="n">validate_mask_paths</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>    <span class="n">_validate_flex_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>    <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_FLEX_SEARCH</span><span class="p">):</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>        <span class="k">return</span> <span class="n">_run_flex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">report</span><span class="p">)</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a><span class="sd">    ``config.mode`` ``"flex_adaptive"`` or ``"flex_pareto"`` runs</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a><span class="sd">    :func:`~tit.opt.flex.drivers.run_adaptive_focality` or</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a><span class="sd">    :func:`~tit.opt.flex.drivers.run_pareto_sweep` instead (they write</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a><span class="sd">    their own report; *report* applies to a single run).</span>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a><span class="sd">    A relative ``output_folder`` names a run folder under the subject's</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a><span class="sd">    ``flex-search/`` directory.</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a><span class="sd">    An existing ``output_folder`` is re-used in place: the outputs a</span>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a><span class="sd">    previous run wrote there (:data:`RUN_OUTPUTS`) are removed first, so</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a><span class="sd">    the folder describes exactly this run; other files are left alone.</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    config : FlexConfig</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">        Fully specified optimization configuration including subject,</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">        ROI definition, electrode geometry, and DE hyperparameters.</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    report : bool, optional</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a><span class="sd">        Write the flex-search report (default). The adaptive and Pareto</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a><span class="sd">        drivers pass ``False`` for their intermediate steps and write one</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="sd">        report for the job's own folder.</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    FlexResult</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">        ``success``, ``output_folder`` (the run directory under the</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">        subject's ``flex-search/``), per-restart ``function_values``,</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="sd">        ``best_value`` and ``best_run_index``.</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">        If the subject's m2m directory or head mesh is missing, a</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">        referenced ROI/atlas/EEG-net file is missing, ``cpus`` or</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">        ``n_multistart`` is below 1, ``min_electrode_distance`` is not</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">        positive, ``enable_mapping`` is set without ``eeg_net``, or an</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a><span class="sd">        ``"ellipse"`` electrode has unequal dimensions (flex-search</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a><span class="sd">        supports circular electrodes only).</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a><span class="sd">    Notes</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="sd">    -----</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a><span class="sd">    When every restart fails the function does not raise: it returns a</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a><span class="sd">    :class:`FlexResult` with ``success=False``, ``best_value=inf`` and</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a><span class="sd">    ``best_run_index=-1``.  Always check ``result.success``.</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="sd">    Examples</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a><span class="sd">    &gt;&gt;&gt; from tit.opt import FlexConfig, run_flex_search</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    &gt;&gt;&gt; cfg = FlexConfig(</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">    ...     subject_id="ernie", goal="mean", postproc="max_TI", current_mA=1.0,</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    ...     electrode=FlexConfig.ElectrodeConfig(shape="ellipse", dimensions=[8.0, 8.0]),</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    ...     roi=FlexConfig.SphericalROI(x=-35.0, y=5.0, z=5.0, radius=10.0, use_mni=True),</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    ...     n_multistart=3, output_folder="insula_mean",</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    ... )</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    &gt;&gt;&gt; res = run_flex_search(cfg)  # doctest: +SKIP</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    &gt;&gt;&gt; res.success, res.best_run_index, len(res.function_values)  # doctest: +SKIP</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    (True, 1, 3)</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a><span class="sd">    FlexConfig : Configuration dataclass for flex-search.</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a><span class="sd">    FlexResult : Result container with per-restart function values.</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a><span class="sd">    tit.opt.ex.ex.run_ex_search : Alternative exhaustive grid search.</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a><span class="sd">    """</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.telemetry</span><span class="w"> </span><span class="kn">import</span> <span class="n">track_operation</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit</span><span class="w"> </span><span class="kn">import</span> <span class="n">constants</span> <span class="k">as</span> <span class="n">const</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.opt.masks</span><span class="w"> </span><span class="kn">import</span> <span class="n">validate_mask_paths</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">mode</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">FlexConfig</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">FLEX</span><span class="p">:</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">.drivers</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_adaptive_focality</span><span class="p">,</span> <span class="n">run_pareto_sweep</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>        <span class="k">if</span> <span class="n">config</span><span class="o">.</span><span class="n">mode</span> <span class="ow">is</span> <span class="n">FlexConfig</span><span class="o">.</span><span class="n">Mode</span><span class="o">.</span><span class="n">FLEX_ADAPTIVE</span><span class="p">:</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>            <span class="k">return</span> <span class="n">run_adaptive_focality</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>        <span class="k">return</span> <span class="n">run_pareto_sweep</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a>    <span class="n">validate_mask_paths</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a>    <span class="n">_validate_flex_inputs</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="c1"># Set up file logging -- capture both tit and simnibs output -- for this run only.</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="n">logs_dir</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span><span class="o">.</span><span class="n">logs</span><span class="p">(</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>    <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">logs_dir</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">log_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+<a id="__codelineno-0-129" name="__codelineno-0-129"></a>        <span class="n">logs_dir</span><span class="p">,</span> <span class="sa">f</span><span class="s1">'flex_search_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="s2">"%Y%m</span><span class="si">%d</span><span class="s2">_%H%M%S"</span><span class="p">)</span><span class="si">}</span><span class="s1">.log'</span>
+<a id="__codelineno-0-130" name="__codelineno-0-130"></a>    <span class="p">)</span>
+<a id="__codelineno-0-131" name="__codelineno-0-131"></a>    <span class="n">handlers</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-132" name="__codelineno-0-132"></a>        <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">add_file_handler</span><span class="p">(</span><span class="n">log_file</span><span class="p">,</span> <span class="n">logger_name</span><span class="o">=</span><span class="n">name</span><span class="p">))</span>
+<a id="__codelineno-0-133" name="__codelineno-0-133"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="sa">f</span><span class="s2">"tit.opt.flex.</span><span class="si">{</span><span class="n">config</span><span class="o">.</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span> <span class="s2">"simnibs"</span><span class="p">)</span>
+<a id="__codelineno-0-134" name="__codelineno-0-134"></a>    <span class="p">]</span>
+<a id="__codelineno-0-135" name="__codelineno-0-135"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-136" name="__codelineno-0-136"></a>        <span class="k">with</span> <span class="n">track_operation</span><span class="p">(</span><span class="n">const</span><span class="o">.</span><span class="n">TELEMETRY_OP_FLEX_SEARCH</span><span class="p">):</span>
+<a id="__codelineno-0-137" name="__codelineno-0-137"></a>            <span class="k">return</span> <span class="n">_run_flex_search_inner</span><span class="p">(</span><span class="n">config</span><span class="p">,</span> <span class="n">report</span><span class="o">=</span><span class="n">report</span><span class="p">)</span>
+<a id="__codelineno-0-138" name="__codelineno-0-138"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-139" name="__codelineno-0-139"></a>        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">handler</span> <span class="ow">in</span> <span class="n">handlers</span><span class="p">:</span>
+<a id="__codelineno-0-140" name="__codelineno-0-140"></a>            <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">removeHandler</span><span class="p">(</span><span class="n">handler</span><span class="p">)</span>
+<a id="__codelineno-0-141" name="__codelineno-0-141"></a>            <span class="n">handler</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

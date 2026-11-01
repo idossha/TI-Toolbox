@@ -1354,35 +1354,35 @@ multi-GB field.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/ex/ex.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-216">216</a></span>
-<span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
-<span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span>
-<span class="normal"><a href="#__codelineno-0-226">226</a></span>
-<span class="normal"><a href="#__codelineno-0-227">227</a></span>
-<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-228">228</a></span>
 <span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-216" name="__codelineno-0-216"></a><span class="k">def</span><span class="w"> </span><span class="nf">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="w">    </span><span class="sd">"""The electrode names a leadfield HDF5 holds, read from its attributes only.</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a><span class="sd">    The ``electrode_names`` attribute :func:`simnibs.utils.TI_utils.load_leadfield` builds</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a><span class="sd">    its electrode index from (the reference electrode included), read without loading the</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a><span class="sd">    multi-GB field.</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a><span class="sd">    """</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
-<a id="__codelineno-0-226" name="__codelineno-0-226"></a>        <span class="n">attrs</span> <span class="o">=</span> <span class="n">handle</span><span class="p">[</span><span class="s2">"mesh_leadfield"</span><span class="p">][</span><span class="s2">"leadfields"</span><span class="p">][</span><span class="s2">"tdcs_leadfield"</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span>
-<a id="__codelineno-0-227" name="__codelineno-0-227"></a>        <span class="k">return</span> <span class="p">[</span>
-<a id="__codelineno-0-228" name="__codelineno-0-228"></a>            <span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a>            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">"electrode_names"</span><span class="p">]</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span>
+<span class="normal"><a href="#__codelineno-0-232">232</a></span>
+<span class="normal"><a href="#__codelineno-0-233">233</a></span>
+<span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span>
+<span class="normal"><a href="#__codelineno-0-242">242</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="k">def</span><span class="w"> </span><span class="nf">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="w">    </span><span class="sd">"""The electrode names a leadfield HDF5 holds, read from its attributes only.</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    The ``electrode_names`` attribute :func:`simnibs.utils.TI_utils.load_leadfield` builds</span>
+<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    its electrode index from (the reference electrode included), read without loading the</span>
+<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    multi-GB field.</span>
+<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    """</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a>    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">,</span> <span class="s2">"r"</span><span class="p">)</span> <span class="k">as</span> <span class="n">handle</span><span class="p">:</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a>        <span class="n">attrs</span> <span class="o">=</span> <span class="n">handle</span><span class="p">[</span><span class="s2">"mesh_leadfield"</span><span class="p">][</span><span class="s2">"leadfields"</span><span class="p">][</span><span class="s2">"tdcs_leadfield"</span><span class="p">]</span><span class="o">.</span><span class="n">attrs</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a>        <span class="k">return</span> <span class="p">[</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a>            <span class="n">name</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="nb">bytes</span><span class="p">)</span> <span class="k">else</span> <span class="nb">str</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>            <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">[</span><span class="s2">"electrode_names"</span><span class="p">]</span>
+<a id="__codelineno-0-242" name="__codelineno-0-242"></a>        <span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1435,19 +1435,7 @@ refuses it; it is what the host suite's h5py stand-in reads).</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/opt/ex/ex.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span>
-<span class="normal"><a href="#__codelineno-0-236">236</a></span>
-<span class="normal"><a href="#__codelineno-0-237">237</a></span>
-<span class="normal"><a href="#__codelineno-0-238">238</a></span>
-<span class="normal"><a href="#__codelineno-0-239">239</a></span>
-<span class="normal"><a href="#__codelineno-0-240">240</a></span>
-<span class="normal"><a href="#__codelineno-0-241">241</a></span>
-<span class="normal"><a href="#__codelineno-0-242">242</a></span>
-<span class="normal"><a href="#__codelineno-0-243">243</a></span>
-<span class="normal"><a href="#__codelineno-0-244">244</a></span>
-<span class="normal"><a href="#__codelineno-0-245">245</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-245">245</a></span>
 <span class="normal"><a href="#__codelineno-0-246">246</a></span>
 <span class="normal"><a href="#__codelineno-0-247">247</a></span>
 <span class="normal"><a href="#__codelineno-0-248">248</a></span>
@@ -1459,31 +1447,43 @@ refuses it; it is what the host suite's h5py stand-in reads).</p>
 <span class="normal"><a href="#__codelineno-0-254">254</a></span>
 <span class="normal"><a href="#__codelineno-0-255">255</a></span>
 <span class="normal"><a href="#__codelineno-0-256">256</a></span>
-<span class="normal"><a href="#__codelineno-0-257">257</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_electrodes_off_leadfield</span><span class="p">(</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a>    <span class="n">search</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-236" name="__codelineno-0-236"></a><span class="w">    </span><span class="sd">"""Raise before the leadfield is loaded when an electrode label is not in it.</span>
-<a id="__codelineno-0-237" name="__codelineno-0-237"></a>
-<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    Without this the engine loads the whole leadfield and the first unknown label then</span>
-<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    dies as a bare ``KeyError`` inside SimNIBS's ``TI.get_field`` (on a worker process</span>
-<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    when ``n_jobs &gt; 1``). A missing file is left to the engine, whose load names it; so is</span>
-<a id="__codelineno-0-241" name="__codelineno-0-241"></a><span class="sd">    a file whose name list reads empty (no real leadfield has one and SimNIBS's load</span>
-<a id="__codelineno-0-242" name="__codelineno-0-242"></a><span class="sd">    refuses it; it is what the host suite's h5py stand-in reads).</span>
-<a id="__codelineno-0-243" name="__codelineno-0-243"></a>
-<a id="__codelineno-0-244" name="__codelineno-0-244"></a><span class="sd">    Raises:</span>
-<a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="sd">        ValueError: Naming the leadfield's net and every label it does not hold.</span>
-<a id="__codelineno-0-246" name="__codelineno-0-246"></a><span class="sd">    """</span>
-<a id="__codelineno-0-247" name="__codelineno-0-247"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">):</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a>        <span class="k">return</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>    <span class="n">names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">))</span>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a>    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a>    <span class="k">if</span> <span class="n">names</span> <span class="ow">and</span> <span class="n">missing</span><span class="p">:</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a>        <span class="n">net</span> <span class="o">=</span> <span class="n">net_name_from_leadfield</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">)</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">search</span><span class="si">}</span><span class="s2"> electrodes not in the leadfield of </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">: "</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">. Pick electrodes from </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">, or the leadfield of "</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>            <span class="s2">"the net these came from."</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>        <span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-257">257</a></span>
+<span class="normal"><a href="#__codelineno-0-258">258</a></span>
+<span class="normal"><a href="#__codelineno-0-259">259</a></span>
+<span class="normal"><a href="#__codelineno-0-260">260</a></span>
+<span class="normal"><a href="#__codelineno-0-261">261</a></span>
+<span class="normal"><a href="#__codelineno-0-262">262</a></span>
+<span class="normal"><a href="#__codelineno-0-263">263</a></span>
+<span class="normal"><a href="#__codelineno-0-264">264</a></span>
+<span class="normal"><a href="#__codelineno-0-265">265</a></span>
+<span class="normal"><a href="#__codelineno-0-266">266</a></span>
+<span class="normal"><a href="#__codelineno-0-267">267</a></span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-245" name="__codelineno-0-245"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_electrodes_off_leadfield</span><span class="p">(</span>
+<a id="__codelineno-0-246" name="__codelineno-0-246"></a>    <span class="n">search</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">labels</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">leadfield_path</span><span class="p">:</span> <span class="nb">str</span>
+<a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="w">    </span><span class="sd">"""Raise before the leadfield is loaded when an electrode label is not in it.</span>
+<a id="__codelineno-0-249" name="__codelineno-0-249"></a>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="sd">    Without this the engine loads the whole leadfield and the first unknown label then</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="sd">    dies as a bare ``KeyError`` inside SimNIBS's ``TI.get_field`` (on a worker process</span>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    when ``n_jobs &gt; 1``). A missing file is left to the engine, whose load names it; so is</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    a file whose name list reads empty (no real leadfield has one and SimNIBS's load</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    refuses it; it is what the host suite's h5py stand-in reads).</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    Raises:</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">        ValueError: Naming the leadfield's net and every label it does not hold.</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    """</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">):</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>        <span class="k">return</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>    <span class="n">names</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">leadfield_electrode_names</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">))</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>    <span class="n">missing</span> <span class="o">=</span> <span class="p">[</span><span class="n">label</span> <span class="k">for</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">dict</span><span class="o">.</span><span class="n">fromkeys</span><span class="p">(</span><span class="n">labels</span><span class="p">)</span> <span class="k">if</span> <span class="n">label</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">names</span><span class="p">]</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="k">if</span> <span class="n">names</span> <span class="ow">and</span> <span class="n">missing</span><span class="p">:</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="n">net</span> <span class="o">=</span> <span class="n">net_name_from_leadfield</span><span class="p">(</span><span class="n">leadfield_path</span><span class="p">)</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">search</span><span class="si">}</span><span class="s2"> electrodes not in the leadfield of </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">: "</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>            <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">missing</span><span class="p">)</span><span class="si">}</span><span class="s2">. Pick electrodes from </span><span class="si">{</span><span class="n">net</span><span class="si">}</span><span class="s2">, or the leadfield of "</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>            <span class="s2">"the net these came from."</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

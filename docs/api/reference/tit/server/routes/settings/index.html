@@ -1075,7 +1075,8 @@
 <li><code>code/ti-toolbox/config/settings.json</code> (project-level, new in v1 --
   no prior file covered this shape) for <code>panels</code> (replaces
   <code>extensions.json</code>'s <code>{"extensions": {name: bool}}</code> with a plain enabled
-  list), <code>image_tag</code>, and <code>theme</code>.</li>
+  list), <code>theme</code> and <code>agent_auto_submit</code>. A retired key an older file still
+  carries (<code>image_tag</code>, <code>allow_unsafe_overrides</code>) is never read back.</li>
 </ul>
 
 
@@ -1204,11 +1205,11 @@
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/settings.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-113">113</a></span>
-<span class="normal"><a href="#__codelineno-0-114">114</a></span>
-<span class="normal"><a href="#__codelineno-0-115">115</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="k">def</span><span class="w"> </span><span class="nf">agent_auto_submit</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="w">    </span><span class="sd">"""Project setting: may an agent submit jobs directly? Off (the default) means it proposes."""</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="k">return</span> <span class="n">_load_project_settings</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"agent_auto_submit"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-112">112</a></span>
+<span class="normal"><a href="#__codelineno-0-113">113</a></span>
+<span class="normal"><a href="#__codelineno-0-114">114</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-112" name="__codelineno-0-112"></a><span class="k">def</span><span class="w"> </span><span class="nf">agent_auto_submit</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a><span class="w">    </span><span class="sd">"""Project setting: may an agent submit jobs directly? Off (the default) means it proposes."""</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a>    <span class="k">return</span> <span class="n">_load_project_settings</span><span class="p">()</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"agent_auto_submit"</span><span class="p">)</span> <span class="ow">is</span> <span class="kc">True</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

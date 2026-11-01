@@ -1191,7 +1191,9 @@ an answer that is not persisted is asked again.</p>
 <span class="normal"><a href="#__codelineno-0-74">74</a></span>
 <span class="normal"><a href="#__codelineno-0-75">75</a></span>
 <span class="normal"><a href="#__codelineno-0-76">76</a></span>
-<span class="normal"><a href="#__codelineno-0-77">77</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="nd">@router</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-60" name="__codelineno-0-60"></a><span class="nd">@router</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span>
 <a id="__codelineno-0-61" name="__codelineno-0-61"></a>    <span class="s2">"/api/project/status"</span><span class="p">,</span>
 <a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">response_model</span><span class="o">=</span><span class="n">ProjectStatus</span><span class="p">,</span>
 <a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Merge fields into project_status.json and return the result"</span><span class="p">,</span>
@@ -1207,8 +1209,10 @@ an answer that is not persisted is asked again.</p>
 <a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">updates</span> <span class="o">=</span> <span class="n">body</span><span class="o">.</span><span class="n">model_dump</span><span class="p">(</span><span class="n">exclude_none</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 <a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="n">initialize_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
 <a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="k">if</span> <span class="n">updates</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">update_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">,</span> <span class="n">updates</span><span class="p">):</span>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Could not write project_status.json."</span><span class="p">)</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>    <span class="k">return</span> <span class="n">load_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="s2">"Could not write project_status.json."</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="p">)</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="k">return</span> <span class="n">load_project_status</span><span class="p">(</span><span class="n">project_dir</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1237,11 +1241,7 @@ subject exists). Example data is <code>POST /api/example-data/{sample_id}</code>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/routes/project.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
-<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
-<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
-<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
-<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
 <span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
 <span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
 <span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
@@ -1267,37 +1267,41 @@ subject exists). Example data is <code>POST /api/example-data/{sample_id}</code>
 <span class="normal"><a href="#__codelineno-0-114">114</a></span>
 <span class="normal"><a href="#__codelineno-0-115">115</a></span>
 <span class="normal"><a href="#__codelineno-0-116">116</a></span>
-<span class="normal"><a href="#__codelineno-0-117">117</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-87" name="__codelineno-0-87"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
-<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="s2">"/api/project/init"</span><span class="p">,</span>
-<a id="__codelineno-0-89" name="__codelineno-0-89"></a>    <span class="n">status_code</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span>
-<a id="__codelineno-0-90" name="__codelineno-0-90"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Initialize this project's layout"</span><span class="p">,</span>
-<a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="p">)</span>
-<a id="__codelineno-0-92" name="__codelineno-0-92"></a><span class="k">def</span><span class="w"> </span><span class="nf">init_project</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-93" name="__codelineno-0-93"></a><span class="w">    </span><span class="sd">"""``{}`` -&gt; ``JobStatus`` for the ``project_init`` job.</span>
-<a id="__codelineno-0-94" name="__codelineno-0-94"></a>
-<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="sd">    ``body`` is optional and ignored -- unlike most job-submit routes this one</span>
-<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="sd">    has no meaningful ``subject_ids`` (project init runs once, before any</span>
-<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="sd">    subject exists). Example data is ``POST /api/example-data/{sample_id}``</span>
-<a id="__codelineno-0-98" name="__codelineno-0-98"></a><span class="sd">    (:mod:`tit.server.routes.example_data`) -- a plain function, never a job.</span>
-<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    """</span>
-<a id="__codelineno-0-100" name="__codelineno-0-100"></a>    <span class="k">del</span> <span class="n">body</span>
-<a id="__codelineno-0-101" name="__codelineno-0-101"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-102" name="__codelineno-0-102"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">api</span> <span class="k">as</span> <span class="n">jobs_api</span>
-<a id="__codelineno-0-103" name="__codelineno-0-103"></a>    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - tit.jobs is always importable</span>
-<a id="__codelineno-0-104" name="__codelineno-0-104"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
-<a id="__codelineno-0-105" name="__codelineno-0-105"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"tit.jobs unavailable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="k">return</span> <span class="n">jobs_api</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
-<a id="__codelineno-0-109" name="__codelineno-0-109"></a>            <span class="p">{</span>
-<a id="__codelineno-0-110" name="__codelineno-0-110"></a>                <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"project_init"</span><span class="p">,</span>
-<a id="__codelineno-0-111" name="__codelineno-0-111"></a>                <span class="s2">"config"</span><span class="p">:</span> <span class="p">{},</span>
-<a id="__codelineno-0-112" name="__codelineno-0-112"></a>                <span class="s2">"subject_ids"</span><span class="p">:</span> <span class="p">[],</span>
-<a id="__codelineno-0-113" name="__codelineno-0-113"></a>                <span class="s2">"created_by"</span><span class="p">:</span> <span class="s2">"gui"</span><span class="p">,</span>
-<a id="__codelineno-0-114" name="__codelineno-0-114"></a>            <span class="p">}</span>
-<a id="__codelineno-0-115" name="__codelineno-0-115"></a>        <span class="p">)</span>
-<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">NotImplementedError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-117" name="__codelineno-0-117"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-91" name="__codelineno-0-91"></a><span class="nd">@router</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>    <span class="s2">"/api/project/init"</span><span class="p">,</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>    <span class="n">status_code</span><span class="o">=</span><span class="mi">201</span><span class="p">,</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>    <span class="n">summary</span><span class="o">=</span><span class="s2">"Initialize this project's layout"</span><span class="p">,</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a><span class="p">)</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a><span class="k">def</span><span class="w"> </span><span class="nf">init_project</span><span class="p">(</span><span class="n">body</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a><span class="w">    </span><span class="sd">"""``{}`` -&gt; ``JobStatus`` for the ``project_init`` job.</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a><span class="sd">    ``body`` is optional and ignored -- unlike most job-submit routes this one</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a><span class="sd">    has no meaningful ``subject_ids`` (project init runs once, before any</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a><span class="sd">    subject exists). Example data is ``POST /api/example-data/{sample_id}``</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a><span class="sd">    (:mod:`tit.server.routes.example_data`) -- a plain function, never a job.</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a><span class="sd">    """</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>    <span class="k">del</span> <span class="n">body</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>        <span class="kn">from</span><span class="w"> </span><span class="nn">tit.jobs</span><span class="w"> </span><span class="kn">import</span> <span class="n">api</span> <span class="k">as</span> <span class="n">jobs_api</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>    <span class="k">except</span> <span class="ne">ImportError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>  <span class="c1"># pragma: no cover - tit.jobs is always importable</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>            <span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"tit.jobs unavailable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-112" name="__codelineno-0-112"></a>        <span class="k">return</span> <span class="n">jobs_api</span><span class="o">.</span><span class="n">submit</span><span class="p">(</span>
+<a id="__codelineno-0-113" name="__codelineno-0-113"></a>            <span class="p">{</span>
+<a id="__codelineno-0-114" name="__codelineno-0-114"></a>                <span class="s2">"kind"</span><span class="p">:</span> <span class="s2">"project_init"</span><span class="p">,</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>                <span class="s2">"config"</span><span class="p">:</span> <span class="p">{},</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>                <span class="s2">"subject_ids"</span><span class="p">:</span> <span class="p">[],</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>                <span class="s2">"created_by"</span><span class="p">:</span> <span class="s2">"gui"</span><span class="p">,</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>            <span class="p">}</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>        <span class="p">)</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">NotImplementedError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="n">status_code</span><span class="o">=</span><span class="mi">503</span><span class="p">,</span> <span class="n">detail</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">exc</span><span class="p">))</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

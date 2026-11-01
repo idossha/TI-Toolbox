@@ -1082,7 +1082,7 @@
 
 
 <a href="#tit.stats.io_utils.save_permutation_details" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_permutation_details</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids_resp</span><span class="p">,</span> <span class="n">subject_ids_non_resp</span><span class="p">)</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">save_permutation_details</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids_resp</span><span class="p">,</span> <span class="n">subject_ids_non_resp</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
@@ -1092,14 +1092,17 @@
 <p>permutation_info : list of dict
     List containing permutation details with keys:
     - 'perm_num': permutation number
-    - 'perm_idx': permutation indices
+    - 'perm_idx': permutation indices, or for a paired run the +/-1 sign flips
     - 'max_cluster_size': maximum cluster statistic found (size or mass)
 output_file : str
     Path to output file
 subject_ids_resp : list
     Original responder subject IDs
 subject_ids_non_resp : list
-    Original non-responder subject IDs</p>
+    Original non-responder subject IDs
+paired : bool
+    A paired run permutes by flipping signs within pairs: each line lists the flip
+    vector in pair order (-1 swaps that pair's two conditions), not a relabelling.</p>
 
 
             <details class="quote">
@@ -1150,8 +1153,17 @@ subject_ids_non_resp : list
 <span class="normal"><a href="#__codelineno-0-52">52</a></span>
 <span class="normal"><a href="#__codelineno-0-53">53</a></span>
 <span class="normal"><a href="#__codelineno-0-54">54</a></span>
-<span class="normal"><a href="#__codelineno-0-55">55</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_permutation_details</span><span class="p">(</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10"></a>    <span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids_resp</span><span class="p">,</span> <span class="n">subject_ids_non_resp</span>
+<span class="normal"><a href="#__codelineno-0-55">55</a></span>
+<span class="normal"><a href="#__codelineno-0-56">56</a></span>
+<span class="normal"><a href="#__codelineno-0-57">57</a></span>
+<span class="normal"><a href="#__codelineno-0-58">58</a></span>
+<span class="normal"><a href="#__codelineno-0-59">59</a></span>
+<span class="normal"><a href="#__codelineno-0-60">60</a></span>
+<span class="normal"><a href="#__codelineno-0-61">61</a></span>
+<span class="normal"><a href="#__codelineno-0-62">62</a></span>
+<span class="normal"><a href="#__codelineno-0-63">63</a></span>
+<span class="normal"><a href="#__codelineno-0-64">64</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-9" name="__codelineno-0-9"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_permutation_details</span><span class="p">(</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10"></a>    <span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids_resp</span><span class="p">,</span> <span class="n">subject_ids_non_resp</span><span class="p">,</span> <span class="n">paired</span><span class="o">=</span><span class="kc">False</span>
 <a id="__codelineno-0-11" name="__codelineno-0-11"></a><span class="p">):</span>
 <a id="__codelineno-0-12" name="__codelineno-0-12"></a><span class="w">    </span><span class="sd">"""</span>
 <a id="__codelineno-0-13" name="__codelineno-0-13"></a><span class="sd">    Save detailed information about each permutation to a file</span>
@@ -1161,7 +1173,7 @@ subject_ids_non_resp : list
 <a id="__codelineno-0-17" name="__codelineno-0-17"></a><span class="sd">    permutation_info : list of dict</span>
 <a id="__codelineno-0-18" name="__codelineno-0-18"></a><span class="sd">        List containing permutation details with keys:</span>
 <a id="__codelineno-0-19" name="__codelineno-0-19"></a><span class="sd">        - 'perm_num': permutation number</span>
-<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">        - 'perm_idx': permutation indices</span>
+<a id="__codelineno-0-20" name="__codelineno-0-20"></a><span class="sd">        - 'perm_idx': permutation indices, or for a paired run the +/-1 sign flips</span>
 <a id="__codelineno-0-21" name="__codelineno-0-21"></a><span class="sd">        - 'max_cluster_size': maximum cluster statistic found (size or mass)</span>
 <a id="__codelineno-0-22" name="__codelineno-0-22"></a><span class="sd">    output_file : str</span>
 <a id="__codelineno-0-23" name="__codelineno-0-23"></a><span class="sd">        Path to output file</span>
@@ -1169,34 +1181,43 @@ subject_ids_non_resp : list
 <a id="__codelineno-0-25" name="__codelineno-0-25"></a><span class="sd">        Original responder subject IDs</span>
 <a id="__codelineno-0-26" name="__codelineno-0-26"></a><span class="sd">    subject_ids_non_resp : list</span>
 <a id="__codelineno-0-27" name="__codelineno-0-27"></a><span class="sd">        Original non-responder subject IDs</span>
-<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    """</span>
-<a id="__codelineno-0-29" name="__codelineno-0-29"></a>    <span class="n">all_subject_ids</span> <span class="o">=</span> <span class="n">subject_ids_resp</span> <span class="o">+</span> <span class="n">subject_ids_non_resp</span>
-<a id="__codelineno-0-30" name="__codelineno-0-30"></a>    <span class="n">n_resp</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_ids_resp</span><span class="p">)</span>
-<a id="__codelineno-0-31" name="__codelineno-0-31"></a>
-<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-0-33" name="__codelineno-0-33"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-34" name="__codelineno-0-34"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"PERMUTATION TEST DETAILS</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-35" name="__codelineno-0-35"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-36" name="__codelineno-0-36"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total permutations: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Original Responders (n=</span><span class="si">{</span><span class="n">n_resp</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids_resp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-38" name="__codelineno-0-38"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
-<a id="__codelineno-0-39" name="__codelineno-0-39"></a>            <span class="sa">f</span><span class="s2">"Original Non-Responders (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_ids_non_resp</span><span class="p">)</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids_non_resp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
-<a id="__codelineno-0-40" name="__codelineno-0-40"></a>        <span class="p">)</span>
-<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-42" name="__codelineno-0-42"></a>
-<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">permutation_info</span><span class="p">:</span>
-<a id="__codelineno-0-44" name="__codelineno-0-44"></a>            <span class="n">perm_num</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_num"</span><span class="p">]</span>
-<a id="__codelineno-0-45" name="__codelineno-0-45"></a>            <span class="n">perm_idx</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_idx"</span><span class="p">]</span>
-<a id="__codelineno-0-46" name="__codelineno-0-46"></a>            <span class="n">max_stat</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"max_cluster_size"</span><span class="p">]</span>
-<a id="__codelineno-0-47" name="__codelineno-0-47"></a>
-<a id="__codelineno-0-48" name="__codelineno-0-48"></a>            <span class="c1"># Get permuted groups</span>
-<a id="__codelineno-0-49" name="__codelineno-0-49"></a>            <span class="n">perm_resp_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">perm_idx</span><span class="p">[:</span><span class="n">n_resp</span><span class="p">]]</span>
-<a id="__codelineno-0-50" name="__codelineno-0-50"></a>            <span class="n">perm_non_resp_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">perm_idx</span><span class="p">[</span><span class="n">n_resp</span><span class="p">:]]</span>
-<a id="__codelineno-0-51" name="__codelineno-0-51"></a>
-<a id="__codelineno-0-52" name="__codelineno-0-52"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Permutation </span><span class="si">{</span><span class="n">perm_num</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">: "</span><span class="p">)</span>
-<a id="__codelineno-0-53" name="__codelineno-0-53"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Responders: </span><span class="si">{</span><span class="n">perm_resp_ids</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
-<a id="__codelineno-0-54" name="__codelineno-0-54"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Non-Responders: </span><span class="si">{</span><span class="n">perm_non_resp_ids</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
-<a id="__codelineno-0-55" name="__codelineno-0-55"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Max Cluster Stat: </span><span class="si">{</span><span class="n">_format_stat</span><span class="p">(</span><span class="n">max_stat</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-28" name="__codelineno-0-28"></a><span class="sd">    paired : bool</span>
+<a id="__codelineno-0-29" name="__codelineno-0-29"></a><span class="sd">        A paired run permutes by flipping signs within pairs: each line lists the flip</span>
+<a id="__codelineno-0-30" name="__codelineno-0-30"></a><span class="sd">        vector in pair order (-1 swaps that pair's two conditions), not a relabelling.</span>
+<a id="__codelineno-0-31" name="__codelineno-0-31"></a><span class="sd">    """</span>
+<a id="__codelineno-0-32" name="__codelineno-0-32"></a>    <span class="n">all_subject_ids</span> <span class="o">=</span> <span class="n">subject_ids_resp</span> <span class="o">+</span> <span class="n">subject_ids_non_resp</span>
+<a id="__codelineno-0-33" name="__codelineno-0-33"></a>    <span class="n">n_resp</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">subject_ids_resp</span><span class="p">)</span>
+<a id="__codelineno-0-34" name="__codelineno-0-34"></a>
+<a id="__codelineno-0-35" name="__codelineno-0-35"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-0-36" name="__codelineno-0-36"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-37" name="__codelineno-0-37"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"PERMUTATION TEST DETAILS</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-38" name="__codelineno-0-38"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-39" name="__codelineno-0-39"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total permutations: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-40" name="__codelineno-0-40"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Original Responders (n=</span><span class="si">{</span><span class="n">n_resp</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids_resp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-41" name="__codelineno-0-41"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+<a id="__codelineno-0-42" name="__codelineno-0-42"></a>            <span class="sa">f</span><span class="s2">"Original Non-Responders (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_ids_non_resp</span><span class="p">)</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids_non_resp</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-43" name="__codelineno-0-43"></a>        <span class="p">)</span>
+<a id="__codelineno-0-44" name="__codelineno-0-44"></a>        <span class="k">if</span> <span class="n">paired</span><span class="p">:</span>
+<a id="__codelineno-0-45" name="__codelineno-0-45"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+<a id="__codelineno-0-46" name="__codelineno-0-46"></a>                <span class="s2">"Paired: each line flips signs within pairs, in pair order; "</span>
+<a id="__codelineno-0-47" name="__codelineno-0-47"></a>                <span class="s2">"-1 swaps that pair's two conditions.</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-48" name="__codelineno-0-48"></a>            <span class="p">)</span>
+<a id="__codelineno-0-49" name="__codelineno-0-49"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-50" name="__codelineno-0-50"></a>
+<a id="__codelineno-0-51" name="__codelineno-0-51"></a>        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">permutation_info</span><span class="p">:</span>
+<a id="__codelineno-0-52" name="__codelineno-0-52"></a>            <span class="n">perm_num</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_num"</span><span class="p">]</span>
+<a id="__codelineno-0-53" name="__codelineno-0-53"></a>            <span class="n">perm_idx</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_idx"</span><span class="p">]</span>
+<a id="__codelineno-0-54" name="__codelineno-0-54"></a>            <span class="n">max_stat</span> <span class="o">=</span> <span class="n">info</span><span class="p">[</span><span class="s2">"max_cluster_size"</span><span class="p">]</span>
+<a id="__codelineno-0-55" name="__codelineno-0-55"></a>
+<a id="__codelineno-0-56" name="__codelineno-0-56"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Permutation </span><span class="si">{</span><span class="n">perm_num</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">: "</span><span class="p">)</span>
+<a id="__codelineno-0-57" name="__codelineno-0-57"></a>            <span class="k">if</span> <span class="n">paired</span><span class="p">:</span>
+<a id="__codelineno-0-58" name="__codelineno-0-58"></a>                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Sign flips: </span><span class="si">{</span><span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="p">)</span><span class="w"> </span><span class="k">for</span><span class="w"> </span><span class="n">s</span><span class="w"> </span><span class="ow">in</span><span class="w"> </span><span class="n">perm_idx</span><span class="p">]</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
+<a id="__codelineno-0-59" name="__codelineno-0-59"></a>            <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-60" name="__codelineno-0-60"></a>                <span class="n">perm_resp_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">perm_idx</span><span class="p">[:</span><span class="n">n_resp</span><span class="p">]]</span>
+<a id="__codelineno-0-61" name="__codelineno-0-61"></a>                <span class="n">perm_non_resp_ids</span> <span class="o">=</span> <span class="p">[</span><span class="n">all_subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">perm_idx</span><span class="p">[</span><span class="n">n_resp</span><span class="p">:]]</span>
+<a id="__codelineno-0-62" name="__codelineno-0-62"></a>                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Responders: </span><span class="si">{</span><span class="n">perm_resp_ids</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
+<a id="__codelineno-0-63" name="__codelineno-0-63"></a>                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Non-Responders: </span><span class="si">{</span><span class="n">perm_non_resp_ids</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Max Cluster Stat: </span><span class="si">{</span><span class="n">_format_stat</span><span class="p">(</span><span class="n">max_stat</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1224,16 +1245,7 @@ subject_ids_non_resp : list
 
             <details class="quote">
               <summary>Source code in <code>tit/stats/io_utils.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-58">58</a></span>
-<span class="normal"><a href="#__codelineno-0-59">59</a></span>
-<span class="normal"><a href="#__codelineno-0-60">60</a></span>
-<span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-67">67</a></span>
 <span class="normal"><a href="#__codelineno-0-68">68</a></span>
 <span class="normal"><a href="#__codelineno-0-69">69</a></span>
 <span class="normal"><a href="#__codelineno-0-70">70</a></span>
@@ -1246,29 +1258,38 @@ subject_ids_non_resp : list
 <span class="normal"><a href="#__codelineno-0-77">77</a></span>
 <span class="normal"><a href="#__codelineno-0-78">78</a></span>
 <span class="normal"><a href="#__codelineno-0-79">79</a></span>
-<span class="normal"><a href="#__codelineno-0-80">80</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-58" name="__codelineno-0-58"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_correlation_permutation_details</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">):</span>
-<a id="__codelineno-0-59" name="__codelineno-0-59"></a><span class="w">    </span><span class="sd">"""Save each correlation permutation's effect-size shuffle to a file.</span>
-<a id="__codelineno-0-60" name="__codelineno-0-60"></a>
-<a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="sd">    In permutation ``k`` subject ``subject_ids[j]`` is given the effect size of</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="sd">    ``subject_ids[perm_idx[j]]``; each line lists those donors in subject order.</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a><span class="sd">    ``permutation_info`` has the keys :func:`save_permutation_details` documents.</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a><span class="sd">    """</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"PERMUTATION TEST DETAILS (CORRELATION)</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total permutations: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subjects (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>            <span class="s2">"Each line names, in subject order, whose effect size each subject got.</span><span class="se">\n</span><span class="s2">"</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="p">)</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>
-<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">permutation_info</span><span class="p">:</span>
-<a id="__codelineno-0-77" name="__codelineno-0-77"></a>            <span class="n">donors</span> <span class="o">=</span> <span class="p">[</span><span class="n">subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_idx"</span><span class="p">]]</span>
-<a id="__codelineno-0-78" name="__codelineno-0-78"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Permutation </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">'perm_num'</span><span class="p">]</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">: "</span><span class="p">)</span>
-<a id="__codelineno-0-79" name="__codelineno-0-79"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Effect sizes from: </span><span class="si">{</span><span class="n">donors</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
-<a id="__codelineno-0-80" name="__codelineno-0-80"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Max Cluster Stat: </span><span class="si">{</span><span class="n">_format_stat</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">'max_cluster_size'</span><span class="p">])</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-80">80</a></span>
+<span class="normal"><a href="#__codelineno-0-81">81</a></span>
+<span class="normal"><a href="#__codelineno-0-82">82</a></span>
+<span class="normal"><a href="#__codelineno-0-83">83</a></span>
+<span class="normal"><a href="#__codelineno-0-84">84</a></span>
+<span class="normal"><a href="#__codelineno-0-85">85</a></span>
+<span class="normal"><a href="#__codelineno-0-86">86</a></span>
+<span class="normal"><a href="#__codelineno-0-87">87</a></span>
+<span class="normal"><a href="#__codelineno-0-88">88</a></span>
+<span class="normal"><a href="#__codelineno-0-89">89</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="k">def</span><span class="w"> </span><span class="nf">save_correlation_permutation_details</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">):</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="w">    </span><span class="sd">"""Save each correlation permutation's effect-size shuffle to a file.</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="sd">    In permutation ``k`` subject ``subject_ids[j]`` is given the effect size of</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="sd">    ``subject_ids[perm_idx[j]]``; each line lists those donors in subject order.</span>
+<a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="sd">    ``permutation_info`` has the keys :func:`save_permutation_details` documents.</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a><span class="sd">    """</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">"w"</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"PERMUTATION TEST DETAILS (CORRELATION)</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Total permutations: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">permutation_info</span><span class="p">)</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Subjects (n=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">subject_ids</span><span class="p">)</span><span class="si">}</span><span class="s2">): </span><span class="si">{</span><span class="n">subject_ids</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a>            <span class="s2">"Each line names, in subject order, whose effect size each subject got.</span><span class="se">\n</span><span class="s2">"</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a>        <span class="p">)</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>        <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="s2">"</span><span class="se">\n</span><span class="s2">"</span> <span class="o">+</span> <span class="s2">"="</span> <span class="o">*</span> <span class="mi">80</span> <span class="o">+</span> <span class="s2">"</span><span class="se">\n\n</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="k">for</span> <span class="n">info</span> <span class="ow">in</span> <span class="n">permutation_info</span><span class="p">:</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>            <span class="n">donors</span> <span class="o">=</span> <span class="p">[</span><span class="n">subject_ids</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">info</span><span class="p">[</span><span class="s2">"perm_idx"</span><span class="p">]]</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Permutation </span><span class="si">{</span><span class="n">info</span><span class="p">[</span><span class="s1">'perm_num'</span><span class="p">]</span><span class="si">:</span><span class="s2">4d</span><span class="si">}</span><span class="s2">: "</span><span class="p">)</span>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Effect sizes from: </span><span class="si">{</span><span class="n">donors</span><span class="si">}</span><span class="s2">, "</span><span class="p">)</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>            <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Max Cluster Stat: </span><span class="si">{</span><span class="n">_format_stat</span><span class="p">(</span><span class="n">info</span><span class="p">[</span><span class="s1">'max_cluster_size'</span><span class="p">])</span><span class="si">}</span><span class="se">\n</span><span class="s2">"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
