@@ -660,6 +660,8 @@ class TestPrepareForwardWorker:
 
         m2m = Path(tmp_project) / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
         (m2m / "eeg_positions").mkdir(parents=True, exist_ok=True)
+        (m2m / "eeg_positions" / "net.csv").write_text("net")
+        (m2m / "001.msh").write_text("mesh")
         monkeypatch.setattr(fwd, "_read_simnibs_montage", lambda *a: ({"Cz": 0}, {}))
         monkeypatch.setattr(
             fwd,
@@ -672,7 +674,11 @@ class TestPrepareForwardWorker:
         monkeypatch.setattr(
             fwd,
             "_rename_generated_outputs",
-            lambda d, stem: (d / "a-fwd.fif", d / "a-src.fif", d / "a-morph.h5"),
+            lambda d, stem, generated: (
+                d / "a-fwd.fif",
+                d / "a-src.fif",
+                d / "a-morph.h5",
+            ),
         )
         sys.modules["mne"].io.RawArray = _MagicMock()
         commands: list[list[str]] = []
@@ -725,6 +731,8 @@ class TestLeadfieldChannelOrder:
 
         m2m = Path(tmp_project) / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
         (m2m / "eeg_positions").mkdir(parents=True, exist_ok=True)
+        (m2m / "eeg_positions" / "net.csv").write_text("net")
+        (m2m / "001.msh").write_text("mesh")
         monkeypatch.setattr(
             fwd,
             "_read_simnibs_montage",
@@ -744,7 +752,11 @@ class TestLeadfieldChannelOrder:
         monkeypatch.setattr(
             fwd,
             "_rename_generated_outputs",
-            lambda d, stem: (d / "a-fwd.fif", d / "a-src.fif", d / "a-morph.h5"),
+            lambda d, stem, generated: (
+                d / "a-fwd.fif",
+                d / "a-src.fif",
+                d / "a-morph.h5",
+            ),
         )
         monkeypatch.setattr(fwd, "_run", lambda *a, **k: None)
         sys.modules["mne"].io.RawArray = _MagicMock()
@@ -973,7 +985,21 @@ class TestRecordingGeometry:
     ):
         from tit.source.config import ForwardConfig
 
+        import hashlib
+
         fwd, built = self._stub_cached(monkeypatch, tmp_project)
+        forward_dir = Path(tmp_project) / "derivatives" / "SimNIBS" / "sub-001"
+        (forward_dir / "forward").mkdir(parents=True, exist_ok=True)
+        # The sha256 of the stub's net.csv ("net") and 001.msh ("mesh").
+        (forward_dir / "forward" / "sub-001_net-net-provenance.json").write_text(
+            json.dumps(
+                {
+                    "net_csv_sha256": hashlib.sha256(b"net").hexdigest(),
+                    "head_mesh_sha256": hashlib.sha256(b"mesh").hexdigest(),
+                    "fsaverage_spacing": 5,
+                }
+            )
+        )
 
         paths = fwd.prepare_forward("001", ForwardConfig(eeg_net="net"))
 
@@ -1022,3 +1048,143 @@ class TestForwardDependencyPreflight:
         with pytest.raises(Exception):
             fwd.prepare_forward("001", ForwardConfig(eeg_net="net"))
         assert order[0] == "check"
+
+
+class TestForwardCache:
+    """Each net's forward is its own, and is reused only for the same inputs.
+
+    The fake FEM writes a leadfield whose content is the net CSV + head mesh it
+    was built from; the fake worker writes ``<leadfield stem>-{fwd,src,morph}``
+    next to it (SimNIBS ``_write_src_fwd_morph``) holding that leadfield's
+    content and the fsaverage spacing.  So a file's content says which inputs
+    produced it, independently of the cache logic under test.
+    """
+
+    def _setup(self, monkeypatch, tmp_project):
+        import sys
+
+        from tit.source import forward as fwd
+
+        m2m = Path(tmp_project) / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001"
+        (m2m / "eeg_positions").mkdir(parents=True, exist_ok=True)
+        for net in ("A", "B"):
+            (m2m / "eeg_positions" / f"{net}.csv").write_text(f"csv-{net}")
+        (m2m / "001.msh").write_text("mesh-1")
+        calls = {"fem": [], "worker": []}
+
+        def fem(m2m_dir, forward_dir, eeg_csv, cpus):
+            # SimNIBS TDCSLEADFIELD._lf_name(): <head mesh stem>_leadfield_<cap>.hdf5
+            out = forward_dir / f"001_leadfield_{eeg_csv.stem}.hdf5"
+            out.write_text(f"{eeg_csv.read_text()}|{(m2m_dir / '001.msh').read_text()}")
+            calls["fem"].append(eeg_csv.stem)
+            return out
+
+        def worker(cmd, desc, cwd=None):
+            leadfield = Path(cmd[4])
+            for kind, ext in (("fwd", "fif"), ("src", "fif"), ("morph", "h5")):
+                (leadfield.parent / f"{leadfield.stem}-{kind}.{ext}").write_text(
+                    f"{leadfield.read_text()}|fsavg{cmd[-1]}"
+                )
+            calls["worker"].append(leadfield.name)
+
+        monkeypatch.setattr(fwd, "_check_forward_dependencies", lambda: None)
+        monkeypatch.setattr(fwd, "_read_simnibs_montage", lambda *a: ({"Cz": 0}, {}))
+        monkeypatch.setattr(fwd, "_leadfield_channel_order", lambda p: ["Cz"])
+        monkeypatch.setattr(
+            fwd,
+            "_build_montage_info",
+            lambda *a, **k: (_MagicMock(ch_names=["Cz"]), object()),
+        )
+        monkeypatch.setattr(fwd, "_compute_leadfield", fem)
+        monkeypatch.setattr(fwd, "_run", worker)
+        sys.modules["mne"].io.RawArray = _MagicMock()
+        return fwd, m2m, calls
+
+    @staticmethod
+    def _contents(paths):
+        return [Path(p).read_text() for p in paths]
+
+    def test_a_second_net_leaves_the_first_nets_forward_alone(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        a = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+        b = fwd.prepare_forward("001", ForwardConfig(eeg_net="B"))
+
+        assert self._contents(a) == ["csv-A|mesh-1|fsavg5"] * 3
+        assert self._contents(b) == ["csv-B|mesh-1|fsavg5"] * 3
+        assert calls["fem"] == ["A", "B"]
+
+    def test_the_same_inputs_reuse_everything(self, init_pm, tmp_project, monkeypatch):
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        first = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+        again = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+
+        assert again == first
+        assert calls == {"fem": ["A"], "worker": ["001_leadfield_A.hdf5"]}
+
+    @pytest.mark.parametrize("changed", ["eeg_positions/A.csv", "001.msh"])
+    def test_a_changed_net_csv_or_head_mesh_rebuilds(
+        self, init_pm, tmp_project, monkeypatch, changed
+    ):
+        """After the v3.1.1 cap re-apply rewrote GSN-128/BioSemi positions, a default
+        re-run must not return the forward built on the collapsed ones."""
+        from tit.source.config import ForwardConfig
+
+        fwd, m2m, calls = self._setup(monkeypatch, tmp_project)
+        fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+        (m2m / changed).write_text("rewritten")
+        paths = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+
+        assert calls["fem"] == ["A", "A"]
+        assert "rewritten" in self._contents(paths)[0]
+
+    def test_another_fsaverage_spacing_reassembles_on_the_same_leadfield(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        fwd.prepare_forward("001", ForwardConfig(eeg_net="A", fsaverage_spacing=5))
+        paths = fwd.prepare_forward(
+            "001", ForwardConfig(eeg_net="A", fsaverage_spacing=6)
+        )
+
+        assert calls["fem"] == ["A"]
+        assert self._contents(paths) == ["csv-A|mesh-1|fsavg6"] * 3
+
+    def test_a_recording_frame_forward_is_not_reused_as_the_default(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        cfg = ForwardConfig(eeg_net="A")
+        fwd.prepare_forward("001", cfg)
+        fwd.prepare_forward("001", cfg, trans={"from": 4, "to": 5})
+        fwd.prepare_forward("001", cfg)
+
+        assert calls["fem"] == ["A"]
+        assert len(calls["worker"]) == 3
+
+    def test_outputs_without_provenance_are_rebuilt(
+        self, init_pm, tmp_project, monkeypatch
+    ):
+        """Forwards made before provenance was recorded (possibly on collapsed caps)."""
+        from tit.source.config import ForwardConfig
+
+        fwd, _, calls = self._setup(monkeypatch, tmp_project)
+        forward_dir = Path(init_pm.forward("001"))
+        forward_dir.mkdir(parents=True, exist_ok=True)
+        (forward_dir / "001_leadfield_A.hdf5").write_text("old")
+        for suffix in ("-fwd.fif", "-src.fif", "-morph.h5"):
+            (forward_dir / f"sub-001_net-A{suffix}").write_text("old")
+
+        paths = fwd.prepare_forward("001", ForwardConfig(eeg_net="A"))
+
+        assert calls["fem"] == ["A"]
+        assert self._contents(paths) == ["csv-A|mesh-1|fsavg5"] * 3
