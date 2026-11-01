@@ -38,7 +38,7 @@ interface ParsedHostPath {
 }
 
 function parseHostPath(raw: string): ParsedHostPath {
-  const norm = raw.trim().replace(/\\/g, "/");
+  const norm = raw.replace(/\\/g, "/");
   // UNC (\\server\share\...): also covers WSL's \\wsl.localhost\<distro>\... and \\wsl$\<distro>\...
   // — structurally just another UNC path, so no special-casing is needed.
   const unc = norm.match(/^\/\/+([^/]+)\/([^/]+)\/?(.*)$/);
@@ -91,7 +91,7 @@ export function projectDirName(hostDir: string): string {
 }
 
 function normContainerPath(path: string): string {
-  return path.trim().replace(/\\/g, "/").replace(/\/+$/, "");
+  return path.replace(/\\/g, "/").replace(/\/+$/, "");
 }
 
 /**

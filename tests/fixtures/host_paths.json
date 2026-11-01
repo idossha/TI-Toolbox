@@ -14,7 +14,9 @@
     {"why": "sibling dir sharing the prefix is outside (/mnt/000x vs /mnt/000)", "container": "/mnt/000x/a", "container_root": "/mnt/000", "host_root": "/home/me/000", "platform": "linux", "expected": null},
     {"why": "nested container path, trailing slash on container root", "container": "/mnt/000/a/b/c.nii", "container_root": "/mnt/000/", "host_root": "/home/me/000", "platform": "linux", "expected": "/home/me/000/a/b/c.nii"},
     {"why": "project nested inside the mount", "container": "/mnt/000/sub/a", "container_root": "/mnt/000/sub", "host_root": "C:\\data\\000\\sub", "platform": "win32", "expected": "C:\\data\\000\\sub\\a"},
-    {"why": "dot-dot never escapes the root", "container": "/mnt/000/../etc/passwd", "container_root": "/mnt/000", "host_root": "/home/me/000", "platform": "linux", "expected": null}
+    {"why": "dot-dot never escapes the root", "container": "/mnt/000/../etc/passwd", "container_root": "/mnt/000", "host_root": "/home/me/000", "platform": "linux", "expected": null},
+    {"why": "a host folder whose name ends in a space keeps the space", "container": "/mnt/proj/a.txt", "container_root": "/mnt/proj", "host_root": "/Users/me/proj ", "platform": "darwin", "expected": "/Users/me/proj /a.txt"},
+    {"why": "a mount whose name ends in a space keeps the space", "container": "/mnt/proj /a.txt", "container_root": "/mnt/proj ", "host_root": "/Users/me/proj ", "platform": "darwin", "expected": "/Users/me/proj /a.txt"}
   ],
   "to_container": [
     {"why": "Windows host path", "host": "C:\\Users\\me\\proj\\a\\b.txt", "host_root": "C:\\Users\\me\\proj", "container_root": "/mnt/proj", "platform": "win32", "expected": "/mnt/proj/a/b.txt"},
