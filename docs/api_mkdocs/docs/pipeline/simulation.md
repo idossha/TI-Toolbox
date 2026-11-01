@@ -126,8 +126,8 @@ After simulation, TI-Toolbox produces several derived field types:
 
 The selected fields are written into one field mesh, `<montage>_TI.msh` (`<montage>_mTI.msh`), and
 onto its central surface with `TI_normal` (`tit.volume_fields.central_surface`). NIfTI volumes are
-opt-in: `map_to_vol=True` writes one 3-D NIfTI per mesh field for the whole brain tissue and its
-grey- and white-matter parts (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
+opt-in: `map_to_vol=True` writes one 3-D NIfTI per mesh field for all head tissues (electrodes and
+gel removed) and its grey- and white-matter parts (`map_to_mni=True`, which needs it, adds MNI copies). A field or NIfTI an
 analysis or group tool needs and the run did not save is computed from the kept channel meshes
 (`high_Frequency/mesh/`) and saved by `tit.volume_fields` (`ensure_mesh_fields`, `ensure_niftis`),
 except `hf_power_density`, whose conductivity is not kept.

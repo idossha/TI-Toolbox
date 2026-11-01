@@ -62,7 +62,7 @@ Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI
 - **E2+**: Electrodes for positive channel 2
 - **E2-**: Electrodes for negative channel 2
 
-**Combinations**: at most $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$; physically identical montages are evaluated once.
+**Combinations**: at most $$N_1 \times N_2 \times N_3 \times N_4$$, where $$N_i$$ is the number of electrodes in bucket $$i$$ (a choice that uses one electrode twice is skipped).
 
 ### All combinations
 

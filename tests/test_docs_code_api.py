@@ -510,6 +510,66 @@ def test_a_call_that_elides_or_unpacks_arguments_may_omit_required_ones() -> Non
     assert problems == [] and calls == ["SimulationConfig", "SimulationConfig"]
 
 
+_HEMI_SUFFIX = re.compile(r"-(lh|rh)$")
+
+
+def string_value_problems(blocks: list[Block]) -> list[str]:
+    """Literal values the signature check cannot see: the name forms the code accepts.
+
+    * ``region=`` / ``regions=`` strings are atlas keys, ``lh.precentral`` -- never
+      the ``precentral-lh`` spelling (``Analyzer._resolve_mesh_region`` raises KeyError).
+    * ``load_montages(..., eeg_net=...)`` looks the net up under its ``.csv`` filename
+      in ``montage_list.json`` and ``sim.utils`` joins it onto ``eeg_positions``.
+    """
+    problems: list[str] = []
+    for block in blocks:
+        try:
+            tree = ast.parse(block.source)
+        except SyntaxError:
+            continue
+        for call in (n for n in ast.walk(tree) if isinstance(n, ast.Call)):
+            func = call.func
+            callee = getattr(func, "id", None) or getattr(func, "attr", None)
+            values = {k.arg: k.value for k in call.keywords if k.arg}
+            where = f"{block.path}:{block.line + call.lineno - 1}"
+            for key in ("region", "regions"):
+                literals = [
+                    n.value
+                    for n in ast.walk(values.get(key, ast.Constant(None)))
+                    if isinstance(n, ast.Constant) and isinstance(n.value, str)
+                ]
+                for name in literals:
+                    if _HEMI_SUFFIX.search(name):
+                        problems.append(f"{where}: region {name!r} is not lh.<name>")
+            if callee == "load_montages":
+                net = values.get("eeg_net") or (
+                    call.args[1] if len(call.args) > 1 else None
+                )
+                if (
+                    isinstance(net, ast.Constant)
+                    and isinstance(net.value, str)
+                    and not net.value.endswith(".csv")
+                ):
+                    problems.append(f"{where}: eeg_net {net.value!r} lacks '.csv'")
+    return problems
+
+
+def test_the_docs_use_the_name_forms_the_code_accepts() -> None:
+    assert string_value_problems(_docs_blocks() + script_blocks()) == []
+
+
+def test_the_name_form_check_flags_the_old_spellings() -> None:
+    source = (
+        "a.analyze_cortex(atlas='DK40', region='precentral-lh')\n"
+        "a.analyze_cortex(atlas='DK40', region=['lh.4', '3a-rh'])\n"
+        "load_montages(['m'], 'GSN-HydroCel-185')\n"
+        "load_montages(['m'], eeg_net='GSN-HydroCel-185.csv')\n"
+        "a.analyze_cortex(atlas='DK40', region='lh.precentral')\n"
+    )
+    problems = string_value_problems([Block("probe.md", 1, source)])
+    assert [p.split(":")[1] for p in problems] == ["1", "2", "3"], problems
+
+
 def test_the_blender_lazy_exports_resolve() -> None:
     problems, imports, _calls = check_blocks(
         [Block("probe.md", 1, "from tit.blender import MontageConfig, run_montage\n")]
