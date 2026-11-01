@@ -6,7 +6,6 @@
   "panels": [
     "source"
   ],
-  "image_tag": "idossha/simnibs:v2.3.1",
   "theme": "system",
   "agent_auto_submit": false
 }

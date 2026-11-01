@@ -11,7 +11,7 @@ import { useExecutionPrefs, type ExistingOutputPolicy } from "../../app/executio
 import { isElectron } from "../../env";
 import { Button } from "../../ui/Button";
 import { Callout, DefinitionList, Skeleton } from "../../ui/Feedback";
-import { Field, TextInput } from "../../ui/Field";
+import { Field } from "../../ui/Field";
 import { Card, CardBody, CardHeader, PageLayout } from "../../ui/Layout";
 import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Checkbox, Switch } from "../../ui/Toggle";
@@ -246,18 +246,6 @@ function SettingsPage() {
                   ...(isElectron && projectQuery.data.host_path ? ([["Host path", projectQuery.data.host_path]] as [string, string][]) : []),
                 ]}
               />
-            )}
-            {form && (
-              <div style={{ marginTop: "var(--space-3)" }}>
-                <Field label="Image tag override" htmlFor="settings-image-tag" help="Pin the toolbox image to a specific tag instead of the install's default. Leave blank to use the default.">
-                  <TextInput
-                    id="settings-image-tag"
-                    value={form.image_tag ?? ""}
-                    placeholder="e.g. idossha/ti-toolbox:v3.0.0"
-                    onChange={(e) => patch({ image_tag: e.target.value.trim() === "" ? null : e.target.value })}
-                  />
-                </Field>
-              </div>
             )}
           </CardBody>
         </Card>

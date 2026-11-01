@@ -26,7 +26,6 @@ import { clearPageSession } from "../../src/renderer/app/pageSession";
 const SETTINGS_FIXTURE = {
   telemetry: { consented: true, enabled: false },
   panels: ["source", "caps"],
-  image_tag: null,
   theme: "system" as const,
 };
 
@@ -112,6 +111,8 @@ describe("SettingsPage with a pre-warmed [\"settings\"] query cache", () => {
     expect(bodyText).toContain("Send anonymous usage data");
     expect(bodyText).toContain("Feature panels");
     expect(bodyText).toContain("Source");
+    // No launcher ever read the saved "Image tag override": the dead control is gone (G3-2).
+    expect(container.querySelector("#settings-image-tag")).toBeNull();
     const replace = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Replace and rerun");
     expect(replace?.disabled).toBe(false);
 

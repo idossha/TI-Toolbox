@@ -6939,7 +6939,6 @@ export interface components {
             telemetry: components["schemas"]["Telemetry"];
             /** @description enabled optional panels (Source, Cluster Permutation, NIfTI Group Average, Nilearn Visuals, 3D Visual Exporter, EEG Caps) */
             panels: string[];
-            image_tag?: string | null;
             /** @enum {string} */
             theme: "system" | "light" | "dark";
             /** @description "Agent may submit without approval" (Settings > Project > AI assistant). Off (the default, and what an absent field means on PUT) makes POST /api/jobs and /api/jobs/groups refuse created_by agent with 403; the agent proposes instead (/api/proposals). */
