@@ -36,7 +36,12 @@ class FakeSocket {
   }
 }
 
-const { notifyJobCompletions, stopNotifyingJobCompletions } = await import("../../src/main/jobsNotifier");
+// Imported through a variable, as main-ipc-fakes.ts imports index.ts: main/ is outside tsconfig.web.json.
+const NOTIFIER = "../../src/main/jobsNotifier";
+const { notifyJobCompletions, stopNotifyingJobCompletions } = (await import(/* @vite-ignore */ NOTIFIER)) as {
+  notifyJobCompletions: (origin: string, token: string) => void;
+  stopNotifyingJobCompletions: () => void;
+};
 const URL_FOR = "ws://127.0.0.1:18765/ws/jobs?token=tok";
 
 beforeEach(() => {

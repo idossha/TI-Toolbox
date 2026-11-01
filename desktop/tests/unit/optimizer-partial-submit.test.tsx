@@ -25,6 +25,7 @@ import { api } from "../../src/renderer/api/client";
 import { clearPageSession, sessionSlot, writeSession } from "../../src/renderer/app/pageSession";
 import { emptyOptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import { defaultFlexFormState } from "../../src/renderer/pages/optimizer/flexConfig";
+import type { RoiValue } from "../../src/renderer/pages/_shared/roi";
 
 const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn(), info: vi.fn(), blocked: vi.fn() }));
 
@@ -61,7 +62,7 @@ let container: HTMLDivElement;
 let root: Root;
 let client: QueryClient;
 
-const sphere = { mode: "spherical", spheres: [{ x: 1, y: 2, z: 3, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" } as const;
+const sphere: RoiValue = { mode: "spherical", spheres: [{ x: 1, y: 2, z: 3, radius: 10 }], space: "subject", volumetric: false, tissues: "GM" };
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
