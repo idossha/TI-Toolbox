@@ -360,12 +360,10 @@ def project_subject(
 
     pm = get_path_manager()
     out_path = Path(pm.sim_fsaverage_fields(subject_id, sim, cfg.fsaverage_spacing))
-    if (
-        out_path.exists()
-        and not cfg.overwrite
-        and set(cfg.fields) <= (msh_field_names(out_path) or set())
-    ):
-        return subject_id, "cached", out_path.name
+    if out_path.exists() and not cfg.overwrite:
+        names = msh_field_names(out_path)  # None: could not tell, keep the file
+        if names is None or set(cfg.fields) <= names:
+            return subject_id, "cached", out_path.name
     try:
         carrier_only = _recorded_carrier_only(pm, subject_id, sim)
         maps = _compute_fields(pm, subject_id, sim, cfg, carrier_only)
