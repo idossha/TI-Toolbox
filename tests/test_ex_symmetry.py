@@ -406,6 +406,61 @@ class TestMontageRecords:
         # Fallback parses the mesh key, 8 electrodes for mex runs.
         assert records[1]["electrodes"] == ["E", "F", "G", "H", "I", "J", "K", "L"]
 
+    def test_distinct_montages_drops_polarity_flips_and_channel_swaps(self):
+        from tit.opt.ex.results import distinct_montages
+
+        def rec(electrodes, suffix, tag):
+            return {
+                "montage": f"{tag}{suffix}",
+                "electrodes": list(electrodes),
+                "composite": 1.0,
+            }
+
+        ab_cd = rec("ABCD", "_I1-1.0mA_I2-1.0mA", "first")
+        records = [
+            ab_cd,
+            rec("BACD", "_I1-1.0mA_I2-1.0mA", "polarity flip"),
+            rec("CDAB", "_I1-1.0mA_I2-1.0mA", "swap, equal currents"),
+            rec("CDAB", "_I1-1.8mA_I2-0.2mA", "swap, unequal currents"),
+            rec("ABCD", "_I1-0.2mA_I2-1.8mA", "other split"),
+            rec("ABCD", "_I1-1.8mA_I2-0.2mA", "carried"),
+            rec("ABCE", "_I1-1.0mA_I2-1.0mA", "other electrodes"),
+        ]
+        kept = [r["montage"].split("_I1")[0] for r in distinct_montages(records)]
+        # By hand: the flip and the equal-current swap repeat the first. "swap, unequal" is
+        # CD at 1.8 and AB at 0.2, which "other split" (AB 0.2, CD 1.8) repeats; "carried"
+        # (AB 1.8, CD 0.2) is a different current placement, as are the other electrodes.
+        assert kept == [
+            "first",
+            "swap, unequal currents",
+            "carried",
+            "other electrodes",
+        ]
+
+    def test_distinct_montages_reads_the_mex_single_current_suffix(self):
+        from tit.opt.ex.results import distinct_montages
+
+        records = [
+            {"montage": "A_B <> C_D <> E_F <> G_H_I-1.0mA", "electrodes": list("ABCDEFGH")},
+            {"montage": "B_A <> E_F <> C_D <> H_G_I-1.0mA", "electrodes": list("BAEFCDHG")},
+        ]
+        assert distinct_montages(records) == records[:1]
+
+    def test_electrode_maps_are_drawn_from_distinct_montages(self, tmp_path):
+        from tit.opt.ex.results import generate_electrode_maps
+
+        records = [
+            {"montage": "A_B <> C_D_I1-1.0mA_I2-1.0mA", "electrodes": list("ABCD")},
+            {"montage": "B_A <> C_D_I1-1.0mA_I2-1.0mA", "electrodes": list("BACD")},
+        ]
+        with patch("tit.plotting.ti_metrics.plot_electrode_score_heatmap") as heatmap, patch(
+            "tit.plotting.ti_metrics.plot_montage_score_map"
+        ) as maps:
+            generate_electrode_maps(records, "net.csv", str(tmp_path), MagicMock())
+        assert heatmap.call_args.kwargs["montage_scores"] == records[:1]
+        assert all(c.kwargs["montage_scores"] == records[:1] for c in maps.call_args_list)
+        assert maps.call_count == 2
+
     def test_records_from_csv(self, tmp_path):
         from tit.opt.ex.results import montage_score_records_from_csv
 

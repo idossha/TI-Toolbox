@@ -392,6 +392,31 @@ def montage_score_records_from_csv(csv_path: str | Path) -> list[dict]:
     return records
 
 
+def distinct_montages(records: list[dict]) -> list[dict]:
+    """*records* without the montages that repeat another's physical set-up.
+
+    A montage is its electrode pairs with the current each carries: flipping a
+    pair's polarity, or swapping the channels together with their currents,
+    gives the same TI field. The bucket search evaluates each such variant
+    (``symmetric_bucket`` or not), so the maps would otherwise count it several
+    times. The first record of each set-up is kept; the currents are read from
+    the ``_I1-..mA_I2-..mA`` / ``_I-..mA`` suffix of the montage name.
+    """
+    seen, distinct = set(), []
+    for record in records:
+        labels = record["electrodes"]
+        pairs = [frozenset(labels[i : i + 2]) for i in range(0, len(labels), 2)]
+        suffix = _MONTAGE_SUFFIX.search(record.get("montage", ""))
+        currents = re.findall(r"[\d.]+(?=mA)", suffix.group()) if suffix else []
+        if len(currents) == 1:
+            currents *= len(pairs)
+        key = frozenset(zip(pairs, currents or [None] * len(pairs)))
+        if key not in seen:
+            seen.add(key)
+            distinct.append(record)
+    return distinct
+
+
 def generate_electrode_maps(
     records: list[dict],
     eeg_positions_csv: str | Path,
@@ -405,6 +430,7 @@ def generate_electrode_maps(
         plot_montage_score_map,
     )
 
+    records = distinct_montages(records)
     if not records:
         return []
     title_prefix = "mTI Search" if len(records[0]["electrodes"]) > 4 else "Ex-Search"
