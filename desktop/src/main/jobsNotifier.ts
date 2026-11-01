@@ -185,6 +185,8 @@ export function notifyJobCompletions(origin: string, token: string, win?: Browse
         // Stopped or replaced (a disconnect or another session): nothing to resume.
         if (socket !== ws) return;
         socket = null;
+        // The server refused this token or origin (4401/4403): retrying cannot succeed.
+        if (ev.code === 4401 || ev.code === 4403) return;
         // A bare drop of the current session's socket: reopen it, 1 s doubling to 30 s.
         reconnectTimer = setTimeout(() => listen(retries + 1), Math.min(30_000, 1000 * 2 ** retries));
       });

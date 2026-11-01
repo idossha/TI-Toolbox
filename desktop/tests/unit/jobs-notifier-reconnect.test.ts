@@ -95,3 +95,10 @@ it("does not reconnect once the session's notifier is stopped or replaced", asyn
   await vi.advanceTimersByTimeAsync(120_000);
   expect(FakeSocket.instances).toHaveLength(2);
 });
+
+it("does not retry a close the server sent to refuse the token or origin", async () => {
+  notifyJobCompletions("http://127.0.0.1:18765", "tok");
+  FakeSocket.instances[0]!.fire("close", { code: 4401 });
+  await vi.advanceTimersByTimeAsync(120_000);
+  expect(FakeSocket.instances).toHaveLength(1);
+});
