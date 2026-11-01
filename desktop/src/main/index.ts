@@ -74,9 +74,14 @@ let fastSurferProject: string | undefined;
 let fastSurferError: string | undefined;
 let fastSurferGeneration = 0;
 
-function localFastSurferProject(): string | undefined {
+/** The stack this app started, only while it is the session the window talks to: it outlives a manual Connect elsewhere. */
+function sessionStack() {
   const current = stack.getCurrent();
-  return current && activeSession?.origin === current.origin ? current.hostProjectDir : undefined;
+  return current && activeSession?.origin === current.origin ? current : null;
+}
+
+function localFastSurferProject(): string | undefined {
+  return sessionStack()?.hostProjectDir;
 }
 
 async function fastSurferStatus() {
@@ -353,7 +358,7 @@ async function getProjectRoot(): Promise<{ containerPath: string; hostPath: stri
 
 /** The stack this app started (`/mnt/<name>`), else `GET /api/project`'s own pair. */
 async function knownProjectRoots(): Promise<{ containerPath: string; hostPath: string | null } | null> {
-  const current = stack.getCurrent();
+  const current = sessionStack();
   if (!current) return getProjectRoot();
   try {
     return { containerPath: `/mnt/${projectDirName(current.hostProjectDir)}`, hostPath: current.hostProjectDir };
@@ -690,7 +695,7 @@ async function assistantProject(): Promise<{ session: NonNullable<typeof activeS
   const session = activeSession;
   if (!session) return { error: "Open a project first." };
   if (!isLoopbackOrigin(session.origin)) return { error: "The Assistant runs only with a TI-Toolbox on this computer." };
-  const projectDir = stack.getCurrent()?.hostProjectDir ?? nativeRuntime.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined;
+  const projectDir = sessionStack()?.hostProjectDir ?? nativeRuntime.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined;
   if (!projectDir || !existsSync(projectDir)) return { error: "This session has no project folder on this computer." };
   return { session, projectDir };
 }
@@ -778,7 +783,7 @@ function registerIpc(): void {
     if (!fromMainWindow(e) || typeof path !== "string" || !mayLaunchNativeViewer()) return { ok: false, reason: "Native preview is unavailable." };
     const requestedSession = activeSession;
     try {
-      const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+      const root = sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
       if (!root || !requestedSession) throw new Error("A local project is required for previews.");
       const mapped = await resolveHostPathStrict(path);
       if (!mapped.ok) throw new Error(mapped.reason);
@@ -787,7 +792,7 @@ function registerIpc(): void {
       if (!viewer.executable) throw new Error("Install TetraVox to generate previews.");
       await previewQueue(mapped.path, () => renderNativeScenePreview({
         scene: mapped.path, root, userData, executable: viewer.executable!,
-        current: async () => fromMainWindow(e) && requestedSession === activeSession && root === (stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath),
+        current: async () => fromMainWindow(e) && requestedSession === activeSession && root === (sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath),
         resize: (png) => {
           const image = nativeImage.createFromBuffer(png);
           if (image.isEmpty()) throw new Error("TetraVox returned an empty preview.");
@@ -802,7 +807,7 @@ function registerIpc(): void {
     return orchestrateNativeSceneSave(name, {
       trusted: () => fromMainWindow(e),
       session: () => activeSession,
-      projectRoot: async () => stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined,
+      projectRoot: async () => sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath ?? undefined,
       fetchDestination: (url, init) => net.fetch(url, init),
       resolveHostPath: resolveHostPathStrict,
       prepareNativeSceneSave: async () => {
@@ -825,7 +830,7 @@ function registerIpc(): void {
       if (path) {
         const mapped = await resolveHostPathStrict(path);
         if (!mapped.ok) return { ok: false, reason: mapped.reason };
-        const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+        const root = sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
         if (!root) return { ok: false, reason: "Native viewing requires a locally accessible project." };
         scene = await checkViewerScene(mapped.path, root);
       }
@@ -856,13 +861,13 @@ function registerIpc(): void {
         launch: async () => {
           if (!fromMainWindow(e) || requestedSession !== activeSession) throw new Error("The viewer request is no longer active.");
           if (scene) {
-            const currentRoot = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+            const currentRoot = sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
             if (!currentRoot) throw new Error("The project is no longer connected.");
             await checkViewerScene(scene, currentRoot);
           }
           const viewer = selectedViewer ?? await nativeViewerStatus(userData);
           if (scene && viewer.supportsSceneSave) {
-            const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+            const root = sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
             if (!root) throw new Error("The project is no longer connected.");
             await nativeScenes.open(scene, root, viewer);
           } else {
@@ -1149,7 +1154,7 @@ void app.whenReady().then(async () => {
         if (mainWindow && !mainWindow.isDestroyed()) void dialog.showMessageBox(mainWindow, { type: "warning", message: "TetraVox update", detail: message });
       },
       relaunch: async () => {
-        const root = stack.getCurrent()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
+        const root = sessionStack()?.hostProjectDir ?? (await getProjectRoot())?.hostPath;
         const scene = lastNativeScene && root ? await checkViewerScene(lastNativeScene, root).catch(() => "") : "";
         await openNativeViewer(userData, scene).catch((error: unknown) => log("warn", `TetraVox relaunch: ${error instanceof Error ? error.message : String(error)}`));
       },
