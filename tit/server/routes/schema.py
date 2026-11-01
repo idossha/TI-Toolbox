@@ -17,7 +17,12 @@ import tit
 
 router = APIRouter()
 
-SCHEMA_PATH = Path(tit.__file__).resolve().parent.parent / "contracts" / "generated" / "config.schema.json"
+SCHEMA_PATH = (
+    Path(tit.__file__).resolve().parent.parent
+    / "contracts"
+    / "generated"
+    / "config.schema.json"
+)
 
 _cache: tuple[float, dict[str, Any]] | None = None
 
@@ -28,7 +33,8 @@ def _load_schema() -> dict[str, Any]:
         mtime = SCHEMA_PATH.stat().st_mtime
     except OSError as exc:
         raise HTTPException(
-            status_code=503, detail=f"contracts/generated/config.schema.json not found: {exc}"
+            status_code=503,
+            detail=f"contracts/generated/config.schema.json not found: {exc}",
         ) from exc
     if _cache is None or _cache[0] != mtime:
         with open(SCHEMA_PATH) as f:
@@ -39,4 +45,3 @@ def _load_schema() -> dict[str, Any]:
 @router.get("/api/schema", summary="The full generated schema.json")
 def schema() -> dict[str, Any]:
     return _load_schema()
-

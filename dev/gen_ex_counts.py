@@ -11,11 +11,11 @@ Every number here is a brute force that imports nothing from ``tit``:
 * the current splits are hand-checked lists (short ones literal, long ones the arithmetic spec
   ``c1 = total - k * step`` for ``k = 1..``, both channels within ``[step, limit]``); no limit is
   the single balanced split ``(total / 2, total / 2)`` (``ExConfig.channel_limit=None``);
-* bucket mode counts ``itertools.product`` tuples whose electrodes are all distinct (a label
-  listed twice in one bucket is one electrode);
-* pool mode counts distinct *physical* stimulations: each ``product(pool, repeat=4)`` tuple with
-  four distinct electrodes, at each split, reduced to ``{(pair1 as a set, I1), (pair2 as a set,
-  I2)}`` -- the two-channel TI envelope ignores channel polarity and channel order.
+* Ex counts distinct *physical* stimulations: each ``itertools.product`` tuple with four
+  distinct electrodes (of the four buckets, or ``product(pool, repeat=4)``), at each split,
+  reduced to ``{(pair1 as a set, I1), (pair2 as a set, I2)}`` -- the two-channel TI envelope
+  ignores channel polarity and channel order (a label listed twice is one electrode);
+* mEx bucket mode counts ``itertools.product`` tuples whose electrodes are all distinct.
 
 Regenerate: ``python3 dev/gen_ex_counts.py`` (a few seconds: the 8 x 8-electrode mEx case walks
 8^8 tuples). The output is deterministic; ``git diff`` after a run should be empty.
@@ -80,8 +80,8 @@ def _distinct_tuples(buckets: list[list[str]]) -> int:
     return sum(1 for t in product(*unique) if len(set(t)) == len(t))
 
 
-def _physical_pool(pool: list[str], splits: list[list[float]]) -> int:
-    labels = list(dict.fromkeys(pool))
+def _physical(buckets: list[list[str]], splits: list[list[float]]) -> int:
+    unique = [list(dict.fromkeys(b)) for b in buckets]
     keys = {
         frozenset(
             {
@@ -89,7 +89,7 @@ def _physical_pool(pool: list[str], splits: list[list[float]]) -> int:
                 (frozenset(quad[2:]), round(i2, 9)),
             }
         )
-        for quad in product(labels, repeat=4)
+        for quad in product(*unique)
         if len(set(quad)) == 4
         for i1, i2 in splits
     }
@@ -98,7 +98,9 @@ def _physical_pool(pool: list[str], splits: list[list[float]]) -> int:
 
 def ex_bucket(case_id: str, buckets: list[list[str]], sweep: str, why: str) -> dict:
     s = _sweep(sweep)
-    montages = _distinct_tuples(buckets)
+    combos = _physical(buckets, s["splits"])
+    # With no split nothing runs, but the montages exist: count them at the balanced split.
+    montages = _physical(buckets, s["splits"] or [[1.0, 1.0]])
     return {
         "id": case_id,
         "kind": "ex",
@@ -106,14 +108,14 @@ def ex_bucket(case_id: str, buckets: list[list[str]], sweep: str, why: str) -> d
         "mode": "bucketed",
         "buckets": dict(zip(EX_KEYS, buckets)),
         **s,
-        "expected_montages": montages,
-        "expected_combinations": montages * len(s["splits"]),
+        "expected_montages": montages // max(1, len(s["splits"])),
+        "expected_combinations": combos,
     }
 
 
 def ex_pool(case_id: str, pool: list[str], sweep: str, why: str) -> dict:
     s = _sweep(sweep)
-    combos = _physical_pool(pool, s["splits"])
+    combos = _physical([pool] * 4, s["splits"])
     return {
         "id": case_id,
         "kind": "ex",
@@ -147,7 +149,9 @@ def cases() -> list[dict]:
         ex_pool(
             "pool4", ["F3", "F4", "P3", "P4"], "2_0.5_none", "smallest pool, no limit"
         ),
-        ex_pool("pool4_sweep", ["F3", "F4", "P3", "P4"], "2_0.5_1.5", "a 3-split sweep"),
+        ex_pool(
+            "pool4_sweep", ["F3", "F4", "P3", "P4"], "2_0.5_1.5", "a 3-split sweep"
+        ),
         ex_pool(
             "pool5_audit",
             ["AF7", "AFz", "CP6", "P10", "POz"],
@@ -198,6 +202,24 @@ def cases() -> list[dict]:
             [["A", "A", "B"], ["C"], ["D"], ["E"]],
             "2_0.4_1.6",
             "a label listed twice in one bucket is one electrode",
+        ),
+        ex_bucket(
+            "bucket_same_four",
+            [["A", "B", "C", "D"]] * 4,
+            "2_0.4_1.6",
+            "every bucket the same: each montage once, like pool mode",
+        ),
+        ex_bucket(
+            "bucket_same_four_asymmetric",
+            [["A", "B", "C", "D"]] * 4,
+            "2_0.4_1.5",
+            "split list not its own mirror: both channel orders count",
+        ),
+        ex_bucket(
+            "bucket_cross_channel_overlap",
+            [["A", "B", "C"], ["D", "E"], ["B", "D", "F"], ["A", "E", "C", "G"]],
+            "2_0.5_none",
+            "buckets overlapping across poles and channels",
         ),
         mex_bucket(
             "mex_same_eight",

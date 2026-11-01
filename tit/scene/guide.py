@@ -155,7 +155,9 @@ def manifest(guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
     return _manifest_cached(str(root), (stat.st_size, int(stat.st_mtime_ns)))
 
 
-def _entry(section: str, key: str, value: str, guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:
+def _entry(
+    section: str, key: str, value: str, guide_id: str = DEFAULT_GUIDE
+) -> dict[str, Any]:
     body = manifest(guide_id)
     for entry in body.get(section, []):
         if entry.get(key) == value:
@@ -186,7 +188,9 @@ def surface(part: str, fmt: str = "tvsc", guide_id: str = DEFAULT_GUIDE) -> Guid
             f"the guide's {part!r} surface is not packaged as {fmt!r}; "
             f"available: {', '.join(sorted(files)) or 'nothing'}."
         )
-    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id)
+    return _asset(
+        files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id
+    )
 
 
 def labels(atlas: str, fmt: str = "gii", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
@@ -198,7 +202,9 @@ def labels(atlas: str, fmt: str = "gii", guide_id: str = DEFAULT_GUIDE) -> Guide
             f"the guide's {atlas!r} labels are not packaged as {fmt!r}; "
             f"available: {', '.join(sorted(files)) or 'nothing'}."
         )
-    return _asset(files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id)
+    return _asset(
+        files[fmt], {**entry, **files.get(f"{fmt}_meta", {}), "format": fmt}, guide_id
+    )
 
 
 def legend(atlas: str, guide_id: str = DEFAULT_GUIDE) -> dict[str, Any]:

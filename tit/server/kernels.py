@@ -249,7 +249,9 @@ class KernelRegistry:
 
     # ---- lifecycle ------------------------------------------------------
 
-    def start(self, *, cwd: str | Path, kernel_name: str = DEFAULT_KERNEL_NAME) -> KernelSession:
+    def start(
+        self, *, cwd: str | Path, kernel_name: str = DEFAULT_KERNEL_NAME
+    ) -> KernelSession:
         """Start a kernel, or raise :class:`KernelError` saying why not."""
         self.reap_idle()
         with self._lock:
@@ -292,7 +294,11 @@ class KernelRegistry:
                 manager.shutdown_kernel(now=True)
             except Exception:
                 pass
-            code = "no-kernelspec" if type(error).__name__ == "NoSuchKernel" else "start-failed"
+            code = (
+                "no-kernelspec"
+                if type(error).__name__ == "NoSuchKernel"
+                else "start-failed"
+            )
             message = (
                 f"No kernel named {kernel_name!r} is installed in this container. The image "
                 f"registers 'simnibs'; check `jupyter kernelspec list` inside the container."
@@ -424,7 +430,9 @@ class KernelRegistry:
             for session in stale:
                 self._sessions.pop(session.id, None)
         for session in stale:
-            logger.info("kernel %s reaped after %.0fs idle", session.id, self.idle_timeout)
+            logger.info(
+                "kernel %s reaped after %.0fs idle", session.id, self.idle_timeout
+            )
             self._shutdown_session(session)
         return [s.id for s in stale]
 
@@ -439,7 +447,9 @@ class KernelRegistry:
         """
         with self._lock:
             if self._sessions.get(session.id) is not session:
-                raise KernelError("no-such-kernel", f"No kernel {session.id!r} is running.")
+                raise KernelError(
+                    "no-such-kernel", f"No kernel {session.id!r} is running."
+                )
             session.in_flight += 1
             session.last_used = self._clock()
 
@@ -479,7 +489,9 @@ class KernelRegistry:
         with session.lock:
             session.queries[msg_id] = (req_id, "complete")
 
-    def inspect(self, kernel_id: str, req_id: str, code: str, cursor_pos: int, detail: int = 0) -> None:
+    def inspect(
+        self, kernel_id: str, req_id: str, code: str, cursor_pos: int, detail: int = 0
+    ) -> None:
         """Ask the kernel about the name under the cursor (Jupyter's ⇧⇥)."""
         session = self.get(kernel_id)
         self._begin_request(session)
@@ -523,7 +535,9 @@ class KernelRegistry:
         try:
             session.client.stop_channels()
         except Exception as error:  # pragma: no cover - already-closed channels
-            logger.debug("kernel %s stop_channels before restart: %s", session.id, error)
+            logger.debug(
+                "kernel %s stop_channels before restart: %s", session.id, error
+            )
 
         try:
             session.manager.restart_kernel(now=False)
@@ -566,7 +580,11 @@ class KernelRegistry:
                 logger.debug("kernel %s listener failed: %s", session.id, error)
 
     def _finish_half(
-        self, session: KernelSession, parent_id: str, half: str, content: dict[str, Any] | None
+        self,
+        session: KernelSession,
+        parent_id: str,
+        half: str,
+        content: dict[str, Any] | None,
     ) -> dict[str, Any] | None:
         """Record one half of a request's end; return the event when both are in.
 
@@ -644,13 +662,19 @@ class KernelRegistry:
             if msg_type == "clear_output":
                 self._emit(
                     session,
-                    {"type": "clear", "reqId": req_id, "wait": bool(content.get("wait", False))},
+                    {
+                        "type": "clear",
+                        "reqId": req_id,
+                        "wait": bool(content.get("wait", False)),
+                    },
                 )
                 continue
             if msg_type in OUTPUT_MSG_TYPES:
                 output = output_from_msg(msg_type, content)
                 if output is not None:
-                    self._emit(session, {"type": "output", "reqId": req_id, "output": output})
+                    self._emit(
+                        session, {"type": "output", "reqId": req_id, "output": output}
+                    )
 
     def _pump_shell(self, session: KernelSession) -> None:
         while not session.stopping.is_set():
@@ -672,11 +696,15 @@ class KernelRegistry:
                 if query is None:
                     continue
                 self._end_request(session)
-                self._emit(session, _query_event(query[0], msg_type, msg.get("content", {})))
+                self._emit(
+                    session, _query_event(query[0], msg_type, msg.get("content", {}))
+                )
                 continue
             if msg_type != "execute_reply":
                 continue
-            event = self._finish_half(session, parent_id, "reply", msg.get("content", {}))
+            event = self._finish_half(
+                session, parent_id, "reply", msg.get("content", {})
+            )
             if event is not None:
                 self._emit(session, event)
 

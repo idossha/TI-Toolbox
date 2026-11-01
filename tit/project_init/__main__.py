@@ -43,7 +43,10 @@ from tit.project_init import initialize_project_structure
 def main(argv: list[str] | None = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     if not args:
-        print("project_init: expected a config JSON path as the first argument", file=sys.stderr)
+        print(
+            "project_init: expected a config JSON path as the first argument",
+            file=sys.stderr,
+        )
         return 2
     with open(args[0], encoding="utf-8") as fh:
         data = json.load(fh)

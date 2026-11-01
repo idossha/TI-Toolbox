@@ -1,8 +1,9 @@
 /**
- * The step between "Generate leadfield" and the job: which electrode the leadfield is computed
- * with. A leadfield is the field of one electrode model at every position of the net, so its size
- * and gel are part of what it is, and an Ex search over it scores montages with them. Starts at
- * the toolbox defaults (`defaultLeadfieldElectrode`) every time it opens.
+ * The step between "Generate leadfield" (or "Regenerate…") and the job: which electrode the
+ * leadfield is computed with. A leadfield is the field of one electrode model at every position of
+ * the net, so its size and gel are part of what it is, and an Ex search over it scores montages
+ * with them. Starts at the toolbox defaults (`defaultLeadfieldElectrode`) every time it opens, or,
+ * regenerating, at the electrode the existing leadfield records.
  */
 import { useState } from "react";
 import { Zap } from "lucide-react";
@@ -14,6 +15,9 @@ import { defaultLeadfieldElectrode, type LeadfieldElectrode } from "./api";
 export interface LeadfieldRequest {
   subject: string;
   net: string;
+  /** Set when the net already has a leadfield, which this one replaces: the electrode it records,
+   *  `null` when it records none. */
+  replaces?: LeadfieldElectrode | null;
 }
 
 function geometryOf(e: LeadfieldElectrode): ElectrodeGeometry {
@@ -42,16 +46,17 @@ export function LeadfieldStepDialog({
   const [seededFor, setSeededFor] = useState<LeadfieldRequest | null>(null);
   if (request && request !== seededFor) {
     setSeededFor(request);
-    setDraft(geometryOf(defaultLeadfieldElectrode()));
+    setDraft(geometryOf(request.replaces ?? defaultLeadfieldElectrode()));
   }
   if (!request && seededFor !== null) setSeededFor(null);
   const invalid = invalidReason(draft);
+  const regenerate = request?.replaces !== undefined;
 
   return (
     <Dialog
       open={!!request}
       onOpenChange={(open) => !open && onCancel()}
-      title="Generate leadfield"
+      title={regenerate ? "Regenerate leadfield" : "Generate leadfield"}
       description={request ? `${request.subject} · ${request.net}` : undefined}
       footer={
         <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", width: "100%" }}>
@@ -66,14 +71,14 @@ export function LeadfieldStepDialog({
               onClick={() =>
                 request &&
                 onConfirm(request, {
-                  ...defaultLeadfieldElectrode(),
+                  ...(request.replaces ?? defaultLeadfieldElectrode()),
                   electrode_shape: draft.electrodeShape,
                   electrode_dimensions: [...draft.dimensions],
                   gel_thickness: draft.gelThickness,
                 })
               }
             >
-              Generate
+              {regenerate ? "Regenerate" : "Generate"}
             </Button>
           </span>
         </div>
@@ -82,7 +87,10 @@ export function LeadfieldStepDialog({
       <div className="leadfield-step" data-testid="leadfield-step">
         <p className="field-help" style={{ margin: "0 0 var(--space-3)" }}>
           The leadfield places this electrode at every position of the net, and an Ex search over it scores montages with this
-          size and gel. A different electrode needs its own leadfield.
+          size and gel.{" "}
+          {regenerate
+            ? "A net has one leadfield, so regenerating replaces the current one."
+            : "A different electrode needs its own leadfield."}
         </p>
         <ElectrodeSettings value={draft} onChange={setDraft} />
       </div>

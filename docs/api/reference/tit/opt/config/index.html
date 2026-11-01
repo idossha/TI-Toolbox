@@ -2021,7 +2021,8 @@ observe_background : bool
     callable goals it is incompatible with <em>detailed_results</em>.
     Default <code>False</code>.
 output_folder : str or None
-    Override for the output directory path.  Defaults to an
+    Override for the output directory path; a relative name is a
+    folder under the subject's <code>flex-search/</code>.  Defaults to an
     auto-generated timestamped folder.
 run_final_electrode_simulation : bool
     If True, run a full SimNIBS simulation with the winning
@@ -2597,7 +2598,8 @@ tissues : str
 <h6 id="tit.opt.config.FlexConfig.SphericalROI--raises">Raises<a class="headerlink" href="#tit.opt.config.FlexConfig.SphericalROI--raises" title="Permanent link">&para;</a></h6>
 <p>ValueError
     If <em>x</em>/<em>y</em>/<em>z</em> are empty or unequal length, or <em>radius</em> is a list
-    whose length neither equals 1 nor the number of centers.</p>
+    whose length neither equals 1 nor the number of centers, or
+    <em>tissues</em> is not <code>"GM"</code>, <code>"WM"</code> or <code>"both"</code>.</p>
 
 
 
@@ -2662,7 +2664,8 @@ hemisphere : str or list of str
 <h6 id="tit.opt.config.FlexConfig.AtlasROI--raises">Raises<a class="headerlink" href="#tit.opt.config.FlexConfig.AtlasROI--raises" title="Permanent link">&para;</a></h6>
 <p>ValueError
     If <em>label</em> is empty, or <em>atlas_path</em>/<em>hemisphere</em> is a list whose
-    length neither equals 1 nor the number of labels.</p>
+    length neither equals 1 nor the number of labels, or a
+    <em>hemisphere</em> is not <code>"lh"</code> or <code>"rh"</code>.</p>
 
 
 
@@ -2730,7 +2733,8 @@ atlas_space : str
 <h6 id="tit.opt.config.FlexConfig.SubcorticalROI--raises">Raises<a class="headerlink" href="#tit.opt.config.FlexConfig.SubcorticalROI--raises" title="Permanent link">&para;</a></h6>
 <p>ValueError
     If <em>label</em> is empty, or <em>atlas_path</em> is a list whose length
-    neither equals 1 nor the number of labels.</p>
+    neither equals 1 nor the number of labels, or <em>tissues</em> is not
+    <code>"GM"</code>, <code>"WM"</code> or <code>"both"</code>.</p>
 
 
 
@@ -3001,8 +3005,8 @@ symmetry_pairing : str
     mirror image of channel 1 (<code>e2+ = mirror(e1+)</code>, <code>e2- = mirror(e1-)</code>).</p>
 <h5 id="tit.opt.config.ExConfig--raises">Raises<a class="headerlink" href="#tit.opt.config.ExConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>current_step</em>, <em>total_current</em>, or <em>channel_limit</em> are
-    non-positive, if <em>symmetric_bucket</em> is set with pool electrodes,
+    If <em>current_step</em>, <em>total_current</em>, <em>channel_limit</em> or
+    <em>roi_radius</em> is not a finite number above 0, if <em>symmetric_bucket</em> is set with pool electrodes,
     if <em>symmetry_pairing</em> is not <code>"within_pairs"</code>/<code>"cross_pairs"</code>,
     or if <em>roi_coordinate_space</em> is not <code>"subject"</code> or <code>"mni"</code>.</p>
 <h5 id="tit.opt.config.ExConfig--examples">Examples<a class="headerlink" href="#tit.opt.config.ExConfig--examples" title="Permanent link">&para;</a></h5>
@@ -3384,7 +3388,8 @@ symmetry_pairing : str
     channel 2 (<code>e3+ = mirror(e1+)</code>, <code>e3- = mirror(e1-)</code>, and so on).</p>
 <h5 id="tit.opt.config.MExConfig--raises">Raises<a class="headerlink" href="#tit.opt.config.MExConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>current_mA</em> is non-positive, if <em>symmetric_bucket</em> is set
+    If <em>current_mA</em> or <em>roi_radius</em> is not a finite number above 0,
+    if <em>symmetric_bucket</em> is set
     with pool electrodes, if <em>symmetry_pairing</em> is not one of
     <code>"within_pairs"</code>/<code>"cross_pairs"</code>, or if <em>roi_coordinate_space</em>
     is not <code>"subject"</code> or <code>"mni"</code>.</p>

@@ -1084,6 +1084,62 @@ def test_existing_sim_without_explicit_overwrite_is_rejected(client):
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 
+def _leadfield_body(overwrite_flag: bool, config_overwrite: bool = True) -> dict:
+    # What the Optimizer's leadfield step sends: the config always asks to compute (`overwrite`
+    # true); the request's own `overwrite` is the user's answer to the existing-outputs question.
+    return {
+        "kind": "leadfield",
+        "config": {
+            "subject_id": "001",
+            "eeg_net": "GSN-HydroCel-185",
+            "overwrite": config_overwrite,
+        },
+        "subject_ids": ["001"],
+        "overwrite": overwrite_flag,
+    }
+
+
+def test_a_new_leadfield_is_accepted_without_the_overwrite_answer(client):
+    response = client.post("/api/jobs", headers=BEARER, json=_leadfield_body(False))
+    assert response.status_code == 201, response.text
+
+
+def test_an_existing_leadfield_is_never_replaced_without_the_overwrite_answer(
+    client, project
+):
+    from tit.opt.leadfield import leadfield_filename
+
+    existing = Path(get_path_manager().leadfields("001")) / leadfield_filename(
+        "001", "GSN-HydroCel-185"
+    )
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"hdf5")
+
+    refused = client.post("/api/jobs", headers=BEARER, json=_leadfield_body(False))
+    assert refused.status_code == 409, refused.text
+    assert str(existing) in refused.json()["detail"]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+    accepted = client.post("/api/jobs", headers=BEARER, json=_leadfield_body(True))
+    assert accepted.status_code == 201, accepted.text
+
+
+def test_an_existing_leadfield_whose_config_keeps_it_needs_no_answer(client, project):
+    """A config with `overwrite` false makes the runner skip an existing file: nothing is replaced,
+    so nothing is asked (the agent plugin's default submission)."""
+    from tit.opt.leadfield import leadfield_filename
+
+    existing = Path(get_path_manager().leadfields("001")) / leadfield_filename(
+        "001", "GSN-HydroCel-185"
+    )
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(b"hdf5")
+    response = client.post(
+        "/api/jobs", headers=BEARER, json=_leadfield_body(False, config_overwrite=False)
+    )
+    assert response.status_code == 201, response.text
+
+
 @pytest.mark.parametrize("route", ["/api/jobs", "/api/jobs/groups"])
 def test_a_queued_jobs_output_folder_is_taken(client: TestClient, route: str) -> None:
     """The overwrite check reads the disk, where a queued job has written nothing yet: a second

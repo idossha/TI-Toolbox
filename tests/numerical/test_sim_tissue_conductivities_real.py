@@ -40,7 +40,7 @@ session = sim_struct.SESSION()
 tdcs = BaseSimulation._add_electrode_pair(stub, session, ["E1", "E2"], 1.0)
 std = [c.value for c in standard_cond()]
 got = [c.value for c in tdcs.cond]
-assert len(got) == len(std)
+assert len(got) == len(std) == 1000, "SimulationConfig accepts tissue numbers 1..1000"
 assert got[0] == 0.2 and got[1] == 0.4, got[:3]
 assert got[2:] == std[2:], "untouched tissues keep SimNIBS's standard values"
 """

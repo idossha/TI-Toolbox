@@ -149,6 +149,7 @@ def _fake_simnibs(sessions: list):
     )
     # the central overlays carry E_normal, as SimNIBS writes them
     mesh_io.read_msh.return_value.field.__contains__.return_value = True
+    mesh_io.write_msh.side_effect = lambda mesh, path: Path(path).write_bytes(b"new")
     with (
         patch.object(TISimulation, "_build_session", build),
         patch.object(base_mod, "run_simnibs", side_effect=lambda s: s.run()),
@@ -267,7 +268,8 @@ def test_a_confirmed_rerun_leaves_exactly_what_the_new_config_says(montage_dir: 
     assert written["mapping_options"]["map_to_mni"] is False
     assert written["output_fields"] == ["TI_max"]
 
-    # The whole folder: the history, the analyses, the new config and this run's carriers.
+    # The whole folder: the history, the analyses, the new config, this run's carriers and its
+    # two result meshes (no half-written ``.partial`` left beside them).
     assert set(after) == set(KEPT) | {
         "documentation/simnibs_simulation_20260909-030809.mat",
         "documentation/simnibs_simulation_20261022-010101.mat",
@@ -275,6 +277,8 @@ def test_a_confirmed_rerun_leaves_exactly_what_the_new_config_says(montage_dir: 
         f"high_Frequency/mesh/{SID}_TDCS_1_scalar.msh",
         f"high_Frequency/mesh/{SID}_TDCS_2_scalar.msh",
         "high_Frequency/analysis/fields_summary.txt",
+        f"TI/mesh/{NAME}_TI.msh",
+        f"TI/mesh/surfaces/{NAME}_TI_central.msh",
     }
     assert after[f"high_Frequency/mesh/{SID}_TDCS_1_scalar.msh"] == b"new"
 

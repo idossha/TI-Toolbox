@@ -67,6 +67,41 @@ def test_run_flex_search_runs_an_adaptive_config_as_adaptive(flex_project):
     assert meta["thresholds"] == "0.0800,0.3200"
 
 
+def test_run_flex_search_runs_a_pareto_config_once_through_the_sweep(
+    flex_project, monkeypatch
+):
+    """Each sweep point is a single flex run (``build_focality_config`` sets ``mode=FLEX``),
+    so the sweep is entered once: a 2 x 1 grid is 1 calibration + 2 point optimisations.
+    """
+    from tit.opt import run_flex_search
+    from tit.opt.flex import builder, drivers
+
+    sweep = drivers.run_pareto_sweep
+    entered = []
+
+    def sweep_once(config):
+        entered.append(config.mode)
+        if len(entered) > 1:
+            raise AssertionError("a sweep point dispatched back into the sweep")
+        return sweep(config)
+
+    monkeypatch.setattr(drivers, "run_pareto_sweep", sweep_once)
+    pm, _ = flex_project
+    config = flex_config(
+        str(Path(pm.flex_search("001")) / "pareto"),
+        goal="focality",
+        mode="flex_pareto",
+        pareto=FlexConfig.ParetoSweepConfig(roi_pcts=[80.0, 70.0], nonroi_pcts=[20.0]),
+    )
+
+    result = run_flex_search(config)
+
+    assert result.success
+    assert entered == [FlexConfig.Mode.FLEX_PARETO]
+    assert builder.build_optimization.call_count == 3
+    assert len(result.function_values) == 2
+
+
 def test_the_drivers_are_exported_from_tit_opt():
     import tit.opt
     from tit.opt.flex import drivers

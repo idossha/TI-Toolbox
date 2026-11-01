@@ -89,6 +89,7 @@ _MOCK_PACKAGES = [
     "scipy.sparse.csgraph",
     "nibabel",
     "nibabel.freesurfer",
+    "nibabel.freesurfer.io",
     "h5py",
     "matplotlib",
     "matplotlib.pyplot",

@@ -1373,25 +1373,29 @@ have to restart the server to see the new one.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-180">180</a></span>
-<span class="normal"><a href="#__codelineno-0-181">181</a></span>
-<span class="normal"><a href="#__codelineno-0-182">182</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-182">182</a></span>
 <span class="normal"><a href="#__codelineno-0-183">183</a></span>
 <span class="normal"><a href="#__codelineno-0-184">184</a></span>
 <span class="normal"><a href="#__codelineno-0-185">185</a></span>
 <span class="normal"><a href="#__codelineno-0-186">186</a></span>
 <span class="normal"><a href="#__codelineno-0-187">187</a></span>
 <span class="normal"><a href="#__codelineno-0-188">188</a></span>
-<span class="normal"><a href="#__codelineno-0-189">189</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-180" name="__codelineno-0-180"></a><span class="k">def</span><span class="w"> </span><span class="nf">surface</span><span class="p">(</span><span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"tvsc"</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideAsset</span><span class="p">:</span>
-<a id="__codelineno-0-181" name="__codelineno-0-181"></a><span class="w">    </span><span class="sd">"""The packaged surface bytes for *part* in *fmt* (``tvsc`` or ``gii``)."""</span>
-<a id="__codelineno-0-182" name="__codelineno-0-182"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"parts"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-183" name="__codelineno-0-183"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="k">if</span> <span class="n">fmt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
-<a id="__codelineno-0-185" name="__codelineno-0-185"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
-<a id="__codelineno-0-186" name="__codelineno-0-186"></a>            <span class="sa">f</span><span class="s2">"the guide's </span><span class="si">{</span><span class="n">part</span><span class="si">!r}</span><span class="s2"> surface is not packaged as </span><span class="si">{</span><span class="n">fmt</span><span class="si">!r}</span><span class="s2">; "</span>
-<a id="__codelineno-0-187" name="__codelineno-0-187"></a>            <span class="sa">f</span><span class="s2">"available: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">files</span><span class="p">))</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'nothing'</span><span class="si">}</span><span class="s2">."</span>
-<a id="__codelineno-0-188" name="__codelineno-0-188"></a>        <span class="p">)</span>
-<a id="__codelineno-0-189" name="__codelineno-0-189"></a>    <span class="k">return</span> <span class="n">_asset</span><span class="p">(</span><span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">],</span> <span class="p">{</span><span class="o">**</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">,</span> <span class="p">{}),</span> <span class="s2">"format"</span><span class="p">:</span> <span class="n">fmt</span><span class="p">},</span> <span class="n">guide_id</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-189">189</a></span>
+<span class="normal"><a href="#__codelineno-0-190">190</a></span>
+<span class="normal"><a href="#__codelineno-0-191">191</a></span>
+<span class="normal"><a href="#__codelineno-0-192">192</a></span>
+<span class="normal"><a href="#__codelineno-0-193">193</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-182" name="__codelineno-0-182"></a><span class="k">def</span><span class="w"> </span><span class="nf">surface</span><span class="p">(</span><span class="n">part</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"tvsc"</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideAsset</span><span class="p">:</span>
+<a id="__codelineno-0-183" name="__codelineno-0-183"></a><span class="w">    </span><span class="sd">"""The packaged surface bytes for *part* in *fmt* (``tvsc`` or ``gii``)."""</span>
+<a id="__codelineno-0-184" name="__codelineno-0-184"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"parts"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">part</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-185" name="__codelineno-0-185"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-186" name="__codelineno-0-186"></a>    <span class="k">if</span> <span class="n">fmt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+<a id="__codelineno-0-187" name="__codelineno-0-187"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
+<a id="__codelineno-0-188" name="__codelineno-0-188"></a>            <span class="sa">f</span><span class="s2">"the guide's </span><span class="si">{</span><span class="n">part</span><span class="si">!r}</span><span class="s2"> surface is not packaged as </span><span class="si">{</span><span class="n">fmt</span><span class="si">!r}</span><span class="s2">; "</span>
+<a id="__codelineno-0-189" name="__codelineno-0-189"></a>            <span class="sa">f</span><span class="s2">"available: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">files</span><span class="p">))</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'nothing'</span><span class="si">}</span><span class="s2">."</span>
+<a id="__codelineno-0-190" name="__codelineno-0-190"></a>        <span class="p">)</span>
+<a id="__codelineno-0-191" name="__codelineno-0-191"></a>    <span class="k">return</span> <span class="n">_asset</span><span class="p">(</span>
+<a id="__codelineno-0-192" name="__codelineno-0-192"></a>        <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">],</span> <span class="p">{</span><span class="o">**</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">,</span> <span class="p">{}),</span> <span class="s2">"format"</span><span class="p">:</span> <span class="n">fmt</span><span class="p">},</span> <span class="n">guide_id</span>
+<a id="__codelineno-0-193" name="__codelineno-0-193"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1416,25 +1420,29 @@ have to restart the server to see the new one.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-192">192</a></span>
-<span class="normal"><a href="#__codelineno-0-193">193</a></span>
-<span class="normal"><a href="#__codelineno-0-194">194</a></span>
-<span class="normal"><a href="#__codelineno-0-195">195</a></span>
-<span class="normal"><a href="#__codelineno-0-196">196</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-196">196</a></span>
 <span class="normal"><a href="#__codelineno-0-197">197</a></span>
 <span class="normal"><a href="#__codelineno-0-198">198</a></span>
 <span class="normal"><a href="#__codelineno-0-199">199</a></span>
 <span class="normal"><a href="#__codelineno-0-200">200</a></span>
-<span class="normal"><a href="#__codelineno-0-201">201</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-192" name="__codelineno-0-192"></a><span class="k">def</span><span class="w"> </span><span class="nf">labels</span><span class="p">(</span><span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gii"</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideAsset</span><span class="p">:</span>
-<a id="__codelineno-0-193" name="__codelineno-0-193"></a><span class="w">    </span><span class="sd">"""The packaged per-vertex label payload for *atlas*."""</span>
-<a id="__codelineno-0-194" name="__codelineno-0-194"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"atlases"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">atlas</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-195" name="__codelineno-0-195"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-196" name="__codelineno-0-196"></a>    <span class="k">if</span> <span class="n">fmt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
-<a id="__codelineno-0-197" name="__codelineno-0-197"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
-<a id="__codelineno-0-198" name="__codelineno-0-198"></a>            <span class="sa">f</span><span class="s2">"the guide's </span><span class="si">{</span><span class="n">atlas</span><span class="si">!r}</span><span class="s2"> labels are not packaged as </span><span class="si">{</span><span class="n">fmt</span><span class="si">!r}</span><span class="s2">; "</span>
-<a id="__codelineno-0-199" name="__codelineno-0-199"></a>            <span class="sa">f</span><span class="s2">"available: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">files</span><span class="p">))</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'nothing'</span><span class="si">}</span><span class="s2">."</span>
-<a id="__codelineno-0-200" name="__codelineno-0-200"></a>        <span class="p">)</span>
-<a id="__codelineno-0-201" name="__codelineno-0-201"></a>    <span class="k">return</span> <span class="n">_asset</span><span class="p">(</span><span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">],</span> <span class="p">{</span><span class="o">**</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">,</span> <span class="p">{}),</span> <span class="s2">"format"</span><span class="p">:</span> <span class="n">fmt</span><span class="p">},</span> <span class="n">guide_id</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-201">201</a></span>
+<span class="normal"><a href="#__codelineno-0-202">202</a></span>
+<span class="normal"><a href="#__codelineno-0-203">203</a></span>
+<span class="normal"><a href="#__codelineno-0-204">204</a></span>
+<span class="normal"><a href="#__codelineno-0-205">205</a></span>
+<span class="normal"><a href="#__codelineno-0-206">206</a></span>
+<span class="normal"><a href="#__codelineno-0-207">207</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-196" name="__codelineno-0-196"></a><span class="k">def</span><span class="w"> </span><span class="nf">labels</span><span class="p">(</span><span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">fmt</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">"gii"</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">GuideAsset</span><span class="p">:</span>
+<a id="__codelineno-0-197" name="__codelineno-0-197"></a><span class="w">    </span><span class="sd">"""The packaged per-vertex label payload for *atlas*."""</span>
+<a id="__codelineno-0-198" name="__codelineno-0-198"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"atlases"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">atlas</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-199" name="__codelineno-0-199"></a>    <span class="n">files</span> <span class="o">=</span> <span class="n">entry</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"files"</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-200" name="__codelineno-0-200"></a>    <span class="k">if</span> <span class="n">fmt</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">files</span><span class="p">:</span>
+<a id="__codelineno-0-201" name="__codelineno-0-201"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
+<a id="__codelineno-0-202" name="__codelineno-0-202"></a>            <span class="sa">f</span><span class="s2">"the guide's </span><span class="si">{</span><span class="n">atlas</span><span class="si">!r}</span><span class="s2"> labels are not packaged as </span><span class="si">{</span><span class="n">fmt</span><span class="si">!r}</span><span class="s2">; "</span>
+<a id="__codelineno-0-203" name="__codelineno-0-203"></a>            <span class="sa">f</span><span class="s2">"available: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">files</span><span class="p">))</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="s1">'nothing'</span><span class="si">}</span><span class="s2">."</span>
+<a id="__codelineno-0-204" name="__codelineno-0-204"></a>        <span class="p">)</span>
+<a id="__codelineno-0-205" name="__codelineno-0-205"></a>    <span class="k">return</span> <span class="n">_asset</span><span class="p">(</span>
+<a id="__codelineno-0-206" name="__codelineno-0-206"></a>        <span class="n">files</span><span class="p">[</span><span class="n">fmt</span><span class="p">],</span> <span class="p">{</span><span class="o">**</span><span class="n">entry</span><span class="p">,</span> <span class="o">**</span><span class="n">files</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">fmt</span><span class="si">}</span><span class="s2">_meta"</span><span class="p">,</span> <span class="p">{}),</span> <span class="s2">"format"</span><span class="p">:</span> <span class="n">fmt</span><span class="p">},</span> <span class="n">guide_id</span>
+<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1459,27 +1467,27 @@ have to restart the server to see the new one.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-204">204</a></span>
-<span class="normal"><a href="#__codelineno-0-205">205</a></span>
-<span class="normal"><a href="#__codelineno-0-206">206</a></span>
-<span class="normal"><a href="#__codelineno-0-207">207</a></span>
-<span class="normal"><a href="#__codelineno-0-208">208</a></span>
-<span class="normal"><a href="#__codelineno-0-209">209</a></span>
-<span class="normal"><a href="#__codelineno-0-210">210</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-210">210</a></span>
 <span class="normal"><a href="#__codelineno-0-211">211</a></span>
 <span class="normal"><a href="#__codelineno-0-212">212</a></span>
 <span class="normal"><a href="#__codelineno-0-213">213</a></span>
-<span class="normal"><a href="#__codelineno-0-214">214</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-204" name="__codelineno-0-204"></a><span class="k">def</span><span class="w"> </span><span class="nf">legend</span><span class="p">(</span><span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-205" name="__codelineno-0-205"></a><span class="w">    </span><span class="sd">"""``{atlas, space, legend:[…], url, …}`` for one packaged atlas."""</span>
-<a id="__codelineno-0-206" name="__codelineno-0-206"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"atlases"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">atlas</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-207" name="__codelineno-0-207"></a>    <span class="n">asset</span> <span class="o">=</span> <span class="n">_asset</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"legend_file"</span><span class="p">],</span> <span class="n">entry</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-208" name="__codelineno-0-208"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-209" name="__codelineno-0-209"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
-<a id="__codelineno-0-210" name="__codelineno-0-210"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-211" name="__codelineno-0-211"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
-<a id="__codelineno-0-212" name="__codelineno-0-212"></a>            <span class="sa">f</span><span class="s2">"the guide legend for </span><span class="si">{</span><span class="n">atlas</span><span class="si">!r}</span><span class="s2"> is unreadable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-213" name="__codelineno-0-213"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="k">return</span> <span class="n">body</span>
+<span class="normal"><a href="#__codelineno-0-214">214</a></span>
+<span class="normal"><a href="#__codelineno-0-215">215</a></span>
+<span class="normal"><a href="#__codelineno-0-216">216</a></span>
+<span class="normal"><a href="#__codelineno-0-217">217</a></span>
+<span class="normal"><a href="#__codelineno-0-218">218</a></span>
+<span class="normal"><a href="#__codelineno-0-219">219</a></span>
+<span class="normal"><a href="#__codelineno-0-220">220</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-210" name="__codelineno-0-210"></a><span class="k">def</span><span class="w"> </span><span class="nf">legend</span><span class="p">(</span><span class="n">atlas</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-211" name="__codelineno-0-211"></a><span class="w">    </span><span class="sd">"""``{atlas, space, legend:[…], url, …}`` for one packaged atlas."""</span>
+<a id="__codelineno-0-212" name="__codelineno-0-212"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"atlases"</span><span class="p">,</span> <span class="s2">"id"</span><span class="p">,</span> <span class="n">atlas</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-213" name="__codelineno-0-213"></a>    <span class="n">asset</span> <span class="o">=</span> <span class="n">_asset</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"legend_file"</span><span class="p">],</span> <span class="n">entry</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-214" name="__codelineno-0-214"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-215" name="__codelineno-0-215"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-216" name="__codelineno-0-216"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-217" name="__codelineno-0-217"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span>
+<a id="__codelineno-0-218" name="__codelineno-0-218"></a>            <span class="sa">f</span><span class="s2">"the guide legend for </span><span class="si">{</span><span class="n">atlas</span><span class="si">!r}</span><span class="s2"> is unreadable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-219" name="__codelineno-0-219"></a>        <span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="k">return</span> <span class="n">body</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1504,23 +1512,23 @@ have to restart the server to see the new one.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-217">217</a></span>
-<span class="normal"><a href="#__codelineno-0-218">218</a></span>
-<span class="normal"><a href="#__codelineno-0-219">219</a></span>
-<span class="normal"><a href="#__codelineno-0-220">220</a></span>
-<span class="normal"><a href="#__codelineno-0-221">221</a></span>
-<span class="normal"><a href="#__codelineno-0-222">222</a></span>
-<span class="normal"><a href="#__codelineno-0-223">223</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-223">223</a></span>
 <span class="normal"><a href="#__codelineno-0-224">224</a></span>
-<span class="normal"><a href="#__codelineno-0-225">225</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-217" name="__codelineno-0-217"></a><span class="k">def</span><span class="w"> </span><span class="nf">electrodes</span><span class="p">(</span><span class="n">net</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-218" name="__codelineno-0-218"></a><span class="w">    </span><span class="sd">"""``{net, space, electrodes:[{name, world}]}`` for one packaged EEG net."""</span>
-<a id="__codelineno-0-219" name="__codelineno-0-219"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"nets"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-220" name="__codelineno-0-220"></a>    <span class="n">asset</span> <span class="o">=</span> <span class="n">_asset</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"file"</span><span class="p">],</span> <span class="n">entry</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
-<a id="__codelineno-0-221" name="__codelineno-0-221"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-222" name="__codelineno-0-222"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
-<a id="__codelineno-0-223" name="__codelineno-0-223"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-224" name="__codelineno-0-224"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span><span class="sa">f</span><span class="s2">"the guide net </span><span class="si">{</span><span class="n">net</span><span class="si">!r}</span><span class="s2"> is unreadable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
-<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="k">return</span> <span class="n">body</span>
+<span class="normal"><a href="#__codelineno-0-225">225</a></span>
+<span class="normal"><a href="#__codelineno-0-226">226</a></span>
+<span class="normal"><a href="#__codelineno-0-227">227</a></span>
+<span class="normal"><a href="#__codelineno-0-228">228</a></span>
+<span class="normal"><a href="#__codelineno-0-229">229</a></span>
+<span class="normal"><a href="#__codelineno-0-230">230</a></span>
+<span class="normal"><a href="#__codelineno-0-231">231</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-223" name="__codelineno-0-223"></a><span class="k">def</span><span class="w"> </span><span class="nf">electrodes</span><span class="p">(</span><span class="n">net</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_GUIDE</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-224" name="__codelineno-0-224"></a><span class="w">    </span><span class="sd">"""``{net, space, electrodes:[{name, world}]}`` for one packaged EEG net."""</span>
+<a id="__codelineno-0-225" name="__codelineno-0-225"></a>    <span class="n">entry</span> <span class="o">=</span> <span class="n">_entry</span><span class="p">(</span><span class="s2">"nets"</span><span class="p">,</span> <span class="s2">"name"</span><span class="p">,</span> <span class="n">net</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-226" name="__codelineno-0-226"></a>    <span class="n">asset</span> <span class="o">=</span> <span class="n">_asset</span><span class="p">(</span><span class="n">entry</span><span class="p">[</span><span class="s2">"file"</span><span class="p">],</span> <span class="n">entry</span><span class="p">,</span> <span class="n">guide_id</span><span class="p">)</span>
+<a id="__codelineno-0-227" name="__codelineno-0-227"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-228" name="__codelineno-0-228"></a>        <span class="n">body</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">loads</span><span class="p">(</span><span class="n">asset</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">read_text</span><span class="p">(</span><span class="n">encoding</span><span class="o">=</span><span class="s2">"utf-8"</span><span class="p">))</span>
+<a id="__codelineno-0-229" name="__codelineno-0-229"></a>    <span class="k">except</span> <span class="p">(</span><span class="ne">OSError</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">)</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-230" name="__codelineno-0-230"></a>        <span class="k">raise</span> <span class="n">GuideUnavailable</span><span class="p">(</span><span class="sa">f</span><span class="s2">"the guide net </span><span class="si">{</span><span class="n">net</span><span class="si">!r}</span><span class="s2"> is unreadable: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">exc</span>
+<a id="__codelineno-0-231" name="__codelineno-0-231"></a>    <span class="k">return</span> <span class="n">body</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1548,21 +1556,21 @@ is what stops the pane offering a space whose anatomy is not installed.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/scene/guide.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-228">228</a></span>
-<span class="normal"><a href="#__codelineno-0-229">229</a></span>
-<span class="normal"><a href="#__codelineno-0-230">230</a></span>
-<span class="normal"><a href="#__codelineno-0-231">231</a></span>
-<span class="normal"><a href="#__codelineno-0-232">232</a></span>
-<span class="normal"><a href="#__codelineno-0-233">233</a></span>
-<span class="normal"><a href="#__codelineno-0-234">234</a></span>
-<span class="normal"><a href="#__codelineno-0-235">235</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-228" name="__codelineno-0-228"></a><span class="k">def</span><span class="w"> </span><span class="nf">installed_guide_ids</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-229" name="__codelineno-0-229"></a><span class="w">    </span><span class="sd">"""Guide ids whose package is actually present, in catalogue order.</span>
-<a id="__codelineno-0-230" name="__codelineno-0-230"></a>
-<a id="__codelineno-0-231" name="__codelineno-0-231"></a><span class="sd">    The MNI guide is built by the same developer tool as the Ernie one, so a</span>
-<a id="__codelineno-0-232" name="__codelineno-0-232"></a><span class="sd">    checkout mid-rebuild can have one and not the other; asking the filesystem</span>
-<a id="__codelineno-0-233" name="__codelineno-0-233"></a><span class="sd">    is what stops the pane offering a space whose anatomy is not installed.</span>
-<a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="sd">    """</span>
-<a id="__codelineno-0-235" name="__codelineno-0-235"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">gid</span> <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="n">GUIDE_DIRS</span> <span class="k">if</span> <span class="p">(</span><span class="n">guide_dir</span><span class="p">(</span><span class="n">gid</span><span class="p">)</span> <span class="o">/</span> <span class="n">MANIFEST_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()]</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-234">234</a></span>
+<span class="normal"><a href="#__codelineno-0-235">235</a></span>
+<span class="normal"><a href="#__codelineno-0-236">236</a></span>
+<span class="normal"><a href="#__codelineno-0-237">237</a></span>
+<span class="normal"><a href="#__codelineno-0-238">238</a></span>
+<span class="normal"><a href="#__codelineno-0-239">239</a></span>
+<span class="normal"><a href="#__codelineno-0-240">240</a></span>
+<span class="normal"><a href="#__codelineno-0-241">241</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-234" name="__codelineno-0-234"></a><span class="k">def</span><span class="w"> </span><span class="nf">installed_guide_ids</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-235" name="__codelineno-0-235"></a><span class="w">    </span><span class="sd">"""Guide ids whose package is actually present, in catalogue order.</span>
+<a id="__codelineno-0-236" name="__codelineno-0-236"></a>
+<a id="__codelineno-0-237" name="__codelineno-0-237"></a><span class="sd">    The MNI guide is built by the same developer tool as the Ernie one, so a</span>
+<a id="__codelineno-0-238" name="__codelineno-0-238"></a><span class="sd">    checkout mid-rebuild can have one and not the other; asking the filesystem</span>
+<a id="__codelineno-0-239" name="__codelineno-0-239"></a><span class="sd">    is what stops the pane offering a space whose anatomy is not installed.</span>
+<a id="__codelineno-0-240" name="__codelineno-0-240"></a><span class="sd">    """</span>
+<a id="__codelineno-0-241" name="__codelineno-0-241"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">gid</span> <span class="k">for</span> <span class="n">gid</span> <span class="ow">in</span> <span class="n">GUIDE_DIRS</span> <span class="k">if</span> <span class="p">(</span><span class="n">guide_dir</span><span class="p">(</span><span class="n">gid</span><span class="p">)</span> <span class="o">/</span> <span class="n">MANIFEST_NAME</span><span class="p">)</span><span class="o">.</span><span class="n">is_file</span><span class="p">()]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

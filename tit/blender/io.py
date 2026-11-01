@@ -291,4 +291,3 @@ def field_to_colormap(
     colors_rgb = (colors_rgba[:, :3] * 255).astype(np.uint8)
 
     return colors_rgb
-

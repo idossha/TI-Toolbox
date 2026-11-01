@@ -1133,13 +1133,21 @@ flag. When no bundle can be found the request fails and :func:<code>ca_bundle_hi
 <span class="normal"><a href="#__codelineno-0-64">64</a></span>
 <span class="normal"><a href="#__codelineno-0-65">65</a></span>
 <span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">ssl_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">:</span>
+<span class="normal"><a href="#__codelineno-0-67">67</a></span>
+<span class="normal"><a href="#__codelineno-0-68">68</a></span>
+<span class="normal"><a href="#__codelineno-0-69">69</a></span>
+<span class="normal"><a href="#__codelineno-0-70">70</a></span>
+<span class="normal"><a href="#__codelineno-0-71">71</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">ssl_context</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">ssl</span><span class="o">.</span><span class="n">SSLContext</span><span class="p">:</span>
 <a id="__codelineno-0-62" name="__codelineno-0-62"></a><span class="w">    </span><span class="sd">"""A **verifying** context: hostname checking on, ``CERT_REQUIRED``, best bundle available."""</span>
 <a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">bundle</span> <span class="o">=</span> <span class="n">ca_bundle</span><span class="p">()</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="n">bundle</span><span class="p">)</span> <span class="k">if</span> <span class="n">bundle</span> <span class="k">else</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">()</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="n">context</span><span class="o">.</span><span class="n">check_hostname</span> <span class="o">=</span> <span class="kc">True</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a>    <span class="k">return</span> <span class="n">context</span>
+<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">context</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-65" name="__codelineno-0-65"></a>        <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">(</span><span class="n">cafile</span><span class="o">=</span><span class="n">bundle</span><span class="p">)</span>
+<a id="__codelineno-0-66" name="__codelineno-0-66"></a>        <span class="k">if</span> <span class="n">bundle</span>
+<a id="__codelineno-0-67" name="__codelineno-0-67"></a>        <span class="k">else</span> <span class="n">ssl</span><span class="o">.</span><span class="n">create_default_context</span><span class="p">()</span>
+<a id="__codelineno-0-68" name="__codelineno-0-68"></a>    <span class="p">)</span>
+<a id="__codelineno-0-69" name="__codelineno-0-69"></a>    <span class="n">context</span><span class="o">.</span><span class="n">check_hostname</span> <span class="o">=</span> <span class="kc">True</span>
+<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">context</span><span class="o">.</span><span class="n">verify_mode</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">CERT_REQUIRED</span>
+<a id="__codelineno-0-71" name="__codelineno-0-71"></a>    <span class="k">return</span> <span class="n">context</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1164,17 +1172,17 @@ flag. When no bundle can be found the request fails and :func:<code>ca_bundle_hi
 
             <details class="quote">
               <summary>Source code in <code>tit/certs.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span>
-<span class="normal"><a href="#__codelineno-0-75">75</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-70" name="__codelineno-0-70"></a><span class="k">def</span><span class="w"> </span><span class="nf">ca_bundle_hint</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a><span class="w">    </span><span class="sd">"""One line to append to a TLS failure, telling the user how to supply their own bundle."""</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>    <span class="k">return</span> <span class="p">(</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="s2">"TLS certificate verification failed. If you are behind a proxy that inspects TLS, "</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>        <span class="s2">"point SSL_CERT_FILE (or REQUESTS_CA_BUNDLE) at your organisation's CA bundle."</span>
-<a id="__codelineno-0-75" name="__codelineno-0-75"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-74">74</a></span>
+<span class="normal"><a href="#__codelineno-0-75">75</a></span>
+<span class="normal"><a href="#__codelineno-0-76">76</a></span>
+<span class="normal"><a href="#__codelineno-0-77">77</a></span>
+<span class="normal"><a href="#__codelineno-0-78">78</a></span>
+<span class="normal"><a href="#__codelineno-0-79">79</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="k">def</span><span class="w"> </span><span class="nf">ca_bundle_hint</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="w">    </span><span class="sd">"""One line to append to a TLS failure, telling the user how to supply their own bundle."""</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a>    <span class="k">return</span> <span class="p">(</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>        <span class="s2">"TLS certificate verification failed. If you are behind a proxy that inspects TLS, "</span>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a>        <span class="s2">"point SSL_CERT_FILE (or REQUESTS_CA_BUNDLE) at your organisation's CA bundle."</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a>    <span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

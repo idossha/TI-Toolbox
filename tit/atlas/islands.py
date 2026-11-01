@@ -143,14 +143,18 @@ def cleaned_label_mask(atlas_path: str, label: int, output_dir: str) -> str | No
         f"{source.resolve()}|{stat.st_size}|{int(stat.st_mtime)}|{label}|"
         f"{MIN_FRACTION_OF_LARGEST}|{MIN_VOXELS}".encode()
     ).hexdigest()[:16]
-    destination = Path(output_dir) / f"roi-{source.stem.split('.')[0]}-{label}-{key}.nii"
+    destination = (
+        Path(output_dir) / f"roi-{source.stem.split('.')[0]}-{label}-{key}.nii"
+    )
     if destination.is_file():
         return str(destination)
     image = nib.load(str(source))
     mask = np.asanyarray(image.dataobj) == label
     if not mask.any():
         return None
-    cleaned, removed, _ = keep_main_components(mask, what=f"{source.name} label {label}")
+    cleaned, removed, _ = keep_main_components(
+        mask, what=f"{source.name} label {label}"
+    )
     if not removed:
         return None
     destination.parent.mkdir(parents=True, exist_ok=True)

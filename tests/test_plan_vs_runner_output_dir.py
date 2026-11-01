@@ -854,6 +854,55 @@ def test_source_fsavg_map_writes_where_the_plan_says_and_replaces_only_on_overwr
     assert (replaced["exists"], replaced["will_overwrite"]) == (True, True)
 
 
+def test_source_fsavg_map_plans_the_recompute_of_a_projection_lacking_requested_fields(
+    client, project, tmp_path, monkeypatch
+) -> None:
+    """Without overwrite the runner still recomputes a cached projection that lacks a requested
+    field (tit.source.fsaverage.project_subject), so the plan must predict the overwrite.
+    """
+    from tests.test_sim_fields_on_demand import write_msh
+
+    cached = Path(get_path_manager(str(project)).sim_fsaverage_fields("001", SIM, 5))
+    cached.parent.mkdir(parents=True)
+    write_msh(cached, 1, {"TI_max": [1.0]})  # an earlier TI_max-only projection
+
+    job = _plan(client, "source", _fsavg_config(False))["jobs"][0]  # all four fields
+    assert _fsavg_run(project, tmp_path, monkeypatch, overwrite=False) == ["001"]
+    assert (job["exists"], job["will_overwrite"]) == (True, True)
+
+
+def test_source_fsavg_map_keeps_a_carrier_only_projection_without_ti_fields(
+    client, project, monkeypatch
+) -> None:
+    """A carrier-only run has no TI_max / TI_normal: the runner drops them from the default
+    request before checking the cache, so a projection of hf_peak / hf_rms is kept and the plan
+    must not predict its replacement.
+    """
+    from tests.test_sim_fields_on_demand import write_msh
+    from tit.source import fsaverage
+    from tit.source.config import FsavgMapConfig
+
+    pm = get_path_manager(str(project))
+    cached = Path(pm.sim_fsaverage_fields("001", SIM, 5))
+    cached.parent.mkdir(parents=True)
+    write_msh(cached, 1, {"hf_peak": [1.0], "hf_rms": [1.0]})
+    doc = Path(pm.simulation("001", SIM)) / "documentation"
+    doc.mkdir(parents=True, exist_ok=True)
+    (doc / "config.json").write_text(json.dumps({"carrier_only": True}))
+
+    computed: list[str] = []
+    monkeypatch.setattr(
+        fsaverage, "_compute_fields", lambda *a: computed.append("x") or {}
+    )
+    status = fsaverage.project_subject("001", SIM, FsavgMapConfig(fsaverage_spacing=5))
+    job = _plan(client, "source", _fsavg_config(False))["jobs"][
+        0
+    ]  # the default four fields
+
+    assert status[1] == "cached" and computed == []
+    assert (job["exists"], job["will_overwrite"]) == (True, False)
+
+
 def test_source_fsavg_map_of_another_spacing_is_not_an_existing_output(
     client, project, tmp_path, monkeypatch
 ) -> None:

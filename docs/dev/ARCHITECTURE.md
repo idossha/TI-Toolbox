@@ -755,7 +755,11 @@ electrode beside each leadfield and a `null` as "electrode not recorded", never 
 defaults, because a leadfield without a sidecar may have been computed with any electrode. There
 is one leadfield per subject and net (SimNIBS names the file), so another electrode for the same
 net replaces it (`overwrite`). The Optimizer's **Generate leadfield** opens a step with the shared
-Electrodes section, at those defaults, and queues the job only when it is confirmed. Excluded: the
+Electrodes section, at those defaults, and queues the job only when it is confirmed; for a net that
+has a leadfield, the row editor's **Regenerate…** opens the same step at the electrode it records
+(defaults when none is recorded). The step always sends `overwrite: true` in the config, so the
+plan marks an existing leadfield as replaced, the submission's 409 opens the shared existing-outputs
+dialog, and only **Replace and rerun** resends it with the request's `overwrite`. Excluded: the
 electrode in the file name (SimNIBS names the file and every reader takes the net from it) and
 SimNIBS's own HDF5 attributes (names, centres, cap and tissues; no geometry).
 Flex exposes Mean TImax, Max TImax (ROI 99.9th percentile), Threshold-free focality and

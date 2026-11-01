@@ -42,7 +42,12 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ["SimplifyResult", "cluster_simplify", "simplify_to_budget", "mean_edge_length"]
+__all__ = [
+    "SimplifyResult",
+    "cluster_simplify",
+    "simplify_to_budget",
+    "mean_edge_length",
+]
 
 #: Guard against a caller passing a cell so small that the flat grid key
 #: overflows ``int64``. 2**62 leaves three bits of headroom over the largest

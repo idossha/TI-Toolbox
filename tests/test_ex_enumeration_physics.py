@@ -14,7 +14,9 @@ What this pins (2026-10-22, package p05 "ex-pool-polarity-duplicates" and "ex-bu
   physical keys -- neither reads ``tit.opt.ex.logic``.
 * Bucket mode never yields a channel whose plus and minus electrode are the same (zero field,
   so TI = 0 and the row is meaningless) and, like mEx (all eight distinct), never shares one
-  electrode between the two channels.
+  electrode between the two channels. Overlapping buckets (2026-11-01, S2-5) yield each
+  physical montage of the bucket product once, checked against the same brute force over
+  ``itertools.product(*buckets)``.
 * The ex-search report's top table lists distinct physical montages, also for runs written
   before this fix (Dataset 000 sub-101 ``20260919_160209``: its top 8 rows were one montage).
 
@@ -135,13 +137,104 @@ def test_pool_counts_a_duplicated_label_once():
 
 def test_bucket_mode_drops_self_pairs():
     electrodes = _quads([["A", "B"], ["A", "B"], ["C"], ["D"]], False, [(1.0, 1.0)])
-    # By hand: e1 = (A, B) or (B, A); (A, A) and (B, B) carry no current between poles.
-    assert sorted(electrodes) == [("A", "B", "C", "D"), ("B", "A", "C", "D")]
-    assert all(r[0] != r[1] and r[2] != r[3] for r in electrodes)
+    # By hand: (A, A) and (B, B) carry no current between poles, and (B, A) is (A, B)
+    # with channel 1's polarity flipped -- the same stimulation.
+    assert electrodes == [("A", "B", "C", "D")]
     assert (
         count_combinations(["A", "B"], ["A", "B"], ["C"], ["D"], [(1.0, 1.0)], False)
-        == 2
+        == 1
     )
+
+
+def _brute_force_physical_buckets(buckets, splits):
+    return {
+        _physical(*quad, split)
+        for quad in product(*buckets)
+        if len(set(quad)) == 4
+        for split in splits
+    }
+
+
+@pytest.mark.parametrize(
+    "buckets",
+    [
+        [["A", "B", "C", "D"]] * 4,
+        [["A", "B", "C"], ["A", "B", "C"], ["E", "F"], ["G", "H"]],
+        [["A", "B"], ["C", "D"], ["C", "D"], ["A", "B"]],
+        [["A", "B", "C"], ["D", "E"], ["B", "D", "F"], ["A", "E", "C", "G"]],
+        [["A", "B"], ["C", "D"], ["E", "F"], ["G", "H"]],
+    ],
+)
+@pytest.mark.parametrize("splits", [SYMMETRIC_SPLITS, ASYMMETRIC_SPLITS])
+def test_overlapping_buckets_yield_every_physical_montage_and_split_exactly_once(
+    buckets, splits
+):
+    quads = _quads(buckets, False, splits)
+    keys = [_physical(*quad, split) for quad in quads for split in splits]
+    assert len(keys) == len(set(keys)), "a physical montage+split is evaluated twice"
+    assert set(keys) == _brute_force_physical_buckets(buckets, splits)
+    assert count_combinations(*buckets, splits, False) == len(keys)
+
+
+def _random_overlapping_buckets(rng, labels):
+    return [
+        [label for label in labels if rng.random() < 0.6] * rng.integers(1, 3)
+        for _ in range(4)
+    ]
+
+
+@pytest.mark.parametrize("splits", [SYMMETRIC_SPLITS, ASYMMETRIC_SPLITS])
+def test_random_overlapping_buckets_lose_no_physical_montage(splits):
+    # The proof that dropping equivalent tuples drops no stimulation: the physical montage+split
+    # set of the kept tuples equals the one of every distinct tuple of the product.
+    rng = np.random.default_rng(20261101)
+    for _ in range(60):
+        buckets = _random_overlapping_buckets(rng, "ABCDEFG")
+        quads = _quads(buckets, False, splits)
+        keys = [_physical(*quad, split) for quad in quads for split in splits]
+        assert len(keys) == len(set(keys)), buckets
+        assert set(keys) == _brute_force_physical_buckets(buckets, splits), buckets
+        assert all(
+            all(e in b for e, b in zip(quad, buckets)) and len(set(quad)) == 4
+            for quad in quads
+        ), "a kept tuple is not an assignment of the buckets"
+        assert count_combinations(*buckets, splits, False) == len(keys)
+
+
+MIRROR = {"A": "B", "B": "A", "C": "D", "D": "C", "E": "F", "F": "E", "G": "G"}
+
+
+@pytest.mark.parametrize("pairing", ["within_pairs", "cross_pairs"])
+@pytest.mark.parametrize("splits", [SYMMETRIC_SPLITS, ASYMMETRIC_SPLITS])
+def test_symmetric_search_evaluates_each_physical_montage_once(pairing, splits):
+    def mirrored(a, b, c, d):
+        if pairing == "within_pairs":
+            return MIRROR.get(a) == b and MIRROR.get(c) == d
+        return MIRROR.get(a) == c and MIRROR.get(b) == d
+
+    rng = np.random.default_rng(20261102)
+    for _ in range(60):
+        buckets = _random_overlapping_buckets(rng, "ABCDEFG")
+        expected = {
+            _physical(*quad, split)
+            for quad in product(*buckets)
+            if len(set(quad)) == 4 and mirrored(*quad)
+            for split in splits
+        }
+        quads = list(
+            _electrode_combinations(
+                *buckets,
+                False,
+                MIRROR,
+                pairing,
+                both_channel_orders=not ratios_mirror_symmetric(splits),
+            )
+        )
+        keys = [_physical(*quad, split) for quad in quads for split in splits]
+        assert len(keys) == len(set(keys)), buckets
+        assert set(keys) == expected, buckets
+        assert all(mirrored(*quad) for quad in quads)
+        assert count_combinations(*buckets, splits, False, MIRROR, pairing) == len(keys)
 
 
 def test_bucket_mode_never_shares_an_electrode_between_channels():
@@ -201,8 +294,14 @@ def _top_table_keys(html: str) -> list:
         keys.append(
             frozenset(
                 {
-                    (frozenset(re.sub(r"\([+−]\)", "", cells[1]).split("–")), currents[0]),
-                    (frozenset(re.sub(r"\([+−]\)", "", cells[2]).split("–")), currents[1]),
+                    (
+                        frozenset(re.sub(r"\([+−]\)", "", cells[1]).split("–")),
+                        currents[0],
+                    ),
+                    (
+                        frozenset(re.sub(r"\([+−]\)", "", cells[2]).split("–")),
+                        currents[1],
+                    ),
                 }
             )
         )

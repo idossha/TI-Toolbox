@@ -8,7 +8,7 @@
  */
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleHelp, Zap } from "lucide-react";
+import { CircleHelp, RefreshCw, Zap } from "lucide-react";
 import { Button } from "../../ui/Button";
 import { Chip } from "../../ui/Status";
 import { Field } from "../../ui/Field";
@@ -20,7 +20,7 @@ import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Popover } from "../../ui/Overlay";
 import { Skeleton } from "../../ui/Feedback";
 import { FormSection } from "../../ui/Layout";
-import type { EegNet, Leadfield } from "./api";
+import type { EegNet, Leadfield, LeadfieldElectrode } from "./api";
 import { planLeadfieldEta } from "./api";
 import { durationLabel, estimateLabel } from "../_shared/run";
 import {
@@ -82,7 +82,8 @@ export function LeadfieldStrip({
   /** Whose leadfield — the estimate is per subject (their head mesh) as well as per net. */
   subjectId?: string;
   onSelectNet: (net: string) => void;
-  onGenerate: (net: string) => void;
+  /** Opens the leadfield step; `replaces` is the existing leadfield's electrode when regenerating. */
+  onGenerate: (net: string, replaces?: LeadfieldElectrode | null) => void;
   generating: boolean;
 }) {
   // Hooks before the early return: the strip renders a skeleton while the catalog loads, and a
@@ -106,6 +107,17 @@ export function LeadfieldStrip({
           {/* A leadfield is one electrode model at every position: which one is part of its identity. */}
           <span className="field-help" data-testid="leadfield-electrode">{leadfieldElectrodeLabel(current)}</span>
           <ElectrodeHelp />
+          {/* One leadfield per net: another electrode replaces this one, after the existing-outputs question. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<RefreshCw size={14} />}
+            loading={generating}
+            title="Compute this net's leadfield again with another electrode; it replaces the current one"
+            onClick={() => selectedNet && onGenerate(selectedNet, current?.electrode ?? null)}
+          >
+            Regenerate…
+          </Button>
         </>
       ) : (
         <>

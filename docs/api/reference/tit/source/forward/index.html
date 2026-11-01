@@ -1076,8 +1076,10 @@ transform (<code>*-trans.fif</code>) they are derived from.  All outputs land un
 <code>derivatives/SimNIBS/sub-&lt;id&gt;/forward/</code> -- a namespace distinct from the
 optimizer's <code>leadfields/</code> (which uses <em>modeled</em> electrodes for stimulation
 dose; the EEG forward uses <em>point</em> electrodes per the SimNIBS EEG convention).</p>
-<p>The expensive FEM leadfield is computed at most once per (subject, net): a
-re-run reuses the cached HDF5 and only re-assembles the MNE files.</p>
+<p>The expensive FEM leadfield is computed at most once per (subject, net, net CSV,
+head mesh): <code>sub-&lt;id&gt;_net-&lt;net&gt;-provenance.json</code> records the sha256 of the net
+CSV and head mesh (and the fsaverage spacing of the assembled files), and a
+re-run reuses the leadfield / MNE files only when they match exactly.</p>
 <p>Runs under <code>simnibs_python</code> (imports both <code>mne</code> and <code>simnibs</code>)::</p>
 <div class="highlight"><pre><span></span><code>simnibs_python -m tit.source forward_config.json
 </code></pre></div>
@@ -1141,24 +1143,7 @@ trans : mne.transforms.Transform or None
 
             <details class="quote">
               <summary>Source code in <code>tit/source/forward.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-366">366</a></span>
-<span class="normal"><a href="#__codelineno-0-367">367</a></span>
-<span class="normal"><a href="#__codelineno-0-368">368</a></span>
-<span class="normal"><a href="#__codelineno-0-369">369</a></span>
-<span class="normal"><a href="#__codelineno-0-370">370</a></span>
-<span class="normal"><a href="#__codelineno-0-371">371</a></span>
-<span class="normal"><a href="#__codelineno-0-372">372</a></span>
-<span class="normal"><a href="#__codelineno-0-373">373</a></span>
-<span class="normal"><a href="#__codelineno-0-374">374</a></span>
-<span class="normal"><a href="#__codelineno-0-375">375</a></span>
-<span class="normal"><a href="#__codelineno-0-376">376</a></span>
-<span class="normal"><a href="#__codelineno-0-377">377</a></span>
-<span class="normal"><a href="#__codelineno-0-378">378</a></span>
-<span class="normal"><a href="#__codelineno-0-379">379</a></span>
-<span class="normal"><a href="#__codelineno-0-380">380</a></span>
-<span class="normal"><a href="#__codelineno-0-381">381</a></span>
-<span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-383">383</a></span>
 <span class="normal"><a href="#__codelineno-0-384">384</a></span>
 <span class="normal"><a href="#__codelineno-0-385">385</a></span>
 <span class="normal"><a href="#__codelineno-0-386">386</a></span>
@@ -1246,112 +1231,173 @@ trans : mne.transforms.Transform or None
 <span class="normal"><a href="#__codelineno-0-468">468</a></span>
 <span class="normal"><a href="#__codelineno-0-469">469</a></span>
 <span class="normal"><a href="#__codelineno-0-470">470</a></span>
-<span class="normal"><a href="#__codelineno-0-471">471</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-366" name="__codelineno-0-366"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare_forward</span><span class="p">(</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">ForwardConfig</span><span class="p">,</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>    <span class="n">info</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">Info</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>    <span class="n">trans</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">Transform</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a><span class="w">    </span><span class="sd">"""Rebuild one subject's forward, source-space, and fsaverage morph files.</span>
-<a id="__codelineno-0-375" name="__codelineno-0-375"></a>
-<a id="__codelineno-0-376" name="__codelineno-0-376"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-377" name="__codelineno-0-377"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-378" name="__codelineno-0-378"></a><span class="sd">    subject_id : str</span>
-<a id="__codelineno-0-379" name="__codelineno-0-379"></a><span class="sd">        Subject identifier without the ``sub-`` prefix (e.g. ``"101"``).</span>
-<a id="__codelineno-0-380" name="__codelineno-0-380"></a><span class="sd">    cfg : ForwardConfig</span>
-<a id="__codelineno-0-381" name="__codelineno-0-381"></a><span class="sd">        EEG net, fsaverage spacing, FEM worker count, and overwrite flag.</span>
-<a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="sd">    output_dir : str or pathlib.Path or None</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="sd">        Destination directory.  Defaults to ``pm.forward(subject_id)``</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a><span class="sd">        (``derivatives/SimNIBS/sub-&lt;id&gt;/forward/``).</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a><span class="sd">    info : mne.Info or None</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a><span class="sd">        A recording's Info whose ``dig`` carries the LPA, Nasion and RPA</span>
-<a id="__codelineno-0-387" name="__codelineno-0-387"></a><span class="sd">        cardinal points.  The head&lt;-&gt;MRI transform is coregistered from them,</span>
-<a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="sd">        so the forward is in the recording's head frame.  Default: the net's</span>
-<a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="sd">        own template fiducials.</span>
-<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="sd">    trans : mne.transforms.Transform or None</span>
-<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="sd">        An explicit head-&gt;MRI transform (MNE head -&gt; MRI frames); used as is,</span>
-<a id="__codelineno-0-392" name="__codelineno-0-392"></a><span class="sd">        never re-estimated.  Pass ``info`` or ``trans``, not both.</span>
-<a id="__codelineno-0-393" name="__codelineno-0-393"></a>
-<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">    tuple of pathlib.Path</span>
-<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">        ``(fwd_path, src_path, morph_path)``.</span>
-<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">    """</span>
-<a id="__codelineno-0-399" name="__codelineno-0-399"></a>    <span class="n">_check_recording_geometry</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
-<a id="__codelineno-0-400" name="__codelineno-0-400"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
-<a id="__codelineno-0-401" name="__codelineno-0-401"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-402" name="__codelineno-0-402"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">m2m_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
-<a id="__codelineno-0-403" name="__codelineno-0-403"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"m2m directory not found: </span><span class="si">{</span><span class="n">m2m_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-<a id="__codelineno-0-404" name="__codelineno-0-404"></a>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a>    <span class="n">_check_forward_dependencies</span><span class="p">()</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a>    <span class="n">forward_dir</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a>        <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
-<a id="__codelineno-0-409" name="__codelineno-0-409"></a>    <span class="p">)</span>
-<a id="__codelineno-0-410" name="__codelineno-0-410"></a>    <span class="n">forward_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-411" name="__codelineno-0-411"></a>
-<a id="__codelineno-0-412" name="__codelineno-0-412"></a>    <span class="n">stem</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">_net-</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="p">(</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-fwd.fif"</span><span class="p">,</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-src.fif"</span><span class="p">,</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-morph.h5"</span><span class="p">,</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="p">)</span>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a>    <span class="c1"># Cached outputs may hold another recording's geometry, so a supplied</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="c1"># ``info``/``trans`` always rebuilds (the FEM leadfield is still reused).</span>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a>    <span class="n">reuse</span> <span class="o">=</span> <span class="ow">not</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span> <span class="ow">and</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">trans</span> <span class="ow">is</span> <span class="kc">None</span>
-<a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="k">if</span> <span class="n">reuse</span> <span class="ow">and</span> <span class="n">_forward_outputs_valid</span><span class="p">(</span><span class="o">*</span><span class="n">expected</span><span class="p">):</span>
-<a id="__codelineno-0-422" name="__codelineno-0-422"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Forward outputs already present for </span><span class="si">%s</span><span class="s2">; skipping."</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
-<a id="__codelineno-0-423" name="__codelineno-0-423"></a>        <span class="k">return</span> <span class="n">expected</span>
-<a id="__codelineno-0-424" name="__codelineno-0-424"></a>
-<a id="__codelineno-0-425" name="__codelineno-0-425"></a>    <span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span> <span class="o">=</span> <span class="n">_read_simnibs_montage</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">)</span>
-<a id="__codelineno-0-426" name="__codelineno-0-426"></a>
-<a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="c1"># Redundancy guard: reuse the FEM leadfield if one is already cached.</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a>    <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="kc">None</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span> <span class="k">else</span> <span class="n">_find_existing_leadfield</span><span class="p">(</span><span class="n">forward_dir</span><span class="p">)</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="k">if</span> <span class="n">leadfield_hdf5</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-430" name="__codelineno-0-430"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Reusing cached leadfield: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-<a id="__codelineno-0-431" name="__codelineno-0-431"></a>    <span class="k">else</span><span class="p">:</span>
-<a id="__codelineno-0-432" name="__codelineno-0-432"></a>        <span class="n">eeg_csv</span> <span class="o">=</span> <span class="n">m2m_dir</span> <span class="o">/</span> <span class="s2">"eeg_positions"</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">.csv"</span>
-<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="n">_compute_leadfield</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">forward_dir</span><span class="p">,</span> <span class="n">eeg_csv</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">cpus</span><span class="p">)</span>
-<a id="__codelineno-0-434" name="__codelineno-0-434"></a>
-<a id="__codelineno-0-435" name="__codelineno-0-435"></a>    <span class="c1"># The Info is built *after* the leadfield, in the leadfield's channel order:</span>
-<a id="__codelineno-0-436" name="__codelineno-0-436"></a>    <span class="c1"># SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by</span>
-<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="c1"># element, and the leadfield does not use the net CSV's order (below).</span>
-<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="n">electrodes</span> <span class="o">=</span> <span class="n">_in_leadfield_order</span><span class="p">(</span><span class="n">electrodes</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="p">)</span>
-<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="n">montage_info</span><span class="p">,</span> <span class="n">trans</span> <span class="o">=</span> <span class="n">_build_montage_info</span><span class="p">(</span>
-<a id="__codelineno-0-440" name="__codelineno-0-440"></a>        <span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span><span class="p">,</span> <span class="n">info</span><span class="o">=</span><span class="n">info</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="n">trans</span>
-<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="p">)</span>
-<a id="__codelineno-0-442" name="__codelineno-0-442"></a>
-<a id="__codelineno-0-443" name="__codelineno-0-443"></a>    <span class="n">info_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-info.fif"</span>
-<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="n">trans_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-trans.fif"</span>
-<a id="__codelineno-0-445" name="__codelineno-0-445"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">RawArray</span><span class="p">(</span>
-<a id="__codelineno-0-446" name="__codelineno-0-446"></a>        <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">montage_info</span><span class="o">.</span><span class="n">ch_names</span><span class="p">),</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">montage_info</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
-<a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">write_trans</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span> <span class="n">trans</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-<a id="__codelineno-0-449" name="__codelineno-0-449"></a>
-<a id="__codelineno-0-450" name="__codelineno-0-450"></a>    <span class="c1"># Not SimNIBS's own ``prepare_eeg_forward`` console script: that wrapper runs</span>
-<a id="__codelineno-0-451" name="__codelineno-0-451"></a>    <span class="c1"># ``python -E``, so no compatibility shim can reach it, and its MNE/cortech</span>
-<a id="__codelineno-0-452" name="__codelineno-0-452"></a>    <span class="c1"># bridge dies *after* the FEM leadfield above has been paid for. The worker</span>
-<a id="__codelineno-0-453" name="__codelineno-0-453"></a>    <span class="c1"># calls the same ``simnibs.eeg.forward.make_forward`` with the shims applied --</span>
-<a id="__codelineno-0-454" name="__codelineno-0-454"></a>    <span class="c1"># still a child process, so the ~0.9 GB gain matrix is reclaimed on exit.</span>
-<a id="__codelineno-0-455" name="__codelineno-0-455"></a>    <span class="c1"># See tit/source/_simnibs_compat.py.</span>
-<a id="__codelineno-0-456" name="__codelineno-0-456"></a>    <span class="n">_run</span><span class="p">(</span>
-<a id="__codelineno-0-457" name="__codelineno-0-457"></a>        <span class="p">[</span>
-<a id="__codelineno-0-458" name="__codelineno-0-458"></a>            <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
-<a id="__codelineno-0-459" name="__codelineno-0-459"></a>            <span class="s2">"-m"</span><span class="p">,</span>
-<a id="__codelineno-0-460" name="__codelineno-0-460"></a>            <span class="s2">"tit.source._prepare_forward"</span><span class="p">,</span>
-<a id="__codelineno-0-461" name="__codelineno-0-461"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">),</span>
-<a id="__codelineno-0-462" name="__codelineno-0-462"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">leadfield_hdf5</span><span class="p">),</span>
-<a id="__codelineno-0-463" name="__codelineno-0-463"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span>
-<a id="__codelineno-0-464" name="__codelineno-0-464"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a>            <span class="s2">"--fsaverage"</span><span class="p">,</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">),</span>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a>        <span class="p">],</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a>        <span class="sa">f</span><span class="s2">"MNE forward assembly for sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a>        <span class="n">cwd</span><span class="o">=</span><span class="n">forward_dir</span><span class="p">,</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="p">)</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a>    <span class="k">return</span> <span class="n">_rename_generated_outputs</span><span class="p">(</span><span class="n">forward_dir</span><span class="p">,</span> <span class="n">stem</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-471">471</a></span>
+<span class="normal"><a href="#__codelineno-0-472">472</a></span>
+<span class="normal"><a href="#__codelineno-0-473">473</a></span>
+<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+<span class="normal"><a href="#__codelineno-0-475">475</a></span>
+<span class="normal"><a href="#__codelineno-0-476">476</a></span>
+<span class="normal"><a href="#__codelineno-0-477">477</a></span>
+<span class="normal"><a href="#__codelineno-0-478">478</a></span>
+<span class="normal"><a href="#__codelineno-0-479">479</a></span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span>
+<span class="normal"><a href="#__codelineno-0-491">491</a></span>
+<span class="normal"><a href="#__codelineno-0-492">492</a></span>
+<span class="normal"><a href="#__codelineno-0-493">493</a></span>
+<span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span>
+<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span>
+<span class="normal"><a href="#__codelineno-0-502">502</a></span>
+<span class="normal"><a href="#__codelineno-0-503">503</a></span>
+<span class="normal"><a href="#__codelineno-0-504">504</a></span>
+<span class="normal"><a href="#__codelineno-0-505">505</a></span>
+<span class="normal"><a href="#__codelineno-0-506">506</a></span>
+<span class="normal"><a href="#__codelineno-0-507">507</a></span>
+<span class="normal"><a href="#__codelineno-0-508">508</a></span>
+<span class="normal"><a href="#__codelineno-0-509">509</a></span>
+<span class="normal"><a href="#__codelineno-0-510">510</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="k">def</span><span class="w"> </span><span class="nf">prepare_forward</span><span class="p">(</span>
+<a id="__codelineno-0-384" name="__codelineno-0-384"></a>    <span class="n">subject_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-385" name="__codelineno-0-385"></a>    <span class="n">cfg</span><span class="p">:</span> <span class="n">ForwardConfig</span><span class="p">,</span>
+<a id="__codelineno-0-386" name="__codelineno-0-386"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-387" name="__codelineno-0-387"></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-388" name="__codelineno-0-388"></a>    <span class="n">info</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">Info</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a>    <span class="n">trans</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">transforms</span><span class="o">.</span><span class="n">Transform</span> <span class="o">|</span> <span class="kc">None</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]:</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a><span class="w">    </span><span class="sd">"""Rebuild one subject's forward, source-space, and fsaverage morph files.</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-395" name="__codelineno-0-395"></a><span class="sd">    subject_id : str</span>
+<a id="__codelineno-0-396" name="__codelineno-0-396"></a><span class="sd">        Subject identifier without the ``sub-`` prefix (e.g. ``"101"``).</span>
+<a id="__codelineno-0-397" name="__codelineno-0-397"></a><span class="sd">    cfg : ForwardConfig</span>
+<a id="__codelineno-0-398" name="__codelineno-0-398"></a><span class="sd">        EEG net, fsaverage spacing, FEM worker count, and overwrite flag.</span>
+<a id="__codelineno-0-399" name="__codelineno-0-399"></a><span class="sd">    output_dir : str or pathlib.Path or None</span>
+<a id="__codelineno-0-400" name="__codelineno-0-400"></a><span class="sd">        Destination directory.  Defaults to ``pm.forward(subject_id)``</span>
+<a id="__codelineno-0-401" name="__codelineno-0-401"></a><span class="sd">        (``derivatives/SimNIBS/sub-&lt;id&gt;/forward/``).</span>
+<a id="__codelineno-0-402" name="__codelineno-0-402"></a><span class="sd">    info : mne.Info or None</span>
+<a id="__codelineno-0-403" name="__codelineno-0-403"></a><span class="sd">        A recording's Info whose ``dig`` carries the LPA, Nasion and RPA</span>
+<a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="sd">        cardinal points.  The head&lt;-&gt;MRI transform is coregistered from them,</span>
+<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="sd">        so the forward is in the recording's head frame.  Default: the net's</span>
+<a id="__codelineno-0-406" name="__codelineno-0-406"></a><span class="sd">        own template fiducials.</span>
+<a id="__codelineno-0-407" name="__codelineno-0-407"></a><span class="sd">    trans : mne.transforms.Transform or None</span>
+<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">        An explicit head-&gt;MRI transform (MNE head -&gt; MRI frames); used as is,</span>
+<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">        never re-estimated.  Pass ``info`` or ``trans``, not both.</span>
+<a id="__codelineno-0-410" name="__codelineno-0-410"></a>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a><span class="sd">    tuple of pathlib.Path</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="sd">        ``(fwd_path, src_path, morph_path)``.</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="sd">    """</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="n">_check_recording_geometry</span><span class="p">(</span><span class="n">info</span><span class="p">,</span> <span class="n">trans</span><span class="p">)</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a>    <span class="n">pm</span> <span class="o">=</span> <span class="n">get_path_manager</span><span class="p">()</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a>    <span class="n">m2m_dir</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">m2m</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">m2m_dir</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"m2m directory not found: </span><span class="si">{</span><span class="n">m2m_dir</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>    <span class="n">_check_forward_dependencies</span><span class="p">()</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>    <span class="n">forward_dir</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>        <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span> <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">Path</span><span class="p">(</span><span class="n">pm</span><span class="o">.</span><span class="n">forward</span><span class="p">(</span><span class="n">subject_id</span><span class="p">))</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="p">)</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>    <span class="n">forward_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="n">stem</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">"sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">_net-</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>    <span class="n">expected</span> <span class="o">=</span> <span class="p">(</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-fwd.fif"</span><span class="p">,</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-src.fif"</span><span class="p">,</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-morph.h5"</span><span class="p">,</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>    <span class="p">)</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>    <span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span> <span class="o">=</span> <span class="n">_read_simnibs_montage</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="p">)</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="c1"># Cached files are reused only if built from these exact inputs: a net CSV</span>
+<a id="__codelineno-0-438" name="__codelineno-0-438"></a>    <span class="c1"># rewritten in place (the v3.1.1 cap re-apply) or a new head mesh rebuilds.</span>
+<a id="__codelineno-0-439" name="__codelineno-0-439"></a>    <span class="n">eeg_csv</span> <span class="o">=</span> <span class="n">m2m_dir</span> <span class="o">/</span> <span class="s2">"eeg_positions"</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">.csv"</span>
+<a id="__codelineno-0-440" name="__codelineno-0-440"></a>    <span class="n">provenance_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-provenance.json"</span>
+<a id="__codelineno-0-441" name="__codelineno-0-441"></a>    <span class="n">inputs</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-442" name="__codelineno-0-442"></a>        <span class="s2">"net_csv_sha256"</span><span class="p">:</span> <span class="n">sha256_file</span><span class="p">(</span><span class="n">eeg_csv</span><span class="p">),</span>
+<a id="__codelineno-0-443" name="__codelineno-0-443"></a>        <span class="s2">"head_mesh_sha256"</span><span class="p">:</span> <span class="n">sha256_file</span><span class="p">(</span><span class="n">m2m_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">.msh"</span><span class="p">),</span>
+<a id="__codelineno-0-444" name="__codelineno-0-444"></a>    <span class="p">}</span>
+<a id="__codelineno-0-445" name="__codelineno-0-445"></a>    <span class="n">recorded</span> <span class="o">=</span> <span class="p">{}</span> <span class="k">if</span> <span class="n">cfg</span><span class="o">.</span><span class="n">overwrite</span> <span class="k">else</span> <span class="n">_read_provenance</span><span class="p">(</span><span class="n">provenance_path</span><span class="p">)</span>
+<a id="__codelineno-0-446" name="__codelineno-0-446"></a>    <span class="n">same_inputs</span> <span class="o">=</span> <span class="nb">all</span><span class="p">(</span><span class="n">recorded</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">k</span><span class="p">)</span> <span class="o">==</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">inputs</span><span class="o">.</span><span class="n">items</span><span class="p">())</span>
+<a id="__codelineno-0-447" name="__codelineno-0-447"></a>    <span class="c1"># Cached outputs may hold another recording's geometry, so a supplied</span>
+<a id="__codelineno-0-448" name="__codelineno-0-448"></a>    <span class="c1"># ``info``/``trans`` always rebuilds (the FEM leadfield is still reused).</span>
+<a id="__codelineno-0-449" name="__codelineno-0-449"></a>    <span class="n">default_frame</span> <span class="o">=</span> <span class="n">info</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">trans</span> <span class="ow">is</span> <span class="kc">None</span>
+<a id="__codelineno-0-450" name="__codelineno-0-450"></a>    <span class="k">if</span> <span class="p">(</span>
+<a id="__codelineno-0-451" name="__codelineno-0-451"></a>        <span class="n">same_inputs</span>
+<a id="__codelineno-0-452" name="__codelineno-0-452"></a>        <span class="ow">and</span> <span class="n">default_frame</span>
+<a id="__codelineno-0-453" name="__codelineno-0-453"></a>        <span class="ow">and</span> <span class="n">recorded</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"fsaverage_spacing"</span><span class="p">)</span> <span class="o">==</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span>
+<a id="__codelineno-0-454" name="__codelineno-0-454"></a>        <span class="ow">and</span> <span class="n">_forward_outputs_valid</span><span class="p">(</span><span class="o">*</span><span class="n">expected</span><span class="p">)</span>
+<a id="__codelineno-0-455" name="__codelineno-0-455"></a>    <span class="p">):</span>
+<a id="__codelineno-0-456" name="__codelineno-0-456"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Forward outputs already present for </span><span class="si">%s</span><span class="s2">; skipping."</span><span class="p">,</span> <span class="n">subject_id</span><span class="p">)</span>
+<a id="__codelineno-0-457" name="__codelineno-0-457"></a>        <span class="k">return</span> <span class="n">expected</span>
+<a id="__codelineno-0-458" name="__codelineno-0-458"></a>
+<a id="__codelineno-0-459" name="__codelineno-0-459"></a>    <span class="c1"># SimNIBS names the leadfield &lt;head mesh stem&gt;_leadfield_&lt;net&gt;.hdf5.</span>
+<a id="__codelineno-0-460" name="__codelineno-0-460"></a>    <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">_leadfield_</span><span class="si">{</span><span class="n">cfg</span><span class="o">.</span><span class="n">eeg_net</span><span class="si">}</span><span class="s2">.hdf5"</span>
+<a id="__codelineno-0-461" name="__codelineno-0-461"></a>    <span class="k">if</span> <span class="n">same_inputs</span> <span class="ow">and</span> <span class="n">_exists_real</span><span class="p">(</span><span class="n">leadfield_hdf5</span><span class="p">):</span>
+<a id="__codelineno-0-462" name="__codelineno-0-462"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"Reusing cached leadfield: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+<a id="__codelineno-0-463" name="__codelineno-0-463"></a>    <span class="k">else</span><span class="p">:</span>
+<a id="__codelineno-0-464" name="__codelineno-0-464"></a>        <span class="n">provenance_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-465" name="__codelineno-0-465"></a>        <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">unlink</span><span class="p">(</span><span class="n">missing_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>  <span class="c1"># never append to a stale HDF5</span>
+<a id="__codelineno-0-466" name="__codelineno-0-466"></a>        <span class="n">leadfield_hdf5</span> <span class="o">=</span> <span class="n">_compute_leadfield</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">,</span> <span class="n">forward_dir</span><span class="p">,</span> <span class="n">eeg_csv</span><span class="p">,</span> <span class="n">cfg</span><span class="o">.</span><span class="n">cpus</span><span class="p">)</span>
+<a id="__codelineno-0-467" name="__codelineno-0-467"></a>        <span class="n">_write_provenance</span><span class="p">(</span><span class="n">provenance_path</span><span class="p">,</span> <span class="n">inputs</span><span class="p">)</span>
+<a id="__codelineno-0-468" name="__codelineno-0-468"></a>
+<a id="__codelineno-0-469" name="__codelineno-0-469"></a>    <span class="c1"># The Info is built *after* the leadfield, in the leadfield's channel order:</span>
+<a id="__codelineno-0-470" name="__codelineno-0-470"></a>    <span class="c1"># SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by</span>
+<a id="__codelineno-0-471" name="__codelineno-0-471"></a>    <span class="c1"># element, and the leadfield does not use the net CSV's order (below).</span>
+<a id="__codelineno-0-472" name="__codelineno-0-472"></a>    <span class="n">electrodes</span> <span class="o">=</span> <span class="n">_in_leadfield_order</span><span class="p">(</span><span class="n">electrodes</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="p">)</span>
+<a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="n">montage_info</span><span class="p">,</span> <span class="n">trans</span> <span class="o">=</span> <span class="n">_build_montage_info</span><span class="p">(</span>
+<a id="__codelineno-0-474" name="__codelineno-0-474"></a>        <span class="n">electrodes</span><span class="p">,</span> <span class="n">fiducials</span><span class="p">,</span> <span class="n">info</span><span class="o">=</span><span class="n">info</span><span class="p">,</span> <span class="n">trans</span><span class="o">=</span><span class="n">trans</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a>    <span class="p">)</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a>    <span class="n">info_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-info.fif"</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a>    <span class="n">trans_path</span> <span class="o">=</span> <span class="n">forward_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">stem</span><span class="si">}</span><span class="s2">-trans.fif"</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">RawArray</span><span class="p">(</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="nb">len</span><span class="p">(</span><span class="n">montage_info</span><span class="o">.</span><span class="n">ch_names</span><span class="p">),</span> <span class="mi">1</span><span class="p">)),</span> <span class="n">montage_info</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a>    <span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="n">mne</span><span class="o">.</span><span class="n">write_trans</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span> <span class="n">trans</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>    <span class="c1"># Not SimNIBS's own ``prepare_eeg_forward`` console script: that wrapper runs</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>    <span class="c1"># ``python -E``, so no compatibility shim can reach it, and its MNE/cortech</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="c1"># bridge dies *after* the FEM leadfield above has been paid for. The worker</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>    <span class="c1"># calls the same ``simnibs.eeg.forward.make_forward`` with the shims applied --</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="c1"># still a child process, so the ~0.9 GB gain matrix is reclaimed on exit.</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>    <span class="c1"># See tit/source/_simnibs_compat.py.</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>    <span class="n">_run</span><span class="p">(</span>
+<a id="__codelineno-0-491" name="__codelineno-0-491"></a>        <span class="p">[</span>
+<a id="__codelineno-0-492" name="__codelineno-0-492"></a>            <span class="n">sys</span><span class="o">.</span><span class="n">executable</span><span class="p">,</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>            <span class="s2">"-m"</span><span class="p">,</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a>            <span class="s2">"tit.source._prepare_forward"</span><span class="p">,</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">m2m_dir</span><span class="p">),</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">leadfield_hdf5</span><span class="p">),</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">info_path</span><span class="p">),</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">trans_path</span><span class="p">),</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>            <span class="s2">"--fsaverage"</span><span class="p">,</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>            <span class="nb">str</span><span class="p">(</span><span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span><span class="p">),</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>        <span class="p">],</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a>        <span class="sa">f</span><span class="s2">"MNE forward assembly for sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">"</span><span class="p">,</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a>        <span class="n">cwd</span><span class="o">=</span><span class="n">forward_dir</span><span class="p">,</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>    <span class="p">)</span>
+<a id="__codelineno-0-505" name="__codelineno-0-505"></a>    <span class="n">outputs</span> <span class="o">=</span> <span class="n">_rename_generated_outputs</span><span class="p">(</span><span class="n">forward_dir</span><span class="p">,</span> <span class="n">stem</span><span class="p">,</span> <span class="n">leadfield_hdf5</span><span class="o">.</span><span class="n">stem</span><span class="p">)</span>
+<a id="__codelineno-0-506" name="__codelineno-0-506"></a>    <span class="n">provenance</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">inputs</span><span class="p">)</span>
+<a id="__codelineno-0-507" name="__codelineno-0-507"></a>    <span class="k">if</span> <span class="n">default_frame</span><span class="p">:</span>  <span class="c1"># a recording-frame forward is never reused as the default</span>
+<a id="__codelineno-0-508" name="__codelineno-0-508"></a>        <span class="n">provenance</span><span class="p">[</span><span class="s2">"fsaverage_spacing"</span><span class="p">]</span> <span class="o">=</span> <span class="n">cfg</span><span class="o">.</span><span class="n">fsaverage_spacing</span>
+<a id="__codelineno-0-509" name="__codelineno-0-509"></a>    <span class="n">_write_provenance</span><span class="p">(</span><span class="n">provenance_path</span><span class="p">,</span> <span class="n">provenance</span><span class="p">)</span>
+<a id="__codelineno-0-510" name="__codelineno-0-510"></a>    <span class="k">return</span> <span class="n">outputs</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

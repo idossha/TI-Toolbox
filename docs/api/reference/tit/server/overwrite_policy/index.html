@@ -905,6 +905,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#tit.server.overwrite_policy.refuse_outputs_of_active_jobs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        refuse_outputs_of_active_jobs
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#tit.server.overwrite_policy.check_overwrite_permission" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1213,49 +1224,160 @@ replacement.</p>
 <div class="doc doc-object doc-function">
 
 
+<h3 id="tit.server.overwrite_policy.refuse_outputs_of_active_jobs" class="doc doc-heading">
+            <span class="doc doc-object-name doc-function-name">refuse_outputs_of_active_jobs</span>
+
+
+<a href="#tit.server.overwrite_policy.refuse_outputs_of_active_jobs" class="headerlink" title="Permanent link">&para;</a></h3>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">refuse_outputs_of_active_jobs</span><span class="p">(</span><span class="n">manager</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">,</span> <span class="n">planned</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#tuple">tuple</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">]]])</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+</code></pre></div>
+
+    <div class="doc doc-contents ">
+
+        <p>HTTP 422 when a <code>(kind, config, plan jobs)</code> of <em>planned</em> writes a folder a queued or
+running job will write.</p>
+<p>The overwrite check reads the disk, where a queued job has written nothing yet, and only
+the simulator honours the overwrite flag, so a second job into one folder (a double-pressed
+Run, a re-pressed search) replaced the first's results. No overwrite answer makes that
+safe, so this is a 422, not the 409 question.</p>
+
+
+            <details class="quote">
+              <summary>Source code in <code>tit/server/overwrite_policy.py</code></summary>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-72"> 72</a></span>
+<span class="normal"><a href="#__codelineno-0-73"> 73</a></span>
+<span class="normal"><a href="#__codelineno-0-74"> 74</a></span>
+<span class="normal"><a href="#__codelineno-0-75"> 75</a></span>
+<span class="normal"><a href="#__codelineno-0-76"> 76</a></span>
+<span class="normal"><a href="#__codelineno-0-77"> 77</a></span>
+<span class="normal"><a href="#__codelineno-0-78"> 78</a></span>
+<span class="normal"><a href="#__codelineno-0-79"> 79</a></span>
+<span class="normal"><a href="#__codelineno-0-80"> 80</a></span>
+<span class="normal"><a href="#__codelineno-0-81"> 81</a></span>
+<span class="normal"><a href="#__codelineno-0-82"> 82</a></span>
+<span class="normal"><a href="#__codelineno-0-83"> 83</a></span>
+<span class="normal"><a href="#__codelineno-0-84"> 84</a></span>
+<span class="normal"><a href="#__codelineno-0-85"> 85</a></span>
+<span class="normal"><a href="#__codelineno-0-86"> 86</a></span>
+<span class="normal"><a href="#__codelineno-0-87"> 87</a></span>
+<span class="normal"><a href="#__codelineno-0-88"> 88</a></span>
+<span class="normal"><a href="#__codelineno-0-89"> 89</a></span>
+<span class="normal"><a href="#__codelineno-0-90"> 90</a></span>
+<span class="normal"><a href="#__codelineno-0-91"> 91</a></span>
+<span class="normal"><a href="#__codelineno-0-92"> 92</a></span>
+<span class="normal"><a href="#__codelineno-0-93"> 93</a></span>
+<span class="normal"><a href="#__codelineno-0-94"> 94</a></span>
+<span class="normal"><a href="#__codelineno-0-95"> 95</a></span>
+<span class="normal"><a href="#__codelineno-0-96"> 96</a></span>
+<span class="normal"><a href="#__codelineno-0-97"> 97</a></span>
+<span class="normal"><a href="#__codelineno-0-98"> 98</a></span>
+<span class="normal"><a href="#__codelineno-0-99"> 99</a></span>
+<span class="normal"><a href="#__codelineno-0-100">100</a></span>
+<span class="normal"><a href="#__codelineno-0-101">101</a></span>
+<span class="normal"><a href="#__codelineno-0-102">102</a></span>
+<span class="normal"><a href="#__codelineno-0-103">103</a></span>
+<span class="normal"><a href="#__codelineno-0-104">104</a></span>
+<span class="normal"><a href="#__codelineno-0-105">105</a></span>
+<span class="normal"><a href="#__codelineno-0-106">106</a></span>
+<span class="normal"><a href="#__codelineno-0-107">107</a></span>
+<span class="normal"><a href="#__codelineno-0-108">108</a></span>
+<span class="normal"><a href="#__codelineno-0-109">109</a></span>
+<span class="normal"><a href="#__codelineno-0-110">110</a></span>
+<span class="normal"><a href="#__codelineno-0-111">111</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-72" name="__codelineno-0-72"></a><span class="k">def</span><span class="w"> </span><span class="nf">refuse_outputs_of_active_jobs</span><span class="p">(</span>
+<a id="__codelineno-0-73" name="__codelineno-0-73"></a>    <span class="n">manager</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span> <span class="n">planned</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="nb">list</span><span class="p">[</span><span class="n">Any</span><span class="p">]]]</span>
+<a id="__codelineno-0-74" name="__codelineno-0-74"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-75" name="__codelineno-0-75"></a><span class="w">    </span><span class="sd">"""HTTP 422 when a ``(kind, config, plan jobs)`` of *planned* writes a folder a queued or</span>
+<a id="__codelineno-0-76" name="__codelineno-0-76"></a><span class="sd">    running job will write.</span>
+<a id="__codelineno-0-77" name="__codelineno-0-77"></a>
+<a id="__codelineno-0-78" name="__codelineno-0-78"></a><span class="sd">    The overwrite check reads the disk, where a queued job has written nothing yet, and only</span>
+<a id="__codelineno-0-79" name="__codelineno-0-79"></a><span class="sd">    the simulator honours the overwrite flag, so a second job into one folder (a double-pressed</span>
+<a id="__codelineno-0-80" name="__codelineno-0-80"></a><span class="sd">    Run, a re-pressed search) replaced the first's results. No overwrite answer makes that</span>
+<a id="__codelineno-0-81" name="__codelineno-0-81"></a><span class="sd">    safe, so this is a 422, not the 409 question.</span>
+<a id="__codelineno-0-82" name="__codelineno-0-82"></a><span class="sd">    """</span>
+<a id="__codelineno-0-83" name="__codelineno-0-83"></a>    <span class="n">wanted</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span><span class="o">.</span><span class="n">union</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">_named_folders</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">jobs</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">c</span><span class="p">,</span> <span class="n">jobs</span> <span class="ow">in</span> <span class="n">planned</span><span class="p">))</span>
+<a id="__codelineno-0-84" name="__codelineno-0-84"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">wanted</span><span class="p">:</span>
+<a id="__codelineno-0-85" name="__codelineno-0-85"></a>        <span class="k">return</span>
+<a id="__codelineno-0-86" name="__codelineno-0-86"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">tit.server.routes.plan</span><span class="w"> </span><span class="kn">import</span> <span class="n">PlanRequest</span><span class="p">,</span> <span class="n">plan_jobs</span>
+<a id="__codelineno-0-87" name="__codelineno-0-87"></a>
+<a id="__codelineno-0-88" name="__codelineno-0-88"></a>    <span class="k">for</span> <span class="n">job</span> <span class="ow">in</span> <span class="n">manager</span><span class="o">.</span><span class="n">list_jobs</span><span class="p">():</span>
+<a id="__codelineno-0-89" name="__codelineno-0-89"></a>        <span class="k">if</span> <span class="n">job</span><span class="p">[</span><span class="s2">"state"</span><span class="p">]</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"queued"</span><span class="p">,</span> <span class="s2">"running"</span><span class="p">):</span>
+<a id="__codelineno-0-90" name="__codelineno-0-90"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-91" name="__codelineno-0-91"></a>        <span class="n">spec</span> <span class="o">=</span> <span class="p">(</span><span class="n">manager</span><span class="o">.</span><span class="n">get_detail</span><span class="p">(</span><span class="n">job</span><span class="p">[</span><span class="s2">"id"</span><span class="p">])</span> <span class="ow">or</span> <span class="p">{})</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"spec"</span><span class="p">)</span> <span class="ow">or</span> <span class="p">{}</span>
+<a id="__codelineno-0-92" name="__codelineno-0-92"></a>        <span class="k">if</span> <span class="n">spec</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"kind"</span><span class="p">)</span> <span class="o">==</span> <span class="s2">"pre"</span><span class="p">:</span>
+<a id="__codelineno-0-93" name="__codelineno-0-93"></a>            <span class="k">continue</span>  <span class="c1"># preprocessing stages share subject folders by design</span>
+<a id="__codelineno-0-94" name="__codelineno-0-94"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-95" name="__codelineno-0-95"></a>            <span class="c1"># The folder resolution alone: no cost or ETA model per queued job.</span>
+<a id="__codelineno-0-96" name="__codelineno-0-96"></a>            <span class="n">folders</span> <span class="o">=</span> <span class="n">plan_jobs</span><span class="p">(</span>
+<a id="__codelineno-0-97" name="__codelineno-0-97"></a>                <span class="n">spec</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">],</span>
+<a id="__codelineno-0-98" name="__codelineno-0-98"></a>                <span class="n">PlanRequest</span><span class="p">(</span><span class="n">config</span><span class="o">=</span><span class="n">spec</span><span class="p">[</span><span class="s2">"config"</span><span class="p">],</span> <span class="n">subject_ids</span><span class="o">=</span><span class="n">spec</span><span class="p">[</span><span class="s2">"subject_ids"</span><span class="p">]),</span>
+<a id="__codelineno-0-99" name="__codelineno-0-99"></a>            <span class="p">)</span>
+<a id="__codelineno-0-100" name="__codelineno-0-100"></a>        <span class="k">except</span> <span class="p">(</span><span class="n">HTTPException</span><span class="p">,</span> <span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">,</span> <span class="ne">KeyError</span><span class="p">,</span> <span class="ne">OSError</span><span class="p">):</span>
+<a id="__codelineno-0-101" name="__codelineno-0-101"></a>            <span class="k">continue</span>  <span class="c1"># a spec the plan cannot read names no folder</span>
+<a id="__codelineno-0-102" name="__codelineno-0-102"></a>        <span class="n">taken</span> <span class="o">=</span> <span class="n">wanted</span> <span class="o">&amp;</span> <span class="n">_named_folders</span><span class="p">(</span>
+<a id="__codelineno-0-103" name="__codelineno-0-103"></a>            <span class="n">spec</span><span class="p">[</span><span class="s2">"kind"</span><span class="p">],</span> <span class="n">spec</span><span class="p">[</span><span class="s2">"config"</span><span class="p">],</span> <span class="n">folders</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">folders</span> <span class="k">else</span> <span class="p">[]</span>
+<a id="__codelineno-0-104" name="__codelineno-0-104"></a>        <span class="p">)</span>
+<a id="__codelineno-0-105" name="__codelineno-0-105"></a>        <span class="k">if</span> <span class="n">taken</span><span class="p">:</span>
+<a id="__codelineno-0-106" name="__codelineno-0-106"></a>            <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span>
+<a id="__codelineno-0-107" name="__codelineno-0-107"></a>                <span class="n">status_code</span><span class="o">=</span><span class="mi">422</span><span class="p">,</span>
+<a id="__codelineno-0-108" name="__codelineno-0-108"></a>                <span class="n">detail</span><span class="o">=</span><span class="sa">f</span><span class="s2">"The </span><span class="si">{</span><span class="n">job</span><span class="p">[</span><span class="s1">'state'</span><span class="p">]</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">job</span><span class="p">[</span><span class="s1">'kind'</span><span class="p">]</span><span class="si">}</span><span class="s2"> job </span><span class="si">{</span><span class="n">job</span><span class="p">[</span><span class="s1">'id'</span><span class="p">]</span><span class="si">}</span><span class="s2"> will write "</span>
+<a id="__codelineno-0-109" name="__codelineno-0-109"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">taken</span><span class="p">))</span><span class="si">}</span><span class="s2">. Wait for it to finish (or cancel it), or "</span>
+<a id="__codelineno-0-110" name="__codelineno-0-110"></a>                <span class="s2">"choose another name."</span><span class="p">,</span>
+<a id="__codelineno-0-111" name="__codelineno-0-111"></a>            <span class="p">)</span>
+</code></pre></div></td></tr></table></div>
+            </details>
+    </div>
+
+</div>
+
+<div class="doc doc-object doc-function">
+
+
 <h3 id="tit.server.overwrite_policy.check_overwrite_permission" class="doc doc-heading">
             <span class="doc doc-object-name doc-function-name">check_overwrite_permission</span>
 
 
 <a href="#tit.server.overwrite_policy.check_overwrite_permission" class="headerlink" title="Permanent link">&para;</a></h3>
-<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_overwrite_permission</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
+<div class="doc-signature highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nf">check_overwrite_permission</span><span class="p">(</span><span class="n">kind</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#dict">dict</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">,</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span><span class="p">],</span> <span class="n">subject_ids</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#list">list</a></span><span class="p">[</span><span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/stdtypes.html#str">str</a></span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">overwrite</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" href="https://docs.python.org/3/builtins/functions.html#bool">bool</a></span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span> <span class="n">manager</span><span class="p">:</span> <span class="n"><a class="autorefs autorefs-external" title="typing.Any" href="https://docs.python.org/3/library/typing.html#typing.Any">Any</a></span> <span class="o">=</span> <span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span>
 </code></pre></div>
 
     <div class="doc doc-contents ">
 
-        <p>Reject outputs outside the project (422) and, without explicit confirmation, the
-replacement of existing ones (409).</p>
+        <p>Reject outputs outside the project or planned by one of <em>manager</em>'s queued or running
+jobs (422) and, without explicit confirmation, the replacement of existing ones (409).
+Without a <em>manager</em> there is no queue to consult and only the disk is checked.</p>
 
 
             <details class="quote">
               <summary>Source code in <code>tit/server/overwrite_policy.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-61">61</a></span>
-<span class="normal"><a href="#__codelineno-0-62">62</a></span>
-<span class="normal"><a href="#__codelineno-0-63">63</a></span>
-<span class="normal"><a href="#__codelineno-0-64">64</a></span>
-<span class="normal"><a href="#__codelineno-0-65">65</a></span>
-<span class="normal"><a href="#__codelineno-0-66">66</a></span>
-<span class="normal"><a href="#__codelineno-0-67">67</a></span>
-<span class="normal"><a href="#__codelineno-0-68">68</a></span>
-<span class="normal"><a href="#__codelineno-0-69">69</a></span>
-<span class="normal"><a href="#__codelineno-0-70">70</a></span>
-<span class="normal"><a href="#__codelineno-0-71">71</a></span>
-<span class="normal"><a href="#__codelineno-0-72">72</a></span>
-<span class="normal"><a href="#__codelineno-0-73">73</a></span>
-<span class="normal"><a href="#__codelineno-0-74">74</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-61" name="__codelineno-0-61"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_overwrite_permission</span><span class="p">(</span>
-<a id="__codelineno-0-62" name="__codelineno-0-62"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-<a id="__codelineno-0-63" name="__codelineno-0-63"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
-<a id="__codelineno-0-64" name="__codelineno-0-64"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
-<a id="__codelineno-0-65" name="__codelineno-0-65"></a>    <span class="o">*</span><span class="p">,</span>
-<a id="__codelineno-0-66" name="__codelineno-0-66"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
-<a id="__codelineno-0-67" name="__codelineno-0-67"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-68" name="__codelineno-0-68"></a><span class="w">    </span><span class="sd">"""Reject outputs outside the project (422) and, without explicit confirmation, the</span>
-<a id="__codelineno-0-69" name="__codelineno-0-69"></a><span class="sd">    replacement of existing ones (409)."""</span>
-<a id="__codelineno-0-70" name="__codelineno-0-70"></a>    <span class="n">refuse_unconfirmed_overwrite</span><span class="p">(</span>
-<a id="__codelineno-0-71" name="__codelineno-0-71"></a>        <span class="n">kind</span><span class="p">,</span>
-<a id="__codelineno-0-72" name="__codelineno-0-72"></a>        <span class="n">planned_outputs</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">),</span>
-<a id="__codelineno-0-73" name="__codelineno-0-73"></a>        <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">,</span>
-<a id="__codelineno-0-74" name="__codelineno-0-74"></a>    <span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-114">114</a></span>
+<span class="normal"><a href="#__codelineno-0-115">115</a></span>
+<span class="normal"><a href="#__codelineno-0-116">116</a></span>
+<span class="normal"><a href="#__codelineno-0-117">117</a></span>
+<span class="normal"><a href="#__codelineno-0-118">118</a></span>
+<span class="normal"><a href="#__codelineno-0-119">119</a></span>
+<span class="normal"><a href="#__codelineno-0-120">120</a></span>
+<span class="normal"><a href="#__codelineno-0-121">121</a></span>
+<span class="normal"><a href="#__codelineno-0-122">122</a></span>
+<span class="normal"><a href="#__codelineno-0-123">123</a></span>
+<span class="normal"><a href="#__codelineno-0-124">124</a></span>
+<span class="normal"><a href="#__codelineno-0-125">125</a></span>
+<span class="normal"><a href="#__codelineno-0-126">126</a></span>
+<span class="normal"><a href="#__codelineno-0-127">127</a></span>
+<span class="normal"><a href="#__codelineno-0-128">128</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-114" name="__codelineno-0-114"></a><span class="k">def</span><span class="w"> </span><span class="nf">check_overwrite_permission</span><span class="p">(</span>
+<a id="__codelineno-0-115" name="__codelineno-0-115"></a>    <span class="n">kind</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<a id="__codelineno-0-116" name="__codelineno-0-116"></a>    <span class="n">config</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+<a id="__codelineno-0-117" name="__codelineno-0-117"></a>    <span class="n">subject_ids</span><span class="p">:</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span>
+<a id="__codelineno-0-118" name="__codelineno-0-118"></a>    <span class="o">*</span><span class="p">,</span>
+<a id="__codelineno-0-119" name="__codelineno-0-119"></a>    <span class="n">overwrite</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<a id="__codelineno-0-120" name="__codelineno-0-120"></a>    <span class="n">manager</span><span class="p">:</span> <span class="n">Any</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<a id="__codelineno-0-121" name="__codelineno-0-121"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-122" name="__codelineno-0-122"></a><span class="w">    </span><span class="sd">"""Reject outputs outside the project or planned by one of *manager*'s queued or running</span>
+<a id="__codelineno-0-123" name="__codelineno-0-123"></a><span class="sd">    jobs (422) and, without explicit confirmation, the replacement of existing ones (409).</span>
+<a id="__codelineno-0-124" name="__codelineno-0-124"></a><span class="sd">    Without a *manager* there is no queue to consult and only the disk is checked."""</span>
+<a id="__codelineno-0-125" name="__codelineno-0-125"></a>    <span class="n">outputs</span> <span class="o">=</span> <span class="n">planned_outputs</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">subject_ids</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
+<a id="__codelineno-0-126" name="__codelineno-0-126"></a>    <span class="k">if</span> <span class="n">manager</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-127" name="__codelineno-0-127"></a>        <span class="n">refuse_outputs_of_active_jobs</span><span class="p">(</span><span class="n">manager</span><span class="p">,</span> <span class="p">[(</span><span class="n">kind</span><span class="p">,</span> <span class="n">config</span><span class="p">,</span> <span class="n">outputs</span><span class="p">)])</span>
+<a id="__codelineno-0-128" name="__codelineno-0-128"></a>    <span class="n">refuse_unconfirmed_overwrite</span><span class="p">(</span><span class="n">kind</span><span class="p">,</span> <span class="n">outputs</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="n">overwrite</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

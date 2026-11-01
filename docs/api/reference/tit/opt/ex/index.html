@@ -1446,8 +1446,8 @@ symmetry_pairing : str
     mirror image of channel 1 (<code>e2+ = mirror(e1+)</code>, <code>e2- = mirror(e1-)</code>).</p>
 <h5 id="tit.opt.ex.ExConfig--raises">Raises<a class="headerlink" href="#tit.opt.ex.ExConfig--raises" title="Permanent link">&para;</a></h5>
 <p>ValueError
-    If <em>current_step</em>, <em>total_current</em>, or <em>channel_limit</em> are
-    non-positive, if <em>symmetric_bucket</em> is set with pool electrodes,
+    If <em>current_step</em>, <em>total_current</em>, <em>channel_limit</em> or
+    <em>roi_radius</em> is not a finite number above 0, if <em>symmetric_bucket</em> is set with pool electrodes,
     if <em>symmetry_pairing</em> is not <code>"within_pairs"</code>/<code>"cross_pairs"</code>,
     or if <em>roi_coordinate_space</em> is not <code>"subject"</code> or <code>"mni"</code>.</p>
 <h5 id="tit.opt.ex.ExConfig--examples">Examples<a class="headerlink" href="#tit.opt.ex.ExConfig--examples" title="Permanent link">&para;</a></h5>

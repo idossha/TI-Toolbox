@@ -61,7 +61,11 @@ def ca_bundle() -> str | None:
 def ssl_context() -> ssl.SSLContext:
     """A **verifying** context: hostname checking on, ``CERT_REQUIRED``, best bundle available."""
     bundle = ca_bundle()
-    context = ssl.create_default_context(cafile=bundle) if bundle else ssl.create_default_context()
+    context = (
+        ssl.create_default_context(cafile=bundle)
+        if bundle
+        else ssl.create_default_context()
+    )
     context.check_hostname = True
     context.verify_mode = ssl.CERT_REQUIRED
     return context

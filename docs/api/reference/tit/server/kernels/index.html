@@ -1441,24 +1441,28 @@ visible.</p>
 <span class="normal"><a href="#__codelineno-0-266">266</a></span>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
 <span class="normal"><a href="#__codelineno-0-268">268</a></span>
-<span class="normal"><a href="#__codelineno-0-269">269</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">kernel_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_KERNEL_NAME</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KernelSession</span><span class="p">:</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="w">    </span><span class="sd">"""Start a kernel, or raise :class:`KernelError` saying why not."""</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">reap_idle</span><span class="p">()</span>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_kernels</span><span class="p">:</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a>            <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a>                <span class="s2">"too-many-kernels"</span><span class="p">,</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_kernels</span><span class="si">}</span><span class="s2"> kernels are already running, which is the limit "</span>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="sa">f</span><span class="s2">"for one TI-Toolbox container. Shut one down and try again."</span><span class="p">,</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a>            <span class="p">)</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">+=</span> <span class="mi">1</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_reserved</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">kernel_name</span><span class="p">)</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="k">finally</span><span class="p">:</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="c1"># Released whether the start succeeded, raised, or the session is</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>        <span class="c1"># already registered: the reservation only has to cover the gap.</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-269" name="__codelineno-0-269"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">-=</span> <span class="mi">1</span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span>
+<span class="normal"><a href="#__codelineno-0-271">271</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="k">def</span><span class="w"> </span><span class="nf">start</span><span class="p">(</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a>    <span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="n">cwd</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">kernel_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="n">DEFAULT_KERNEL_NAME</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">KernelSession</span><span class="p">:</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="w">    </span><span class="sd">"""Start a kernel, or raise :class:`KernelError` saying why not."""</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">reap_idle</span><span class="p">()</span>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a>        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="p">)</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">&gt;=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_kernels</span><span class="p">:</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a>            <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a>                <span class="s2">"too-many-kernels"</span><span class="p">,</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">max_kernels</span><span class="si">}</span><span class="s2"> kernels are already running, which is the limit "</span>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a>                <span class="sa">f</span><span class="s2">"for one TI-Toolbox container. Shut one down and try again."</span><span class="p">,</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a>            <span class="p">)</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">+=</span> <span class="mi">1</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a>        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_start_reserved</span><span class="p">(</span><span class="n">cwd</span><span class="p">,</span> <span class="n">kernel_name</span><span class="p">)</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="k">finally</span><span class="p">:</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>        <span class="c1"># Released whether the start succeeded, raised, or the session is</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>        <span class="c1"># already registered: the reservation only has to cover the gap.</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+<a id="__codelineno-0-271" name="__codelineno-0-271"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_starting</span> <span class="o">-=</span> <span class="mi">1</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1483,19 +1487,19 @@ visible.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-382">382</a></span>
-<span class="normal"><a href="#__codelineno-0-383">383</a></span>
-<span class="normal"><a href="#__codelineno-0-384">384</a></span>
-<span class="normal"><a href="#__codelineno-0-385">385</a></span>
-<span class="normal"><a href="#__codelineno-0-386">386</a></span>
-<span class="normal"><a href="#__codelineno-0-387">387</a></span>
-<span class="normal"><a href="#__codelineno-0-388">388</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-382" name="__codelineno-0-382"></a><span class="k">def</span><span class="w"> </span><span class="nf">shutdown_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-383" name="__codelineno-0-383"></a><span class="w">    </span><span class="sd">"""Called when the server stops, so no kernel outlives its owner."""</span>
-<a id="__codelineno-0-384" name="__codelineno-0-384"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-385" name="__codelineno-0-385"></a>        <span class="n">sessions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-<a id="__codelineno-0-386" name="__codelineno-0-386"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-<a id="__codelineno-0-387" name="__codelineno-0-387"></a>    <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">sessions</span><span class="p">:</span>
-<a id="__codelineno-0-388" name="__codelineno-0-388"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-388">388</a></span>
+<span class="normal"><a href="#__codelineno-0-389">389</a></span>
+<span class="normal"><a href="#__codelineno-0-390">390</a></span>
+<span class="normal"><a href="#__codelineno-0-391">391</a></span>
+<span class="normal"><a href="#__codelineno-0-392">392</a></span>
+<span class="normal"><a href="#__codelineno-0-393">393</a></span>
+<span class="normal"><a href="#__codelineno-0-394">394</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-388" name="__codelineno-0-388"></a><span class="k">def</span><span class="w"> </span><span class="nf">shutdown_all</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-389" name="__codelineno-0-389"></a><span class="w">    </span><span class="sd">"""Called when the server stops, so no kernel outlives its owner."""</span>
+<a id="__codelineno-0-390" name="__codelineno-0-390"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+<a id="__codelineno-0-391" name="__codelineno-0-391"></a>        <span class="n">sessions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+<a id="__codelineno-0-392" name="__codelineno-0-392"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<a id="__codelineno-0-393" name="__codelineno-0-393"></a>    <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">sessions</span><span class="p">:</span>
+<a id="__codelineno-0-394" name="__codelineno-0-394"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1525,13 +1529,7 @@ chosen here and handed a cell in the same instant.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-404">404</a></span>
-<span class="normal"><a href="#__codelineno-0-405">405</a></span>
-<span class="normal"><a href="#__codelineno-0-406">406</a></span>
-<span class="normal"><a href="#__codelineno-0-407">407</a></span>
-<span class="normal"><a href="#__codelineno-0-408">408</a></span>
-<span class="normal"><a href="#__codelineno-0-409">409</a></span>
-<span class="normal"><a href="#__codelineno-0-410">410</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-410">410</a></span>
 <span class="normal"><a href="#__codelineno-0-411">411</a></span>
 <span class="normal"><a href="#__codelineno-0-412">412</a></span>
 <span class="normal"><a href="#__codelineno-0-413">413</a></span>
@@ -1550,32 +1548,42 @@ chosen here and handed a cell in the same instant.</p>
 <span class="normal"><a href="#__codelineno-0-426">426</a></span>
 <span class="normal"><a href="#__codelineno-0-427">427</a></span>
 <span class="normal"><a href="#__codelineno-0-428">428</a></span>
-<span class="normal"><a href="#__codelineno-0-429">429</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-404" name="__codelineno-0-404"></a><span class="k">def</span><span class="w"> </span><span class="nf">reap_idle</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<a id="__codelineno-0-405" name="__codelineno-0-405"></a><span class="w">    </span><span class="sd">"""Shut down kernels nobody has used lately. Returns their ids.</span>
-<a id="__codelineno-0-406" name="__codelineno-0-406"></a>
-<a id="__codelineno-0-407" name="__codelineno-0-407"></a><span class="sd">    *Idle* means no request in flight and not executing — a cell that runs</span>
-<a id="__codelineno-0-408" name="__codelineno-0-408"></a><span class="sd">    for longer than the timeout is work, not neglect, and reaping it kills</span>
-<a id="__codelineno-0-409" name="__codelineno-0-409"></a><span class="sd">    the interpreter that is doing it. Selection and removal happen in the</span>
-<a id="__codelineno-0-410" name="__codelineno-0-410"></a><span class="sd">    same critical section as :meth:`_begin_request`, so a kernel cannot be</span>
-<a id="__codelineno-0-411" name="__codelineno-0-411"></a><span class="sd">    chosen here and handed a cell in the same instant.</span>
-<a id="__codelineno-0-412" name="__codelineno-0-412"></a><span class="sd">    """</span>
-<a id="__codelineno-0-413" name="__codelineno-0-413"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-<a id="__codelineno-0-414" name="__codelineno-0-414"></a>        <span class="k">return</span> <span class="p">[]</span>
-<a id="__codelineno-0-415" name="__codelineno-0-415"></a>    <span class="n">cutoff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clock</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span>
-<a id="__codelineno-0-416" name="__codelineno-0-416"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-417" name="__codelineno-0-417"></a>        <span class="n">stale</span> <span class="o">=</span> <span class="p">[</span>
-<a id="__codelineno-0-418" name="__codelineno-0-418"></a>            <span class="n">s</span>
-<a id="__codelineno-0-419" name="__codelineno-0-419"></a>            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
-<a id="__codelineno-0-420" name="__codelineno-0-420"></a>            <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">in_flight</span> <span class="o">==</span> <span class="mi">0</span>
-<a id="__codelineno-0-421" name="__codelineno-0-421"></a>            <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">execution_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"busy"</span><span class="p">,</span> <span class="s2">"starting"</span><span class="p">)</span>
-<a id="__codelineno-0-422" name="__codelineno-0-422"></a>            <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">last_used</span> <span class="o">&lt;</span> <span class="n">cutoff</span>
-<a id="__codelineno-0-423" name="__codelineno-0-423"></a>        <span class="p">]</span>
-<a id="__codelineno-0-424" name="__codelineno-0-424"></a>        <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">:</span>
-<a id="__codelineno-0-425" name="__codelineno-0-425"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
-<a id="__codelineno-0-426" name="__codelineno-0-426"></a>    <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">:</span>
-<a id="__codelineno-0-427" name="__codelineno-0-427"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">"kernel </span><span class="si">%s</span><span class="s2"> reaped after </span><span class="si">%.0f</span><span class="s2">s idle"</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span><span class="p">)</span>
-<a id="__codelineno-0-428" name="__codelineno-0-428"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-429" name="__codelineno-0-429"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">]</span>
+<span class="normal"><a href="#__codelineno-0-429">429</a></span>
+<span class="normal"><a href="#__codelineno-0-430">430</a></span>
+<span class="normal"><a href="#__codelineno-0-431">431</a></span>
+<span class="normal"><a href="#__codelineno-0-432">432</a></span>
+<span class="normal"><a href="#__codelineno-0-433">433</a></span>
+<span class="normal"><a href="#__codelineno-0-434">434</a></span>
+<span class="normal"><a href="#__codelineno-0-435">435</a></span>
+<span class="normal"><a href="#__codelineno-0-436">436</a></span>
+<span class="normal"><a href="#__codelineno-0-437">437</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-410" name="__codelineno-0-410"></a><span class="k">def</span><span class="w"> </span><span class="nf">reap_idle</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<a id="__codelineno-0-411" name="__codelineno-0-411"></a><span class="w">    </span><span class="sd">"""Shut down kernels nobody has used lately. Returns their ids.</span>
+<a id="__codelineno-0-412" name="__codelineno-0-412"></a>
+<a id="__codelineno-0-413" name="__codelineno-0-413"></a><span class="sd">    *Idle* means no request in flight and not executing — a cell that runs</span>
+<a id="__codelineno-0-414" name="__codelineno-0-414"></a><span class="sd">    for longer than the timeout is work, not neglect, and reaping it kills</span>
+<a id="__codelineno-0-415" name="__codelineno-0-415"></a><span class="sd">    the interpreter that is doing it. Selection and removal happen in the</span>
+<a id="__codelineno-0-416" name="__codelineno-0-416"></a><span class="sd">    same critical section as :meth:`_begin_request`, so a kernel cannot be</span>
+<a id="__codelineno-0-417" name="__codelineno-0-417"></a><span class="sd">    chosen here and handed a cell in the same instant.</span>
+<a id="__codelineno-0-418" name="__codelineno-0-418"></a><span class="sd">    """</span>
+<a id="__codelineno-0-419" name="__codelineno-0-419"></a>    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
+<a id="__codelineno-0-420" name="__codelineno-0-420"></a>        <span class="k">return</span> <span class="p">[]</span>
+<a id="__codelineno-0-421" name="__codelineno-0-421"></a>    <span class="n">cutoff</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clock</span><span class="p">()</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span>
+<a id="__codelineno-0-422" name="__codelineno-0-422"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+<a id="__codelineno-0-423" name="__codelineno-0-423"></a>        <span class="n">stale</span> <span class="o">=</span> <span class="p">[</span>
+<a id="__codelineno-0-424" name="__codelineno-0-424"></a>            <span class="n">s</span>
+<a id="__codelineno-0-425" name="__codelineno-0-425"></a>            <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">values</span><span class="p">()</span>
+<a id="__codelineno-0-426" name="__codelineno-0-426"></a>            <span class="k">if</span> <span class="n">s</span><span class="o">.</span><span class="n">in_flight</span> <span class="o">==</span> <span class="mi">0</span>
+<a id="__codelineno-0-427" name="__codelineno-0-427"></a>            <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">execution_state</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"busy"</span><span class="p">,</span> <span class="s2">"starting"</span><span class="p">)</span>
+<a id="__codelineno-0-428" name="__codelineno-0-428"></a>            <span class="ow">and</span> <span class="n">s</span><span class="o">.</span><span class="n">last_used</span> <span class="o">&lt;</span> <span class="n">cutoff</span>
+<a id="__codelineno-0-429" name="__codelineno-0-429"></a>        <span class="p">]</span>
+<a id="__codelineno-0-430" name="__codelineno-0-430"></a>        <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">:</span>
+<a id="__codelineno-0-431" name="__codelineno-0-431"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">_sessions</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="kc">None</span><span class="p">)</span>
+<a id="__codelineno-0-432" name="__codelineno-0-432"></a>    <span class="k">for</span> <span class="n">session</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">:</span>
+<a id="__codelineno-0-433" name="__codelineno-0-433"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span>
+<a id="__codelineno-0-434" name="__codelineno-0-434"></a>            <span class="s2">"kernel </span><span class="si">%s</span><span class="s2"> reaped after </span><span class="si">%.0f</span><span class="s2">s idle"</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">idle_timeout</span>
+<a id="__codelineno-0-435" name="__codelineno-0-435"></a>        <span class="p">)</span>
+<a id="__codelineno-0-436" name="__codelineno-0-436"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_shutdown_session</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-437" name="__codelineno-0-437"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">s</span><span class="o">.</span><span class="n">id</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">stale</span><span class="p">]</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1604,39 +1612,39 @@ makes. It is answered by IPython's completer against the kernel's
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-464">464</a></span>
-<span class="normal"><a href="#__codelineno-0-465">465</a></span>
-<span class="normal"><a href="#__codelineno-0-466">466</a></span>
-<span class="normal"><a href="#__codelineno-0-467">467</a></span>
-<span class="normal"><a href="#__codelineno-0-468">468</a></span>
-<span class="normal"><a href="#__codelineno-0-469">469</a></span>
-<span class="normal"><a href="#__codelineno-0-470">470</a></span>
-<span class="normal"><a href="#__codelineno-0-471">471</a></span>
-<span class="normal"><a href="#__codelineno-0-472">472</a></span>
-<span class="normal"><a href="#__codelineno-0-473">473</a></span>
-<span class="normal"><a href="#__codelineno-0-474">474</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-474">474</a></span>
 <span class="normal"><a href="#__codelineno-0-475">475</a></span>
 <span class="normal"><a href="#__codelineno-0-476">476</a></span>
 <span class="normal"><a href="#__codelineno-0-477">477</a></span>
 <span class="normal"><a href="#__codelineno-0-478">478</a></span>
 <span class="normal"><a href="#__codelineno-0-479">479</a></span>
-<span class="normal"><a href="#__codelineno-0-480">480</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-464" name="__codelineno-0-464"></a><span class="k">def</span><span class="w"> </span><span class="nf">complete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">req_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-465" name="__codelineno-0-465"></a><span class="w">    </span><span class="sd">"""Ask the kernel what could follow the cursor.</span>
-<a id="__codelineno-0-466" name="__codelineno-0-466"></a>
-<a id="__codelineno-0-467" name="__codelineno-0-467"></a><span class="sd">    This is `complete_request`, the same call Jupyter's own front end</span>
-<a id="__codelineno-0-468" name="__codelineno-0-468"></a><span class="sd">    makes. It is answered by IPython's completer against the kernel's</span>
-<a id="__codelineno-0-469" name="__codelineno-0-469"></a><span class="sd">    **live namespace**, so after the notebook has run its imports,</span>
-<a id="__codelineno-0-470" name="__codelineno-0-470"></a><span class="sd">    ``tit.&lt;Tab&gt;`` lists what `tit` actually holds in that interpreter.</span>
-<a id="__codelineno-0-471" name="__codelineno-0-471"></a><span class="sd">    """</span>
-<a id="__codelineno-0-472" name="__codelineno-0-472"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
-<a id="__codelineno-0-473" name="__codelineno-0-473"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-474" name="__codelineno-0-474"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-475" name="__codelineno-0-475"></a>        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">complete</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">)</span>
-<a id="__codelineno-0-476" name="__codelineno-0-476"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-<a id="__codelineno-0-477" name="__codelineno-0-477"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_end_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-478" name="__codelineno-0-478"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"complete: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-<a id="__codelineno-0-479" name="__codelineno-0-479"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
-<a id="__codelineno-0-480" name="__codelineno-0-480"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="s2">"complete"</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-480">480</a></span>
+<span class="normal"><a href="#__codelineno-0-481">481</a></span>
+<span class="normal"><a href="#__codelineno-0-482">482</a></span>
+<span class="normal"><a href="#__codelineno-0-483">483</a></span>
+<span class="normal"><a href="#__codelineno-0-484">484</a></span>
+<span class="normal"><a href="#__codelineno-0-485">485</a></span>
+<span class="normal"><a href="#__codelineno-0-486">486</a></span>
+<span class="normal"><a href="#__codelineno-0-487">487</a></span>
+<span class="normal"><a href="#__codelineno-0-488">488</a></span>
+<span class="normal"><a href="#__codelineno-0-489">489</a></span>
+<span class="normal"><a href="#__codelineno-0-490">490</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-474" name="__codelineno-0-474"></a><span class="k">def</span><span class="w"> </span><span class="nf">complete</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">req_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-475" name="__codelineno-0-475"></a><span class="w">    </span><span class="sd">"""Ask the kernel what could follow the cursor.</span>
+<a id="__codelineno-0-476" name="__codelineno-0-476"></a>
+<a id="__codelineno-0-477" name="__codelineno-0-477"></a><span class="sd">    This is `complete_request`, the same call Jupyter's own front end</span>
+<a id="__codelineno-0-478" name="__codelineno-0-478"></a><span class="sd">    makes. It is answered by IPython's completer against the kernel's</span>
+<a id="__codelineno-0-479" name="__codelineno-0-479"></a><span class="sd">    **live namespace**, so after the notebook has run its imports,</span>
+<a id="__codelineno-0-480" name="__codelineno-0-480"></a><span class="sd">    ``tit.&lt;Tab&gt;`` lists what `tit` actually holds in that interpreter.</span>
+<a id="__codelineno-0-481" name="__codelineno-0-481"></a><span class="sd">    """</span>
+<a id="__codelineno-0-482" name="__codelineno-0-482"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
+<a id="__codelineno-0-483" name="__codelineno-0-483"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-484" name="__codelineno-0-484"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-485" name="__codelineno-0-485"></a>        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">complete</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">)</span>
+<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+<a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_end_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-488" name="__codelineno-0-488"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"complete: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+<a id="__codelineno-0-489" name="__codelineno-0-489"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="s2">"complete"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1661,27 +1669,31 @@ makes. It is answered by IPython's completer against the kernel's
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-482">482</a></span>
-<span class="normal"><a href="#__codelineno-0-483">483</a></span>
-<span class="normal"><a href="#__codelineno-0-484">484</a></span>
-<span class="normal"><a href="#__codelineno-0-485">485</a></span>
-<span class="normal"><a href="#__codelineno-0-486">486</a></span>
-<span class="normal"><a href="#__codelineno-0-487">487</a></span>
-<span class="normal"><a href="#__codelineno-0-488">488</a></span>
-<span class="normal"><a href="#__codelineno-0-489">489</a></span>
-<span class="normal"><a href="#__codelineno-0-490">490</a></span>
-<span class="normal"><a href="#__codelineno-0-491">491</a></span>
-<span class="normal"><a href="#__codelineno-0-492">492</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-482" name="__codelineno-0-482"></a><span class="k">def</span><span class="w"> </span><span class="nf">inspect</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">req_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">detail</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-483" name="__codelineno-0-483"></a><span class="w">    </span><span class="sd">"""Ask the kernel about the name under the cursor (Jupyter's ⇧⇥)."""</span>
-<a id="__codelineno-0-484" name="__codelineno-0-484"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
-<a id="__codelineno-0-485" name="__codelineno-0-485"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-486" name="__codelineno-0-486"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-487" name="__codelineno-0-487"></a>        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">,</span> <span class="n">detail_level</span><span class="o">=</span><span class="n">detail</span><span class="p">)</span>
-<a id="__codelineno-0-488" name="__codelineno-0-488"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-<a id="__codelineno-0-489" name="__codelineno-0-489"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_end_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-490" name="__codelineno-0-490"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"inspect: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-<a id="__codelineno-0-491" name="__codelineno-0-491"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
-<a id="__codelineno-0-492" name="__codelineno-0-492"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="s2">"inspect"</span><span class="p">)</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-492">492</a></span>
+<span class="normal"><a href="#__codelineno-0-493">493</a></span>
+<span class="normal"><a href="#__codelineno-0-494">494</a></span>
+<span class="normal"><a href="#__codelineno-0-495">495</a></span>
+<span class="normal"><a href="#__codelineno-0-496">496</a></span>
+<span class="normal"><a href="#__codelineno-0-497">497</a></span>
+<span class="normal"><a href="#__codelineno-0-498">498</a></span>
+<span class="normal"><a href="#__codelineno-0-499">499</a></span>
+<span class="normal"><a href="#__codelineno-0-500">500</a></span>
+<span class="normal"><a href="#__codelineno-0-501">501</a></span>
+<span class="normal"><a href="#__codelineno-0-502">502</a></span>
+<span class="normal"><a href="#__codelineno-0-503">503</a></span>
+<span class="normal"><a href="#__codelineno-0-504">504</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-492" name="__codelineno-0-492"></a><span class="k">def</span><span class="w"> </span><span class="nf">inspect</span><span class="p">(</span>
+<a id="__codelineno-0-493" name="__codelineno-0-493"></a>    <span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">req_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">code</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">detail</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-494" name="__codelineno-0-494"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-495" name="__codelineno-0-495"></a><span class="w">    </span><span class="sd">"""Ask the kernel about the name under the cursor (Jupyter's ⇧⇥)."""</span>
+<a id="__codelineno-0-496" name="__codelineno-0-496"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
+<a id="__codelineno-0-497" name="__codelineno-0-497"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_begin_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-498" name="__codelineno-0-498"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-499" name="__codelineno-0-499"></a>        <span class="n">msg_id</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">inspect</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="n">cursor_pos</span><span class="p">,</span> <span class="n">detail_level</span><span class="o">=</span><span class="n">detail</span><span class="p">)</span>
+<a id="__codelineno-0-500" name="__codelineno-0-500"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+<a id="__codelineno-0-501" name="__codelineno-0-501"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_end_request</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-502" name="__codelineno-0-502"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"inspect: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+<a id="__codelineno-0-503" name="__codelineno-0-503"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+<a id="__codelineno-0-504" name="__codelineno-0-504"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="p">[</span><span class="n">msg_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">req_id</span><span class="p">,</span> <span class="s2">"inspect"</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1711,19 +1723,7 @@ they did, until the socket teardown underneath aborted the process.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-502">502</a></span>
-<span class="normal"><a href="#__codelineno-0-503">503</a></span>
-<span class="normal"><a href="#__codelineno-0-504">504</a></span>
-<span class="normal"><a href="#__codelineno-0-505">505</a></span>
-<span class="normal"><a href="#__codelineno-0-506">506</a></span>
-<span class="normal"><a href="#__codelineno-0-507">507</a></span>
-<span class="normal"><a href="#__codelineno-0-508">508</a></span>
-<span class="normal"><a href="#__codelineno-0-509">509</a></span>
-<span class="normal"><a href="#__codelineno-0-510">510</a></span>
-<span class="normal"><a href="#__codelineno-0-511">511</a></span>
-<span class="normal"><a href="#__codelineno-0-512">512</a></span>
-<span class="normal"><a href="#__codelineno-0-513">513</a></span>
-<span class="normal"><a href="#__codelineno-0-514">514</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-514">514</a></span>
 <span class="normal"><a href="#__codelineno-0-515">515</a></span>
 <span class="normal"><a href="#__codelineno-0-516">516</a></span>
 <span class="normal"><a href="#__codelineno-0-517">517</a></span>
@@ -1751,47 +1751,63 @@ they did, until the socket teardown underneath aborted the process.</p>
 <span class="normal"><a href="#__codelineno-0-539">539</a></span>
 <span class="normal"><a href="#__codelineno-0-540">540</a></span>
 <span class="normal"><a href="#__codelineno-0-541">541</a></span>
-<span class="normal"><a href="#__codelineno-0-542">542</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-502" name="__codelineno-0-502"></a><span class="k">def</span><span class="w"> </span><span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-503" name="__codelineno-0-503"></a><span class="w">    </span><span class="sd">"""Restart the interpreter, rebuilding the client around it.</span>
-<a id="__codelineno-0-504" name="__codelineno-0-504"></a>
-<a id="__codelineno-0-505" name="__codelineno-0-505"></a><span class="sd">    The pumps are stopped and joined first (:meth:`_stop_pumps` says why),</span>
-<a id="__codelineno-0-506" name="__codelineno-0-506"></a><span class="sd">    and the client is REPLACED rather than reused: ``restart_kernel`` gives</span>
-<a id="__codelineno-0-507" name="__codelineno-0-507"></a><span class="sd">    the new interpreter a new session key, and the old client's channels</span>
-<a id="__codelineno-0-508" name="__codelineno-0-508"></a><span class="sd">    then reject every message with ``Invalid Signature`` -- which is what</span>
-<a id="__codelineno-0-509" name="__codelineno-0-509"></a><span class="sd">    they did, until the socket teardown underneath aborted the process.</span>
-<a id="__codelineno-0-510" name="__codelineno-0-510"></a><span class="sd">    """</span>
-<a id="__codelineno-0-511" name="__codelineno-0-511"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
-<a id="__codelineno-0-512" name="__codelineno-0-512"></a>    <span class="n">session</span><span class="o">.</span><span class="n">last_used</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clock</span><span class="p">()</span>
-<a id="__codelineno-0-513" name="__codelineno-0-513"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
-<a id="__codelineno-0-514" name="__codelineno-0-514"></a>        <span class="c1"># Nothing survives a restart, so nothing is in flight afterwards.</span>
-<a id="__codelineno-0-515" name="__codelineno-0-515"></a>        <span class="n">session</span><span class="o">.</span><span class="n">in_flight</span> <span class="o">=</span> <span class="mi">0</span>
-<a id="__codelineno-0-516" name="__codelineno-0-516"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
-<a id="__codelineno-0-517" name="__codelineno-0-517"></a>        <span class="n">session</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-<a id="__codelineno-0-518" name="__codelineno-0-518"></a>        <span class="n">session</span><span class="o">.</span><span class="n">finishing</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-<a id="__codelineno-0-519" name="__codelineno-0-519"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-<a id="__codelineno-0-520" name="__codelineno-0-520"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="s2">"starting"</span><span class="p">})</span>
-<a id="__codelineno-0-521" name="__codelineno-0-521"></a>
-<a id="__codelineno-0-522" name="__codelineno-0-522"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_stop_pumps</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-523" name="__codelineno-0-523"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-524" name="__codelineno-0-524"></a>        <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">stop_channels</span><span class="p">()</span>
-<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>  <span class="c1"># pragma: no cover - already-closed channels</span>
-<a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span><span class="s2">"kernel </span><span class="si">%s</span><span class="s2"> stop_channels before restart: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">error</span><span class="p">)</span>
-<a id="__codelineno-0-527" name="__codelineno-0-527"></a>
-<a id="__codelineno-0-528" name="__codelineno-0-528"></a>    <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="n">session</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">restart_kernel</span><span class="p">(</span><span class="n">now</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="n">client</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">client</span><span class="p">()</span>
-<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="n">client</span><span class="o">.</span><span class="n">start_channels</span><span class="p">()</span>
-<a id="__codelineno-0-532" name="__codelineno-0-532"></a>        <span class="n">client</span><span class="o">.</span><span class="n">wait_for_ready</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">STARTUP_TIMEOUT_SECONDS</span><span class="p">)</span>
-<a id="__codelineno-0-533" name="__codelineno-0-533"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
-<a id="__codelineno-0-534" name="__codelineno-0-534"></a>        <span class="c1"># The pumps stay down: there is no live channel for them to poll,</span>
-<a id="__codelineno-0-535" name="__codelineno-0-535"></a>        <span class="c1"># and starting them on a dead kernel is how the abort happened.</span>
-<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="s2">"dead"</span><span class="p">})</span>
-<a id="__codelineno-0-537" name="__codelineno-0-537"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"restart: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
-<a id="__codelineno-0-538" name="__codelineno-0-538"></a>
-<a id="__codelineno-0-539" name="__codelineno-0-539"></a>    <span class="n">session</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span>
-<a id="__codelineno-0-540" name="__codelineno-0-540"></a>    <span class="n">session</span><span class="o">.</span><span class="n">execution_state</span> <span class="o">=</span> <span class="s2">"idle"</span>
-<a id="__codelineno-0-541" name="__codelineno-0-541"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_start_pumps</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
-<a id="__codelineno-0-542" name="__codelineno-0-542"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"ready"</span><span class="p">,</span> <span class="s2">"kernel"</span><span class="p">:</span> <span class="n">session</span><span class="o">.</span><span class="n">describe</span><span class="p">()})</span>
+<span class="normal"><a href="#__codelineno-0-542">542</a></span>
+<span class="normal"><a href="#__codelineno-0-543">543</a></span>
+<span class="normal"><a href="#__codelineno-0-544">544</a></span>
+<span class="normal"><a href="#__codelineno-0-545">545</a></span>
+<span class="normal"><a href="#__codelineno-0-546">546</a></span>
+<span class="normal"><a href="#__codelineno-0-547">547</a></span>
+<span class="normal"><a href="#__codelineno-0-548">548</a></span>
+<span class="normal"><a href="#__codelineno-0-549">549</a></span>
+<span class="normal"><a href="#__codelineno-0-550">550</a></span>
+<span class="normal"><a href="#__codelineno-0-551">551</a></span>
+<span class="normal"><a href="#__codelineno-0-552">552</a></span>
+<span class="normal"><a href="#__codelineno-0-553">553</a></span>
+<span class="normal"><a href="#__codelineno-0-554">554</a></span>
+<span class="normal"><a href="#__codelineno-0-555">555</a></span>
+<span class="normal"><a href="#__codelineno-0-556">556</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-514" name="__codelineno-0-514"></a><span class="k">def</span><span class="w"> </span><span class="nf">restart</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-515" name="__codelineno-0-515"></a><span class="w">    </span><span class="sd">"""Restart the interpreter, rebuilding the client around it.</span>
+<a id="__codelineno-0-516" name="__codelineno-0-516"></a>
+<a id="__codelineno-0-517" name="__codelineno-0-517"></a><span class="sd">    The pumps are stopped and joined first (:meth:`_stop_pumps` says why),</span>
+<a id="__codelineno-0-518" name="__codelineno-0-518"></a><span class="sd">    and the client is REPLACED rather than reused: ``restart_kernel`` gives</span>
+<a id="__codelineno-0-519" name="__codelineno-0-519"></a><span class="sd">    the new interpreter a new session key, and the old client's channels</span>
+<a id="__codelineno-0-520" name="__codelineno-0-520"></a><span class="sd">    then reject every message with ``Invalid Signature`` -- which is what</span>
+<a id="__codelineno-0-521" name="__codelineno-0-521"></a><span class="sd">    they did, until the socket teardown underneath aborted the process.</span>
+<a id="__codelineno-0-522" name="__codelineno-0-522"></a><span class="sd">    """</span>
+<a id="__codelineno-0-523" name="__codelineno-0-523"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
+<a id="__codelineno-0-524" name="__codelineno-0-524"></a>    <span class="n">session</span><span class="o">.</span><span class="n">last_used</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_clock</span><span class="p">()</span>
+<a id="__codelineno-0-525" name="__codelineno-0-525"></a>    <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+<a id="__codelineno-0-526" name="__codelineno-0-526"></a>        <span class="c1"># Nothing survives a restart, so nothing is in flight afterwards.</span>
+<a id="__codelineno-0-527" name="__codelineno-0-527"></a>        <span class="n">session</span><span class="o">.</span><span class="n">in_flight</span> <span class="o">=</span> <span class="mi">0</span>
+<a id="__codelineno-0-528" name="__codelineno-0-528"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+<a id="__codelineno-0-529" name="__codelineno-0-529"></a>        <span class="n">session</span><span class="o">.</span><span class="n">pending</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<a id="__codelineno-0-530" name="__codelineno-0-530"></a>        <span class="n">session</span><span class="o">.</span><span class="n">finishing</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<a id="__codelineno-0-531" name="__codelineno-0-531"></a>        <span class="n">session</span><span class="o">.</span><span class="n">queries</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+<a id="__codelineno-0-532" name="__codelineno-0-532"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="s2">"starting"</span><span class="p">})</span>
+<a id="__codelineno-0-533" name="__codelineno-0-533"></a>
+<a id="__codelineno-0-534" name="__codelineno-0-534"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_stop_pumps</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-535" name="__codelineno-0-535"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-536" name="__codelineno-0-536"></a>        <span class="n">session</span><span class="o">.</span><span class="n">client</span><span class="o">.</span><span class="n">stop_channels</span><span class="p">()</span>
+<a id="__codelineno-0-537" name="__codelineno-0-537"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>  <span class="c1"># pragma: no cover - already-closed channels</span>
+<a id="__codelineno-0-538" name="__codelineno-0-538"></a>        <span class="n">logger</span><span class="o">.</span><span class="n">debug</span><span class="p">(</span>
+<a id="__codelineno-0-539" name="__codelineno-0-539"></a>            <span class="s2">"kernel </span><span class="si">%s</span><span class="s2"> stop_channels before restart: </span><span class="si">%s</span><span class="s2">"</span><span class="p">,</span> <span class="n">session</span><span class="o">.</span><span class="n">id</span><span class="p">,</span> <span class="n">error</span>
+<a id="__codelineno-0-540" name="__codelineno-0-540"></a>        <span class="p">)</span>
+<a id="__codelineno-0-541" name="__codelineno-0-541"></a>
+<a id="__codelineno-0-542" name="__codelineno-0-542"></a>    <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-543" name="__codelineno-0-543"></a>        <span class="n">session</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">restart_kernel</span><span class="p">(</span><span class="n">now</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+<a id="__codelineno-0-544" name="__codelineno-0-544"></a>        <span class="n">client</span> <span class="o">=</span> <span class="n">session</span><span class="o">.</span><span class="n">manager</span><span class="o">.</span><span class="n">client</span><span class="p">()</span>
+<a id="__codelineno-0-545" name="__codelineno-0-545"></a>        <span class="n">client</span><span class="o">.</span><span class="n">start_channels</span><span class="p">()</span>
+<a id="__codelineno-0-546" name="__codelineno-0-546"></a>        <span class="n">client</span><span class="o">.</span><span class="n">wait_for_ready</span><span class="p">(</span><span class="n">timeout</span><span class="o">=</span><span class="n">STARTUP_TIMEOUT_SECONDS</span><span class="p">)</span>
+<a id="__codelineno-0-547" name="__codelineno-0-547"></a>    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">error</span><span class="p">:</span>
+<a id="__codelineno-0-548" name="__codelineno-0-548"></a>        <span class="c1"># The pumps stay down: there is no live channel for them to poll,</span>
+<a id="__codelineno-0-549" name="__codelineno-0-549"></a>        <span class="c1"># and starting them on a dead kernel is how the abort happened.</span>
+<a id="__codelineno-0-550" name="__codelineno-0-550"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"status"</span><span class="p">,</span> <span class="s2">"state"</span><span class="p">:</span> <span class="s2">"dead"</span><span class="p">})</span>
+<a id="__codelineno-0-551" name="__codelineno-0-551"></a>        <span class="k">raise</span> <span class="n">KernelError</span><span class="p">(</span><span class="s2">"op-failed"</span><span class="p">,</span> <span class="sa">f</span><span class="s2">"restart: </span><span class="si">{</span><span class="n">error</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">error</span>
+<a id="__codelineno-0-552" name="__codelineno-0-552"></a>
+<a id="__codelineno-0-553" name="__codelineno-0-553"></a>    <span class="n">session</span><span class="o">.</span><span class="n">client</span> <span class="o">=</span> <span class="n">client</span>
+<a id="__codelineno-0-554" name="__codelineno-0-554"></a>    <span class="n">session</span><span class="o">.</span><span class="n">execution_state</span> <span class="o">=</span> <span class="s2">"idle"</span>
+<a id="__codelineno-0-555" name="__codelineno-0-555"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_start_pumps</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+<a id="__codelineno-0-556" name="__codelineno-0-556"></a>    <span class="bp">self</span><span class="o">.</span><span class="n">_emit</span><span class="p">(</span><span class="n">session</span><span class="p">,</span> <span class="p">{</span><span class="s2">"type"</span><span class="p">:</span> <span class="s2">"ready"</span><span class="p">,</span> <span class="s2">"kernel"</span><span class="p">:</span> <span class="n">session</span><span class="o">.</span><span class="n">describe</span><span class="p">()})</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1816,29 +1832,29 @@ they did, until the socket teardown underneath aborted the process.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-546">546</a></span>
-<span class="normal"><a href="#__codelineno-0-547">547</a></span>
-<span class="normal"><a href="#__codelineno-0-548">548</a></span>
-<span class="normal"><a href="#__codelineno-0-549">549</a></span>
-<span class="normal"><a href="#__codelineno-0-550">550</a></span>
-<span class="normal"><a href="#__codelineno-0-551">551</a></span>
-<span class="normal"><a href="#__codelineno-0-552">552</a></span>
-<span class="normal"><a href="#__codelineno-0-553">553</a></span>
-<span class="normal"><a href="#__codelineno-0-554">554</a></span>
-<span class="normal"><a href="#__codelineno-0-555">555</a></span>
-<span class="normal"><a href="#__codelineno-0-556">556</a></span>
-<span class="normal"><a href="#__codelineno-0-557">557</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-546" name="__codelineno-0-546"></a><span class="k">def</span><span class="w"> </span><span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">listener</span><span class="p">:</span> <span class="n">Listener</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>
-<a id="__codelineno-0-547" name="__codelineno-0-547"></a><span class="w">    </span><span class="sd">"""Attach a listener; returns the function that detaches it."""</span>
-<a id="__codelineno-0-548" name="__codelineno-0-548"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
-<a id="__codelineno-0-549" name="__codelineno-0-549"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
-<a id="__codelineno-0-550" name="__codelineno-0-550"></a>        <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">listener</span><span class="p">)</span>
-<a id="__codelineno-0-551" name="__codelineno-0-551"></a>
-<a id="__codelineno-0-552" name="__codelineno-0-552"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unsubscribe</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-553" name="__codelineno-0-553"></a>        <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
-<a id="__codelineno-0-554" name="__codelineno-0-554"></a>            <span class="k">if</span> <span class="n">listener</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="p">:</span>
-<a id="__codelineno-0-555" name="__codelineno-0-555"></a>                <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">listener</span><span class="p">)</span>
-<a id="__codelineno-0-556" name="__codelineno-0-556"></a>
-<a id="__codelineno-0-557" name="__codelineno-0-557"></a>    <span class="k">return</span> <span class="n">unsubscribe</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-560">560</a></span>
+<span class="normal"><a href="#__codelineno-0-561">561</a></span>
+<span class="normal"><a href="#__codelineno-0-562">562</a></span>
+<span class="normal"><a href="#__codelineno-0-563">563</a></span>
+<span class="normal"><a href="#__codelineno-0-564">564</a></span>
+<span class="normal"><a href="#__codelineno-0-565">565</a></span>
+<span class="normal"><a href="#__codelineno-0-566">566</a></span>
+<span class="normal"><a href="#__codelineno-0-567">567</a></span>
+<span class="normal"><a href="#__codelineno-0-568">568</a></span>
+<span class="normal"><a href="#__codelineno-0-569">569</a></span>
+<span class="normal"><a href="#__codelineno-0-570">570</a></span>
+<span class="normal"><a href="#__codelineno-0-571">571</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-560" name="__codelineno-0-560"></a><span class="k">def</span><span class="w"> </span><span class="nf">subscribe</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">kernel_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">listener</span><span class="p">:</span> <span class="n">Listener</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Callable</span><span class="p">[[],</span> <span class="kc">None</span><span class="p">]:</span>
+<a id="__codelineno-0-561" name="__codelineno-0-561"></a><span class="w">    </span><span class="sd">"""Attach a listener; returns the function that detaches it."""</span>
+<a id="__codelineno-0-562" name="__codelineno-0-562"></a>    <span class="n">session</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">kernel_id</span><span class="p">)</span>
+<a id="__codelineno-0-563" name="__codelineno-0-563"></a>    <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+<a id="__codelineno-0-564" name="__codelineno-0-564"></a>        <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">listener</span><span class="p">)</span>
+<a id="__codelineno-0-565" name="__codelineno-0-565"></a>
+<a id="__codelineno-0-566" name="__codelineno-0-566"></a>    <span class="k">def</span><span class="w"> </span><span class="nf">unsubscribe</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-567" name="__codelineno-0-567"></a>        <span class="k">with</span> <span class="n">session</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+<a id="__codelineno-0-568" name="__codelineno-0-568"></a>            <span class="k">if</span> <span class="n">listener</span> <span class="ow">in</span> <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="p">:</span>
+<a id="__codelineno-0-569" name="__codelineno-0-569"></a>                <span class="n">session</span><span class="o">.</span><span class="n">listeners</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">listener</span><span class="p">)</span>
+<a id="__codelineno-0-570" name="__codelineno-0-570"></a>
+<a id="__codelineno-0-571" name="__codelineno-0-571"></a>    <span class="k">return</span> <span class="n">unsubscribe</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1953,17 +1969,17 @@ they did, until the socket teardown underneath aborted the process.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-687">687</a></span>
-<span class="normal"><a href="#__codelineno-0-688">688</a></span>
-<span class="normal"><a href="#__codelineno-0-689">689</a></span>
-<span class="normal"><a href="#__codelineno-0-690">690</a></span>
-<span class="normal"><a href="#__codelineno-0-691">691</a></span>
-<span class="normal"><a href="#__codelineno-0-692">692</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_kernel_registry</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">KernelRegistry</span><span class="p">:</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="w">    </span><span class="sd">"""The process-wide registry, created on first use."""</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a>    <span class="k">global</span> <span class="n">_registry</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="k">if</span> <span class="n">_registry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>        <span class="n">_registry</span> <span class="o">=</span> <span class="n">KernelRegistry</span><span class="p">()</span>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="k">return</span> <span class="n">_registry</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-715">715</a></span>
+<span class="normal"><a href="#__codelineno-0-716">716</a></span>
+<span class="normal"><a href="#__codelineno-0-717">717</a></span>
+<span class="normal"><a href="#__codelineno-0-718">718</a></span>
+<span class="normal"><a href="#__codelineno-0-719">719</a></span>
+<span class="normal"><a href="#__codelineno-0-720">720</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-715" name="__codelineno-0-715"></a><span class="k">def</span><span class="w"> </span><span class="nf">get_kernel_registry</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">KernelRegistry</span><span class="p">:</span>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a><span class="w">    </span><span class="sd">"""The process-wide registry, created on first use."""</span>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="k">global</span> <span class="n">_registry</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="k">if</span> <span class="n">_registry</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a>        <span class="n">_registry</span> <span class="o">=</span> <span class="n">KernelRegistry</span><span class="p">()</span>
+<a id="__codelineno-0-720" name="__codelineno-0-720"></a>    <span class="k">return</span> <span class="n">_registry</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1988,17 +2004,17 @@ they did, until the socket teardown underneath aborted the process.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/server/kernels.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-695">695</a></span>
-<span class="normal"><a href="#__codelineno-0-696">696</a></span>
-<span class="normal"><a href="#__codelineno-0-697">697</a></span>
-<span class="normal"><a href="#__codelineno-0-698">698</a></span>
-<span class="normal"><a href="#__codelineno-0-699">699</a></span>
-<span class="normal"><a href="#__codelineno-0-700">700</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-695" name="__codelineno-0-695"></a><span class="k">def</span><span class="w"> </span><span class="nf">reset_kernel_registry</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a><span class="w">    </span><span class="sd">"""Drop the registry, shutting down whatever it still holds. Tests."""</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="k">global</span> <span class="n">_registry</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="k">if</span> <span class="n">_registry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>        <span class="n">_registry</span><span class="o">.</span><span class="n">shutdown_all</span><span class="p">()</span>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="n">_registry</span> <span class="o">=</span> <span class="kc">None</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-723">723</a></span>
+<span class="normal"><a href="#__codelineno-0-724">724</a></span>
+<span class="normal"><a href="#__codelineno-0-725">725</a></span>
+<span class="normal"><a href="#__codelineno-0-726">726</a></span>
+<span class="normal"><a href="#__codelineno-0-727">727</a></span>
+<span class="normal"><a href="#__codelineno-0-728">728</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-723" name="__codelineno-0-723"></a><span class="k">def</span><span class="w"> </span><span class="nf">reset_kernel_registry</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-724" name="__codelineno-0-724"></a><span class="w">    </span><span class="sd">"""Drop the registry, shutting down whatever it still holds. Tests."""</span>
+<a id="__codelineno-0-725" name="__codelineno-0-725"></a>    <span class="k">global</span> <span class="n">_registry</span>
+<a id="__codelineno-0-726" name="__codelineno-0-726"></a>    <span class="k">if</span> <span class="n">_registry</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-727" name="__codelineno-0-727"></a>        <span class="n">_registry</span><span class="o">.</span><span class="n">shutdown_all</span><span class="p">()</span>
+<a id="__codelineno-0-728" name="__codelineno-0-728"></a>    <span class="n">_registry</span> <span class="o">=</span> <span class="kc">None</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

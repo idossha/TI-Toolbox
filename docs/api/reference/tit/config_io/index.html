@@ -1669,9 +1669,7 @@ read_config_json : Read a JSON config file.</p>
 
             <details class="quote">
               <summary>Source code in <code>tit/config_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-247">247</a></span>
-<span class="normal"><a href="#__codelineno-0-248">248</a></span>
-<span class="normal"><a href="#__codelineno-0-249">249</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-249">249</a></span>
 <span class="normal"><a href="#__codelineno-0-250">250</a></span>
 <span class="normal"><a href="#__codelineno-0-251">251</a></span>
 <span class="normal"><a href="#__codelineno-0-252">252</a></span>
@@ -1690,28 +1688,30 @@ read_config_json : Read a JSON config file.</p>
 <span class="normal"><a href="#__codelineno-0-265">265</a></span>
 <span class="normal"><a href="#__codelineno-0-266">266</a></span>
 <span class="normal"><a href="#__codelineno-0-267">267</a></span>
-<span class="normal"><a href="#__codelineno-0-268">268</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-247" name="__codelineno-0-247"></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_config_class</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
-<a id="__codelineno-0-248" name="__codelineno-0-248"></a><span class="w">    </span><span class="sd">"""Import and return the class registered under *name*.</span>
-<a id="__codelineno-0-249" name="__codelineno-0-249"></a>
-<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-251" name="__codelineno-0-251"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    name : str</span>
-<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">        A key of :data:`CONFIG_CLASS_REGISTRY`.</span>
-<a id="__codelineno-0-254" name="__codelineno-0-254"></a>
-<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-256" name="__codelineno-0-256"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    type</span>
-<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">        The resolved dataclass.</span>
-<a id="__codelineno-0-259" name="__codelineno-0-259"></a>
-<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-261" name="__codelineno-0-261"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    KeyError</span>
-<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">        If *name* is not registered.</span>
-<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    """</span>
-<a id="__codelineno-0-265" name="__codelineno-0-265"></a>    <span class="n">dotted</span> <span class="o">=</span> <span class="n">CONFIG_CLASS_REGISTRY</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
-<a id="__codelineno-0-266" name="__codelineno-0-266"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">dotted</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
-<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
-<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-268">268</a></span>
+<span class="normal"><a href="#__codelineno-0-269">269</a></span>
+<span class="normal"><a href="#__codelineno-0-270">270</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-249" name="__codelineno-0-249"></a><span class="k">def</span><span class="w"> </span><span class="nf">resolve_config_class</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">type</span><span class="p">:</span>
+<a id="__codelineno-0-250" name="__codelineno-0-250"></a><span class="w">    </span><span class="sd">"""Import and return the class registered under *name*.</span>
+<a id="__codelineno-0-251" name="__codelineno-0-251"></a>
+<a id="__codelineno-0-252" name="__codelineno-0-252"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-253" name="__codelineno-0-253"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-254" name="__codelineno-0-254"></a><span class="sd">    name : str</span>
+<a id="__codelineno-0-255" name="__codelineno-0-255"></a><span class="sd">        A key of :data:`CONFIG_CLASS_REGISTRY`.</span>
+<a id="__codelineno-0-256" name="__codelineno-0-256"></a>
+<a id="__codelineno-0-257" name="__codelineno-0-257"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-258" name="__codelineno-0-258"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-259" name="__codelineno-0-259"></a><span class="sd">    type</span>
+<a id="__codelineno-0-260" name="__codelineno-0-260"></a><span class="sd">        The resolved dataclass.</span>
+<a id="__codelineno-0-261" name="__codelineno-0-261"></a>
+<a id="__codelineno-0-262" name="__codelineno-0-262"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-263" name="__codelineno-0-263"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-264" name="__codelineno-0-264"></a><span class="sd">    KeyError</span>
+<a id="__codelineno-0-265" name="__codelineno-0-265"></a><span class="sd">        If *name* is not registered.</span>
+<a id="__codelineno-0-266" name="__codelineno-0-266"></a><span class="sd">    """</span>
+<a id="__codelineno-0-267" name="__codelineno-0-267"></a>    <span class="n">dotted</span> <span class="o">=</span> <span class="n">CONFIG_CLASS_REGISTRY</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
+<a id="__codelineno-0-268" name="__codelineno-0-268"></a>    <span class="n">module_path</span><span class="p">,</span> <span class="n">class_name</span> <span class="o">=</span> <span class="n">dotted</span><span class="o">.</span><span class="n">rsplit</span><span class="p">(</span><span class="s2">"."</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+<a id="__codelineno-0-269" name="__codelineno-0-269"></a>    <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="n">module_path</span><span class="p">)</span>
+<a id="__codelineno-0-270" name="__codelineno-0-270"></a>    <span class="k">return</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">class_name</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -1790,9 +1790,7 @@ json_schema : Describes the same shape as a JSON Schema, including the
 
             <details class="quote">
               <summary>Source code in <code>tit/config_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-276">276</a></span>
-<span class="normal"><a href="#__codelineno-0-277">277</a></span>
-<span class="normal"><a href="#__codelineno-0-278">278</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-278">278</a></span>
 <span class="normal"><a href="#__codelineno-0-279">279</a></span>
 <span class="normal"><a href="#__codelineno-0-280">280</a></span>
 <span class="normal"><a href="#__codelineno-0-281">281</a></span>
@@ -1888,105 +1886,107 @@ json_schema : Describes the same shape as a JSON Schema, including the
 <span class="normal"><a href="#__codelineno-0-371">371</a></span>
 <span class="normal"><a href="#__codelineno-0-372">372</a></span>
 <span class="normal"><a href="#__codelineno-0-373">373</a></span>
-<span class="normal"><a href="#__codelineno-0-374">374</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-276" name="__codelineno-0-276"></a><span class="k">def</span><span class="w"> </span><span class="nf">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
-<a id="__codelineno-0-277" name="__codelineno-0-277"></a><span class="w">    </span><span class="sd">"""Rebuild a config dataclass instance from its serialized dict form.</span>
-<a id="__codelineno-0-278" name="__codelineno-0-278"></a>
-<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="sd">    The symmetric inverse of :func:`serialize_config`: walks *cls*'s own</span>
-<a id="__codelineno-0-280" name="__codelineno-0-280"></a><span class="sd">    ``dataclasses.fields()`` (resolving each field's type -- including</span>
-<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    forward-referenced nested-class unions such as ``FlexConfig.roi`` --</span>
-<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    with ``typing.get_type_hints``) and converts every value back into</span>
-<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    whatever ``serialize_config`` produced it from: nested dataclasses</span>
-<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    (a single required type, or a union disambiguated by ``_type``), lists</span>
-<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    of dataclasses, ``Enum`` members, tuples (including tuples nested</span>
-<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">    inside lists, e.g. ``Montage.electrode_pairs``), dict values whose declared</span>
-<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    key type isn't ``str`` (JSON object keys are always strings, so e.g.</span>
-<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">    ``SimulationConfig.tissue_conductivities: dict[int, float]`` round-trips</span>
-<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    as ``{"1": 2.5}`` and is coerced back to ``{1: 2.5}``), and ``Optional``</span>
-<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    values. By default, keys in *data* that are not fields of *cls* (e.g.</span>
-<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    ``"project_dir"``, which the runners pop themselves -- see</span>
-<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    ``tit.sim.__main__.main`` -- or ``"_type"`` on an ambiguous kind's</span>
-<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    top-level config, see ``tit.server.routes.validate``) are silently</span>
-<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    ignored; pass *strict* to change that.</span>
-<a id="__codelineno-0-295" name="__codelineno-0-295"></a>
-<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-297" name="__codelineno-0-297"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    cls : type</span>
-<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">        A dataclass, e.g. one of :data:`CONFIG_CLASS_REGISTRY`'s values.</span>
-<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    data : dict</span>
-<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">        Parsed JSON as produced by :func:`serialize_config` (directly, or</span>
-<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">        round-tripped through :func:`write_config_json` /</span>
-<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        :func:`read_config_json`).</span>
-<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">    strict : bool, optional</span>
-<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">        If True, raise instead of silently ignoring a key in *data* that</span>
-<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">        is not one of *cls*'s own fields (recursively, for every nested</span>
-<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">        dataclass reached along the way) -- catching a misspelled or</span>
-<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        renamed field at validation time instead of it becoming a silent</span>
-<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        no-op. ``"_type"`` is never flagged as unknown even in strict mode</span>
-<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">        (every discriminated dataclass and every ambiguous top-level kind</span>
-<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        uses it without it being a real field). Off by default: a caller</span>
-<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        with its own legacy flat-dict layout (e.g.</span>
-<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">        ``tit.analyzer.__main__``'s pre-``AnalyzerConfig`` fallback) is</span>
-<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        unaffected unless it opts in.</span>
-<a id="__codelineno-0-315" name="__codelineno-0-315"></a>
-<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-317" name="__codelineno-0-317"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">    Any</span>
-<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">        A *cls* instance.</span>
-<a id="__codelineno-0-320" name="__codelineno-0-320"></a>
-<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">    Raises</span>
-<a id="__codelineno-0-322" name="__codelineno-0-322"></a><span class="sd">    ------</span>
-<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    TypeError</span>
-<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">        If *cls* is not a dataclass.</span>
-<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    ValueError</span>
-<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">        If *data* carries a ``_type`` that does not match *cls* itself, if</span>
-<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">        a union-typed field's value is missing its ``_type`` tag or</span>
-<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">        carries one not registered for that union's members, if a field</span>
-<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">        declared as a list or tuple gets anything but a JSON array, or one</span>
-<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">        declared ``int``/``float`` anything but a number (a string or a</span>
-<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">        boolean is never coerced: ``"001"`` is not ``["0", "0", "1"]``), or</span>
-<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">        (only when *strict* is True) if *data* carries a key that is not one</span>
-<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">        of *cls*'s fields.</span>
-<a id="__codelineno-0-334" name="__codelineno-0-334"></a>
-<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-336" name="__codelineno-0-336"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="sd">    serialize_config : The inverse conversion.</span>
-<a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="sd">    json_schema : Describes the same shape as a JSON Schema, including the</span>
-<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">        ``additionalProperties: false`` this function's *strict* mode</span>
-<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">        enforces at runtime.</span>
-<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">    """</span>
-<a id="__codelineno-0-342" name="__codelineno-0-342"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_dataclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-<a id="__codelineno-0-343" name="__codelineno-0-343"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="si">!r}</span><span class="s2"> is not a dataclass"</span><span class="p">)</span>
-<a id="__codelineno-0-344" name="__codelineno-0-344"></a>
-<a id="__codelineno-0-345" name="__codelineno-0-345"></a>    <span class="n">type_tag</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">)</span>
-<a id="__codelineno-0-346" name="__codelineno-0-346"></a>    <span class="k">if</span> <span class="n">type_tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-347" name="__codelineno-0-347"></a>        <span class="n">expected</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-<a id="__codelineno-0-348" name="__codelineno-0-348"></a>        <span class="k">if</span> <span class="n">expected</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">type_tag</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
-<a id="__codelineno-0-349" name="__codelineno-0-349"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-350" name="__codelineno-0-350"></a>                <span class="sa">f</span><span class="s2">"_type=</span><span class="si">{</span><span class="n">type_tag</span><span class="si">!r}</span><span class="s2"> does not match </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> "</span>
-<a id="__codelineno-0-351" name="__codelineno-0-351"></a>                <span class="sa">f</span><span class="s2">"(expected </span><span class="si">{</span><span class="n">expected</span><span class="si">!r}</span><span class="s2">)"</span>
-<a id="__codelineno-0-352" name="__codelineno-0-352"></a>            <span class="p">)</span>
-<a id="__codelineno-0-353" name="__codelineno-0-353"></a>
-<a id="__codelineno-0-354" name="__codelineno-0-354"></a>    <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
-<a id="__codelineno-0-355" name="__codelineno-0-355"></a>        <span class="n">known</span> <span class="o">=</span> <span class="p">{</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">fld</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">)}</span>
-<a id="__codelineno-0-356" name="__codelineno-0-356"></a>        <span class="n">unknown</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-</span> <span class="n">known</span> <span class="o">-</span> <span class="p">{</span><span class="s2">"_type"</span><span class="p">})</span>
-<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
-<a id="__codelineno-0-358" name="__codelineno-0-358"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
-<a id="__codelineno-0-359" name="__codelineno-0-359"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: unknown key(s) </span><span class="si">{</span><span class="n">unknown</span><span class="si">}</span><span class="s2">; expected one of "</span>
-<a id="__codelineno-0-360" name="__codelineno-0-360"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">known</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-361" name="__codelineno-0-361"></a>            <span class="p">)</span>
-<a id="__codelineno-0-362" name="__codelineno-0-362"></a>
-<a id="__codelineno-0-363" name="__codelineno-0-363"></a>    <span class="n">hints</span> <span class="o">=</span> <span class="n">typing</span><span class="o">.</span><span class="n">get_type_hints</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-<a id="__codelineno-0-364" name="__codelineno-0-364"></a>    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
-<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="k">for</span> <span class="n">fld</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
-<a id="__codelineno-0-366" name="__codelineno-0-366"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">fld</span><span class="o">.</span><span class="n">init</span> <span class="ow">or</span> <span class="n">fld</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
-<a id="__codelineno-0-367" name="__codelineno-0-367"></a>            <span class="k">continue</span>
-<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">try</span><span class="p">:</span>
-<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="n">kwargs</span><span class="p">[</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_deserialize_value</span><span class="p">(</span>
-<a id="__codelineno-0-370" name="__codelineno-0-370"></a>                <span class="n">data</span><span class="p">[</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">],</span> <span class="n">hints</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="n">strict</span>
-<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="p">)</span>
-<a id="__codelineno-0-372" name="__codelineno-0-372"></a>        <span class="k">except</span> <span class="n">_WrongType</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-<a id="__codelineno-0-373" name="__codelineno-0-373"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
-<a id="__codelineno-0-374" name="__codelineno-0-374"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+<span class="normal"><a href="#__codelineno-0-374">374</a></span>
+<span class="normal"><a href="#__codelineno-0-375">375</a></span>
+<span class="normal"><a href="#__codelineno-0-376">376</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-278" name="__codelineno-0-278"></a><span class="k">def</span><span class="w"> </span><span class="nf">deserialize_config</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span> <span class="o">*</span><span class="p">,</span> <span class="n">strict</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
+<a id="__codelineno-0-279" name="__codelineno-0-279"></a><span class="w">    </span><span class="sd">"""Rebuild a config dataclass instance from its serialized dict form.</span>
+<a id="__codelineno-0-280" name="__codelineno-0-280"></a>
+<a id="__codelineno-0-281" name="__codelineno-0-281"></a><span class="sd">    The symmetric inverse of :func:`serialize_config`: walks *cls*'s own</span>
+<a id="__codelineno-0-282" name="__codelineno-0-282"></a><span class="sd">    ``dataclasses.fields()`` (resolving each field's type -- including</span>
+<a id="__codelineno-0-283" name="__codelineno-0-283"></a><span class="sd">    forward-referenced nested-class unions such as ``FlexConfig.roi`` --</span>
+<a id="__codelineno-0-284" name="__codelineno-0-284"></a><span class="sd">    with ``typing.get_type_hints``) and converts every value back into</span>
+<a id="__codelineno-0-285" name="__codelineno-0-285"></a><span class="sd">    whatever ``serialize_config`` produced it from: nested dataclasses</span>
+<a id="__codelineno-0-286" name="__codelineno-0-286"></a><span class="sd">    (a single required type, or a union disambiguated by ``_type``), lists</span>
+<a id="__codelineno-0-287" name="__codelineno-0-287"></a><span class="sd">    of dataclasses, ``Enum`` members, tuples (including tuples nested</span>
+<a id="__codelineno-0-288" name="__codelineno-0-288"></a><span class="sd">    inside lists, e.g. ``Montage.electrode_pairs``), dict values whose declared</span>
+<a id="__codelineno-0-289" name="__codelineno-0-289"></a><span class="sd">    key type isn't ``str`` (JSON object keys are always strings, so e.g.</span>
+<a id="__codelineno-0-290" name="__codelineno-0-290"></a><span class="sd">    ``SimulationConfig.tissue_conductivities: dict[int, float]`` round-trips</span>
+<a id="__codelineno-0-291" name="__codelineno-0-291"></a><span class="sd">    as ``{"1": 2.5}`` and is coerced back to ``{1: 2.5}``), and ``Optional``</span>
+<a id="__codelineno-0-292" name="__codelineno-0-292"></a><span class="sd">    values. By default, keys in *data* that are not fields of *cls* (e.g.</span>
+<a id="__codelineno-0-293" name="__codelineno-0-293"></a><span class="sd">    ``"project_dir"``, which the runners pop themselves -- see</span>
+<a id="__codelineno-0-294" name="__codelineno-0-294"></a><span class="sd">    ``tit.sim.__main__.main`` -- or ``"_type"`` on an ambiguous kind's</span>
+<a id="__codelineno-0-295" name="__codelineno-0-295"></a><span class="sd">    top-level config, see ``tit.server.routes.validate``) are silently</span>
+<a id="__codelineno-0-296" name="__codelineno-0-296"></a><span class="sd">    ignored; pass *strict* to change that.</span>
+<a id="__codelineno-0-297" name="__codelineno-0-297"></a>
+<a id="__codelineno-0-298" name="__codelineno-0-298"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-299" name="__codelineno-0-299"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-300" name="__codelineno-0-300"></a><span class="sd">    cls : type</span>
+<a id="__codelineno-0-301" name="__codelineno-0-301"></a><span class="sd">        A dataclass, e.g. one of :data:`CONFIG_CLASS_REGISTRY`'s values.</span>
+<a id="__codelineno-0-302" name="__codelineno-0-302"></a><span class="sd">    data : dict</span>
+<a id="__codelineno-0-303" name="__codelineno-0-303"></a><span class="sd">        Parsed JSON as produced by :func:`serialize_config` (directly, or</span>
+<a id="__codelineno-0-304" name="__codelineno-0-304"></a><span class="sd">        round-tripped through :func:`write_config_json` /</span>
+<a id="__codelineno-0-305" name="__codelineno-0-305"></a><span class="sd">        :func:`read_config_json`).</span>
+<a id="__codelineno-0-306" name="__codelineno-0-306"></a><span class="sd">    strict : bool, optional</span>
+<a id="__codelineno-0-307" name="__codelineno-0-307"></a><span class="sd">        If True, raise instead of silently ignoring a key in *data* that</span>
+<a id="__codelineno-0-308" name="__codelineno-0-308"></a><span class="sd">        is not one of *cls*'s own fields (recursively, for every nested</span>
+<a id="__codelineno-0-309" name="__codelineno-0-309"></a><span class="sd">        dataclass reached along the way) -- catching a misspelled or</span>
+<a id="__codelineno-0-310" name="__codelineno-0-310"></a><span class="sd">        renamed field at validation time instead of it becoming a silent</span>
+<a id="__codelineno-0-311" name="__codelineno-0-311"></a><span class="sd">        no-op. ``"_type"`` is never flagged as unknown even in strict mode</span>
+<a id="__codelineno-0-312" name="__codelineno-0-312"></a><span class="sd">        (every discriminated dataclass and every ambiguous top-level kind</span>
+<a id="__codelineno-0-313" name="__codelineno-0-313"></a><span class="sd">        uses it without it being a real field). Off by default: a caller</span>
+<a id="__codelineno-0-314" name="__codelineno-0-314"></a><span class="sd">        with its own legacy flat-dict layout (e.g.</span>
+<a id="__codelineno-0-315" name="__codelineno-0-315"></a><span class="sd">        ``tit.analyzer.__main__``'s pre-``AnalyzerConfig`` fallback) is</span>
+<a id="__codelineno-0-316" name="__codelineno-0-316"></a><span class="sd">        unaffected unless it opts in.</span>
+<a id="__codelineno-0-317" name="__codelineno-0-317"></a>
+<a id="__codelineno-0-318" name="__codelineno-0-318"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-319" name="__codelineno-0-319"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-320" name="__codelineno-0-320"></a><span class="sd">    Any</span>
+<a id="__codelineno-0-321" name="__codelineno-0-321"></a><span class="sd">        A *cls* instance.</span>
+<a id="__codelineno-0-322" name="__codelineno-0-322"></a>
+<a id="__codelineno-0-323" name="__codelineno-0-323"></a><span class="sd">    Raises</span>
+<a id="__codelineno-0-324" name="__codelineno-0-324"></a><span class="sd">    ------</span>
+<a id="__codelineno-0-325" name="__codelineno-0-325"></a><span class="sd">    TypeError</span>
+<a id="__codelineno-0-326" name="__codelineno-0-326"></a><span class="sd">        If *cls* is not a dataclass.</span>
+<a id="__codelineno-0-327" name="__codelineno-0-327"></a><span class="sd">    ValueError</span>
+<a id="__codelineno-0-328" name="__codelineno-0-328"></a><span class="sd">        If *data* carries a ``_type`` that does not match *cls* itself, if</span>
+<a id="__codelineno-0-329" name="__codelineno-0-329"></a><span class="sd">        a union-typed field's value is missing its ``_type`` tag or</span>
+<a id="__codelineno-0-330" name="__codelineno-0-330"></a><span class="sd">        carries one not registered for that union's members, if a field</span>
+<a id="__codelineno-0-331" name="__codelineno-0-331"></a><span class="sd">        declared as a list or tuple gets anything but a JSON array, or one</span>
+<a id="__codelineno-0-332" name="__codelineno-0-332"></a><span class="sd">        declared ``int``/``float`` anything but a number (a string or a</span>
+<a id="__codelineno-0-333" name="__codelineno-0-333"></a><span class="sd">        boolean is never coerced: ``"001"`` is not ``["0", "0", "1"]``), or</span>
+<a id="__codelineno-0-334" name="__codelineno-0-334"></a><span class="sd">        (only when *strict* is True) if *data* carries a key that is not one</span>
+<a id="__codelineno-0-335" name="__codelineno-0-335"></a><span class="sd">        of *cls*'s fields.</span>
+<a id="__codelineno-0-336" name="__codelineno-0-336"></a>
+<a id="__codelineno-0-337" name="__codelineno-0-337"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-338" name="__codelineno-0-338"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-339" name="__codelineno-0-339"></a><span class="sd">    serialize_config : The inverse conversion.</span>
+<a id="__codelineno-0-340" name="__codelineno-0-340"></a><span class="sd">    json_schema : Describes the same shape as a JSON Schema, including the</span>
+<a id="__codelineno-0-341" name="__codelineno-0-341"></a><span class="sd">        ``additionalProperties: false`` this function's *strict* mode</span>
+<a id="__codelineno-0-342" name="__codelineno-0-342"></a><span class="sd">        enforces at runtime.</span>
+<a id="__codelineno-0-343" name="__codelineno-0-343"></a><span class="sd">    """</span>
+<a id="__codelineno-0-344" name="__codelineno-0-344"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="n">is_dataclass</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-0-345" name="__codelineno-0-345"></a>        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="si">!r}</span><span class="s2"> is not a dataclass"</span><span class="p">)</span>
+<a id="__codelineno-0-346" name="__codelineno-0-346"></a>
+<a id="__codelineno-0-347" name="__codelineno-0-347"></a>    <span class="n">type_tag</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"_type"</span><span class="p">)</span>
+<a id="__codelineno-0-348" name="__codelineno-0-348"></a>    <span class="k">if</span> <span class="n">type_tag</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-349" name="__codelineno-0-349"></a>        <span class="n">expected</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+<a id="__codelineno-0-350" name="__codelineno-0-350"></a>        <span class="k">if</span> <span class="n">expected</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">type_tag</span> <span class="o">!=</span> <span class="n">expected</span><span class="p">:</span>
+<a id="__codelineno-0-351" name="__codelineno-0-351"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-352" name="__codelineno-0-352"></a>                <span class="sa">f</span><span class="s2">"_type=</span><span class="si">{</span><span class="n">type_tag</span><span class="si">!r}</span><span class="s2"> does not match </span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> "</span>
+<a id="__codelineno-0-353" name="__codelineno-0-353"></a>                <span class="sa">f</span><span class="s2">"(expected </span><span class="si">{</span><span class="n">expected</span><span class="si">!r}</span><span class="s2">)"</span>
+<a id="__codelineno-0-354" name="__codelineno-0-354"></a>            <span class="p">)</span>
+<a id="__codelineno-0-355" name="__codelineno-0-355"></a>
+<a id="__codelineno-0-356" name="__codelineno-0-356"></a>    <span class="k">if</span> <span class="n">strict</span><span class="p">:</span>
+<a id="__codelineno-0-357" name="__codelineno-0-357"></a>        <span class="n">known</span> <span class="o">=</span> <span class="p">{</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">fld</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">)}</span>
+<a id="__codelineno-0-358" name="__codelineno-0-358"></a>        <span class="n">unknown</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">data</span><span class="p">)</span> <span class="o">-</span> <span class="n">known</span> <span class="o">-</span> <span class="p">{</span><span class="s2">"_type"</span><span class="p">})</span>
+<a id="__codelineno-0-359" name="__codelineno-0-359"></a>        <span class="k">if</span> <span class="n">unknown</span><span class="p">:</span>
+<a id="__codelineno-0-360" name="__codelineno-0-360"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+<a id="__codelineno-0-361" name="__codelineno-0-361"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: unknown key(s) </span><span class="si">{</span><span class="n">unknown</span><span class="si">}</span><span class="s2">; expected one of "</span>
+<a id="__codelineno-0-362" name="__codelineno-0-362"></a>                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="nb">sorted</span><span class="p">(</span><span class="n">known</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-363" name="__codelineno-0-363"></a>            <span class="p">)</span>
+<a id="__codelineno-0-364" name="__codelineno-0-364"></a>
+<a id="__codelineno-0-365" name="__codelineno-0-365"></a>    <span class="n">hints</span> <span class="o">=</span> <span class="n">typing</span><span class="o">.</span><span class="n">get_type_hints</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+<a id="__codelineno-0-366" name="__codelineno-0-366"></a>    <span class="n">kwargs</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+<a id="__codelineno-0-367" name="__codelineno-0-367"></a>    <span class="k">for</span> <span class="n">fld</span> <span class="ow">in</span> <span class="n">fields</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+<a id="__codelineno-0-368" name="__codelineno-0-368"></a>        <span class="k">if</span> <span class="ow">not</span> <span class="n">fld</span><span class="o">.</span><span class="n">init</span> <span class="ow">or</span> <span class="n">fld</span><span class="o">.</span><span class="n">name</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">data</span><span class="p">:</span>
+<a id="__codelineno-0-369" name="__codelineno-0-369"></a>            <span class="k">continue</span>
+<a id="__codelineno-0-370" name="__codelineno-0-370"></a>        <span class="k">try</span><span class="p">:</span>
+<a id="__codelineno-0-371" name="__codelineno-0-371"></a>            <span class="n">kwargs</span><span class="p">[</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">_deserialize_value</span><span class="p">(</span>
+<a id="__codelineno-0-372" name="__codelineno-0-372"></a>                <span class="n">data</span><span class="p">[</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">],</span> <span class="n">hints</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> <span class="n">strict</span><span class="o">=</span><span class="n">strict</span>
+<a id="__codelineno-0-373" name="__codelineno-0-373"></a>            <span class="p">)</span>
+<a id="__codelineno-0-374" name="__codelineno-0-374"></a>        <span class="k">except</span> <span class="n">_WrongType</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+<a id="__codelineno-0-375" name="__codelineno-0-375"></a>            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">fld</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">exc</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="kc">None</span>
+<a id="__codelineno-0-376" name="__codelineno-0-376"></a>    <span class="k">return</span> <span class="bp">cls</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>
@@ -2051,9 +2051,7 @@ discriminated-union conventions, so the result matches exactly what
 
             <details class="quote">
               <summary>Source code in <code>tit/config_io.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-641">641</a></span>
-<span class="normal"><a href="#__codelineno-0-642">642</a></span>
-<span class="normal"><a href="#__codelineno-0-643">643</a></span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"><a href="#__codelineno-0-643">643</a></span>
 <span class="normal"><a href="#__codelineno-0-644">644</a></span>
 <span class="normal"><a href="#__codelineno-0-645">645</a></span>
 <span class="normal"><a href="#__codelineno-0-646">646</a></span>
@@ -2127,83 +2125,85 @@ discriminated-union conventions, so the result matches exactly what
 <span class="normal"><a href="#__codelineno-0-714">714</a></span>
 <span class="normal"><a href="#__codelineno-0-715">715</a></span>
 <span class="normal"><a href="#__codelineno-0-716">716</a></span>
-<span class="normal"><a href="#__codelineno-0-717">717</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-641" name="__codelineno-0-641"></a><span class="k">def</span><span class="w"> </span><span class="nf">json_schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-<a id="__codelineno-0-642" name="__codelineno-0-642"></a><span class="w">    </span><span class="sd">"""Build a draft 2020-12 JSON Schema for a config dataclass.</span>
-<a id="__codelineno-0-643" name="__codelineno-0-643"></a>
-<a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="sd">    Wraps ``pydantic.TypeAdapter(cls).json_schema()`` with this project's</span>
-<a id="__codelineno-0-645" name="__codelineno-0-645"></a><span class="sd">    discriminated-union conventions, so the result matches exactly what</span>
-<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="sd">    :func:`serialize_config` emits and :func:`deserialize_config` accepts:</span>
-<a id="__codelineno-0-647" name="__codelineno-0-647"></a>
-<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    - every reachable class ``serialize_config`` tags with a ``_type``</span>
-<a id="__codelineno-0-649" name="__codelineno-0-649"></a><span class="sd">      discriminator (:data:`_TYPE_DISCRIMINATED` /</span>
-<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">      :data:`_TYPE_DISCRIMINATED_BY_NAME`) gets ``"_type": {"const": ...}``</span>
-<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="sd">      injected into its properties and required list -- whether that class</span>
-<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">      is *cls* itself (e.g. ``json_schema(Montage)``) or a nested ``$defs``</span>
-<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">      entry (e.g. ``FlexConfig``'s ``SphericalROI``/``AtlasROI``/</span>
-<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">      ``SubcorticalROI``);</span>
-<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="sd">    - every ``anyOf`` whose members are all ``$ref``s to such discriminated</span>
-<a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="sd">      classes (plus an optional ``null`` branch for ``Optional[...]``) is</span>
-<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">      rewritten to ``oneOf`` + ``discriminator: {"propertyName": "_type"}``;</span>
-<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">    - ``$defs`` entries whose bare name collides with another registered</span>
-<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">      class's (:data:`_COLLIDING_DEFS_NAMES`: ``AtlasROI`` on three</span>
-<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">      classes, ``PoolElectrodes``/``BucketElectrodes`` on two, ``Subject``</span>
-<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">      on two) are renamed to ``"&lt;cls.__name__&gt;&lt;bare name&gt;"``, so merging</span>
-<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">      many classes' schemas into one document</span>
-<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">      (see ``dev/build_schema.py``) can never let one definition silently</span>
-<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">      clobber another's under the same key;</span>
-<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">    - every fixed-shape object schema (the top level and each ``$defs``</span>
-<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">      entry with its own ``"properties"``) gets</span>
-<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">      ``"additionalProperties": false`` (:func:`_close_object_schemas`),</span>
-<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">      matching what :func:`deserialize_config`'s ``strict=True`` rejects</span>
-<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">      at runtime -- a misspelled or renamed field fails schema validation</span>
-<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">      (e.g. at ``POST /api/validate/{kind}``) instead of silently</span>
-<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">      vanishing. A free-form mapping field (e.g.</span>
-<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">      ``SimulationConfig.tissue_conductivities: dict[int, float]``) has no</span>
-<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">      ``"properties"`` of its own and is left open.</span>
-<a id="__codelineno-0-674" name="__codelineno-0-674"></a>
-<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">    Parameters</span>
-<a id="__codelineno-0-676" name="__codelineno-0-676"></a><span class="sd">    ----------</span>
-<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    cls : type</span>
-<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">        A dataclass, e.g. one of :data:`CONFIG_CLASS_REGISTRY`'s values.</span>
-<a id="__codelineno-0-679" name="__codelineno-0-679"></a>
-<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">    Returns</span>
-<a id="__codelineno-0-681" name="__codelineno-0-681"></a><span class="sd">    -------</span>
-<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    dict</span>
-<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">        A JSON Schema document: *cls*'s own shape at the top level, nested</span>
-<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">        types under ``$defs``.</span>
-<a id="__codelineno-0-685" name="__codelineno-0-685"></a>
-<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">    See Also</span>
-<a id="__codelineno-0-687" name="__codelineno-0-687"></a><span class="sd">    --------</span>
-<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">    deserialize_config : Accepts exactly the data this schema validates.</span>
-<a id="__codelineno-0-689" name="__codelineno-0-689"></a><span class="sd">    """</span>
-<a id="__codelineno-0-690" name="__codelineno-0-690"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAdapter</span>
-<a id="__codelineno-0-691" name="__codelineno-0-691"></a>
-<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="n">schema</span> <span class="o">=</span> <span class="n">TypeAdapter</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">json_schema</span><span class="p">()</span>
-<a id="__codelineno-0-693" name="__codelineno-0-693"></a>    <span class="n">nested</span> <span class="o">=</span> <span class="n">_iter_nested_dataclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-<a id="__codelineno-0-694" name="__codelineno-0-694"></a>
-<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="n">own_type</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
-<a id="__codelineno-0-696" name="__codelineno-0-696"></a>    <span class="k">if</span> <span class="n">own_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-<a id="__codelineno-0-697" name="__codelineno-0-697"></a>        <span class="n">_inject_type_property</span><span class="p">(</span><span class="n">schema</span><span class="p">,</span> <span class="n">own_type</span><span class="p">)</span>
-<a id="__codelineno-0-698" name="__codelineno-0-698"></a>
-<a id="__codelineno-0-699" name="__codelineno-0-699"></a>    <span class="n">defs</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"$defs"</span><span class="p">,</span> <span class="p">{})</span>
-<a id="__codelineno-0-700" name="__codelineno-0-700"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">nested</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-701" name="__codelineno-0-701"></a>        <span class="n">member_type</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
-<a id="__codelineno-0-702" name="__codelineno-0-702"></a>        <span class="k">if</span> <span class="n">member_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">defs</span><span class="p">:</span>
-<a id="__codelineno-0-703" name="__codelineno-0-703"></a>            <span class="n">_inject_type_property</span><span class="p">(</span><span class="n">defs</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">member_type</span><span class="p">)</span>
-<a id="__codelineno-0-704" name="__codelineno-0-704"></a>
-<a id="__codelineno-0-705" name="__codelineno-0-705"></a>    <span class="n">rename</span> <span class="o">=</span> <span class="p">{</span>
-<a id="__codelineno-0-706" name="__codelineno-0-706"></a>        <span class="n">name</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
-<a id="__codelineno-0-707" name="__codelineno-0-707"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">nested</span>
-<a id="__codelineno-0-708" name="__codelineno-0-708"></a>        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_COLLIDING_DEFS_NAMES</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">defs</span>
-<a id="__codelineno-0-709" name="__codelineno-0-709"></a>    <span class="p">}</span>
-<a id="__codelineno-0-710" name="__codelineno-0-710"></a>    <span class="k">if</span> <span class="n">rename</span><span class="p">:</span>
-<a id="__codelineno-0-711" name="__codelineno-0-711"></a>        <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="n">rename</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-<a id="__codelineno-0-712" name="__codelineno-0-712"></a>            <span class="n">defs</span><span class="p">[</span><span class="n">new</span><span class="p">]</span> <span class="o">=</span> <span class="n">defs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old</span><span class="p">)</span>
-<a id="__codelineno-0-713" name="__codelineno-0-713"></a>        <span class="n">_rename_refs</span><span class="p">(</span><span class="n">schema</span><span class="p">,</span> <span class="n">rename</span><span class="p">)</span>
-<a id="__codelineno-0-714" name="__codelineno-0-714"></a>
-<a id="__codelineno-0-715" name="__codelineno-0-715"></a>    <span class="n">_close_object_schemas</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
-<a id="__codelineno-0-716" name="__codelineno-0-716"></a>    <span class="n">_rewrite_discriminated_unions</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
-<a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="k">return</span> <span class="n">schema</span>
+<span class="normal"><a href="#__codelineno-0-717">717</a></span>
+<span class="normal"><a href="#__codelineno-0-718">718</a></span>
+<span class="normal"><a href="#__codelineno-0-719">719</a></span></pre></div></td><td class="code"><div><pre><span></span><code><a id="__codelineno-0-643" name="__codelineno-0-643"></a><span class="k">def</span><span class="w"> </span><span class="nf">json_schema</span><span class="p">(</span><span class="bp">cls</span><span class="p">:</span> <span class="nb">type</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<a id="__codelineno-0-644" name="__codelineno-0-644"></a><span class="w">    </span><span class="sd">"""Build a draft 2020-12 JSON Schema for a config dataclass.</span>
+<a id="__codelineno-0-645" name="__codelineno-0-645"></a>
+<a id="__codelineno-0-646" name="__codelineno-0-646"></a><span class="sd">    Wraps ``pydantic.TypeAdapter(cls).json_schema()`` with this project's</span>
+<a id="__codelineno-0-647" name="__codelineno-0-647"></a><span class="sd">    discriminated-union conventions, so the result matches exactly what</span>
+<a id="__codelineno-0-648" name="__codelineno-0-648"></a><span class="sd">    :func:`serialize_config` emits and :func:`deserialize_config` accepts:</span>
+<a id="__codelineno-0-649" name="__codelineno-0-649"></a>
+<a id="__codelineno-0-650" name="__codelineno-0-650"></a><span class="sd">    - every reachable class ``serialize_config`` tags with a ``_type``</span>
+<a id="__codelineno-0-651" name="__codelineno-0-651"></a><span class="sd">      discriminator (:data:`_TYPE_DISCRIMINATED` /</span>
+<a id="__codelineno-0-652" name="__codelineno-0-652"></a><span class="sd">      :data:`_TYPE_DISCRIMINATED_BY_NAME`) gets ``"_type": {"const": ...}``</span>
+<a id="__codelineno-0-653" name="__codelineno-0-653"></a><span class="sd">      injected into its properties and required list -- whether that class</span>
+<a id="__codelineno-0-654" name="__codelineno-0-654"></a><span class="sd">      is *cls* itself (e.g. ``json_schema(Montage)``) or a nested ``$defs``</span>
+<a id="__codelineno-0-655" name="__codelineno-0-655"></a><span class="sd">      entry (e.g. ``FlexConfig``'s ``SphericalROI``/``AtlasROI``/</span>
+<a id="__codelineno-0-656" name="__codelineno-0-656"></a><span class="sd">      ``SubcorticalROI``);</span>
+<a id="__codelineno-0-657" name="__codelineno-0-657"></a><span class="sd">    - every ``anyOf`` whose members are all ``$ref``s to such discriminated</span>
+<a id="__codelineno-0-658" name="__codelineno-0-658"></a><span class="sd">      classes (plus an optional ``null`` branch for ``Optional[...]``) is</span>
+<a id="__codelineno-0-659" name="__codelineno-0-659"></a><span class="sd">      rewritten to ``oneOf`` + ``discriminator: {"propertyName": "_type"}``;</span>
+<a id="__codelineno-0-660" name="__codelineno-0-660"></a><span class="sd">    - ``$defs`` entries whose bare name collides with another registered</span>
+<a id="__codelineno-0-661" name="__codelineno-0-661"></a><span class="sd">      class's (:data:`_COLLIDING_DEFS_NAMES`: ``AtlasROI`` on three</span>
+<a id="__codelineno-0-662" name="__codelineno-0-662"></a><span class="sd">      classes, ``PoolElectrodes``/``BucketElectrodes`` on two, ``Subject``</span>
+<a id="__codelineno-0-663" name="__codelineno-0-663"></a><span class="sd">      on two) are renamed to ``"&lt;cls.__name__&gt;&lt;bare name&gt;"``, so merging</span>
+<a id="__codelineno-0-664" name="__codelineno-0-664"></a><span class="sd">      many classes' schemas into one document</span>
+<a id="__codelineno-0-665" name="__codelineno-0-665"></a><span class="sd">      (see ``dev/build_schema.py``) can never let one definition silently</span>
+<a id="__codelineno-0-666" name="__codelineno-0-666"></a><span class="sd">      clobber another's under the same key;</span>
+<a id="__codelineno-0-667" name="__codelineno-0-667"></a><span class="sd">    - every fixed-shape object schema (the top level and each ``$defs``</span>
+<a id="__codelineno-0-668" name="__codelineno-0-668"></a><span class="sd">      entry with its own ``"properties"``) gets</span>
+<a id="__codelineno-0-669" name="__codelineno-0-669"></a><span class="sd">      ``"additionalProperties": false`` (:func:`_close_object_schemas`),</span>
+<a id="__codelineno-0-670" name="__codelineno-0-670"></a><span class="sd">      matching what :func:`deserialize_config`'s ``strict=True`` rejects</span>
+<a id="__codelineno-0-671" name="__codelineno-0-671"></a><span class="sd">      at runtime -- a misspelled or renamed field fails schema validation</span>
+<a id="__codelineno-0-672" name="__codelineno-0-672"></a><span class="sd">      (e.g. at ``POST /api/validate/{kind}``) instead of silently</span>
+<a id="__codelineno-0-673" name="__codelineno-0-673"></a><span class="sd">      vanishing. A free-form mapping field (e.g.</span>
+<a id="__codelineno-0-674" name="__codelineno-0-674"></a><span class="sd">      ``SimulationConfig.tissue_conductivities: dict[int, float]``) has no</span>
+<a id="__codelineno-0-675" name="__codelineno-0-675"></a><span class="sd">      ``"properties"`` of its own and is left open.</span>
+<a id="__codelineno-0-676" name="__codelineno-0-676"></a>
+<a id="__codelineno-0-677" name="__codelineno-0-677"></a><span class="sd">    Parameters</span>
+<a id="__codelineno-0-678" name="__codelineno-0-678"></a><span class="sd">    ----------</span>
+<a id="__codelineno-0-679" name="__codelineno-0-679"></a><span class="sd">    cls : type</span>
+<a id="__codelineno-0-680" name="__codelineno-0-680"></a><span class="sd">        A dataclass, e.g. one of :data:`CONFIG_CLASS_REGISTRY`'s values.</span>
+<a id="__codelineno-0-681" name="__codelineno-0-681"></a>
+<a id="__codelineno-0-682" name="__codelineno-0-682"></a><span class="sd">    Returns</span>
+<a id="__codelineno-0-683" name="__codelineno-0-683"></a><span class="sd">    -------</span>
+<a id="__codelineno-0-684" name="__codelineno-0-684"></a><span class="sd">    dict</span>
+<a id="__codelineno-0-685" name="__codelineno-0-685"></a><span class="sd">        A JSON Schema document: *cls*'s own shape at the top level, nested</span>
+<a id="__codelineno-0-686" name="__codelineno-0-686"></a><span class="sd">        types under ``$defs``.</span>
+<a id="__codelineno-0-687" name="__codelineno-0-687"></a>
+<a id="__codelineno-0-688" name="__codelineno-0-688"></a><span class="sd">    See Also</span>
+<a id="__codelineno-0-689" name="__codelineno-0-689"></a><span class="sd">    --------</span>
+<a id="__codelineno-0-690" name="__codelineno-0-690"></a><span class="sd">    deserialize_config : Accepts exactly the data this schema validates.</span>
+<a id="__codelineno-0-691" name="__codelineno-0-691"></a><span class="sd">    """</span>
+<a id="__codelineno-0-692" name="__codelineno-0-692"></a>    <span class="kn">from</span><span class="w"> </span><span class="nn">pydantic</span><span class="w"> </span><span class="kn">import</span> <span class="n">TypeAdapter</span>
+<a id="__codelineno-0-693" name="__codelineno-0-693"></a>
+<a id="__codelineno-0-694" name="__codelineno-0-694"></a>    <span class="n">schema</span> <span class="o">=</span> <span class="n">TypeAdapter</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span><span class="o">.</span><span class="n">json_schema</span><span class="p">()</span>
+<a id="__codelineno-0-695" name="__codelineno-0-695"></a>    <span class="n">nested</span> <span class="o">=</span> <span class="n">_iter_nested_dataclasses</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+<a id="__codelineno-0-696" name="__codelineno-0-696"></a>
+<a id="__codelineno-0-697" name="__codelineno-0-697"></a>    <span class="n">own_type</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+<a id="__codelineno-0-698" name="__codelineno-0-698"></a>    <span class="k">if</span> <span class="n">own_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+<a id="__codelineno-0-699" name="__codelineno-0-699"></a>        <span class="n">_inject_type_property</span><span class="p">(</span><span class="n">schema</span><span class="p">,</span> <span class="n">own_type</span><span class="p">)</span>
+<a id="__codelineno-0-700" name="__codelineno-0-700"></a>
+<a id="__codelineno-0-701" name="__codelineno-0-701"></a>    <span class="n">defs</span> <span class="o">=</span> <span class="n">schema</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"$defs"</span><span class="p">,</span> <span class="p">{})</span>
+<a id="__codelineno-0-702" name="__codelineno-0-702"></a>    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">member</span> <span class="ow">in</span> <span class="n">nested</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-703" name="__codelineno-0-703"></a>        <span class="n">member_type</span> <span class="o">=</span> <span class="n">_discriminator_for</span><span class="p">(</span><span class="n">member</span><span class="p">)</span>
+<a id="__codelineno-0-704" name="__codelineno-0-704"></a>        <span class="k">if</span> <span class="n">member_type</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">defs</span><span class="p">:</span>
+<a id="__codelineno-0-705" name="__codelineno-0-705"></a>            <span class="n">_inject_type_property</span><span class="p">(</span><span class="n">defs</span><span class="p">[</span><span class="n">name</span><span class="p">],</span> <span class="n">member_type</span><span class="p">)</span>
+<a id="__codelineno-0-706" name="__codelineno-0-706"></a>
+<a id="__codelineno-0-707" name="__codelineno-0-707"></a>    <span class="n">rename</span> <span class="o">=</span> <span class="p">{</span>
+<a id="__codelineno-0-708" name="__codelineno-0-708"></a>        <span class="n">name</span><span class="p">:</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="bp">cls</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}{</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span>
+<a id="__codelineno-0-709" name="__codelineno-0-709"></a>        <span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">nested</span>
+<a id="__codelineno-0-710" name="__codelineno-0-710"></a>        <span class="k">if</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_COLLIDING_DEFS_NAMES</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">defs</span>
+<a id="__codelineno-0-711" name="__codelineno-0-711"></a>    <span class="p">}</span>
+<a id="__codelineno-0-712" name="__codelineno-0-712"></a>    <span class="k">if</span> <span class="n">rename</span><span class="p">:</span>
+<a id="__codelineno-0-713" name="__codelineno-0-713"></a>        <span class="k">for</span> <span class="n">old</span><span class="p">,</span> <span class="n">new</span> <span class="ow">in</span> <span class="n">rename</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+<a id="__codelineno-0-714" name="__codelineno-0-714"></a>            <span class="n">defs</span><span class="p">[</span><span class="n">new</span><span class="p">]</span> <span class="o">=</span> <span class="n">defs</span><span class="o">.</span><span class="n">pop</span><span class="p">(</span><span class="n">old</span><span class="p">)</span>
+<a id="__codelineno-0-715" name="__codelineno-0-715"></a>        <span class="n">_rename_refs</span><span class="p">(</span><span class="n">schema</span><span class="p">,</span> <span class="n">rename</span><span class="p">)</span>
+<a id="__codelineno-0-716" name="__codelineno-0-716"></a>
+<a id="__codelineno-0-717" name="__codelineno-0-717"></a>    <span class="n">_close_object_schemas</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
+<a id="__codelineno-0-718" name="__codelineno-0-718"></a>    <span class="n">_rewrite_discriminated_unions</span><span class="p">(</span><span class="n">schema</span><span class="p">)</span>
+<a id="__codelineno-0-719" name="__codelineno-0-719"></a>    <span class="k">return</span> <span class="n">schema</span>
 </code></pre></div></td></tr></table></div>
             </details>
     </div>

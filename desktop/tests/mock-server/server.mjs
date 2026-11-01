@@ -766,6 +766,8 @@ function existsForFixture(kind, subject, config) {
     const dir = analyzerOutputDir(subject, cfg);
     return !!dir && Object.values(analyses[subject] ?? {}).some((list) => list.some((a) => dirname(a.csv) === dir));
   }
+  // One leadfield per subject and net: the catalog fixture says which exist.
+  if (kind === "leadfield") return (leadfields[subject] ?? []).some((l) => l.net === cfg.eeg_net && l.exists);
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -884,16 +886,16 @@ function exSearchSpace(cfg) {
   const limit = cfg.channel_limit ?? null;
   const splits = limit === null ? (total > 0 && step > 0 ? 1 : 0) : exCurrentSplits(total, step, limit);
   const electrodes = cfg.electrodes ?? {};
+  const first = Math.min(limit ?? 0, total - step);
+  const last = first - (splits - 1) * step;
+  const mirror = splits === 0 || limit === null || Math.abs(last - (total - first)) <= 1e-9;
   let montages;
   if (electrodes._type === "PoolElectrodes") {
     // A physical montage: 4 distinct electrodes split into two pairs 3 ways (TI ignores channel
     // polarity), in both channel orders only when the split list is not its own mirror.
-    const first = Math.min(limit ?? 0, total - step);
-    const last = first - (splits - 1) * step;
-    const mirror = splits === 0 || limit === null || Math.abs(last - (total - first)) <= 1e-9;
     montages = choose(new Set(electrodes.electrodes ?? []).size, 4) * 3 * (mirror ? 1 : 2);
   } else {
-    montages = distinctTuples(electrodes, EX_KEYS);
+    montages = bucketMontages(electrodes, !mirror);
   }
   return { n_combinations: montages * splits, n_current_ratios: splits };
 }
@@ -911,6 +913,29 @@ function choose(n, k) {
   return Math.round(result);
 }
 /** One electrode per bucket, all different (`_distinct_product`); a repeated label is one electrode. */
+/** Port of `bucketMontages` (renderer `optimizer/cost.ts`): physical montages of the Ex bucket product. */
+function bucketMontages(buckets, bothOrders) {
+  const pairs = (plus = [], minus = []) => {
+    const out = new Set();
+    for (const p of plus) for (const m of minus) if (p !== m) out.add([p, m].sort().join("\0"));
+    return out;
+  };
+  const disjoint = (a, b) => {
+    const degB = new Map();
+    for (const q of b) for (const e of q.split("\0")) degB.set(e, (degB.get(e) ?? 0) + 1);
+    let count = a.size * b.size;
+    for (const p of a) {
+      for (const e of p.split("\0")) count -= degB.get(e) ?? 0;
+      if (b.has(p)) count += 1;
+    }
+    return count;
+  };
+  const r1 = pairs(buckets.e1_plus, buckets.e1_minus);
+  const r2 = pairs(buckets.e2_plus, buckets.e2_minus);
+  if (bothOrders) return disjoint(r1, r2);
+  const both = new Set([...r1].filter((p) => r2.has(p)));
+  return disjoint(r1, r2) - disjoint(both, both) / 2;
+}
 function distinctTuples(buckets, keys) {
   const where = new Map();
   keys.forEach((key, position) => {
@@ -1011,7 +1036,9 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
   const jobsPlan = planned.map((subject) => {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
-    return { kind, subject, output_dir, exists, will_overwrite: exists && (REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite) };
+    // `_plan_leadfield`: a leadfield is replaced when its config asks to compute (`overwrite`).
+    const replaces = kind === "leadfield" ? !!cfg.overwrite : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
+    return { kind, subject, output_dir, exists, will_overwrite: exists && replaces };
   });
   const lock_conflicts = [];
   for (const subject of ids) {
@@ -3606,7 +3633,7 @@ route("POST", "/api/jobs", async (ctx) => {
   }
   // `check_overwrite_permission`: the kinds whose runner replaces an existing folder need an
   // explicit overwrite. Other kinds' mock plans never set `will_overwrite` without one.
-  if (REPLACES_WHEN_EXISTS_KINDS.has(body.kind) && !body.overwrite) {
+  if ((REPLACES_WHEN_EXISTS_KINDS.has(body.kind) || body.kind === "leadfield") && !body.overwrite) {
     const conflicts = planFor(body.kind, body.config, body.subject_ids ?? [], false).jobs.filter((j) => j.will_overwrite);
     if (conflicts.length) {
       return json(ctx.res, 409, { detail: `Outputs of this ${body.kind} job already exist. Explicit overwrite confirmation is required: ${conflicts.map((j) => j.output_dir).join("; ")}` });

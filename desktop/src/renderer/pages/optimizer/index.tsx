@@ -418,14 +418,20 @@ function OptimizerPage() {
 
   /** The (subject, net) whose Generate-leadfield step is open: the user picks its electrode first. */
   const [leadfieldStep, setLeadfieldStep] = useState<LeadfieldRequest | null>(null);
+  type LeadfieldSubmit = LeadfieldRequest & { electrode: LeadfieldElectrode; overwrite?: boolean };
+  /** A regeneration the server refused (409) pending the existing-outputs answer. */
+  const [confirmLeadfield, setConfirmLeadfield] = useState<LeadfieldSubmit | null>(null);
   const generateLeadfield = useMutation({
-    mutationFn: ({ subject, net, electrode }: LeadfieldRequest & { electrode: LeadfieldElectrode }) => submitLeadfieldJob(subject, net, electrode),
+    mutationFn: ({ subject, net, electrode, overwrite }: LeadfieldSubmit) => submitLeadfieldJob(subject, net, electrode, overwrite),
     onSuccess: (job, { subject, net }) => {
       setLeadfieldJobs((previous) => ({ ...previous, [JSON.stringify([subject, net])]: job.id }));
       notify.success(`Queued: leadfield generation for ${net}`);
       void queryClient.invalidateQueries({ queryKey: ["leadfields", subject] });
     },
-    onError: (e) => notifySubmitError("Could not queue the leadfield job.", e),
+    onError: (e, variables) => {
+      if (isExistingOutputsConflict(e) && !variables.overwrite) setConfirmLeadfield(variables);
+      else notifySubmitError("Could not queue the leadfield job.", e);
+    },
   });
 
   function leadfieldGenerationState(subject: string, net: string | null): string | null {
@@ -715,7 +721,7 @@ function OptimizerPage() {
                   onRowsChange={setRows}
                   activeRowId={activeRowId}
                   onActiveRowChange={setActiveRowId}
-                  onGenerateLeadfield={(subject, net) => setLeadfieldStep({ subject, net })}
+                  onGenerateLeadfield={(subject, net, replaces) => setLeadfieldStep({ subject, net, replaces })}
                   leadfieldGenerationState={leadfieldGenerationState}
                   activeBucket={activeBucket}
                   onActiveBucketChange={setActiveBucket}
@@ -756,6 +762,19 @@ function OptimizerPage() {
         onDecide={(decision) => {
           setConfirmExisting(null);
           submit.mutate(decision);
+        }}
+      />
+
+      <ExistingOutputsDialog
+        open={confirmLeadfield !== null}
+        onOpenChange={(open) => { if (!open) setConfirmLeadfield(null); }}
+        existing={1}
+        total={1}
+        noun="leadfield output"
+        busy={generateLeadfield.isPending}
+        onDecide={(decision) => {
+          if (decision === "replace" && confirmLeadfield) generateLeadfield.mutate({ ...confirmLeadfield, overwrite: true });
+          setConfirmLeadfield(null);
         }}
       />
     </PageLayout>
