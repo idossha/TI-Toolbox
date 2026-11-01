@@ -396,10 +396,12 @@ def test_validate_mni_cap_names_the_exact_type_spelling() -> None:
         caps.validate_mni_cap("Electrode,10,0,80,Fz\nelectrode,-10,0,80,Cz\n")
 
 
-def test_validate_mni_cap_takes_the_name_simnibs_takes_from_a_second_position() -> None:
-    # Type,x,y,z,pos2_x,pos2_y,pos2_z,name: two electrodes, names in cell 8.
+def test_validate_mni_cap_refuses_the_second_position_form() -> None:
+    # Type,x,y,z,pos2_x,pos2_y,pos2_z,name: SimNIBS takes the name from cell 8,
+    # but every TI-Toolbox reader takes it from cell 5, so Fz would be labelled "11".
     text = "Electrode,10,0,80,11,0,80,Fz\nElectrode,-10,0,80,-11,0,80,Cz\n"
-    assert caps.validate_mni_cap(text) == 2
+    with pytest.raises(caps.CapError, match="Row 1: .*Type,x,y,z,name"):
+        caps.validate_mni_cap(text)
 
 
 @pytest.mark.parametrize(

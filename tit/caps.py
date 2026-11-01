@@ -276,7 +276,8 @@ def validate_mni_cap(text: str) -> int:
     """Number of electrodes in an MNI cap CSV, or raise :class:`CapError`.
 
     The format charm reads, as SimNIBS's ``read_csv_positions`` reads it:
-    ``Type,x,y,z,name[,...]`` or ``Type,x,y,z,pos2_x,pos2_y,pos2_z,name[,...]``,
+    ``Type,x,y,z,name[,...]`` (the ``Type,x,y,z,x2,y2,z2,name`` form SimNIBS
+    also reads is refused: every TI-Toolbox reader takes the name from cell 5),
     with ``Type`` spelled exactly ``Electrode`` / ``ReferenceElectrode`` /
     ``Fiducial``. Untrusted input: the :func:`normalise_mni_cap` form of
     *text* is checked row by row, and nothing is accepted that the warp would
@@ -321,9 +322,11 @@ def validate_mni_cap(text: str) -> int:
         _mni_mm(row[1:4], number)
         name = row[4]
         if kind != "Fiducial" and len(row) >= 7 and _numbers(row[4:7]):
-            # SimNIBS reads cells 5-7 as a second position and the name from cell 8.
-            _mni_mm(row[4:7], number)
-            name = row[7] if len(row) >= 8 else ""
+            # SimNIBS would take the name from cell 8; every TI-Toolbox reader takes cell 5.
+            raise CapError(
+                f"Row {number}: the second-position form (Type,x,y,z,x2,y2,z2,name) "
+                "is not supported; write each row as Type,x,y,z,name."
+            )
         if not name.strip():
             raise CapError(f"Row {number}: the electrode has no name.")
         if name != name.strip():
