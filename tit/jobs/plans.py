@@ -20,6 +20,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from tit.config_io import serialize_config
+from tit.jobs.config_check import runner_view
 from tit.jobs.spec import PlannedJob
 from tit.pre.config import PreprocessConfig
 
@@ -104,7 +105,10 @@ def plan_per_subject(
     jobs: list[PlannedJob] = []
     for index, (subject_id, config) in enumerate(subject_configs):
         narrowed = {**config, "subject_id": subject_id}
-        resolved = serialize_config(deserialize_config(cls, narrowed))
+        # Judged as the runner reads it (a flex kind is its mode), as a single job is.
+        resolved = serialize_config(
+            deserialize_config(cls, runner_view(kind, narrowed))
+        )
         if resolved.get("subject_id") != subject_id:  # pragma: no cover - defensive
             raise ValueError(
                 f"config for {subject_id!r} resolved to subject_id "

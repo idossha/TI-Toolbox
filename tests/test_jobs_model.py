@@ -643,7 +643,8 @@ def test_hold_for_job_holds_its_kinds_keys_only_inside_a_job(tmp_path, monkeypat
 def test_keys_for_analyzer_uses_the_real_output_dir_field():
     """tit/analyzer/config.py::AnalyzerConfig's field is ``output_dir`` (not
     ``analysis_output_dir``) -- exercised via the real dataclass/serialize_config round trip,
-    the same shape tit/analyzer/__main__.py's ``locks.hold_for_job`` call site passes."""
+    the same shape tit/analyzer/__main__.py's ``locks.hold_for_job`` call site passes.
+    """
     from tit.analyzer.config import AnalyzerConfig
     from tit.config_io import serialize_config
 
@@ -869,6 +870,34 @@ def test_plan_per_subject_forces_each_config_to_its_own_subject(tmp_path):
     # Independent jobs: no intra-group dependency edges, so the cap is the only sequencer.
     assert all(p.after_labels == [] for p in planned)
     assert all(p.tags == ["sim-batch"] for p in planned)
+
+
+@pytest.mark.parametrize("kind", ["flex_adaptive", "flex_pareto"])
+def test_plan_per_subject_judges_a_flex_config_as_its_kinds_mode(tmp_path, kind):
+    """A flex group member is judged as the runner reads it -- with ``mode`` = its kind
+    (``runner_view``), exactly as a single job is (``check_job_config``): a config the single
+    route refuses for that kind is refused in a group too, and the planned config says its mode.
+    """
+    from tit.jobs.config_check import check_job_config
+    from tit.jobs.plans import plan_per_subject
+    from tit.paths import get_path_manager
+
+    get_path_manager(str(tmp_path))
+    config = {
+        "goal": "mean",
+        "postproc": "max_TI",
+        "current_mA": 1.0,
+        "electrode": {"shape": "ellipse", "dimensions": [8, 8], "gel_thickness": 1},
+        "roi": {"_type": "SphericalROI", "x": 1, "y": 2, "z": 3, "radius": 5},
+    }
+    with pytest.raises(ValueError) as single:
+        check_job_config(kind, {**config, "subject_id": "001"})
+    with pytest.raises(ValueError) as group:
+        plan_per_subject(kind, [("001", config)])
+    assert str(group.value) in str(single.value)  # single adds the kind as a prefix
+    config["goal"] = "focality"
+    [planned] = plan_per_subject(kind, [("001", config)])
+    assert planned.config["mode"] == kind
 
 
 def test_plan_per_subject_rejects_a_cohort_kind():
