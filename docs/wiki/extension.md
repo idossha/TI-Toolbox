@@ -51,7 +51,7 @@ fsaverage source spacing (5, 6 or 7). Each subject gets, under
 - `sub-<id>_net-<net>-morph.h5` — a source morph onto fsaverage;
 
 plus the point-electrode leadfield (`*_leadfield.hdf5`) and the head↔MRI transform (`*-trans.fif`)
-they are built from. The FEM leadfield is computed once per subject and net; a re-run reuses it.
+they are built from. The FEM leadfield is computed once per subject and net; a re-run reuses it while the net CSV and head mesh are unchanged.
 Source needs MNE-Python, which the Docker image includes.
 
 By default the head frame comes from the EEG net's own template fiducials. To build the forward

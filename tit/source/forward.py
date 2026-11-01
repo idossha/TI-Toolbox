@@ -253,6 +253,13 @@ def _forward_outputs_valid(fwd_path: Path, src_path: Path, morph_path: Path) -> 
     return True
 
 
+def _write_provenance(path: Path, provenance: dict) -> None:
+    """Replace the sidecar whole: a crash leaves the old one or none, never half."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps(provenance, indent=2) + "\n")
+    tmp.replace(path)
+
+
 def _read_provenance(path: Path) -> dict:
     """The recorded inputs of a net's cached outputs; ``{}`` (stale) if unreadable."""
     try:
@@ -457,7 +464,7 @@ def prepare_forward(
         provenance_path.unlink(missing_ok=True)
         leadfield_hdf5.unlink(missing_ok=True)  # never append to a stale HDF5
         leadfield_hdf5 = _compute_leadfield(m2m_dir, forward_dir, eeg_csv, cfg.cpus)
-        provenance_path.write_text(json.dumps(inputs, indent=2) + "\n")
+        _write_provenance(provenance_path, inputs)
 
     # The Info is built *after* the leadfield, in the leadfield's channel order:
     # SimNIBS's assembly asserts `info["ch_names"] == forward["ch_names"]` element by
@@ -499,7 +506,7 @@ def prepare_forward(
     provenance = dict(inputs)
     if default_frame:  # a recording-frame forward is never reused as the default
         provenance["fsaverage_spacing"] = cfg.fsaverage_spacing
-    provenance_path.write_text(json.dumps(provenance, indent=2) + "\n")
+    _write_provenance(provenance_path, provenance)
     return outputs
 
 
