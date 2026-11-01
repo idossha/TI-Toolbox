@@ -93,6 +93,14 @@ def test_tissue_number_zero_is_refused():
         SimulationConfig(subject_id="X", montages=[], tissue_conductivities={0: 0.3})
 
 
+def test_tissue_number_past_simnibs_cond_list_is_refused_up_front():
+    # SimNIBS 4.6 standard_cond() has ElementTags.TH_END + 1 = 1000 entries (tissues 1..1000);
+    # cond[1000] would be a bare IndexError deep inside the run.
+    with pytest.raises(ValueError, match=r"1001.*1\.\.1000"):
+        SimulationConfig(subject_id="X", montages=[], tissue_conductivities={1001: 0.3})
+    SimulationConfig(subject_id="X", montages=[], tissue_conductivities={1000: 0.3})
+
+
 # -- A1-9: electrode geometry ----------------------------------------------------------------
 
 

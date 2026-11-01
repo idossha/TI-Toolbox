@@ -647,10 +647,12 @@ class SimulationConfig:
             self.tissue_conductivities = {
                 int(k): float(v) for k, v in self.tissue_conductivities.items()
             }
-            if any(k < 1 for k in self.tissue_conductivities):
+            # SimNIBS's standard_cond() has ElementTags.TH_END + 1 = 1000 entries.
+            bad = [k for k in self.tissue_conductivities if not 1 <= k <= 1000]
+            if bad:
                 raise ValueError(
-                    "tissue_conductivities keys are SimNIBS tissue numbers (1-based); got "
-                    f"{sorted(self.tissue_conductivities)}"
+                    f"tissue_conductivities: tissue number(s) {sorted(bad)} out of range; "
+                    "SimNIBS tissue numbers are 1..1000"
                 )
             non_positive = {
                 k: v for k, v in self.tissue_conductivities.items() if v <= 0
