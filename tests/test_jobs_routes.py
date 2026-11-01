@@ -1092,6 +1092,29 @@ def test_a_queued_jobs_output_folder_is_taken(client: TestClient, route: str) ->
     client.post(f"/api/jobs/{blocker['id']}/cancel", headers=BEARER)
 
 
+def test_a_cancelled_jobs_folder_is_free_again(client: TestClient) -> None:
+    """Only a queued or running job takes its folder: once it is cancelled, the same run can be
+    queued again (the retry and the replace-and-rerun flows)."""
+    blocker = client.post(
+        "/api/jobs",
+        headers=BEARER,
+        json={"kind": "tools", "config": {"__fake": {"duration_s": 5.0}}, "subject_ids": []},
+    ).json()
+    body = {
+        "kind": "sim",
+        "config": _sim_config("001"),
+        "subject_ids": ["001"],
+        "after": [blocker["id"]],
+    }
+    first = client.post("/api/jobs", headers=BEARER, json=body)
+    assert first.status_code == 201, first.text
+    assert client.post("/api/jobs", headers=BEARER, json=body).status_code == 422
+    client.post(f"/api/jobs/{first.json()['id']}/cancel", headers=BEARER)
+    again = client.post("/api/jobs", headers=BEARER, json=body)
+    assert again.status_code == 201, again.text
+    client.post(f"/api/jobs/{blocker['id']}/cancel", headers=BEARER)
+
+
 def test_overwrite_refusal_names_the_kind_not_simulation(monkeypatch):
     """An analyzer conflict used to read "Simulation outputs already exist" (2026-09-23)."""
     from types import SimpleNamespace

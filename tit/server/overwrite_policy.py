@@ -83,15 +83,25 @@ def refuse_outputs_of_active_jobs(
     wanted = set().union(*(_named_folders(k, c, jobs) for k, c, jobs in planned))
     if not wanted:
         return
+    from tit.server.routes.plan import PlanRequest, plan_jobs
+
     for job in manager.list_jobs():
         if job["state"] not in ("queued", "running"):
             continue
         spec = (manager.get_detail(job["id"]) or {}).get("spec") or {}
+        if spec.get("kind") == "pre":
+            continue  # preprocessing stages share subject folders by design
         try:
-            outputs = planned_outputs(spec["kind"], spec["config"], spec["subject_ids"])
+            # The folder resolution alone: no cost or ETA model per queued job.
+            folders = plan_jobs(
+                spec["kind"],
+                PlanRequest(config=spec["config"], subject_ids=spec["subject_ids"]),
+            )
         except (HTTPException, ValueError, TypeError, KeyError, OSError):
             continue  # a spec the plan cannot read names no folder
-        taken = wanted & _named_folders(spec["kind"], spec["config"], outputs)
+        taken = wanted & _named_folders(
+            spec["kind"], spec["config"], folders[0] if folders else []
+        )
         if taken:
             raise HTTPException(
                 status_code=422,
