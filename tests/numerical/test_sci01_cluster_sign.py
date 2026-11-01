@@ -22,6 +22,7 @@ backend, which must agree.
 """
 
 import itertools
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -75,16 +76,15 @@ def ref_max_stat(mask, t, cluster_stat, tail):
 
 
 def ref_ttest_ind_1d(a, b):
-    """Pooled-variance two-sample t and two-sided p, from first principles."""
+    """Welch two-sample t and two-sided p (Welch-Satterthwaite df), from first principles."""
     from scipy.stats import t as t_dist
 
     na, nb = a.shape[1], b.shape[1]
-    va = a.var(axis=1, ddof=1)
-    vb = b.var(axis=1, ddof=1)
-    pooled = ((na - 1) * va + (nb - 1) * vb) / (na + nb - 2)
-    se = np.sqrt(pooled * (1 / na + 1 / nb))
-    tv = (a.mean(axis=1) - b.mean(axis=1)) / se
-    pv = 2 * t_dist.sf(np.abs(tv), na + nb - 2)
+    ea = a.var(axis=1, ddof=1) / na
+    eb = b.var(axis=1, ddof=1) / nb
+    tv = (a.mean(axis=1) - b.mean(axis=1)) / np.sqrt(ea + eb)
+    df = (ea + eb) ** 2 / (ea**2 / (na - 1) + eb**2 / (nb - 1))
+    pv = 2 * t_dist.sf(np.abs(tv), df)
     return tv, pv
 
 
@@ -196,8 +196,8 @@ def test_engine_permutation_null_matches_exhaustive_reference(
 ):
     """Drive the engine over *every* relabelling and compare null values.
 
-    ``_run_single_permutation`` draws its relabelling from
-    ``np.random.permutation``; stubbing that lets the exhaustive enumeration be
+    ``_run_single_permutation`` draws its relabelling from a
+    ``np.random.default_rng`` generator; stubbing that lets the exhaustive enumeration be
     pushed through the production code path, so the comparison is against the
     real function and not a re-typed copy of it.
     """
@@ -223,7 +223,11 @@ def test_engine_permutation_null_matches_exhaustive_reference(
     assert len(orders) == 20
 
     for order in orders:
-        monkeypatch.setattr(np.random, "permutation", lambda _n, o=order: o)
+        monkeypatch.setattr(
+            np.random,
+            "default_rng",
+            lambda _seed=None, o=order: SimpleNamespace(permutation=lambda _n: o),
+        )
         got = engine._run_single_permutation(
             data,
             coords,

@@ -324,3 +324,32 @@ def test_a_hyphenated_pair_writes_its_difference(run_average) -> None:
     assert recorded["groups"] == {"pre-op": ["a", "b"], "post-op": ["c", "d"]}
     artifacts = {os.path.basename(e["path"]) for e in events if e["type"] == "artifact"}
     assert artifacts == {p.name for p in out.iterdir()}
+
+
+def test_a_voxel_any_subject_lacks_is_zero_in_its_group_average(
+    run_average, monkeypatch
+) -> None:
+    """S4-1: subject ``a`` is 0 on the first slab (outside its warped grey matter).
+
+    Its 0 is not a field value: Group1's average and the Group1 - Group2 difference are 0
+    there, and elsewhere the plain means (Group1 (1 + 3) / 2 = 2, Group2 (10 + 20) / 2 = 15).
+    """
+    import tit.stats.nifti as nifti_mod
+
+    def load_one(subject_id, simulation_name, pattern, dtype=np.float32):
+        data = np.full(SHAPE, VALUES[subject_id], dtype=dtype)
+        if subject_id == "a":
+            data[0] = 0.0
+        img = SimpleNamespace(affine=np.eye(4), header={})
+        return data, img, f"/in/{subject_id}"
+
+    monkeypatch.setattr(nifti_mod, "load_subject_nifti_ti_toolbox", load_one)
+    code, out, _ = run_average(
+        _config({"a": "Group1", "b": "Group1", "c": "Group2", "d": "Group2"})
+    )
+    assert code == 0
+    avg1 = _volume(out / "average_Group1.nii.gz")
+    diff = _volume(out / "difference_Group1_minus_Group2.nii.gz")
+    assert (avg1[0] == 0).all() and (avg1[1:] == 2.0).all()
+    assert (_volume(out / "average_Group2.nii.gz") == 15.0).all()
+    assert (diff[0] == 0).all() and (diff[1:] == -13.0).all()

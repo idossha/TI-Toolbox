@@ -455,7 +455,8 @@ class TestTtestVoxelwise:
         non_resp = np.random.rand(*shape, 5) * 0.1
         # Make one voxel strongly different
         resp[1, 1, 1, :] = np.array([100.0, 101.0, 102.0, 103.0, 104.0])
-        non_resp[1, 1, 1, :] = np.array([0.0, 1.0, 2.0, 3.0, 4.0])
+        # Non-zero: a 0 is outside that subject's coverage and the voxel is not tested.
+        non_resp[1, 1, 1, :] = np.array([0.5, 1.0, 2.0, 3.0, 4.0])
         p, t, mask = ttest_voxelwise(resp, non_resp, test_type="unpaired")
         assert p[1, 1, 1] < 0.001
         assert t[1, 1, 1] > 0

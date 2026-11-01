@@ -102,8 +102,8 @@ def test_degrees_of_freedom_are_one():
     assert p[0] == pytest.approx(2 * sp_stats.t.sf(abs(t[0]), 1))
 
 
-def test_groups_of_two_or_more_are_unchanged():
-    """The rewrite is a no-op wherever the old expression was already defined."""
+def test_groups_of_two_or_more_use_welch_t():
+    """With two or more per group the statistic is Welch's t (S4-2), not the pooled one."""
     import scipy.stats as sp_stats
 
     from tit.stats.engine import ttest_ind
@@ -114,7 +114,7 @@ def test_groups_of_two_or_more_are_unchanged():
     t, p = ttest_ind(np.hstack([resp, non_resp]), n_resp=4, n_non_resp=5)
 
     for i in range(16):
-        ref = sp_stats.ttest_ind(resp[i], non_resp[i], equal_var=True)
+        ref = sp_stats.ttest_ind(resp[i], non_resp[i], equal_var=False)
         assert t[i] == pytest.approx(float(ref.statistic))
         assert p[i] == pytest.approx(float(ref.pvalue))
 

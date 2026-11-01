@@ -31,9 +31,9 @@ logger = logging.getLogger(__name__)
 
 
 #: Relative tolerance under which a null statistic ties the observed one (see
-#: :func:`pval_from_histogram`). The t maps are float32, so a relabelling that reproduces the
-#: observed grouping in another column order moves the cluster mass by float32 rounding, not
-#: float64 ulps: 4.3e-8 relative measured on the 5-vs-5 planted block of
+#: :func:`pval_from_histogram`). The t maps were float32 when this was measured, so a
+#: relabelling that reproduced the observed grouping in another column order moved the cluster
+#: mass by float32 rounding, not float64 ulps: 4.3e-8 relative measured on the 5-vs-5 planted block of
 #: ``tests/numerical/test_stats_runner_real_path.py`` (1e-6 is 23x that, about 8 float32 eps).
 #: Cluster sizes are whole voxel counts, so 1e-6 cannot merge two sizes below 1e6 voxels.
 TIE_RTOL = 1e-6
@@ -307,7 +307,8 @@ def correlation_voxelwise(
     t_statistics = np.zeros(shape)
     p_values = np.ones(shape)
 
-    valid_mask = np.any(subject_data > 0, axis=-1)
+    # Only where every subject has a field: a 0 is outside that subject's warped grey matter.
+    valid_mask = np.all(subject_data > 0, axis=-1)
     valid_coords = np.argwhere(valid_mask)
     n_valid = len(valid_coords)
     _log.info("Valid voxels: %d", n_valid)
@@ -364,34 +365,40 @@ def _safe_t(numerator, se):
 
 
 def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
-    """Vectorised independent-samples t-test. Returns (t_stats, p_values)."""
+    """Vectorised independent-samples t-test. Returns (t_stats, p_values).
+
+    Welch's t with Welch-Satterthwaite df, as ``scipy.stats.ttest_ind(equal_var=False)``.
+    A group of one subject has no variance estimate, so Welch's t is undefined; that design
+    keeps the pooled-variance Student t (:func:`unpaired_statistic_name` says which ran).
+    """
+    # float64: float32 means leave constant groups a tiny non-zero SE (finite |t| ~ 1e7).
+    test_data = np.asarray(test_data, dtype=np.float64)
     resp_data = test_data[:, :n_resp]
     non_resp_data = test_data[:, n_resp:]
 
     resp_means = np.mean(resp_data, axis=1)
     non_resp_means = np.mean(non_resp_data, axis=1)
 
-    # Pooled variance from each group's SUM OF SQUARED DEVIATIONS, not from
-    # ``(n - 1) * np.var(..., ddof=1)``.
-    #
-    # The two are algebraically the same for n >= 2, but a group of ONE subject makes
-    # ``np.var(x, ddof=1)`` a 0/0 ``nan``, and ``(n - 1) * nan`` is ``0 * nan == nan``, not the
-    # 0 the pooled estimator calls for. So every voxel of a 2-vs-1 design came out ``nan``,
-    # was counted as degenerate by ``ttest_voxelwise`` ("... 0 perfectly separated, N constant"),
-    # emptied ``valid_mask``, and the run died with "No voxel could be tested" having written
-    # nothing but its log — a design that is under-powered but perfectly well defined
-    # (df = n1 + n2 - 2 = 1) reported as data with no variance in it. Summing the deviations
-    # gives the singleton group its true contribution, which is exactly zero.
+    # Each group's SUM OF SQUARED DEVIATIONS, not ``(n - 1) * np.var(..., ddof=1)``: for a
+    # group of ONE subject the latter is ``0 * nan == nan`` and every voxel of a 2-vs-1 design
+    # came out degenerate (SCI-09); summing gives the singleton its true contribution, zero.
     resp_ss = np.sum((resp_data - resp_means[:, None]) ** 2, axis=1)
     non_resp_ss = np.sum((non_resp_data - non_resp_means[:, None]) ** 2, axis=1)
 
-    denominator = n_resp + n_non_resp - 2
-    pooled_vars = (resp_ss + non_resp_ss) / denominator
-
-    se_diff = np.sqrt(pooled_vars * (1 / n_resp + 1 / n_non_resp))
+    if min(n_resp, n_non_resp) > 1:
+        vn1 = resp_ss / (n_resp - 1) / n_resp
+        vn2 = non_resp_ss / (n_non_resp - 1) / n_non_resp
+        se_diff = np.sqrt(vn1 + vn2)
+        with np.errstate(divide="ignore", invalid="ignore"):
+            df = (vn1 + vn2) ** 2 / (vn1**2 / (n_resp - 1) + vn2**2 / (n_non_resp - 1))
+        # Undefined only when both variances are 0; t is then +/-inf or nan (as scipy).
+        df = np.where(np.isnan(df), 1.0, df)
+    else:
+        df = n_resp + n_non_resp - 2
+        pooled_vars = (resp_ss + non_resp_ss) / df
+        se_diff = np.sqrt(pooled_vars * (1 / n_resp + 1 / n_non_resp))
     t_stats = _safe_t(resp_means - non_resp_means, se_diff)
 
-    df = n_resp + n_non_resp - 2
     match alternative:
         case "two-sided":
             p_values = 2 * sp_stats.t.sf(np.abs(t_stats), df)
@@ -405,8 +412,18 @@ def ttest_ind(test_data, n_resp, n_non_resp, alternative="two-sided"):
     return t_stats, p_values
 
 
+def unpaired_statistic_name(n_resp, n_non_resp):
+    """The voxel statistic :func:`ttest_ind` computes for these group sizes, for reports."""
+    if min(n_resp, n_non_resp) > 1:
+        return "Welch's t (unequal variances, Welch-Satterthwaite df)"
+    return (
+        "Student's t (pooled variance; Welch's t is undefined with a one-subject group)"
+    )
+
+
 def ttest_rel(test_data, n_resp, alternative="two-sided"):
     """Vectorised paired-samples t-test. Returns (t_stats, p_values)."""
+    test_data = np.asarray(test_data, dtype=np.float64)  # see ttest_ind
     resp_data = test_data[:, :n_resp]
     non_resp_data = test_data[:, n_resp:]
 
@@ -483,7 +500,8 @@ def no_testable_voxel_error(n_with_data):
             "Every voxel with data has zero within-group variance — a constant value "
             "across every subject in a group — and was excluded as degenerate."
             if n_with_data > 0
-            else "No voxel is non-zero in either group; the input images or the mask are empty."
+            else "No voxel is non-zero in every subject; the input images or the mask are "
+            "empty, or the subjects' coverage does not overlap."
         )
         + " Check that the input images are the fields you meant and that the groups vary."
     )
@@ -512,16 +530,18 @@ def ttest_voxelwise(
     p_values = np.ones(shape)
     t_statistics = np.zeros(shape)
 
-    valid_mask = np.any(responders > 0, axis=-1) | np.any(non_responders > 0, axis=-1)
+    # Only where every subject has a field: a 0 is outside that subject's warped grey matter,
+    # and testing it as a value turns group differences in coverage into "field" clusters.
+    valid_mask = np.all(responders > 0, axis=-1) & np.all(non_responders > 0, axis=-1)
     valid_coords = np.argwhere(valid_mask)
-    _log.info("Valid voxels: %d", len(valid_coords))
+    _log.info("Valid voxels (every subject > 0): %d", len(valid_coords))
 
     n_resp = responders.shape[-1]
     n_non_resp = non_responders.shape[-1]
 
     idx_i, idx_j, idx_k = valid_coords[:, 0], valid_coords[:, 1], valid_coords[:, 2]
-    resp_extracted = responders[idx_i, idx_j, idx_k, :].astype(np.float32)
-    non_resp_extracted = non_responders[idx_i, idx_j, idx_k, :].astype(np.float32)
+    resp_extracted = responders[idx_i, idx_j, idx_k, :].astype(np.float64)
+    non_resp_extracted = non_responders[idx_i, idx_j, idx_k, :].astype(np.float64)
     voxel_data = np.concatenate([resp_extracted, non_resp_extracted], axis=1)
 
     if test_type == "paired":
@@ -542,7 +562,7 @@ def ttest_voxelwise(
     p_values[idx_i, idx_j, idx_k] = p_1d
 
     # An empty mask is a real, reportable state of the data, not something a caller can use:
-    # no voxel is non-zero in either group, or every testable voxel was degenerate.
+    # no voxel is non-zero in every subject, or every testable voxel was degenerate.
     if not valid_mask.any():
         raise no_testable_voxel_error(len(valid_coords))
 
@@ -566,16 +586,14 @@ def _run_single_permutation(
     seed=None,
     return_indices=False,
 ):
-    if seed is not None:
-        np.random.seed(seed)
-
+    rng = np.random.default_rng(seed)
     perm_idx = None
 
     if test_type == "paired":
         perm_test_data = test_data.copy()
         resp_data = test_data[:, :n_resp]
         non_resp_data = test_data[:, n_resp:]
-        sign_flips = np.random.choice([-1, 1], size=n_resp)
+        sign_flips = rng.choice([-1, 1], size=n_resp)
         if return_indices:
             perm_idx = sign_flips
         n_voxels = test_data.shape[0]
@@ -585,7 +603,7 @@ def _run_single_permutation(
             perm_test_data[i, :n_resp] = mean_pair + sign_flips * diff_pair
             perm_test_data[i, n_resp:] = mean_pair - sign_flips * diff_pair
     else:
-        perm_indices = np.random.permutation(n_total)
+        perm_indices = rng.permutation(n_total)
         if return_indices:
             perm_idx = perm_indices
         perm_test_data = test_data[:, perm_indices]
@@ -637,11 +655,8 @@ def _run_single_correlation_permutation(
     return_indices=False,
     voxel_data_preranked=False,
 ):
-    if seed is not None:
-        np.random.seed(seed)
-
     n_subjects = len(effect_sizes)
-    perm_idx = np.random.permutation(n_subjects)
+    perm_idx = np.random.default_rng(seed).permutation(n_subjects)
     perm_effect = effect_sizes[perm_idx]
     perm_weights = weights[perm_idx] if weights is not None else None
 
@@ -677,6 +692,15 @@ def _run_single_correlation_permutation(
 # ─── PermutationEngine ───────────────────────────────────────────────────
 
 
+def resolve_seed(seed):
+    """The permutation seed a run uses: *seed*, or a fresh 32-bit one when it is ``None``.
+
+    Drawn here (not left to the generator) so the run can write it down and be reproduced;
+    32 bits keep it exact in JSON readers that hold numbers as doubles.
+    """
+    return int(np.random.default_rng().integers(2**32)) if seed is None else int(seed)
+
+
 class PermutationEngine:
     """Master class for cluster-based permutation testing.
 
@@ -692,6 +716,7 @@ class PermutationEngine:
         cluster_stat: str = "mass",
         alternative: str = "two-sided",
         n_jobs: int = -1,
+        seed: int | None = None,
         log: logging.Logger | None = None,
     ):
         self.cluster_threshold = cluster_threshold
@@ -700,6 +725,7 @@ class PermutationEngine:
         self.cluster_stat = cluster_stat
         self.alternative = alternative
         self.n_jobs = n_jobs
+        self.seed = seed  # None: fresh OS entropy; an int reproduces the null
         self._log = log or logger
 
     def correct_groups(
@@ -764,9 +790,11 @@ class PermutationEngine:
         n_test = len(test_coords)
         self._log.info("Pre-extracting %d voxels, %d subjects", n_test, n_total)
 
-        test_data = np.zeros((n_test, n_total), dtype=np.float32)
+        # float64: a paired relabelling (mean +/- diff) of float32 values is then exact, so a
+        # constant group stays constant instead of gaining rounding-noise variance.
+        test_data = np.zeros((n_test, n_total), dtype=np.float64)
         for idx, (i, j, k) in enumerate(test_coords):
-            test_data[idx, :] = all_data[i, j, k, :].astype(np.float32)
+            test_data[idx, :] = all_data[i, j, k, :]
         del all_data
         gc.collect()
 
@@ -779,7 +807,9 @@ class PermutationEngine:
             actual_jobs,
         )
 
-        seeds = np.random.randint(0, 2**31, size=self.n_permutations)
+        seeds = np.random.default_rng(self.seed).integers(
+            0, 2**31, size=self.n_permutations
+        )
         track = (
             perm_log_file is not None
             and subject_ids_resp is not None
@@ -868,6 +898,7 @@ class PermutationEngine:
                 perm_log_file,
                 subject_ids_resp,
                 subject_ids_non_resp,
+                paired=test_type == "paired",
             )
             self._log.info("Permutation log saved: %s", perm_log_file)
 
@@ -973,7 +1004,9 @@ class PermutationEngine:
             actual_jobs,
         )
 
-        seeds = np.random.randint(0, 2**31, size=self.n_permutations)
+        seeds = np.random.default_rng(self.seed).integers(
+            0, 2**31, size=self.n_permutations
+        )
         track = perm_log_file is not None and subject_ids is not None
 
         if actual_jobs == 1:
@@ -1104,52 +1137,41 @@ def _identify_significant_clusters(
     _log,
     r_values=None,
 ):
-    """Post-permutation cluster identification (shared by both workflows)."""
-    max_check = min(n_clusters, 10000)
+    """Post-permutation cluster identification (shared by both workflows).
 
-    cluster_labels_flat = labeled_array.ravel()
-    sizes_all = np.bincount(cluster_labels_flat, minlength=n_clusters + 1)
-
+    Every label is tested (negative clusters are numbered after all positive ones), and
+    ``all_observed`` holds the 10 most extreme clusters by the oriented statistic.
+    """
+    labels = labeled_array.ravel()
+    sizes = np.bincount(labels, minlength=n_clusters + 1)[1:]
+    masses = np.zeros(n_clusters)
     if cluster_stat == "mass":
-        masses_all = ndimage_sum(
-            t_statistics, labeled_array, index=np.arange(1, n_clusters + 1)
-        )
-
-    tail = tail_from_alternative(alternative)
-
-    cluster_info = []
-    stat_values = []
-    tail_stats = []
-
-    for cid in range(1, max_check + 1):
-        size = int(sizes_all[cid])
-        if size <= 1:
-            continue
-        mass = 0.0 if cluster_stat == "size" else float(masses_all[cid - 1])
-        # Reported value keeps its natural units (signed mass, positive size);
-        # the comparison against the null is made on the oriented statistic.
-        sv = float(size) if cluster_stat == "size" else mass
-        tv = float(tail_statistic([size], [mass], cluster_stat, tail)[0])
-        cluster_info.append({"id": cid, "size": size, "stat_value": sv})
-        stat_values.append(sv)
-        tail_stats.append(tv)
+        t_flat = np.ravel(t_statistics)
+        masses = np.bincount(labels, weights=t_flat, minlength=n_clusters + 1)[1:]
+    ids = np.flatnonzero(sizes > 1) + 1  # single voxels are never clusters
+    sizes, masses = sizes[ids - 1], masses[ids - 1]
+    # Reported value keeps its natural units (signed mass, positive size); the comparison
+    # against the null is made on the oriented statistic.
+    stat_values = sizes.astype(float) if cluster_stat == "size" else masses
+    tail_stats = tail_statistic(
+        sizes, masses, cluster_stat, tail_from_alternative(alternative)
+    )
 
     sig_mask = np.zeros(labeled_array.shape, dtype=int)
     sig_clusters = []
     all_observed = []
 
-    if stat_values:
-        stat_values = np.array(stat_values)
+    if ids.size:
         # ``null_stats`` is already a distribution of *oriented* maxima
         # (see tail_statistic), so the comparison is always right-tailed.
-        pvals = pval_from_histogram(np.array(tail_stats), null_stats, tail=1)
+        pvals = pval_from_histogram(tail_stats, null_stats, tail=1)
 
-        for i, info in enumerate(cluster_info[:10]):
+        for i in np.argsort(-tail_stats, kind="stable")[:10]:
             all_observed.append(
                 {
-                    "id": info["id"],
-                    "size": info["size"],
-                    "stat_value": info["stat_value"],
+                    "id": int(ids[i]),
+                    "size": int(sizes[i]),
+                    "stat_value": float(stat_values[i]),
                     "p_value": float(pvals[i]),
                 }
             )
@@ -1167,21 +1189,20 @@ def _identify_significant_clusters(
                 status,
             )
 
-        for i, info in enumerate(cluster_info):
-            if pvals[i] < alpha:
-                coords = np.where(labeled_array == info["id"])
-                sig_mask[coords] = 1
-                entry = {
-                    "id": info["id"],
-                    "size": info["size"],
-                    "stat_value": info["stat_value"],
-                    "p_value": float(pvals[i]),
-                    "center_voxel": np.mean(np.stack(coords, axis=1), axis=0),
-                }
-                if r_values is not None:
-                    entry["peak_r"] = peak_signed(r_values[coords])
-                    entry["mean_r"] = float(np.mean(r_values[coords]))
-                sig_clusters.append(entry)
+        for i in np.flatnonzero(pvals < alpha):
+            coords = np.where(labeled_array == ids[i])
+            sig_mask[coords] = 1
+            entry = {
+                "id": int(ids[i]),
+                "size": int(sizes[i]),
+                "stat_value": float(stat_values[i]),
+                "p_value": float(pvals[i]),
+                "center_voxel": np.mean(np.stack(coords, axis=1), axis=0),
+            }
+            if r_values is not None:
+                entry["peak_r"] = peak_signed(r_values[coords])
+                entry["mean_r"] = float(np.mean(r_values[coords]))
+            sig_clusters.append(entry)
 
     return sig_mask, sig_clusters, all_observed
 

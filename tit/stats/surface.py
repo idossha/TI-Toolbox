@@ -46,6 +46,7 @@ from .engine import (
     no_testable_voxel_error,
     peak_signed,
     pval_from_histogram,
+    resolve_seed,
     tail_from_alternative,
     tail_statistic,
     ttest_ind,
@@ -424,7 +425,7 @@ def _write_surface_outputs(
     return msh_path
 
 
-def _run_metadata(config, analysis_type, subjects):
+def _run_metadata(config, analysis_type, subjects, seed):
     """The ``surface_stats.json`` sidecar: what was run, on whom."""
     return {
         "analysis_type": analysis_type,
@@ -436,7 +437,7 @@ def _run_metadata(config, analysis_type, subjects):
         "alpha": config.alpha,
         "cluster_threshold": config.cluster_threshold,
         "cluster_stat": config.cluster_stat.value,
-        "seed": None,  # the permutations draw from an unseeded generator
+        "seed": seed,
     }
 
 
@@ -512,7 +513,8 @@ def run_surface_correlation(
 
     log.info("[null] %d permutations", config.n_permutations)
     null = np.empty(config.n_permutations)
-    rng = np.random.default_rng()
+    seed = resolve_seed(config.seed)  # recorded in the sidecar
+    rng = np.random.default_rng(seed)
     for i in range(config.n_permutations):
         if stop_callback and stop_callback():
             raise KeyboardInterrupt("stopped")
@@ -554,6 +556,7 @@ def run_surface_correlation(
             "subjects": [s.subject_id for s in config.subjects],
             "responses": effect.tolist(),
         },
+        seed,
     )
     msh_path = _write_surface_outputs(
         output_dir,
@@ -658,7 +661,8 @@ def run_surface_group_comparison(
 
     log.info("[null] %d permutations", config.n_permutations)
     null = np.empty(config.n_permutations)
-    rng = np.random.default_rng()
+    seed = resolve_seed(config.seed)  # recorded in the sidecar
+    rng = np.random.default_rng(seed)
     for i in range(config.n_permutations):
         if stop_callback and stop_callback():
             raise KeyboardInterrupt("stopped")
@@ -712,6 +716,7 @@ def run_surface_group_comparison(
                 config.group2_name: [s.subject_id for s in non],
             },
         },
+        seed,
     )
     msh_path = _write_surface_outputs(
         output_dir,

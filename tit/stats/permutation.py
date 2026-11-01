@@ -34,6 +34,7 @@ from .config import (
 from .engine import (
     PermutationEngine,
     correlation_voxelwise,
+    resolve_seed,
     significant_cluster_table,
     ttest_voxelwise,
 )
@@ -337,6 +338,9 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
     step = time.time()
 
     perm_log_file = os.path.join(output_dir, "permutation_details.txt")
+    # The seed actually used, so the summary can reproduce the run (None draws a fresh one).
+    seed = resolve_seed(config.seed)
+    log.info("Permutation seed: %d", seed)
 
     engine = PermutationEngine(
         cluster_threshold=config.cluster_threshold,
@@ -345,6 +349,7 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         cluster_stat=config.cluster_stat.value,
         alternative=config.alternative.value,
         n_jobs=config.n_jobs,
+        seed=seed,
         log=log,
     )
     sig_mask, cluster_threshold, sig_clusters, null_dist, all_clusters, corr_data = (
@@ -440,6 +445,7 @@ def _run_group_comparison_inner(config, callback_handler=None, stop_callback=Non
         clusters,
         atlas_results,
         summary_path,
+        seed=seed,
     )
 
     total = time.time() - t0
@@ -660,6 +666,9 @@ def _run_correlation_inner(
     step = time.time()
 
     perm_log_file = os.path.join(output_dir, "permutation_details.txt")
+    # The seed actually used, so the summary can reproduce the run (None draws a fresh one).
+    seed = resolve_seed(config.seed)
+    log.info("Permutation seed: %d", seed)
 
     engine = PermutationEngine(
         cluster_threshold=config.cluster_threshold,
@@ -668,6 +677,7 @@ def _run_correlation_inner(
         cluster_stat=config.cluster_stat.value,
         alternative=_CORRELATION_ALTERNATIVE,
         n_jobs=config.n_jobs,
+        seed=seed,
         log=log,
     )
     sig_mask, cluster_threshold, sig_clusters, null_dist, all_clusters, corr_data = (
@@ -777,6 +787,7 @@ def _run_correlation_inner(
         subject_ids=subject_ids,
         weights=weights,
         alternative=_CORRELATION_ALTERNATIVE,
+        seed=seed,
     )
 
     total = time.time() - t0

@@ -55,6 +55,7 @@ class TestGenerateSummary:
         cfg = MagicMock()
         cfg.cluster_stat.value = cluster_stat
         cfg.test_type.value = "unpaired"
+        cfg.alternative.value = "two-sided"
         cfg.cluster_threshold = 0.05
         cfg.n_permutations = 100
         cfg.alpha = 0.05

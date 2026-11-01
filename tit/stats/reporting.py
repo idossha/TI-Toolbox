@@ -38,6 +38,20 @@ def _write_threshold(f, cluster_stat, threshold):
         f.write(f"{label}: {threshold:.2f}\n")
 
 
+def _write_method(f, seed):
+    """Voxel inclusion, cluster connectivity and the permutation seed (both analyses)."""
+    f.write(
+        "Voxels tested: only where every subject's value is > 0 (a 0 is outside that "
+        "subject's coverage)\n"
+    )
+    f.write(
+        "Cluster connectivity: 6-connected (voxels sharing a face); positive and "
+        "negative clusters formed separately\n"
+    )
+    if seed is not None:
+        f.write(f"Random seed: {seed}\n")
+
+
 def _by_extremeness(clusters):
     """Clusters ordered by ``|stat_value|`` (size when absent), largest first."""
     return sorted(clusters, key=lambda c: -abs(c.get("stat_value", c["size"])))
@@ -68,6 +82,8 @@ def generate_summary(
     clusters,
     atlas_results,
     output_file,
+    *,
+    seed=None,
 ):
     """Write a plain-text summary report for a two-group comparison.
 
@@ -97,9 +113,14 @@ def generate_summary(
         Mapping of atlas name to list of region overlap dicts.
     output_file : str
         Destination path for the text report.
+    seed : int or None, optional
+        The permutation seed the run used; written so the run can be reproduced.
     """
+    from .engine import unpaired_statistic_name
+
     cluster_stat = config.cluster_stat.value
     cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
+    g1, g2 = config.group1_name, config.group2_name
 
     with open(output_file, "w") as f:
         f.write("=" * 70 + "\n")
@@ -108,12 +129,26 @@ def generate_summary(
 
         f.write("ANALYSIS DETAILS:\n")
         f.write("-" * 70 + "\n")
-        test_name = (
-            "Paired t-test"
-            if config.test_type.value == "paired"
-            else "Unpaired (Independent Samples) t-test"
-        )
+        if config.test_type.value == "paired":
+            test_name = "Paired t-test"
+            statistic = (
+                "paired t (mean within-pair difference); "
+                "permutations flip signs within pairs"
+            )
+        else:
+            test_name = "Unpaired (Independent Samples) t-test"
+            statistic = (
+                unpaired_statistic_name(responders.shape[-1], non_responders.shape[-1])
+                + "; permutations reassign group labels"
+            )
+        relation = {"two-sided": "!=", "greater": ">", "less": "<"}[
+            config.alternative.value
+        ]
         f.write(f"Statistical Test: {test_name}\n")
+        f.write(f"Voxel statistic: {statistic}\n")
+        f.write(
+            f"Alternative hypothesis: {config.alternative.value} ({g1} {relation} {g2})\n"
+        )
 
         f.write("Multiple Comparison Correction: Cluster-based Permutation\n")
         f.write(f"Cluster statistic: {cluster_stat_name}\n")
@@ -123,6 +158,7 @@ def generate_summary(
         f.write(f"Number of permutations: {config.n_permutations}\n")
         f.write(f"Cluster-level alpha: {config.alpha}\n")
         _write_threshold(f, cluster_stat, correction_threshold)
+        _write_method(f, seed)
 
         from tit.cpu import resolve_n_jobs
 
@@ -147,18 +183,27 @@ def generate_summary(
         f.write(f"Number of Significant Voxels: {n_sig}\n")
 
         if n_sig > 0:
-            # Calculate mean values in significant voxels
+            # Per sign: pooling opposite effects would average them away. In a significant
+            # voxel the sign of t is the sign of the mean difference.
             sig_bool = sig_mask.astype(bool)
-            group1_mean = np.mean(responders[sig_bool, :])
-            group2_mean = np.mean(non_responders[sig_bool, :])
-
-            f.write(f"\nMean {config.value_metric} in Significant Voxels:\n")
-            f.write(f"  {config.group1_name}: {group1_mean:.4f}\n")
-            f.write(f"  {config.group2_name}: {group2_mean:.4f}\n")
-            f.write(
-                f"  Difference ({config.group1_name} - {config.group2_name}): "
-                f"{group1_mean - group2_mean:.4f}\n"
-            )
+            r_sig = responders[sig_bool, :]
+            n_sig_vals = non_responders[sig_bool, :]
+            positive = r_sig.mean(axis=1) > n_sig_vals.mean(axis=1)
+            for sel, rel in ((positive, ">"), (~positive, "<")):
+                count = int(sel.sum())
+                if not count:
+                    continue
+                group1_mean = np.mean(r_sig[sel])
+                group2_mean = np.mean(n_sig_vals[sel])
+                f.write(
+                    f"\nMean {config.value_metric} in Significant Voxels "
+                    f"({g1} {rel} {g2}, {count} voxel{'s' if count != 1 else ''}):\n"
+                )
+                f.write(f"  {g1}: {group1_mean:.4f}\n")
+                f.write(f"  {g2}: {group2_mean:.4f}\n")
+                f.write(
+                    f"  Difference ({g1} - {g2}): {group1_mean - group2_mean:.4f}\n"
+                )
 
         f.write(f"\nNumber of Clusters: {len(clusters)}\n\n")
 
@@ -210,6 +255,7 @@ def generate_correlation_summary(
     subject_ids=None,
     weights=None,
     alternative="two-sided",
+    seed=None,
 ):
     """Write a plain-text summary report for a correlation analysis.
 
@@ -248,6 +294,8 @@ def generate_correlation_summary(
     alternative : str, optional
         The alternative hypothesis the permutation test ran with
         (``"two-sided"``, ``"greater"`` or ``"less"``); stated in the report.
+    seed : int or None, optional
+        The permutation seed the run used; written so the run can be reproduced.
     """
     cluster_stat = config.cluster_stat.value
     cluster_stat_name = "Cluster Size" if cluster_stat == "size" else "Cluster Mass"
@@ -272,6 +320,7 @@ def generate_correlation_summary(
         f.write(f"Number of permutations: {config.n_permutations}\n")
         f.write(f"Cluster-level alpha: {config.alpha}\n")
         _write_threshold(f, cluster_stat, cluster_threshold)
+        _write_method(f, seed)
         f.write("\n")
 
         f.write("SAMPLE INFORMATION:\n")

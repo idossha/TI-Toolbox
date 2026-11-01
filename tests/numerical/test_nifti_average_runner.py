@@ -373,3 +373,46 @@ def test_two_groups_on_different_grids_fail_naming_the_subject(project, tmp_path
     assert result["error"].startswith(f"Subject {second['subject_id']} ")
     # No average or difference map of non-corresponding voxels is written.
     assert not list(project.glob("derivatives/ti-toolbox/nifti_average/**/*.nii*"))
+
+
+def test_a_voxel_any_subject_lacks_is_zero_in_its_group_average(project, tmp_path):
+    """S4-1: a subject's 0 (outside its warped grey matter) is not averaged as a field value.
+
+    Subject a1 lacks the first slab: group A's average and the A - B difference are 0 there,
+    and elsewhere the plain mean (``np.where`` over the files read back here).
+    """
+    holes = np.zeros(SHAPE, bool)
+    holes[0, :, :] = True  # subject a1 does not cover the first slab
+    volumes = {
+        ("a1", "A"): np.where(holes, 0.0, _volume(1)),
+        ("a2", "A"): _volume(2),
+        ("b1", "B"): _volume(3),
+        ("b2", "B"): _volume(4),
+    }
+    inputs = {}
+    for (sid, _), vol in volumes.items():
+        folder = _niftis(project, sid, "sim")
+        inputs[sid] = _write(folder / MNI_FILE.format(sim="sim"), vol)
+    config = {
+        "output_name": "coverage",
+        "space": "mni",
+        "subjects": [
+            {"subject_id": sid, "simulation_name": "sim", "group": g}
+            for sid, g in volumes
+        ],
+    }
+    proc, _ = _run(project, config, tmp_path)
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    out = project / "derivatives" / "ti-toolbox" / "nifti_average" / "coverage"
+
+    read = {sid: _read(path) for sid, path in inputs.items()}
+    hole = np.squeeze(holes)
+    mean_a = np.where(hole, 0.0, (read["a1"] + read["a2"]) / 2)
+    mean_b = (read["b1"] + read["b2"]) / 2
+    np.testing.assert_allclose(_read(out / "average_A.nii.gz"), mean_a, rtol=1e-6)
+    np.testing.assert_allclose(_read(out / "average_B.nii.gz"), mean_b, rtol=1e-6)
+    np.testing.assert_allclose(
+        _read(out / "difference_A_minus_B.nii.gz"),
+        np.where(hole, 0.0, mean_a - mean_b),
+        atol=1e-6,
+    )

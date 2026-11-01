@@ -89,12 +89,19 @@ def main() -> None:
                 shutil.rmtree(output_dir)
             os.makedirs(output_dir)
 
+            # A 0 is outside that subject's coverage (warped grey matter), not a field value:
+            # a voxel is averaged only where every subject of the group has one, else it is 0.
             group_averages: dict[str, np.ndarray] = {}
+            covered: dict[str, np.ndarray] = {}
             for group_name, data_4d in groups_data.items():
                 logger.info(
-                    f"Group {group_name}: averaging {data_4d.shape[-1]} subjects"
+                    f"Group {group_name}: averaging {data_4d.shape[-1]} subjects "
+                    "(only voxels non-zero in every one of them)"
                 )
-                avg_data = np.mean(data_4d, axis=-1).astype(np.float32)
+                covered[group_name] = np.all(data_4d != 0, axis=-1)
+                avg_data = np.where(
+                    covered[group_name], np.mean(data_4d, axis=-1), 0
+                ).astype(np.float32)
                 group_averages[group_name] = avg_data
                 output_path = os.path.join(output_dir, f"average_{group_name}.nii.gz")
                 nib.save(
@@ -109,9 +116,11 @@ def main() -> None:
             # included) and refused the rest, so each requested map is written.
             differences: list[str] = []
             for group1, group2 in config.difference_pairs():
-                diff_data = (group_averages[group1] - group_averages[group2]).astype(
-                    np.float32
-                )
+                diff_data = np.where(
+                    covered[group1] & covered[group2],
+                    group_averages[group1] - group_averages[group2],
+                    0,
+                ).astype(np.float32)
                 output_path = os.path.join(
                     output_dir, f"difference_{group1}_minus_{group2}.nii.gz"
                 )

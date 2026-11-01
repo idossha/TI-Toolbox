@@ -14,6 +14,8 @@ SCI-06  ``ttest_ind`` / ``ttest_rel`` set ``t = 0`` (hence ``p = 1``) whenever
         *strongest* possible evidence; scipy reports ``+/-inf`` with ``p -> 0``.
 """
 
+from types import SimpleNamespace
+
 import numpy as np
 import pytest
 
@@ -191,7 +193,7 @@ class TestEmptyValidMaskIsReported:
 
         zeros = np.zeros((2, 2, 2, 3), dtype=np.float32)
 
-        with pytest.raises(ValueError, match="non-zero in either group"):
+        with pytest.raises(ValueError, match="non-zero in every subject"):
             ttest_voxelwise(zeros, zeros, test_type="unpaired")
 
     def test_one_testable_voxel_is_enough(self):
@@ -219,10 +221,10 @@ class TestEmptyValidMaskIsReported:
 def test_every_relabelling_that_reproduces_the_observed_grouping_ties_it(monkeypatch):
     """A within-group reordering of the observed 5-vs-5 labelling, or its mirror, is the same
     partition, so its two-sided cluster mass IS the observed one and counts as at least as
-    extreme. The engine computes t in float32, so the reordered mass differs by float32
-    rounding (1.4e-8 relative here, 4.3e-8 on the real-path block, measured 2026-10-31); with
-    TIE_RTOL = 1e-9, 86 of these 240 replicas were dropped (p = 155/241), and on CI
-    (numerical-image on 4be8739a) the planted block's p came out one count too small: 0.015
+    extreme. The engine computed t in float32 (float64 since S4-4), so the reordered mass
+    differed by float32 rounding (1.4e-8 relative here, 4.3e-8 on the real-path block,
+    measured 2026-10-31); with TIE_RTOL = 1e-9, 86 of these 240 replicas were dropped
+    (p = 155/241), and on CI (numerical-image on 4be8739a) the planted block's p came out one count too small: 0.015
     where the written null gives 0.02. The expected value is a property of the design (every
     replica ties), not a number from the engine.
     """
@@ -245,7 +247,11 @@ def test_every_relabelling_that_reproduces_the_observed_grouping_ties_it(monkeyp
     test_data = stack[valid].astype(np.float32)
 
     def mass(order):
-        monkeypatch.setattr(engine.np.random, "permutation", lambda n: np.array(order))
+        monkeypatch.setattr(
+            engine.np.random,
+            "default_rng",
+            lambda seed=None: SimpleNamespace(permutation=lambda n: np.array(order)),
+        )
         stat, *_ = engine._run_single_permutation(
             test_data, coords, 5, 10, 0.05, valid, shape, cluster_stat="mass"
         )
