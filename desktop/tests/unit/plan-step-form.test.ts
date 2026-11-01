@@ -4,7 +4,8 @@
  *  - the Optimizer's inverse mappings undo its builders: `flexFormFromConfig(buildFlexConfig(f))`
  *    is `f`, `roiFromConfig(roiToConfig(v))` is `v`, and the ex/mEx forms survive their builders;
  *  - a step saved from the forms keeps fields the form does not show, keeps its kind, and refuses
- *    what one step cannot say (different settings per subject, a changed kind, two searches);
+ *    what one step cannot say (different settings per subject, a changed kind, two searches, one
+ *    subject's leadfield or subject-space atlas carried to another);
  *  - the Simulator turns a sim step into subject × montage rows and back, and a sim_from_flex step
  *    into one flex row per subject that keeps its flex step unless another run is picked;
  *  - Pre-processing saves the form's stages over the step's config for the chosen subjects.
@@ -100,7 +101,16 @@ describe("Optimizer", () => {
     roi: { _type: "SubcorticalROI", atlas_path: [ASEG.path, ASEG.path], label: [10, 49], tissues: "GM", atlas_space: "subject" },
     agent_note: "kept",
   };
-  const resolve = { atlas: () => lookup, leadfield: () => "/p/lf.hdf5" };
+  // The page's resolvers are per subject: each subject's own catalog atlas and leadfield.
+  const own = (s: string) => ({
+    aseg: `/p/freesurfer/sub-${s}/mri/aseg.mgz`,
+    hdf: `/p/derivatives/SimNIBS/sub-${s}/leadfields/${s}_leadfield_GSN-HydroCel-185.hdf5`,
+  });
+  const resolve = {
+    atlas: (s: string) => (id: string) => (id === "aseg" ? { ...ASEG, path: own(s).aseg } : lookup(id)),
+    leadfield: (s: string) => own(s).hdf,
+  };
+  const mniFlex = { ...agentFlex, roi: { _type: "SphericalROI", x: [-10], y: [-60], z: [40], radius: [8], use_mni: true, volumetric: false, tissues: "GM" } };
 
   it("opens a flex step as one row per subject and saves it back with the form's change", () => {
     const step = target("flex", agentFlex, ["101", "ernie"]);
@@ -110,11 +120,28 @@ describe("Optimizer", () => {
       ["ernie", "flex", "thalamus_mean", "mean", 1],
     ]);
     expect(rows[0]!.roi).toEqual({ mode: "subcortical", space: "subject", atlas: "aseg", regions: [{ id: 10, name: "10" }, { id: 49, name: "49" }], tissues: "GM" });
-    const edited = rows.map((r) => ({ ...r, flex: { ...r.flex, goal: "max" as const } }));
-    const edit = optStepEdit(step, edited, resolve);
+    // A subject-agnostic (MNI) target is one config for every subject.
+    const mniStep = target("flex", mniFlex, ["101", "ernie"]);
+    const edited = optStepRows(mniStep, ATLASES).map((r) => ({ ...r, flex: { ...r.flex, goal: "max" as const } }));
+    const edit = optStepEdit(mniStep, edited, resolve);
     expect(edit.subject_ids).toEqual(["101", "ernie"]);
-    expect(edit.config).toMatchObject({ goal: "max", output_folder: "thalamus_mean", agent_note: "kept", roi: agentFlex.roi });
+    expect(edit.config).toMatchObject({ goal: "max", output_folder: "thalamus_mean", agent_note: "kept", roi: { _type: "SphericalROI", use_mni: true } });
     expect(edit.config).not.toHaveProperty("subject_id");
+  });
+
+  it("saves a subject's own atlas and leadfield, and never shares one subject's file with another", () => {
+    // One subject: its own subject-space atlas (resolved for "101", not the catalog's literal path).
+    const single = target("flex", agentFlex, ["101"]);
+    expect(optStepEdit(single, optStepRows(single, ATLASES), resolve).config).toMatchObject({ roi: { atlas_path: [own("101").aseg, own("101").aseg] } });
+    // Two subjects with a subject-space atlas: one config cannot name both subjects' files.
+    const multi = target("flex", agentFlex, ["101", "ernie"]);
+    expect(() => optStepEdit(multi, optStepRows(multi, ATLASES), resolve)).toThrow(/own leadfield or atlas/);
+    // Ex: the leadfield is per subject, so a two-subject ex step is refused and a one-subject one keeps its own.
+    const exCfg = { ...buildExConfig("101", own("101").hdf, { ...defaultExFormState(), electrodeMode: "all", pool: ["E1", "E2", "E3", "E4"] }, exTargets({ mode: "saved", selected: ["a"], combine: false, radius: 3, space: "mni" }, () => undefined)[0]!, "r1") as Record<string, unknown> };
+    const exMulti = target("ex", exCfg, ["101", "ernie"]);
+    expect(() => optStepEdit(exMulti, optStepRows(exMulti, ATLASES), resolve)).toThrow(/own leadfield or atlas/);
+    const exSingle = target("ex", exCfg, ["ernie"]);
+    expect(optStepEdit(exSingle, optStepRows(exSingle, ATLASES), resolve).config).toMatchObject({ leadfield_hdf: own("ernie").hdf });
   });
 
   it("refuses what one step cannot say", () => {

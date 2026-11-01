@@ -217,6 +217,11 @@ export function optStepEdit(step: PlanStepTarget, rows: OptimizerRow[], resolve:
   }
   const config: Config = { ...step.config, ...(jobs[0]!.config as Config) };
   delete config.subject_id;
+  // A leadfield or subject-space atlas is one subject's file: the step's one config may not carry it to another.
+  const shared = (r: OptimizerRow) => JSON.stringify(jobsForRow(r, resolve).map((j) => ({ ...(j.config as Config), subject_id: undefined })));
+  if (rows.some((r) => shared(r) !== shared(row))) {
+    throw new Error("Each subject needs its own leadfield or atlas file, and a plan step runs one config on every subject. Keep one subject in this step, or ask the agent for a step per subject.");
+  }
   if (step.kind.startsWith("flex") && !config.output_folder) config.output_folder = step.config.output_folder;
   return { config, subject_ids: subjects };
 }
