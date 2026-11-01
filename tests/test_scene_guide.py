@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+import unittest.mock
 
 import pytest
 
@@ -243,6 +244,8 @@ def test_the_legend_colour_is_read_from_the_colour_table_and_not_invented(
     chose, which is the only way to say the mapping row -> colour is the right way round.
     """
     fsio = pytest.importorskip("nibabel.freesurfer.io")
+    if isinstance(fsio, unittest.mock.Mock):
+        pytest.skip("skipping: needs real nibabel (the host conftest mocks it)")
     numpy = pytest.importorskip("numpy")
 
     names = [b"unknown", b"alpha", b"beta"]
