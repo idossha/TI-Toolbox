@@ -2,8 +2,9 @@
 
 What this pins
 --------------
-Every fenced ```python block in ``docs/wiki/*.md``, ``README.md`` and
-``agent-plugin/skills/*/SKILL.md`` (fences indented inside list items are dedented)
+Every fenced ```python block in ``docs/wiki/*.md``, ``docs/api_mkdocs/docs/**/*.md``,
+``README.md`` and ``agent-plugin/skills/*/SKILL.md`` (fences indented inside list
+items are dedented)
 and every ``examples/scripts/*.py`` is checked off its source text against the
 installed ``tit`` package, the way ``tests/test_example_notebook_api.py`` checks
 the packaged notebook:
@@ -16,7 +17,8 @@ the packaged notebook:
 * every keyword passed to an imported callable, a nested class or enum reached
   from it (``FlexConfig.SphericalROI``), or a method of an instance built from an
   imported class (``analyzer = Analyzer(...); analyzer.analyze_sphere(...)``)
-  binds against the real ``inspect.signature``.
+  binds against the real ``inspect.signature``; a call with no ``*args``/``**kwargs``
+  must also pass every required argument (``bind``, not ``bind_partial``).
 
 Every ``python -m tit.X`` / ``simnibs_python -m tit.X`` command in the wiki,
 ``docs/dev/TESTING.md``, the README and the skills names a module with a
@@ -35,10 +37,12 @@ import ast
 import importlib
 import inspect
 import re
+import sys
 import textwrap
 import types
 from dataclasses import dataclass
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -77,6 +81,7 @@ class Block:
 def doc_files() -> list[Path]:
     return (
         sorted((REPO / "docs" / "wiki").glob("*.md"))
+        + sorted((REPO / "docs" / "api_mkdocs" / "docs").glob("**/*.md"))
         + [REPO / "README.md"]
         + sorted((REPO / "agent-plugin" / "skills").glob("*/SKILL.md"))
     )
@@ -252,14 +257,24 @@ class _Checker:
             signature = inspect.signature(func)
         except (TypeError, ValueError):
             return
-        if any(isinstance(a, ast.Starred) for a in node.args):
-            positional: list[None] = []
-        else:
-            positional = [None] * (len(node.args) + (1 if method else 0))
+        unpacked = any(isinstance(a, ast.Starred) for a in node.args)
+        positional: list[None] = (
+            [] if unpacked else [None] * (len(node.args) + (1 if method else 0))
+        )
         keywords = {k.arg: None for k in node.keywords if k.arg is not None}
         name = getattr(func, "__qualname__", repr(func))
+        # `*args`, `**kwargs` or a literal `...` (the page elides arguments) may stand
+        # for the required ones; otherwise every required argument must be passed.
+        elided = (
+            unpacked
+            or any(k.arg is None for k in node.keywords)
+            or any(
+                isinstance(a, ast.Constant) and a.value is Ellipsis for a in node.args
+            )
+        )
+        bind = signature.bind_partial if elided else signature.bind
         try:
-            signature.bind_partial(*positional, **keywords)
+            bind(*positional, **keywords)
         except TypeError as exc:
             self.problems.append(
                 f"{self.at(node)}: {name}({', '.join(keywords)}): {exc}"
@@ -317,7 +332,12 @@ def _docs_blocks() -> list[Block]:
 # -- tests ------------------------------------------------------------------------
 
 
-def test_the_docs_python_blocks_compile_and_resolve_against_tit() -> None:
+def test_the_docs_python_blocks_compile_and_resolve_against_tit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # conftest mocks nibabel.freesurfer but not .io, which tit.tools.read_annot imports.
+    if isinstance(sys.modules.get("nibabel.freesurfer"), MagicMock):
+        monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", MagicMock())
     blocks = _docs_blocks()
     assert len(blocks) >= 30, f"only {len(blocks)} python blocks found -- fence parser?"
     problems, imports, calls = check_blocks(blocks)
@@ -453,8 +473,13 @@ def test_names_do_not_carry_from_one_file_to_the_next() -> None:
         ),
         (
             "from tit.stats import GroupComparisonConfig\n"
-            "GroupComparisonConfig(test_type=GroupComparisonConfig.TestType.UNPAIRD)\n",
+            "kind = GroupComparisonConfig.TestType.UNPAIRD\n",
             "has no attribute UNPAIRD",
+            11,
+        ),
+        (
+            "from tit.opt import FlexConfig\nFlexConfig(subject_id='x', goal='mean')\n",
+            "missing a required argument",
             11,
         ),
         (
@@ -468,6 +493,21 @@ def test_each_kind_of_drift_is_caught(source: str, expected: str, line: int) -> 
     problems, _imports, _calls = check_blocks([Block("probe.md", 10, source)])
     assert len(problems) == 1 and expected in problems[0], problems
     assert problems[0].startswith(f"probe.md:{line}: "), problems
+
+
+def test_a_call_that_elides_or_unpacks_arguments_may_omit_required_ones() -> None:
+    problems, _imports, calls = check_blocks(
+        [
+            Block(
+                "probe.md",
+                1,
+                "from tit.sim import SimulationConfig\n"
+                "SimulationConfig(..., electrode_shape='rect')\n"
+                "SimulationConfig(**saved)\n",
+            )
+        ]
+    )
+    assert problems == [] and calls == ["SimulationConfig", "SimulationConfig"]
 
 
 def test_the_blender_lazy_exports_resolve() -> None:

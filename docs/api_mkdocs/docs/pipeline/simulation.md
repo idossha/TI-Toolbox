@@ -30,7 +30,7 @@ from tit.sim import (
 # Load montages from the project's montage_list.json
 montages = load_montages(
     montage_names=["motor_cortex"],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
 )
 
 # Configure the simulation (montages are part of the config)
@@ -67,7 +67,7 @@ Montages define which electrodes form each channel (`electrode_pairs`, one pair 
 ```json
 {
   "nets": {
-    "GSN-HydroCel-185": {
+    "GSN-HydroCel-185.csv": {
       "uni_polar_montages": {
         "motor_cortex": [["E36", "E224"], ["E104", "E148"]]
       }
@@ -83,7 +83,7 @@ from tit.sim import load_montages
 
 montages = load_montages(
     montage_names=["motor_cortex", "frontal_target"],
-    eeg_net="GSN-HydroCel-185",
+    eeg_net="GSN-HydroCel-185.csv",
 )
 ```
 
