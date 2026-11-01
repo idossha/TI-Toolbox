@@ -8,7 +8,7 @@
  */
 import { useMemo } from "react";
 import { create } from "zustand";
-import { defaultJobSettings, type JobSettings } from "./types";
+import { defaultJobSettings, OUTPUT_FIELDS, type JobSettings } from "./types";
 
 const STORAGE_KEY = "tit-simulator-defaults";
 
@@ -28,11 +28,13 @@ function readStored(): SavedSimulatorDefaults {
 const kind = (v: unknown) => (Array.isArray(v) ? "array" : v === null ? "null" : typeof v);
 
 /** The saved changes over the factory defaults. A stored value the factory has no field for, or of
- *  another type (a corrupt or hand-edited store), is ignored. */
+ *  another type (a corrupt or hand-edited store), is ignored; so is a saved output field the
+ *  registry has since retired. */
 export function resolveSimulatorDefaults(saved: SavedSimulatorDefaults): JobSettings {
   const factory = defaultJobSettings();
   const kept = Object.entries(saved).filter(([key, value]) => key in factory && kind(value) === kind(factory[key as keyof JobSettings]));
-  return { ...factory, ...Object.fromEntries(kept) };
+  const resolved: JobSettings = { ...factory, ...Object.fromEntries(kept) };
+  return { ...resolved, outputFields: resolved.outputFields.filter((name) => OUTPUT_FIELDS.some((f) => f.name === name)) };
 }
 
 interface SimulatorDefaultsState {

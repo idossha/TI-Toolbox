@@ -111,6 +111,11 @@ describe("the user's Simulator defaults", () => {
     expect(resolveSimulatorDefaults({ gelThickness: "3", bogus: 1, dimensions: [6, 6] } as never)).toEqual({ ...factory, dimensions: [6, 6] });
   });
 
+  it("drops saved output fields the registry no longer has (hf_sar was renamed hf_rms)", () => {
+    // A store written before the rename would otherwise send `hf_sar`, which the simulator refuses.
+    expect(resolveSimulatorDefaults({ outputFields: ["TI_max", "hf_sar", "hf_rms"] }).outputFields).toEqual(["TI_max", "hf_rms"]);
+  });
+
   it("a job's own settings change that job only, never the defaults or another row", () => {
     useSimulatorDefaults.getState().setSimulatorDefaults(mine);
     const edited = job();
