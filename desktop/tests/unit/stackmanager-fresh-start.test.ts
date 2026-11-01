@@ -17,7 +17,7 @@
  *
  * Reproduce: `cd desktop && npx vitest run tests/unit/stackmanager-fresh-start.test.ts`.
  */
-import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -92,7 +92,8 @@ function stackContainer(): FakeEngineApiContainer {
 }
 
 beforeEach(async () => {
-  root = mkdtempSync(join(tmpdir(), "tit-fresh-start-"));
+  // The real path, as the loaders and the app record a project (macOS tmpdir() is a symlink).
+  root = realpathSync(mkdtempSync(join(tmpdir(), "tit-fresh-start-")));
   home = join(root, "home");
   mkdirSync(home);
   fake = await startFakeEngineApi({ autoExit: false, serveTitServer: true, images: [RELEASE_IMAGE.ref] });
@@ -206,6 +207,20 @@ describe("host directory names", () => {
     const platform = (process.platform === "darwin" || process.platform === "win32" ? process.platform : "linux") as HostPlatform;
     expect(`/mnt/${projectDirName(manager.getCurrent()!.hostProjectDir)}`).toBe(containerRoot);
     expect(containerToHostPath(`${containerRoot}/derivatives/x`, containerRoot, dir, platform)).toBe(join(dir, "derivatives", "x"));
+  });
+
+  it("a project opened through a symlink is mounted, labelled and recorded by its real path, as the loaders do", async () => {
+    const dir = join(root, "project");
+    mkdirSync(dir);
+    const link = join(root, "link-to-project");
+    symlinkSync(dir, link);
+    const manager = new StackManager(host());
+    expect(await manager.start(link, startOptions())).toMatchObject({ ok: true });
+    const container = stackContainer();
+    expect(container.Labels["tit.host_project_dir"]).toBe(dir);
+    expect(envOf(container).LOCAL_PROJECT_DIR).toBe(dir);
+    expect(binds(container)).toContain(`${dir}:/mnt/project`);
+    expect(manager.getCurrent()!.hostProjectDir).toBe(dir);
   });
 
   it("a directory containing ':' is refused with a message naming it, before any container exists", async () => {

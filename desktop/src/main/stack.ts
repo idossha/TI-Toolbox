@@ -277,10 +277,12 @@ export class StackManager {
   }
 
   private async doStart(hostProjectDirRaw: string, options: StackStartOptions): Promise<StackStartResult> {
-    const hostProjectDir = resolve(hostProjectDirRaw);
+    let hostProjectDir = resolve(hostProjectDirRaw);
     try {
       const info = await stat(hostProjectDir);
       if (!info.isDirectory()) return { ok: false, error: `Not a directory: ${hostProjectDir}` };
+      // The real path, as tit/launch.py and loader.sh record it, so one project is one label.
+      hostProjectDir = realpathSync(hostProjectDir);
     } catch {
       return { ok: false, error: `Project directory does not exist: ${hostProjectDir}` };
     }
