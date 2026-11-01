@@ -41,6 +41,7 @@
     {"host_dir": "\\\\server\\share\\proj", "expected": "proj"},
     {"host_dir": "//server/share/proj", "expected": "proj"},
     {"host_dir": "/Users/me/my proj", "expected": "my proj"},
+    {"host_dir": "/Users/me/proj ", "expected": "proj "},
     {"host_dir": "/Users/me/a:b", "expected": "a:b"},
     {"host_dir": "/Users/me/proj/", "expected": "proj"},
     {"host_dir": "C:\\", "expected": null},

@@ -103,7 +103,7 @@ def project_dir_name(host_dir: str) -> str:
 
     Raises ``ValueError`` for a drive or share root, which has no name to mount under.
     """
-    name = flavour(host_dir.strip()).name
+    name = flavour(host_dir).name
     if not name:
         raise ValueError(f"Project directory has no name: {host_dir!r}")
     return name
@@ -143,8 +143,9 @@ def get_host_project_dir() -> str:
 
     Raises ``ValueError`` if it is unset or not an absolute host path.
     """
-    value = os.environ.get(const.ENV_LOCAL_PROJECT_DIR, "").strip()
-    if not value:
+    # Never stripped: a folder whose name ends in a space is a real folder, and the mount source.
+    value = os.environ.get(const.ENV_LOCAL_PROJECT_DIR, "")
+    if not value.strip():
         raise ValueError(
             f"{const.ENV_LOCAL_PROJECT_DIR} environment variable is not set. "
             "This is required for spawning sibling Docker containers."
