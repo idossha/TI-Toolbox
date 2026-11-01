@@ -741,7 +741,7 @@ async function blenderCase(slug: string, title: string, session: Record<string, 
   // One Run click submits every config the mode builds (regions: an STL and a PLY job); a blocked
   // panel's click (its Run stays enabled and explains itself in a toast) submits nothing.
   await panel.click();
-  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId]]) : []);
+  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId], false]) : []);
   panel.unmount();
   return {
     id: `visual-exporter/${slug}`,
