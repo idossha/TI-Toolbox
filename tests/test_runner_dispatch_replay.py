@@ -858,10 +858,11 @@ def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
         ), f"intensities: the runner received {got}, the row shows {exp['intensities']}"
         assert config.montages[0].mode.value == exp["montage_mode"]
         assert bool(config.carrier_only) is exp["carrier_only"]
-        env = recs[0][1].env
-        assert env == {
-            f"TISSUE_COND_{k}": str(v) for k, v in exp["tissue_conductivities"].items()
+        assert (config.tissue_conductivities or {}) == {
+            int(k): v for k, v in exp["tissue_conductivities"].items()
         }
+        # No environment side channel: the overrides travel in the config only.
+        assert recs[0][1].env == {}
     elif page == "optimizer-flex":
         assert [c.mode.value for _, c in calls] == [exp["flex_mode"]]
         assert calls[0][1].goal.value == exp["goal"]

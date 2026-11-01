@@ -144,12 +144,11 @@ class TestSimMain:
         assert _events(events_env)[-1]["type"] == "exit"
         assert _events(events_env)[-1]["code"] == 1
 
-    def test_tissue_conductivities_set_env_vars_before_run(
+    def test_tissue_conductivities_reach_run_simulation_in_the_config(
         self, events_env, monkeypatch
     ):
-        """SimulationConfig.tissue_conductivities reaches
-        tit.sim.base.BaseSimulation._apply_tissue_conductivities via the
-        TISSUE_COND_<n> environment variables it already reads."""
+        """SimulationConfig.tissue_conductivities reaches run_simulation in the config
+        itself (BaseSimulation applies it from there), not through TISSUE_COND_<n>."""
         from tit.sim import __main__ as entry
         from tit.sim.config import Montage, SimulationConfig
 
@@ -171,28 +170,21 @@ class TestSimMain:
         monkeypatch.delenv("TISSUE_COND_1", raising=False)
         monkeypatch.delenv("TISSUE_COND_3", raising=False)
 
-        seen: dict[str, str | None] = {}
+        seen = {}
 
         def _capture_run(cfg, **kwargs):
-            seen["TISSUE_COND_1"] = os.environ.get("TISSUE_COND_1")
-            seen["TISSUE_COND_3"] = os.environ.get("TISSUE_COND_3")
+            seen["conductivities"] = cfg.tissue_conductivities
+            seen["env"] = {k for k in os.environ if k.startswith("TISSUE_COND_")}
             return [{"status": "ok", "montage_name": "m1"}]
 
-        try:
-            with (
-                patch("tit.sim.__main__.get_path_manager"),
-                patch("tit.sim.__main__.run_simulation", side_effect=_capture_run),
-            ):
-                with pytest.raises(SystemExit) as exc_info:
-                    entry.main()
-        finally:
-            # main() sets these directly via os.environ (mirroring the real subprocess
-            # environment), not through monkeypatch -- clean up explicitly so they never
-            # leak into another test.
-            os.environ.pop("TISSUE_COND_1", None)
-            os.environ.pop("TISSUE_COND_3", None)
+        with (
+            patch("tit.sim.__main__.get_path_manager"),
+            patch("tit.sim.__main__.run_simulation", side_effect=_capture_run),
+        ):
+            with pytest.raises(SystemExit) as exc_info:
+                entry.main()
         assert exc_info.value.code == 0
-        assert seen == {"TISSUE_COND_1": "0.126", "TISSUE_COND_3": "1.654"}
+        assert seen == {"conductivities": {1: 0.126, 3: 1.654}, "env": set()}
 
     def test_no_tissue_conductivities_sets_no_env_vars(self, events_env, monkeypatch):
         from tit.sim import __main__ as entry

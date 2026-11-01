@@ -28,14 +28,6 @@ def main() -> None:
     config = deserialize_config(SimulationConfig, data)
     lock_cm = locks.hold_for_job("sim", [config.subject_id], data)
 
-    # tit.sim.base.BaseSimulation._apply_tissue_conductivities reads TISSUE_COND_<n> from
-    # the environment (a pre-existing mechanism, previously invisible to the job/config
-    # system since nothing set these vars from a config field). Set them here so
-    # SimulationConfig.tissue_conductivities actually reaches the simulation.
-    if config.tissue_conductivities:
-        for tissue_number, value in config.tissue_conductivities.items():
-            os.environ[f"TISSUE_COND_{tissue_number}"] = str(value)
-
     total = len(config.montages)
     exit_code = 1
     try:

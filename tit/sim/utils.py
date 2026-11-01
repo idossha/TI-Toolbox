@@ -636,9 +636,8 @@ def create_simulation_config_file(
     ``intensities`` holds one current per pair (SimNIBS reads the first two
     for TI and one per pair for mTI, though a config may list more), and
     ``tissue_conductivities`` the per-tissue overrides (S/m, keyed by tissue
-    number) that ``BaseSimulation._apply_tissue_conductivities`` applies --
-    the ``TISSUE_COND_<n>`` environment variables, which ``tit.sim.__main__``
-    sets from ``SimulationConfig.tissue_conductivities``.
+    number) that ``BaseSimulation._apply_tissue_conductivities`` applies from
+    ``SimulationConfig.tissue_conductivities``.
 
     Parameters
     ----------
@@ -659,12 +658,6 @@ def create_simulation_config_file(
     electrode_coordinates, electrode_coordinate_source = (
         resolve_montage_electrode_coordinates(config, montage, logger)
     )
-    prefix = "TISSUE_COND_"
-    tissue_overrides = {
-        key[len(prefix) :]: float(value)
-        for key, value in os.environ.items()
-        if key.startswith(prefix) and key[len(prefix) :].isdigit()
-    }
     data = {
         "subject_id": config.subject_id,
         "simulation_name": montage.name,
@@ -678,7 +671,9 @@ def create_simulation_config_file(
         "electrode_coordinates": electrode_coordinates,
         "electrode_coordinate_source": electrode_coordinate_source,
         "intensities": config.intensities[: montage.num_pairs],
-        "tissue_conductivities": tissue_overrides,
+        "tissue_conductivities": {
+            str(k): v for k, v in (config.tissue_conductivities or {}).items()
+        },
         "output_fields": config.output_fields,
         "carrier_only": config.carrier_only,
         "electrode_geometry": {
@@ -979,6 +974,7 @@ def _run_simulation_inner(
     overwrite: bool = False,
 ) -> list[dict]:
     """Inner implementation of :func:`run_simulation` (unwrapped)."""
+    handlers = []
     if logger is None:
         pm = get_path_manager()
         log_dir = pm.logs(config.subject_id)
@@ -986,8 +982,17 @@ def _run_simulation_inner(
         log_file = os.path.join(
             log_dir, f'Simulator_{time.strftime("%Y%m%d_%H%M%S")}.log'
         )
-        logger = _make_file_logger("tit.sim", log_file)
+        logger, handlers = _make_file_logger("tit.sim", log_file)
+    try:
+        return _run_montages(config, logger, progress_callback, overwrite=overwrite)
+    finally:
+        # One process may run many simulations (a notebook): close this run's log file.
+        for name, handler in handlers:
+            logging.getLogger(name).removeHandler(handler)
+            handler.close()
 
+
+def _run_montages(config, logger, progress_callback, *, overwrite: bool) -> list[dict]:
     pm = get_path_manager()
     simulation_dir = pm.simulations(config.subject_id)
 
@@ -1052,11 +1057,13 @@ def _project_montage_to_fsaverage(config: SimulationConfig, montage, logger) -> 
 
 def _make_file_logger(
     name: str, log_file: str, level: int = logging.INFO
-) -> logging.Logger:
-    """Create a file-backed logger for simulation output."""
+) -> tuple[logging.Logger, list[tuple[str, logging.Handler]]]:
+    """A file-backed logger for simulation output, and the ``(logger name, handler)`` pairs
+    attached for it (simnibs output goes to the same file) for the caller to remove."""
     from tit.logger import add_file_handler
 
-    add_file_handler(log_file, level=logging.getLevelName(level), logger_name=name)
-    # Also capture simnibs output in the same log file
-    add_file_handler(log_file, logger_name="simnibs")
-    return logging.getLogger(name)
+    handlers = [
+        (name, add_file_handler(log_file, logging.getLevelName(level), name)),
+        ("simnibs", add_file_handler(log_file, logger_name="simnibs")),
+    ]
+    return logging.getLogger(name), handlers
