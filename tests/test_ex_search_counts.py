@@ -13,7 +13,7 @@ What this pins (2026-10-22, package p05 "search-space-count-contract"): for each
 table, so the cost line the Optimizer shows is the number of rows the run writes.
 
 Where the numbers come from: ``dev/gen_ex_counts.py``, a brute force over ``itertools.product``
-that imports nothing from ``tit`` (pool cases reduced to physical stimulations).
+that imports nothing from ``tit`` (Ex cases reduced to physical stimulations).
 Reproduce: ``python3 dev/gen_ex_counts.py && pytest tests/test_ex_search_counts.py -q``.
 """
 

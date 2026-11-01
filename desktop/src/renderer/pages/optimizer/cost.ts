@@ -73,7 +73,7 @@ function poolMontages(pool: string[], bothOrders: boolean): number {
 }
 
 /**
- * Tuples with one electrode from each bucket, all different — the runner's bucket enumeration
+ * Tuples with one electrode from each bucket, all different — the mEx runner's bucket enumeration
  * (`_distinct_product`): no channel starts and ends on one electrode and no electrode serves two
  * poles. Counted without enumerating (eight buckets of 70 would be 5.8e14 tuples): a DP over the
  * set of filled positions, adding one distinct electrode at a time to any bucket that lists it.
@@ -98,6 +98,36 @@ export function distinctTuples(buckets: Record<string, string[]>, keys: readonly
   return ways.get((1 << keys.length) - 1) ?? 0;
 }
 
+/**
+ * Physical montages of the Ex bucket product, as `tit.opt.ex.logic._bucket_montages` keeps them:
+ * a channel is an unordered pair its two buckets hold either way round (TI ignores polarity), the
+ * channels share no electrode, and two channels count once in either order when the split list
+ * is its own mirror. Closed form over the channels' pairs (O(N²), not the product's N⁴).
+ */
+function bucketMontages(buckets: Record<string, string[]>, bothOrders: boolean): number {
+  const pairs = (plus: string[] = [], minus: string[] = []) => {
+    const out = new Set<string>();
+    for (const p of plus) for (const m of minus) if (p !== m) out.add([p, m].sort().join("\0"));
+    return out;
+  };
+  // Ordered disjoint (P, Q), P from a, Q from b: |a||b| − Σₑ degₐ(e)·deg_b(e) + |a ∩ b|.
+  const disjoint = (a: Set<string>, b: Set<string>) => {
+    const degB = new Map<string, number>();
+    for (const q of b) for (const e of q.split("\0")) degB.set(e, (degB.get(e) ?? 0) + 1);
+    let count = a.size * b.size;
+    for (const p of a) {
+      for (const e of p.split("\0")) count -= degB.get(e) ?? 0;
+      if (b.has(p)) count += 1;
+    }
+    return count;
+  };
+  const r1 = pairs(buckets.e1_plus, buckets.e1_minus);
+  const r2 = pairs(buckets.e2_plus, buckets.e2_minus);
+  if (bothOrders) return disjoint(r1, r2);
+  const both = new Set([...r1].filter((p) => r2.has(p)));
+  return disjoint(r1, r2) - disjoint(both, both) / 2;
+}
+
 /** Distinct electrodes across the bucket set (an electrode used in two buckets is still one). */
 function distinct(buckets: Record<string, string[]>, keys: readonly string[]): number {
   const seen = new Set<string>();
@@ -107,14 +137,15 @@ function distinct(buckets: Record<string, string[]>, keys: readonly string[]): n
 
 export function exCost(form: ExFormState): SearchCost {
   const splits = currentSplits(form.totalCurrent, form.currentStep, form.channelLimit);
+  const bothOrders = !splitsMirrorSymmetric(form.totalCurrent, form.currentStep, form.channelLimit);
   let electrodes: number;
   let montages: number;
   if (form.electrodeMode === "bucketed") {
     electrodes = distinct(form.buckets, EX_BUCKET_KEYS);
-    montages = distinctTuples(form.buckets, EX_BUCKET_KEYS);
+    montages = bucketMontages(form.buckets, bothOrders);
   } else {
     electrodes = new Set(form.pool).size;
-    montages = poolMontages(form.pool, !splitsMirrorSymmetric(form.totalCurrent, form.currentStep, form.channelLimit));
+    montages = poolMontages(form.pool, bothOrders);
   }
   const combinations = montages * splits;
   return {

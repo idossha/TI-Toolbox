@@ -3,7 +3,7 @@
  * would refuse cannot be run (package p05, 2026-10-22).
  *
  * The counts come from `tests/fixtures/ex_search_counts.json`, written by `dev/gen_ex_counts.py`: a
- * brute force over `itertools.product` that imports nothing from `tit` (pool cases reduced to
+ * brute force over `itertools.product` that imports nothing from `tit` (Ex cases reduced to
  * physical stimulations — TI ignores channel polarity and order). `tests/test_ex_search_counts.py`
  * holds the runner's `count_combinations` and `POST /api/plan/{ex,mex}` to the same table, so the
  * three layers agree through it.

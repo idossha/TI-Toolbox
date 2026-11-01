@@ -109,6 +109,32 @@ describe("exCost", () => {
     }
   });
 
+  it("counts each distinct stimulation of overlapping buckets once", () => {
+    // Same physical key as above over the bucket product. Splits: 2 mA in 0.4 steps, limit 1.6
+    // (its own mirror) or limit 1.5 → 1.5/0.5, 1.1/0.9, 0.7/1.3 (not its mirror).
+    const sweeps = [
+      { channelLimit: 1.6, splits: [[1.6, 0.4], [1.2, 0.8], [0.8, 1.2], [0.4, 1.6]] },
+      { channelLimit: 1.5, splits: [[1.5, 0.5], [1.1, 0.9], [0.7, 1.3]] },
+    ];
+    let seed = 7;
+    const pick = () => "ABCDEFG".split("").filter(() => ((seed = (seed * 16807) % 2147483647) & 1) === 1);
+    for (let trial = 0; trial < 40; trial++) {
+      const [e1_plus, e1_minus, e2_plus, e2_minus] = [pick(), pick(), pick(), pick()];
+      for (const { channelLimit, splits } of sweeps) {
+        const physical = new Set(
+          e1_plus.flatMap((a) => e1_minus.flatMap((b) => e2_plus.flatMap((c) => e2_minus.map((d) => [a, b, c, d]))))
+            .filter((tuple) => new Set(tuple).size === 4)
+            .flatMap(([a, b, c, d]) =>
+              splits.map(([i1, i2]) => [[a, b].sort().join("-") + "@" + i1, [c, d].sort().join("-") + "@" + i2].sort().join("|")),
+            ),
+        );
+        const buckets = { e1_plus, e1_minus, e2_plus, e2_minus };
+        const cost = exCost({ ...defaultExFormState(), buckets, totalCurrent: 2, currentStep: 0.4, channelLimit });
+        expect(cost.combinations, JSON.stringify({ buckets, channelLimit })).toBe(physical.size);
+      }
+    }
+  });
+
 });
 
 describe("mexCost", () => {

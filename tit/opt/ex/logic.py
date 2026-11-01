@@ -2,11 +2,11 @@
 
 This module enumerates the montages and current-ratio splits the
 exhaustive-search optimizer evaluates: every montage of four different
-electrodes, crossed with every split. Bucket mode takes the product of the
-four buckets, minus tuples that repeat an electrode; pool mode takes each
-physical montage once (three pairings per four-electrode set, both channel
-orders only when the split list is not its own mirror), since the TI
-envelope ignores channel polarity.
+electrodes, crossed with every split. Each physical montage is taken once,
+since the TI envelope ignores channel polarity (and channel order, when the
+split list is its own mirror): bucket mode keeps one tuple of the bucket
+product per montage; pool mode takes three pairings per four-electrode set,
+in both channel orders only when the split list is not its own mirror.
 
 Public API
 ----------
@@ -143,6 +143,25 @@ def _distinct_product(buckets):
     yield from walk(0)
 
 
+def _bucket_montages(buckets, both_channel_orders):
+    """One tuple of the distinct bucket product per physical montage.
+
+    A tuple is kept when it is the smallest of its equivalent tuples (either
+    channel's polarity flipped; the channels swapped too when not
+    *both_channel_orders*) that the product also holds -- no seen-set.
+    """
+    sets = [set(bucket) for bucket in buckets]
+    for quad in _distinct_product(buckets):
+        a, b, c, d = quad
+        twins = [(b, a, c, d), (a, b, d, c), (b, a, d, c)]
+        if not both_channel_orders:
+            twins += [(c, d, a, b), (d, c, a, b), (c, d, b, a), (d, c, b, a)]
+        if not any(
+            twin < quad and all(e in s for e, s in zip(twin, sets)) for twin in twins
+        ):
+            yield quad
+
+
 def _pool_montages(pool, both_channel_orders):
     """One ``(e1+, e1-, e2+, e2-)`` per physical montage of a pool.
 
@@ -203,17 +222,19 @@ def _electrode_combinations(
     electrode coincide carries no current, and one electrode is never shared by
     the two channels (as in m-ex-search, which needs all eight distinct).
 
-    Pool mode (*all_combinations*) yields one tuple per physical montage, in
-    both channel orders only when *both_channel_orders* (see
-    :func:`_pool_montages`). With a *symmetry_mirror_map* (bucket mode only) the
-    enumeration is restricted to left/right mirrored montages, following
+    Bucket and pool mode (*all_combinations*) yield one tuple per physical
+    montage, in both channel orders only when *both_channel_orders* (see
+    :func:`_bucket_montages`, :func:`_pool_montages`). With a
+    *symmetry_mirror_map* (bucket mode only) the enumeration is restricted to left/right mirrored montages, following
     *symmetry_pairing* (``"within_pairs"`` or ``"cross_pairs"``).
     """
     if all_combinations:
         yield from _pool_montages(e1_plus, both_channel_orders)
         return
     if symmetry_mirror_map is None:
-        yield from _distinct_product((e1_plus, e1_minus, e2_plus, e2_minus))
+        yield from _bucket_montages(
+            (e1_plus, e1_minus, e2_plus, e2_minus), both_channel_orders
+        )
         return
     if symmetry_pairing not in SYMMETRY_PAIRINGS:
         raise ValueError(f"Unsupported ex-search symmetry pairing: {symmetry_pairing}")
@@ -328,6 +349,7 @@ def count_combinations(
             all_combinations,
             symmetry_mirror_map,
             symmetry_pairing,
+            both_channel_orders=not ratios_mirror_symmetric(current_ratios),
         )
     )
     return n_electrodes * len(current_ratios)
