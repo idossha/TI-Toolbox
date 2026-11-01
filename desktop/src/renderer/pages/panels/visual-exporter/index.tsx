@@ -38,6 +38,7 @@ import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
+import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
@@ -128,6 +129,8 @@ function VisualExporterPanel() {
   const [subcortField, setSubcortField] = usePageSession("subcortField", "TI_max");
 
   const [submitting, setSubmitting] = useState(false);
+  /** The jobs a 409 left unqueued, awaiting the existing-outputs decision. */
+  const [refused, setRefused] = useState<BlenderConfig[] | null>(null);
 
   const simulationsQuery = useQuery({
     queryKey: ["simulations", subjectId],
@@ -304,14 +307,20 @@ function VisualExporterPanel() {
     void run();
   }
 
-  async function run() {
+  async function run(batch: BlenderConfig[] = configs, overwrite = false) {
     setSubmitting(true);
+    let queued = 0;
     try {
-      for (const config of configs) jobs.trackJob(await createBlenderJob(config, [subjectId]));
-      const n = configs.length;
+      for (const config of batch) {
+        jobs.trackJob(await createBlenderJob(config, [subjectId], overwrite));
+        queued += 1;
+      }
+      const n = batch.length;
       notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName)}`);
     } catch (error) {
-      notifySubmitError("Could not queue the export job.", error);
+      // The export exists: ask, and on Replace resend only the jobs not already queued.
+      if (!overwrite && isExistingOutputsConflict(error)) setRefused(batch.slice(queued));
+      else notifySubmitError("Could not queue the export job.", error);
     } finally {
       setSubmitting(false);
     }
@@ -601,6 +610,20 @@ function VisualExporterPanel() {
 
         </div>
       </div>
+
+      <ExistingOutputsDialog
+        open={refused !== null}
+        onOpenChange={(open) => !open && setRefused(null)}
+        existing={1}
+        total={1}
+        noun="export"
+        busy={submitting}
+        onDecide={(decision) => {
+          const batch = refused;
+          setRefused(null);
+          if (decision === "replace" && batch) void run(batch, true);
+        }}
+      />
     </PageLayout>
   );
 }

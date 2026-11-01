@@ -37,6 +37,7 @@ export async function planNilearn(config: NilearnConfig, subjectIds: string[]): 
   );
 }
 
-export async function createNilearnJob(config: NilearnConfig, subjectIds: string[]): Promise<JobStatus> {
-  return unwrap(await api.POST("/api/jobs", { body: { kind: "nilearn", config: asPipelineConfig(config), subject_ids: subjectIds } }), "/api/jobs");
+/** `overwrite` is the user's "Replace and rerun"; without it the server refuses (409) an existing folder. */
+export async function createNilearnJob(config: NilearnConfig, subjectIds: string[], overwrite = false): Promise<JobStatus> {
+  return unwrap(await api.POST("/api/jobs", { body: { kind: "nilearn", config: asPipelineConfig(config), subject_ids: subjectIds, overwrite } }), "/api/jobs");
 }

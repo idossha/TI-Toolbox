@@ -19,6 +19,7 @@ import { isPanelEnabled, panelDigest } from "../_shared";
 import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
+import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { createNilearnJob, getSimulationsFor, planNilearn, validateNilearn } from "./api";
 import { buildNilearnConfig, type NilearnPair } from "./config";
 
@@ -74,6 +75,7 @@ function NilearnVisualsPanel() {
   const [atlas, setAtlas] = usePageSession("atlas", "harvard_oxford_sub");
   const [region, setRegion] = usePageSession("region", "__all__");
   const [submitting, setSubmitting] = useState(false);
+  const [existingOpen, setExistingOpen] = useState(false);
 
   const simQueries = useQueries({ queries: pairs.map((p) => ({ queryKey: ["simulations", p.subjectId], queryFn: () => getSimulationsFor(p.subjectId), enabled: !!p.subjectId })) });
   const subjectOptions = (subjectsQuery.data ?? []).map((s) => ({ value: s.id, label: s.id }));
@@ -150,15 +152,17 @@ function NilearnVisualsPanel() {
     void run();
   }
 
-  async function run() {
+  async function run(overwrite = false) {
     if (!config) return;
     setSubmitting(true);
     try {
-      const job = await createNilearnJob(config, subjectIds);
+      const job = await createNilearnJob(config, subjectIds, overwrite);
       jobs.trackJob(job);
       notify.success(`Queued: Nilearn visuals → nilearn_visuals/${config.subdir_name}`);
     } catch (error) {
-      notifySubmitError("Could not queue the visualization job.", error);
+      // The folder exists: ask, as the other panels do, instead of a dead-end toast.
+      if (!overwrite && isExistingOutputsConflict(error)) setExistingOpen(true);
+      else notifySubmitError("Could not queue the visualization job.", error);
     } finally {
       setSubmitting(false);
     }
@@ -285,6 +289,19 @@ function NilearnVisualsPanel() {
           </div>
         </div>
       </div>
+
+      <ExistingOutputsDialog
+        open={existingOpen}
+        onOpenChange={setExistingOpen}
+        existing={1}
+        total={1}
+        noun="visualization output"
+        busy={submitting}
+        onDecide={(decision) => {
+          setExistingOpen(false);
+          if (decision === "replace") void run(true);
+        }}
+      />
     </PageLayout>
   );
 }
