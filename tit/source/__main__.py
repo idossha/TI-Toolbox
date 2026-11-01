@@ -188,10 +188,14 @@ def _run_fsavg_map(config: SourceConfig) -> int:
         path = pm.sim_fsaverage_fields(sid, sim, cfg.fsaverage_spacing)
         if os.path.isfile(path):
             events.emit_artifact(path, kind="mesh", label=os.path.basename(path))
-    failed = sorted({sid for sid, status, _ in results if status == "failed"})
+    # "partial": a requested field could not be projected -- the job did not deliver.
+    failed = sorted({sid for sid, st, _ in results if st in ("failed", "partial")})
     events.emit_result({"n_pairs": len(pairs), "failed": failed})
     if failed:
         print(f"fsaverage map failed for: {', '.join(failed)}", file=sys.stderr)
+        for sid, status, msg in results:
+            if status == "partial":
+                print(f"  {sid}: requested field(s) missing: {msg}", file=sys.stderr)
         return 1
     return 0
 

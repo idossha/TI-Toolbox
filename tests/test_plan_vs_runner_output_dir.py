@@ -807,7 +807,7 @@ def _fsavg_run(
 
     def compute(pm, sid, sim, cfg, carrier_only):
         computed.append(sid)
-        return {}
+        return {field: np.zeros(1) for field in cfg.fields}
 
     def write(out_path, maps, spacing, meta):
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
