@@ -16,6 +16,7 @@ client's forwarder task actually stops instead of leaking a blocked threadpool w
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import queue
@@ -34,6 +35,7 @@ ws_router = APIRouter()
 
 WS_CLOSE_UNAUTHORIZED = 4401
 WS_CLOSE_FORBIDDEN_ORIGIN = 4403
+WS_CLOSE_INTERNAL_ERROR = 1011
 POLL_TIMEOUT_S = 1.0
 
 
@@ -108,6 +110,23 @@ async def ws_jobs(ws: WebSocket) -> None:
             await ws.send_text(json.dumps(json_finite(message), allow_nan=False))
 
     sender_task = asyncio.create_task(_sender())
+    closing: set[asyncio.Task] = set()
+
+    async def _close_after_sender_failure() -> None:
+        with contextlib.suppress(Exception):  # the socket may already be gone
+            await ws.close(code=WS_CLOSE_INTERNAL_ERROR)
+
+    def _sender_done(task: asyncio.Task) -> None:
+        # A dead sender must not leave the socket open and silent: close it so the client
+        # reconnects. The receive loop then sees the disconnect and cleans up.
+        if task.cancelled() or task.exception() is None:
+            return
+        logger.error("/ws/jobs: sender failed", exc_info=task.exception())
+        close_task = asyncio.create_task(_close_after_sender_failure())
+        closing.add(close_task)
+        close_task.add_done_callback(closing.discard)
+
+    sender_task.add_done_callback(_sender_done)
 
     def _subscribe(job_id: str, since: int) -> None:
         _unsubscribe(job_id)

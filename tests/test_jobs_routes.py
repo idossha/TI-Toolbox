@@ -982,6 +982,43 @@ def test_ws_jobs_subscribe_streams_events(client: TestClient) -> None:
         ws.send_text(json.dumps({"unsubscribe": [job_id]}))
 
 
+def test_ws_jobs_closes_when_its_sender_fails(client: TestClient, monkeypatch) -> None:
+    """A sender that dies (here: serialising a frame raises) closes the socket with 1011.
+
+    Before, the exception was swallowed and the socket stayed open, silent: the client saw no
+    more frames and no close, so it never reconnected (G3-7).
+    """
+    import threading
+
+    def boom(message):
+        raise RuntimeError("cannot serialise this frame")
+
+    monkeypatch.setattr("tit.server.routes.ws_jobs.json_finite", boom)
+    outcome: dict[str, object] = {}
+    with client.websocket_connect(f"{WS}?token={TOKEN}") as ws:
+
+        def read() -> None:
+            try:
+                outcome["frame"] = ws.receive_text()
+            except WebSocketDisconnect as exc:
+                outcome["code"] = exc.code
+
+        reader = threading.Thread(target=read, daemon=True)
+        reader.start()
+        client.post(
+            "/api/jobs",
+            headers=BEARER,
+            json={
+                "kind": "tools",
+                "config": {"__fake": {"duration_s": 0.1}},
+                "subject_ids": [],
+            },
+        )
+        reader.join(timeout=10)
+        assert not reader.is_alive(), "the socket stayed open after its sender died"
+    assert outcome == {"code": 1011}
+
+
 def test_ws_jobs_rejects_missing_token(client: TestClient) -> None:
     with pytest.raises(WebSocketDisconnect) as exc:
         with client.websocket_connect(WS):
