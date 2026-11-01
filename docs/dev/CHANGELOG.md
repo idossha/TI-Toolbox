@@ -83,6 +83,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 **Remediation.** Affected: any `mTI_max` from a multipolar simulation, any mEx-search score, any 2-channel `TI_avg`, and flex-search runs with the `dir_TI_tangential` goal, from every earlier version. How to spot them: a script calling `get_TI_vectors`, `get_TI_avg`, `get_TI_dir` or `psi`, or importing `tit.fields`, fails with an import error; the rest has no marker. Re-run mTI simulations and mEx-searches if exact element values matter, rescale nothing, and re-run tangential flex-searches. `TI_max`, `TI_normal` and `hf_peak` (up to 8 fields) values are unchanged; `hf_sar` is replaced by `hf_rms` (see *Simulation outputs*). The release page of the version that ships this takes this paragraph.
 
+#### Bug fixes
+
+- **Fixed: many bugs squashed** — across group statistics, the analyzer, EEG forward models, optimizer plans and job scheduling, the desktop app, and the scripting API and its docs. Group comparisons and EEG forward models can give different results: re-run them.
+
 ---
 ### v3.1.2 — October 22, 2026 <span class="release-pill">Latest</span> {#v312--october-22-2026}
 

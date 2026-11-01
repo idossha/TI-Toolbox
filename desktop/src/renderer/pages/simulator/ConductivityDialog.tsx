@@ -17,8 +17,7 @@ function seedRows(overrides: CustomConductivities): Record<number, number> {
 
 /**
  * Editable table of tissue conductivities. The values travel as `SimulationConfig.tissue_conductivities`
- * (`buildConfig.ts`); the sim runner (`tit/sim/__main__.py`) turns them into the
- * `TISSUE_COND_<n>` environment variables `tit.sim.base` reads, as the legacy dialog did.
+ * (`buildConfig.ts`); `tit.sim.base` applies them to every channel's solve straight from the config.
  */
 export function ConductivityDialog({
   open,

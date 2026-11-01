@@ -23,7 +23,7 @@
  *
  * Whole-tissue numbers. `gm_*` and `percentile_*` describe the whole analysed tissue, not the ROI
  * (`tit/analyzer/analyzer.py` AnalysisResult): the grey-matter surface in mesh space, the selected
- * tissue (GM, WM or both — `results.csv` does not say which) in voxel space. They are one group
+ * tissue (GM, WM or both — `results.csv` names it in its `tissue` row) in voxel space. They are one group
  * titled by that tissue, so a whole-tissue 99.9th percentile above the ROI maximum does not read as
  * an ROI percentile. `focality_X_area` is the extent at or above X % of that 99.9th percentile.
  *
