@@ -472,7 +472,7 @@ class SimulationConfig:
         montage has a channel that is not exactly two electrodes, if
         *intensities* is shorter than a montage needs (2 for TI, one per
         channel for mTI), if *tissue_conductivities* contains a tissue
-        number below 1 or a non-positive value, if *electrode_shape* is not
+        number outside 1..1000 or a non-positive value, if *electrode_shape* is not
         ``"ellipse"`` or ``"rect"`` or any electrode dimension, *gel_thickness*
         or *rubber_thickness* is not a finite number above 0, if *carrier_only* is set with an envelope
         output field or a montage that is not two-channel TI.  Filesystem checks (the m2m directory, the
