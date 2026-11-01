@@ -13,7 +13,7 @@ functions here orchestrate those and manage BIDS-compliant file layouts.
 Public API
 ----------
 run_pipeline
-    Full preprocessing pipeline orchestrator (sequential or parallel).
+    Full preprocessing pipeline orchestrator (one subject after another).
 run_dicom_to_nifti
     Convert DICOM series to BIDS-compliant NIfTI files.
 run_fastsurfer

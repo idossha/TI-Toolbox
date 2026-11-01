@@ -21,7 +21,7 @@ tit.pre : Package-level overview and convenience re-exports.
 import signal
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from tit import constants as const
 from tit.paths import get_path_manager, validate_subject_id
@@ -57,15 +57,16 @@ from .utils import (
 )
 
 
-def _install_sigterm_handler(runner: "CommandRunner") -> None:
-    """Terminate *runner*'s process tree on SIGTERM.
+def _install_sigterm_handler(runner: "CommandRunner") -> Callable[[], None]:
+    """Stop *runner* on SIGTERM; returns a callable that puts the previous handler back.
 
     ``run_pipeline`` owns *runner* (the only thing holding references to the
     live subprocesses), so it is the one place that can act on a job-manager
     cancellation: ``tit.jobs`` SIGTERMs the runner process, and this
-    handler forwards that into ``CommandRunner.terminate_all()`` so
-    charm/FastSurfer/QSIPrep children (each in their own session, see
-    :func:`tit.pre.utils.CommandRunner.run`) are not orphaned.
+    handler forwards that into ``CommandRunner.request_stop()``, which
+    terminates the charm/FastSurfer/QSIPrep children (each in their own
+    session, see :func:`tit.pre.utils.CommandRunner.run`) so they are not
+    orphaned, and sets the stop event so no further command starts.
 
     A no-op outside the main thread: ``signal.signal`` only works there, and
     ``run_pipeline`` may also be called from a worker thread (a notebook or a
@@ -73,15 +74,19 @@ def _install_sigterm_handler(runner: "CommandRunner") -> None:
     responsibility.
     """
     if threading.current_thread() is not threading.main_thread():
-        return
+        return lambda: None
 
     def _handle_sigterm(signum, frame) -> None:
-        runner.terminate_all()
+        runner.request_stop()
 
     try:
-        signal.signal(signal.SIGTERM, _handle_sigterm)
+        previous = signal.signal(signal.SIGTERM, _handle_sigterm)
     except (ValueError, OSError):
-        pass
+        return lambda: None
+    # None: the previous handler was not installed from Python; the default is the closest.
+    return lambda: signal.signal(
+        signal.SIGTERM, signal.SIG_DFL if previous is None else previous
+    )
 
 
 def _run_step(label: str, func, logger) -> float:
@@ -671,7 +676,7 @@ def _run_pipeline_inner(
     elif stop_event is not None and runner.stop_event is not stop_event:
         runner.stop_event = stop_event
 
-    _install_sigterm_handler(runner)
+    restore_sigterm = _install_sigterm_handler(runner)
 
     common = dict(
         charm_threads=charm_threads,
@@ -692,18 +697,21 @@ def _run_pipeline_inner(
     # (docs/dev/DECISIONS.md § 2026-09-03 (One Docker image and a real development loop)), so parallelism across subjects
     # is the job scheduler's memory-budgeted decision (tit.jobs), not a
     # thread pool inside this loop.
-    for sid in subject_list:
-        _run_subject_pipeline(
-            project_dir,
-            sid,
-            convert_dicom=convert_dicom,
-            run_fastsurfer_step=run_fastsurfer,
-            create_m2m=create_m2m,
-            run_tissue=run_tissue_analysis,
-            run_qsiprep_step=run_qsiprep,
-            run_qsirecon_step=run_qsirecon,
-            extract_dti_step=extract_dti,
-            **common,
-        )
+    try:
+        for sid in subject_list:
+            _run_subject_pipeline(
+                project_dir,
+                sid,
+                convert_dicom=convert_dicom,
+                run_fastsurfer_step=run_fastsurfer,
+                create_m2m=create_m2m,
+                run_tissue=run_tissue_analysis,
+                run_qsiprep_step=run_qsiprep,
+                run_qsirecon_step=run_qsirecon,
+                extract_dti_step=extract_dti,
+                **common,
+            )
+    finally:
+        restore_sigterm()
 
     return 0
