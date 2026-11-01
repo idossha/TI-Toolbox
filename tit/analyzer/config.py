@@ -230,6 +230,14 @@ class AnalyzerConfig:
                 raise ValueError(
                     f"radius must be a positive, finite number of mm; got {self.radius!r}"
                 )
+            if (
+                self.mode is AnalysisMode.GROUP
+                and self.coordinate_space is not AnalyzerCoordinateSpace.MNI
+            ):
+                raise ValueError(
+                    "A group spherical analysis needs coordinate_space 'MNI': one "
+                    "centre is used for every subject"
+                )
         if self.analysis_type is AnalysisType.MASK:
             if not self.mask_path or not self.mask_path.lower().endswith(
                 (".nii", ".nii.gz")

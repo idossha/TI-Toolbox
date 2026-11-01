@@ -117,15 +117,56 @@ def test_a_ti_normal_analysis_still_makes_sure_of_the_surface(init_pm) -> None:
     assert calls == [("mesh", SID, SIM, [], "-"), ("mesh", SID, SIM, CARRIERS, "-")]
 
 
-@pytest.mark.parametrize(
-    "tissue, expected", [("GM", "grey"), ("WM", "white"), ("both", None)]
-)
+@pytest.mark.parametrize("tissue, expected", [("GM", "grey"), ("WM", "white")])
 def test_a_voxel_analysis_produces_its_tissue_niftis(init_pm, tissue, expected) -> None:
     _, calls = _construct("voxel", tissue=tissue, field="TI_avg", found=False)
     assert calls == [
         ("voxel", SID, SIM, ["TI_avg"], expected),
         ("voxel", SID, SIM, CARRIERS, expected),
     ]
+
+
+@pytest.mark.parametrize("found", [False, True])
+def test_a_both_tissue_analysis_also_produces_the_grey_and_white_niftis(
+    init_pm, found
+) -> None:
+    # "both" reads the whole-tissue NIfTI and masks it with the union of the grey_ and white_
+    # NIfTIs of the same field; producing only the whole one left a GM-only (or empty) mask.
+    _, calls = _construct("voxel", tissue="both", field="TI_avg", found=found)
+    assert calls == [
+        *([] if found else [("voxel", SID, SIM, ["TI_avg"], None)]),
+        ("voxel", SID, SIM, ["TI_avg"], "grey"),
+        ("voxel", SID, SIM, ["TI_avg"], "white"),
+        ("voxel", SID, SIM, CARRIERS, None),
+    ]
+
+
+@pytest.mark.parametrize(
+    "tissue, present, missing",
+    [
+        ("BOTH", ["grey_"], ["white_"]),
+        ("BOTH", ["white_"], ["grey_"]),
+        ("BOTH", [], ["grey_", "white_"]),
+        ("GM", [], ["grey_"]),
+        ("WM", [], ["white_"]),
+    ],
+)
+def test_a_missing_tissue_mask_nifti_is_refused_not_skipped(
+    tmp_path, tissue, present, missing
+) -> None:
+    # Skipping it with a warning analysed GM only under a "both" label (or nothing at all).
+    whole = tmp_path / f"{SIM}_TI_subject_TI_max.nii.gz"
+    whole.write_bytes(b"nii")
+    for prefix in present:
+        (tmp_path / f"{prefix}{whole.name}").write_bytes(b"nii")
+    analyzer = object.__new__(Analyzer)
+    analyzer.tissue_type, analyzer.field_path = tissue, whole
+    with pytest.raises(FileNotFoundError) as refused:
+        analyzer._voxel_tissue_mask((2, 2, 2), np.eye(4))
+    for prefix in missing:
+        assert str(tmp_path / f"{prefix}{whole.name}") in str(refused.value)
+    for prefix in present:
+        assert f"{prefix}{whole.name}" not in str(refused.value)
 
 
 def test_a_nifti_the_selector_finds_is_analysed_as_it_is(init_pm) -> None:
@@ -249,6 +290,7 @@ def test_the_note_and_the_carrier_metrics_reach_results_csv(tmp_path: Path) -> N
     with open(tmp_path / "out" / "results.csv", newline="") as fh:
         row = {line["Metric"]: line["Value"] for line in csv.DictReader(fh)}
     assert row["on_demand_note"] == analyzer._on_demand[0]
+    assert row["tissue"] == "GM"  # what gm_mean / percentile_* describe
 
 
 def test_a_saved_analysis_writes_no_note(tmp_path: Path) -> None:

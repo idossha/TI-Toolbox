@@ -169,6 +169,7 @@ def _analyzer_group_config(**overrides) -> dict:
         "analysis_type": "spherical",
         "center": [1.0, 2.0, 3.0],
         "radius": 5.0,
+        "coordinate_space": "mni",
     }
     data.update(overrides)
     return data

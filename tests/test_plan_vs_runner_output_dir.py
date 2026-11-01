@@ -64,6 +64,7 @@ def _saved_fields_only(monkeypatch):
 
     monkeypatch.setattr(Analyzer, "_produce_missing_fields", lambda self, field: ())
 
+
 TOKEN = "test-token-plan-runner"
 BASE = "http://127.0.0.1:8765"
 BEARER = {"Authorization": f"Bearer {TOKEN}"}
@@ -500,7 +501,15 @@ def _group_run(config, project, tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "spec, variant",
     [
-        ({**_SPHERE, "space": "voxel", "tissue_type": "WM"}, "_WM"),
+        (
+            {
+                **_SPHERE,
+                "space": "voxel",
+                "tissue_type": "WM",
+                "coordinate_space": "mni",
+            },
+            "_WM",
+        ),
         (
             {
                 "analysis_type": "cortical",
@@ -556,6 +565,7 @@ def test_group_runs_of_one_roi_for_two_fields_keep_two_group_folders(
         "simulation": SIM,
         "visualize": False,
         **_SPHERE,
+        "coordinate_space": "mni",
         "space": "voxel",
     }
     folders = []
@@ -583,6 +593,7 @@ def test_analyzer_group_with_output_dir_plans_it_once_for_the_group(
         "visualize": False,
         "output_dir": str(group_out),
         **_SPHERE,
+        "coordinate_space": "mni",
         "space": "mesh",
     }
     planned = _plan(client, "analyzer", config)["jobs"]
@@ -623,6 +634,7 @@ def test_existing_group_output_dir_is_409_until_overwrite_is_confirmed(
         "visualize": False,
         "output_dir": str(group_out),
         **_SPHERE,
+        "coordinate_space": "mni",
         "space": "mesh",
     }
     check_overwrite_permission("analyzer", config, [])  # a first run is not refused

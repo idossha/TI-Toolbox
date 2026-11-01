@@ -150,7 +150,7 @@ def _on_grid(image, shape, affine):
     from nibabel.processing import resample_from_to
 
     data = np.squeeze(np.asarray(image.dataobj))
-    if data.shape == tuple(shape):
+    if data.shape == tuple(shape) and np.allclose(image.affine, affine):
         return data > 0
     import nibabel as nib
 
