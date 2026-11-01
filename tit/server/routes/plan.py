@@ -754,6 +754,7 @@ def _plan_source(
     kind: str, pm: PathManager, config: Any, subject_ids: list[str], warnings: list[str]
 ) -> tuple[list[PlanJob], None]:
     from tit.source.config import SourceMode
+    from tit.source.fsaverage import _recorded_carrier_only
     from tit.tools.msh_fields import msh_field_names
 
     jobs: list[PlanJob] = []
@@ -777,12 +778,18 @@ def _plan_source(
             output_dir = pm.sim_fsaverage(pair.subject_id, pair.simulation)
             # The runner keeps an existing projection unless overwrite is set or it
             # lacks a requested field (tit.source.fsaverage.project_subject's check).
-            # shortcut: a carrier-only run's TI fields are not dropped from the request
-            # first, so its cache is predicted replaced when the runner keeps it.
             path = pm.sim_fsaverage_fields(pair.subject_id, pair.simulation, spacing)
             exists = os.path.isfile(path)
-            names = msh_field_names(path) if exists else None
-            lacks = names is not None and not set(config.fsavg_map.fields) <= names
+            lacks = False
+            if exists:
+                wanted = set(config.fsavg_map.fields)
+                try:
+                    if _recorded_carrier_only(pm, pair.subject_id, pair.simulation):
+                        wanted -= {"TI_max", "TI_normal"}  # a carrier-only run has none
+                except (OSError, ValueError):
+                    pass  # the runner fails this pair; nothing is replaced
+                names = msh_field_names(path)
+                lacks = names is not None and not wanted <= names
             jobs.append(
                 PlanJob(
                     kind=kind,
