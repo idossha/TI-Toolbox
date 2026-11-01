@@ -168,7 +168,9 @@ class TestFsavgHelpers:
         assert "config.json" not in results[1][2]
 
     @staticmethod
-    def _cache_project(monkeypatch, tmp_path, cached_fields, computed):
+    def _cache_project(
+        monkeypatch, tmp_path, cached_fields, computed, carrier_only=False
+    ):
         """A pm whose fsaverage .msh holds *cached_fields*; _compute_fields returns
         *computed* and records each call."""
         from types import SimpleNamespace
@@ -190,7 +192,7 @@ class TestFsavgHelpers:
         pm = SimpleNamespace(sim_fsaverage_fields=lambda sid, sim, sp: str(out))
         calls = []
         monkeypatch.setattr(fsaverage, "get_path_manager", lambda: pm)
-        monkeypatch.setattr(fsaverage, "_recorded_carrier_only", lambda *a: False)
+        monkeypatch.setattr(fsaverage, "_recorded_carrier_only", lambda *a: carrier_only)
         monkeypatch.setattr(
             fsaverage,
             "_compute_fields",
@@ -231,6 +233,31 @@ class TestFsavgHelpers:
         sid, status, message = fsaverage.project_subject("001", "s", cfg)
         assert status == "partial"
         assert "hf_peak" in message
+
+    def test_a_carrier_only_run_with_default_fields_projects_what_it_has(
+        self, monkeypatch, tmp_path
+    ):
+        from tit.source.config import FsavgMapConfig
+
+        fsaverage, calls = self._cache_project(
+            monkeypatch, tmp_path, None, ["hf_peak", "hf_rms"], carrier_only=True
+        )
+        assert fsaverage.project_subject("001", "s", FsavgMapConfig())[1] == "ok"
+        assert calls[0][3].fields == ("hf_peak", "hf_rms")
+
+    def test_a_carrier_only_run_asked_for_a_ti_field_is_refused(
+        self, monkeypatch, tmp_path
+    ):
+        from tit.source.config import FsavgMapConfig
+
+        fsaverage, calls = self._cache_project(
+            monkeypatch, tmp_path, None, ["hf_peak"], carrier_only=True
+        )
+        cfg = FsavgMapConfig(fields=("TI_max", "hf_peak"))
+        _, status, message = fsaverage.project_subject("001", "s", cfg)
+        assert status == "failed"
+        assert "carrier-only" in message and "TI_max" in message
+        assert calls == []
 
     def test_morph_split_node_mismatch_raises(self):
         import numpy as np

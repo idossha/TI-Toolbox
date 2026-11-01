@@ -356,16 +356,30 @@ def project_subject(
     ``{"ok", "partial", "cached", "failed"}`` so batch runs can record and
     continue; "partial" means some requested fields could not be projected.
     """
+    from dataclasses import replace
+
+    from tit.source.config import VALID_FSAVG_FIELDS
     from tit.tools.msh_fields import msh_field_names
 
     pm = get_path_manager()
     out_path = Path(pm.sim_fsaverage_fields(subject_id, sim, cfg.fsaverage_spacing))
-    if out_path.exists() and not cfg.overwrite:
-        names = msh_field_names(out_path)  # None: could not tell, keep the file
-        if names is None or set(cfg.fields) <= names:
-            return subject_id, "cached", out_path.name
     try:
         carrier_only = _recorded_carrier_only(pm, subject_id, sim)
+        if carrier_only:
+            # A carrier-only control has no TI envelope: TI_max / TI_normal cannot
+            # exist. The default (all-fields) request means "what this run has";
+            # an explicit selection naming a TI field is refused.
+            ti = {"TI_max", "TI_normal"} & set(cfg.fields)
+            if ti and tuple(cfg.fields) != VALID_FSAVG_FIELDS:
+                raise ValueError(
+                    f"{sorted(ti)} cannot be projected: {sim} is a carrier-only run "
+                    "with no TI envelope; request hf_peak / hf_rms."
+                )
+            cfg = replace(cfg, fields=tuple(f for f in cfg.fields if f not in ti))
+        if out_path.exists() and not cfg.overwrite:
+            names = msh_field_names(out_path)  # None: could not tell, keep the file
+            if names is None or set(cfg.fields) <= names:
+                return subject_id, "cached", out_path.name
         maps = _compute_fields(pm, subject_id, sim, cfg, carrier_only)
     except Exception as exc:  # noqa: BLE001 - record per-subject and continue
         return subject_id, "failed", repr(exc)
