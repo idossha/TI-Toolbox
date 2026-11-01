@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { _electron as electron, expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -87,7 +87,8 @@ test("starts a fresh stack through the Engine API and loads the session", async 
 
   const status = await page.evaluate(() => window.tit!.stack.status());
   expect(status.running).toBe(true);
-  expect(status.hostProjectDir).toBe(projectDir);
+  // The app records a project by its real path, as the loaders do (macOS tmpdir is under /private).
+  expect(status.hostProjectDir).toBe(realpathSync(projectDir));
 
   // The network and the named volume were created before the container, under project-prefixed names.
   expect([...fake.networks.values()].map((n) => n.Name)).toEqual([expect.stringMatching(/^ti-toolbox-[0-9a-f]{8}_ti_network$/)]);
@@ -102,9 +103,9 @@ test("starts a fresh stack through the Engine API and loads the session", async 
   expect(container.HostConfig?.DeviceRequests).toEqual([{ Driver: "nvidia", Count: -1, Capabilities: [["gpu"]] }]);
   expect(container.Labels["tit.project"]).toMatch(/^ti-toolbox-[0-9a-f]{8}$/);
   expect(container.Labels["tit.stack"]).toBe("ti-toolbox-v3");
-  expect(container.Labels["tit.host_project_dir"]).toBe(projectDir);
+  expect(container.Labels["tit.host_project_dir"]).toBe(realpathSync(projectDir));
   expect(container.Platform).toBe("linux/amd64");
-  expect(container.HostConfig?.Binds).toContain(`${projectDir}:/mnt/${basename(projectDir)}`);
+  expect(container.HostConfig?.Binds).toContain(`${realpathSync(projectDir)}:/mnt/${basename(projectDir)}`);
   // No host directory is mounted over the image's own `/ti-toolbox` — that is where the image
   // checks the repo out and pip-installs `tit` from, so a bind there replaces the toolbox the
   // image ships (D1). It is opt-in via TIT_DEV_REPO_DIR, and nothing here opted in.
@@ -331,7 +332,7 @@ test("switching projects returns to Overview; closing the connected app exits El
   await page.locator("#project-dir").fill(nextProject);
   await page.locator("#project-dir").press("Enter");
   await expect(page.getByTestId("fake-server-home")).toBeVisible();
-  expect(await page.evaluate(() => window.tit!.stack.status())).toMatchObject({ hostProjectDir: nextProject });
+  expect(await page.evaluate(() => window.tit!.stack.status())).toMatchObject({ hostProjectDir: realpathSync(nextProject) });
   expect(new URL(page.url()).origin).toBe(previousOrigin);
   expect(await page.evaluate(() => ({ subject: localStorage.getItem("tit-subject:sim"), recents: localStorage.getItem("tit.viewer.recents"), theme: localStorage.getItem("tit.theme") })))
     .toEqual({ subject: null, recents: null, theme: "dark" });
@@ -345,7 +346,7 @@ test("regular CLI project handoff opens Electron and owns container shutdown", a
   await launchApp({ env: { TIT_LAUNCH_PROJECT_DIR: projectDir, TIT_LAUNCH_IMAGE: "registry.example.org/research/ti-toolbox:custom", TIT_LAUNCH_EXISTING: "recreate", TIT_LAUNCH_CONTAINER: "" } });
   await expect(page.getByTestId("fake-server-home")).toBeVisible({ timeout: 15_000 });
   const status = await page.evaluate(() => window.tit!.stack.status());
-  expect(status).toMatchObject({ running: true, hostProjectDir: projectDir, image: "registry.example.org/research/ti-toolbox:custom" });
+  expect(status).toMatchObject({ running: true, hostProjectDir: realpathSync(projectDir), image: "registry.example.org/research/ti-toolbox:custom" });
   expect(await app.evaluate(() => ({ action: process.env.TIT_LAUNCH_EXISTING ?? null, container: process.env.TIT_LAUNCH_CONTAINER ?? null }))).toEqual({ action: null, container: null });
   const id = [...fake.containers.keys()][0]!;
   const electronProcess = app.process();
@@ -425,7 +426,7 @@ test("a confirmed destination switches directly to the next project", async () =
   }, nextProject);
   expect(await page.evaluate((dir) => window.tit!.stack.switchProject(dir), nextProject)).toMatchObject({ ok: true });
   await expect(page.getByTestId("fake-server-home")).toBeVisible();
-  await expect.poll(async () => page.evaluate(() => window.tit!.stack.status())).toMatchObject({ running: true, hostProjectDir: nextProject });
+  await expect.poll(async () => page.evaluate(() => window.tit!.stack.status())).toMatchObject({ running: true, hostProjectDir: realpathSync(nextProject) });
   expect(fake.containers.has(oldId)).toBe(false);
   expect(fake.containers.size).toBe(1);
   expect(fake.requests).toContain(`POST /containers/${oldId}/stop`);
