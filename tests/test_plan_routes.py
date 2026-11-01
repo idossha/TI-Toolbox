@@ -188,6 +188,27 @@ def test_validate_analyzer_group_mode_ok_with_null_subject_id(
     assert resp.json() == {"ok": True, "errors": []}
 
 
+@pytest.mark.parametrize("space", ["subject", "MNI152"])
+def test_validate_analyzer_group_sphere_refuses_a_space_that_is_not_mni(
+    client: TestClient, space: str
+) -> None:
+    # One sphere for every subject is an MNI centre; the library refuses the rest, so the
+    # job is refused before it is queued, not only by the desktop form.
+    config = _analyzer_group_config(coordinate_space=space)
+    body = client.post(
+        "/api/validate/analyzer", json={"config": config}, headers=BEARER
+    ).json()
+    assert body["ok"] is False
+    if space == "subject":
+        assert "coordinate_space" in body["errors"][0]["message"]
+    plan = client.post(
+        "/api/plan/analyzer",
+        json={"config": config, "subject_ids": ["001", "002"]},
+        headers=BEARER,
+    )
+    assert plan.status_code == 422, plan.text
+
+
 def test_validate_analyzer_group_mode_rejects_empty_subject_ids(
     client: TestClient,
 ) -> None:
