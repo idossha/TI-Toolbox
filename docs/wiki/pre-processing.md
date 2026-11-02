@@ -7,32 +7,21 @@ permalink: /wiki/pre-processing/
 Pre-processing prepares subject data for simulation and analysis. Select subjects and the stages
 you need; the plan shows their dependencies and existing outputs before you run them.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/preprocessing-page.png" alt="The Pre-processing page: a subject table showing which outputs each subject has, then the structural and DWI stages to run" style="width: 100%; max-width: 1000px;">
+<img src="{{ site.baseurl }}/assets/imgs/v3/preprocessing-page.png" style="width: 100%; max-width: 1000px;" alt="The Pre-processing page: a subject table showing which outputs each subject has, then the structural and DWI stages to run">
 
-## Workflow
-
-```mermaid
-graph TD
-    A[DICOM conversion or existing NIfTI] --> B[SimNIBS CHARM]
-    A --> C[FastSurfer / FreeSurfer]
-    A --> D[QSIPrep]
-    B --> E[Subject atlas and tissue analysis]
-    D --> G[DTI tensor]
-    B --> G
-    D -.-> F[QSIRecon, optional]
-```
+<div class="flow" role="group" aria-label="Pre-processing stages and what each produces">
+<div class="flow-source"><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/nifti.webp" alt="Sagittal slice of the converted T1-weighted NIfTI" width="96" height="96" loading="lazy"><figcaption>DICOM conversion or existing NIfTI</figcaption></figure></div>
+<span class="flow-arrow flow-down" aria-hidden="true">&darr;</span>
+<div class="flow-branch">
+<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/charm.webp" alt="CHARM head mesh with translucent scalp and skull" width="96" height="96" loading="lazy"><figcaption>SimNIBS CHARM</figcaption></figure><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/atlas.webp" alt="Subject atlas outlined on an axial T1 slice" width="96" height="96" loading="lazy"><figcaption>Subject atlas and tissue analysis</figcaption></figure></div>
+<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/fastsurfer.webp" alt="FastSurfer DKT parcellation over a coronal T1 slice" width="96" height="96" loading="lazy"><figcaption>FastSurfer / FreeSurfer</figcaption></figure></div>
+<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsiprep.webp" alt="QSIPrep preprocessed DWI reference (b0) slice" width="96" height="96" loading="lazy"><figcaption>QSIPrep</figcaption></figure><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/dti.webp" alt="Fractional anisotropy of the DTI tensor in T1 space" width="96" height="96" loading="lazy"><figcaption>DTI tensor<small>also uses the CHARM head model</small></figcaption></figure><span class="flow-arrow flow-arrow--opt" aria-hidden="true">&#8674;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsirecon.webp" alt="QSIRecon generalized FA map" width="96" height="96" loading="lazy"><figcaption>QSIRecon, optional<small>from QSIPrep</small></figcaption></figure></div>
+</div>
+</div>
 
 CHARM creates the head model required for simulations. Reconstruction, segmentation and diffusion
 processing are optional, depending on the outputs your workflow needs. Independent stages can
 run when their dependencies and the job scheduler's resource budget allow.
-
-| Stage | Purpose | Guide |
-|---|---|---|
-| DICOM → NIfTI | Convert source scans and preserve metadata | Input layout below |
-| SimNIBS CHARM | Create the head mesh and subject atlas | Head models below |
-| FastSurfer / FreeSurfer | Segmentation, reconstruction and subregions | [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/) |
-| Tissue analyzer | Inspect tissue segmentation quality | [Tissue analyzer]({{ site.baseurl }}/wiki/tissue-analyzer/); runs after CHARM in the same run |
-| QSIPrep → DTI tensor | Preprocess diffusion data (x86-64 host only) and fit the conductivity tensor; QSIRecon is an optional extra | [Diffusion (DTI) processing]({{ site.baseurl }}/wiki/diffusion-processing/) |
 
 ## Required Input Data Structure
 
@@ -60,15 +49,9 @@ Each modality folder is searched recursively, so DICOM files placed directly in 
 
 If instead you acquired the full diffusion series twice with opposite phase encoding, put both in `dwi/dicom/`: they are written as `dwi/sub-{id}_dir-AP_dwi.nii.gz` and `dwi/sub-{id}_dir-PA_dwi.nii.gz`, which QSIPrep pairs for TOPUP. A short reverse phase-encoding scan does not belong in `dwi/`: QSIPrep would preprocess it as a diffusion run and combine it with the main one.
 
-### Data Requirements
-
-| Requirement | Description | Status |
-|-------------|-------------|---------|
-| **T1-weighted MRI** | High-resolution anatomical image (typically MPRAGE) | **Required** |
-| **T2-weighted MRI** | High-resolution anatomical image (typically CUBE/SPACE) | **Recommended** |
-
-
 ### Supported Input Formats
+
+A T1-weighted scan (typically MPRAGE) is required; a T2-weighted scan (typically CUBE/SPACE) is recommended.
 
 - **DICOM files** (`.dcm`, `.dicom`) under `sourcedata/sub-{subject_id}/{T1w,T2w}/dicom/`; nested folders are searched recursively
 - **Compressed DICOM archives** (`.zip`, `.tar`, `.tar.gz`, `.tgz`) placed directly in a modality folder or its `dicom/` folder
@@ -96,30 +79,6 @@ quality. If CHARM reports cropped anatomy or poor registration, inspect the inpu
 using those targets. CHARM supplies whole-thalamus, whole-hippocampus and whole-amygdala labels;
 the surfer guide explains the separate reconstruction and finer subregion options.
 
-### Preparation examples
-
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_dicom.png" alt="DICOM input prepared for conversion">
-    <em>Start from DICOM or an existing NIfTI dataset. T1w is required for head-model creation; T2w is optional.</em>
-  </div>
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_nifti.png" alt="NIfTI output created from DICOM">
-    <em><code>dcm2niix</code> converts the DICOM series into a three-dimensional NIfTI volume.</em>
-  </div>
-</div>
-
-<div class="image-row">
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_co-registration.png" alt="Co-registered EEG nets on a subject head model">
-    <em>Supported EEG nets are co-registered while the subject's <code>m2m</code> head model is prepared. Caps can be added or re-applied later in the <a href="{{ site.baseurl }}/wiki/eeg-caps/"><strong>EEG caps</strong> panel</a>.</em>
-  </div>
-  <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/pre_process/pre-process_atlas.png" alt="DKT atlas aligned to subject anatomy">
-    <em>Cortical atlases are aligned to subject space; this example shows the DKT parcellation.</em>
-  </div>
-</div>
-
 ## Run and monitor
 
 Review the plan, then start the selected stages. When outputs already exist, choose whether to
@@ -138,8 +97,12 @@ the CPU limit set under **Settings ▸ Project ▸ Execution** (70 % of the effe
 and at least one). Each control shows the available capacity; container limits and the job
 scheduler still constrain execution.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/settings-preprocessing.png" alt="Settings, Pre-processing tab: FastSurfer, FreeSurfer, SimNIBS CHARM and QSIPrep sections with thread controls" style="width: 100%; max-width: 1000px;">
+<div class="split split--wide">
+<div>
+<img src="{{ site.baseurl }}/assets/imgs/v3/settings-preprocessing.png" alt="Settings, Pre-processing tab: FastSurfer, FreeSurfer, SimNIBS CHARM and QSIPrep sections with thread controls">
 <em>Settings &#9656; Pre-processing. Each tool has its own thread controls; leave them on Auto to follow the CPU limit.</em>
+</div>
+<div markdown="1">
 
 - **FastSurfer / FreeSurfer:** thread controls, Apple GPU enablement and FreeSurfer operations.
   TI-Toolbox supplies the FreeSurfer license automatically; no personal license setup is required.
@@ -153,6 +116,9 @@ scheduler still constrain execution.
   resolution and scalp triangle size. Default values follow the installed settings. Scalp triangle
   size controls the scalp surface, not every volume element. Resolution changes affect the head
   model and computation time; configure them before generating a new model.
+
+</div>
+</div>
 
 See the [CHARM configuration reference](https://simnibs.github.io/simnibs/build/html/documentation/command_line/charm.html)
 for the upstream options.

@@ -193,26 +193,26 @@ Open a finished run in **Results ▸ Evaluated candidates**. Expand the preview 
 ## Example outputs
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(400px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_flex-search.png" alt="Flex-search optimized electrode placement">
     <em>Free placement: electrodes anywhere on the valid scalp.</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(400px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_mapping.png" alt="Optimized electrodes mapped to an EEG net">
     <em>The same placement mapped to the nearest distinct EEG-net sites.</em>
   </div>
 </div>
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(400px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_max_TI_field.png" alt="Maximum TI field over the brain surface">
     <em><code>max_TI</code>: the maximum TI envelope.</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(400px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_Normal_field.png" alt="Normal field component over the brain surface">
     <em><code>dir_TI_normal</code>: the envelope along the cortical normal.</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(400px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_tangent_field.png" alt="Tangential field component over the brain surface">
     <em><code>dir_TI_tangential</code>: the strongest envelope within the cortical surface plane.</em>
   </div>
