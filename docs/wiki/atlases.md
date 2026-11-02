@@ -37,10 +37,18 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
   </div>
   <div class="atlas-canvas-wrap"><canvas id="atlas-canvas" width="640" height="480"></canvas></div>
   <p class="atlas-hint"></p>
+  <div id="atlas-desc"></div>
+  <div class="atlas-table-tools">
+    <input type="text" id="atlas-filter" class="atlas-filter" placeholder="Filter regions by name or id…">
+    <span class="atlas-count" id="atlas-count"></span>
+  </div>
+  <div class="atlas-table-scroll">
+    <table id="atlas-table"><thead></thead><tbody></tbody></table>
+  </div>
 </div>
 
 <div class="atlas-no-webgl" style="display:none;">
-  <p><strong>Interactive viewer unavailable.</strong> Your browser does not support WebGL2, which the viewer requires. The label tables remain fully searchable.</p>
+  <p><strong>Interactive viewer unavailable.</strong> Your browser does not support WebGL2, which the viewer requires.</p>
 </div>
 
 ---
@@ -84,15 +92,14 @@ left and right regions, a click selects one hemisphere.
 ### Not shipped
 
 **Bilateral CIT168 and Harvard-Oxford cortical** (`CIT168_labeling_MNI152NLin2009cAsym.nii.gz`,
-`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`) were shipped until 2026-09-23. Each of their labels
+`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`) are not shipped. Each of their labels
 covered a structure in _both_ hemispheres, so choosing one region silently targeted both sides.
-They were replaced by `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (label k became
+They are replaced by `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (label k became
 2k-1 left and 2k right) and FSL's own lateralized `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`
 (same numbering). A configuration that still names an old file stops with a sentence naming its
 replacement; pick the side(s) you meant from the new atlas.
 
-**Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) was shipped until
-2026-09-17 and has been removed. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
+**Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) is not shipped. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
 13918589](https://doi.org/10.5281/zenodo.13918589); (C) University of Zurich and ETH Zurich, Andras
 Jakab, Remi Blanc and Gabor Szekely), which forbids commercial use — a promise TI-Toolbox's own
 GPL-3 licence cannot make for you, so a GPL-3 project cannot redistribute it. A configuration that
@@ -104,139 +111,46 @@ optional, user-fetched download is recorded in `resources/atlas/README.md § Not
 if you use it: Krauth A. et al. _NeuroImage_ 49(3):2053-2062 (2010); Jakab A. et al. _AJNR_
 33(11):2110-2116 (2012).
 
-## CIT168 Subcortical Atlas
+<section class="atlas-desc" data-atlas="mni:cit168" markdown="1">
+
+**CIT168 Subcortical Atlas**
 
 Pauli WM, Nili AN, Tyszka JM. A high-resolution probabilistic in vivo atlas of human subcortical brain nuclei. _Scientific Data_ 5:180063 (2018). doi:[10.1038/sdata.2018.63](https://doi.org/10.1038/sdata.2018.63).
 
 The shipped volume is a **deterministic** label map, derived locally from the paper's probabilistic masks by winner-takes-highest-probability at a 0.05 minimum-probability threshold. The probability maps themselves are not shipped — only the resulting hard segmentation.
 
-The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template) since 2026-09-23: 32 lateralized labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes. The table below lists all 32.
+The published labeling is **bilateral** (16 labels, each covering a structure in both hemispheres). TI-Toolbox ships it **split at the midline** (x = 0 mm of its own template): 32 lateralized labels, where the paper's label k is `2k-1` (`Left-…`, x < 0) and `2k` (`Right-…`, x ≥ 0), made by `dev/build_lateralized_atlases.py`. Nothing else about the map changes. The viewer's region table lists all 32.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-mni-cit168" placeholder="Filter CIT168 regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.mni.atlases.cit168.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-mni-cit168" data-space="mni" data-atlas="cit168">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (MNI, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.mni.atlases.cit168.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+</section>
 
-<br>
+<section class="atlas-desc" data-atlas="mni:glasser" markdown="1">
 
-## Glasser HCP-MMP1.0 Atlas
+**Glasser HCP-MMP1.0 Atlas**
 
 Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human cerebral cortex. _Nature_ 536(7615):171-178 (2016). doi:[10.1038/nature18933](https://doi.org/10.1038/nature18933).
 
 360 labels (180 per hemisphere), using the atlas's native sparse indexing scheme: left-hemisphere regions are numbered 1-180, right-hemisphere regions 1001-1180. The shipped volume is natively on a FreeSurfer-conformed 256x256x256 1mm grid, **not** the 182x218x182 MNI152 grid, so it was resampled onto the template grid for the viewer.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-mni-glasser" placeholder="Filter Glasser regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.mni.atlases.glasser.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-mni-glasser" data-space="mni" data-atlas="glasser">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (MNI, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.mni.atlases.glasser.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+</section>
 
-<br>
+<section class="atlas-desc" data-atlas="mni:massp" markdown="1">
 
-## MASSP Subcortical Parcellation
+**MASSP Subcortical Parcellation**
 
 31 labels, natively at 0.5mm resolution in ICBM152 2009b nonlinear-asymmetric hi-res space — the highest native resolution of the shipped atlases. It was resampled onto the 1mm template grid for the viewer.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-mni-massp" placeholder="Filter MASSP regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.mni.atlases.massp.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-mni-massp" data-space="mni" data-atlas="massp">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (MNI, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.mni.atlases.massp.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
 
-## Harvard-Oxford Cortical and Subcortical Atlases
+### Other shipped MNI atlases
 
-The FSL structural atlases from the Harvard Center for Morphometric Analysis, shipped as the
-maximum-probability maps at the 25 % threshold, 1 mm (`HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`,
-FSL's **lateralized** cortical map, 96 labels = 48 structures x left/right, odd = left, even =
-right; `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`, 21 subcortical labels). The files are FSL's
-own, unmodified (NeuroDebian `fsl-harvard-oxford-cortical-lateralized-atlas` and
-`fsl-harvard-oxford-atlases`, both 5.0.7-2); the label names come from FSL's XML, with ids = XML
-index + 1 as FSL's `maxprob` images encode them. Until 2026-09-23 the non-lateralized 48-label
-cortical map was shipped instead, whose labels each covered both hemispheres.
+These three are not in the viewer.
 
-Licence CC BY-SA 4.0 — the FSL licence page states that "The Cerebellum and Harvard-Oxford atlases,
-whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence".
+**Harvard-Oxford cortical and subcortical** (`HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`: FSL's lateralized cortical map, 96 labels = 48 structures x left/right, odd = left, even = right; `HarvardOxford-sub-maxprob-thr25-1mm.nii.gz`: 21 subcortical labels). FSL's own files, unmodified (NeuroDebian `fsl-harvard-oxford-cortical-lateralized-atlas` and `fsl-harvard-oxford-atlases`, both 5.0.7-2); ids = XML index + 1 as FSL's `maxprob` images encode them. The subcortical map labels thalamus, caudate, putamen, pallidum, hippocampus, amygdala, accumbens and brain stem per hemisphere, plus whole-hemisphere cortex / white matter and the ventricles (kept so the file is unmodified; they are not TI targets). Licence CC BY-SA 4.0: the FSL licence page states that "The Cerebellum and Harvard-Oxford atlases, whilst not being the property of Oxford, are released under the CC BY-SA 4.0 licence".
 
-The subcortical map labels the thalamus, caudate, putamen, pallidum, hippocampus, amygdala,
-accumbens and brain stem per hemisphere, plus whole-hemisphere cortex / white matter and the
-ventricles (kept so the file is unmodified; they are not TI targets). Both maps are natively on the
-FSL 182x218x182 1 mm grid, the same grid as the shipped template.
+**Cerebellum-MNIfnirt** (`Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz`, 28 labels: lobules I-IV to X, left / right / vermis; FNIRT-normalised maximum-probability map at 25 %, 1 mm). Diedrichsen J, Balsters JH, Flavell J, Cussans E, Ramnani N. A probabilistic MR atlas of the human cerebellum. _NeuroImage_ 46(1):39-46 (2009). doi:[10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045). CC BY-SA 4.0 by the same FSL sentence.
 
-## Cerebellum-MNIfnirt Atlas
+**Schaefer 2018, 400 parcels / 7 networks** (`Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` from ThomasYeoLab/CBIG, MIT, with CBIG's own LUT; 1-200 left, 201-400 right, named by Yeo 7-network membership, e.g. `7Networks_LH_Vis_1`). Schaefer A, Kong R, Gordon EM, Laumann TO, Zuo X-N, Holmes AJ, Eickhoff SB, Yeo BTT. Local-global parcellation of the human cerebral cortex from intrinsic functional connectivity MRI. _Cerebral Cortex_ 28(9):3095-3114 (2018). doi:[10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179). Like Glasser it is a cortical parcellation distributed as a label volume, so you target it through the picker's **Subcortical** mode.
 
-Diedrichsen J., Balsters J. H., Flavell J., Cussans E., Ramnani N. A probabilistic MR atlas of the
-human cerebellum. _NeuroImage_ 46(1):39-46 (2009).
-doi:[10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045).
-
-The FNIRT-normalised maximum-probability map at the 25 % threshold, 1 mm
-(`Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz`, 28 labels: lobules I-IV to X, left / right /
-vermis). CC BY-SA 4.0 by the same FSL sentence as Harvard-Oxford. Natively on the FSL 1 mm grid.
-
-## Schaefer 2018 Atlas (400 parcels, 7 networks)
-
-Schaefer A., Kong R., Gordon E. M., Laumann T. O., Zuo X.-N., Holmes A. J., Eickhoff S. B.,
-Yeo B. T. T. Local-global parcellation of the human cerebral cortex from intrinsic functional
-connectivity MRI. _Cerebral Cortex_ 28(9):3095-3114 (2018).
-doi:[10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179).
-
-`Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` from ThomasYeoLab/CBIG (MIT), with
-CBIG's own LUT. 400 cortical parcels — 1-200 left, 201-400 right — each named by its Yeo 7-network
-membership (`7Networks_LH_Vis_1`, `7Networks_RH_Default_PFCdPFCm_3`, …). Its header matches the
-shipped FSL `MNI152_T1_1mm.nii.gz` exactly, so it is on the MNI152NLin6Asym grid. Like Glasser it is
-a cortical parcellation distributed as a label volume, so you target it through the picker's
-**Subcortical** mode.
+</section>
 
 ---
 
@@ -252,100 +166,39 @@ The gallery includes legacy FreeSurfer atlases for reference; their presence her
 
 The viewer at the top of the page uses the **`ernie` example subject** that ships with SimNIBS, so the anatomy is a real head model rather than a template average. The surface `.annot` parcellations are not shown — they are cortical surface files, not volumes, and cannot be overlaid on a NIfTI.
 
+<div class="atlas-note" data-space="subject" markdown="1">
+
 **Read the coordinates as subject space.** The centroid column here is in ernie's own scanner/world coordinates, **not** MNI. The same structure will sit at different coordinates in your own subject.
 
-<br>
+</div>
 
-## CHARM Tissue Labeling
+<section class="atlas-desc" data-atlas="subject:charm" markdown="1">
+
+**CHARM Tissue Labeling**
 
 Produced by SimNIBS `charm` as `m2m_{subject}/segmentation/labeling.nii.gz`, with its own `labeling_LUT.txt` alongside. This is the **tissue** segmentation the head model is built from — grey and white matter, CSF, skull, scalp and the rest — not a cortical parcellation. It is what the analyzer reads when you pick a tissue-level ROI in voxel space.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-subject-charm" placeholder="Filter CHARM labels by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.subject.atlases.charm.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-subject-charm" data-space="subject" data-atlas="charm">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (subject, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.subject.atlases.charm.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+</section>
 
-<br>
+<section class="atlas-desc" data-atlas="subject:dkt" markdown="1">
 
-## Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)
+**Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)**
 
 The DKT cortical parcellation combined with the `aseg` subcortical segmentation in one volume. By default FastSurfer writes it as `aparc.DKTatlas+aseg.deep`; optional FreeSurfer `recon-all` writes the equivalent `aparc.DKTatlas+aseg.mgz`, which is the volume shown here for `ernie`. Klein A, Tourville J. 101 labeled brain images and a consistent human cortical labeling protocol. _Frontiers in Neuroscience_ 6:171 (2012). doi:[10.3389/fnins.2012.00171](https://doi.org/10.3389/fnins.2012.00171).
 
 Cortical labels use FreeSurfer's `1000+`/`2000+` convention (left/right hemisphere); subcortical structures keep their `aseg` ids below 100. This is one of the voxel atlases the analyzer offers.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-subject-dkt" placeholder="Filter DKT regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.subject.atlases.dkt.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-subject-dkt" data-space="subject" data-atlas="dkt">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (subject, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.subject.atlases.dkt.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
+</section>
 
-<br>
+<section class="atlas-desc" data-atlas="subject:a2009s" markdown="1">
 
-## Destrieux (aparc.a2009s+aseg)
+**Destrieux (aparc.a2009s+aseg)**
 
 Optional FreeSurfer `recon-all` output (FastSurfer's segmentation-only run does not write it) combining the Destrieux cortical parcellation with `aseg`. Destrieux C, Fischl B, Dale A, Halgren E. Automatic parcellation of human cortical gyri and sulci using standard anatomical nomenclature. _NeuroImage_ 53(1):1-15 (2010). doi:[10.1016/j.neuroimage.2010.06.010](https://doi.org/10.1016/j.neuroimage.2010.06.010).
 
 The finest of the cortical parcellations here, splitting cortex into gyral (`G_`) and sulcal (`S_`) units. Cortical ids run in the `11100+`/`12100+` range.
 
-<div class="atlas-table-tools">
-  <input type="text" class="atlas-filter" data-target="table-subject-a2009s" placeholder="Filter Destrieux regions by name or id…">
-  <span class="atlas-count">{{ site.data.atlases.subject.atlases.a2009s.rows | size }} regions</span>
-</div>
-<div class="atlas-table-scroll">
-<table id="table-subject-a2009s" data-space="subject" data-atlas="a2009s">
-  <thead>
-    <tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (subject, mm)</th></tr>
-  </thead>
-  <tbody>
-    {% for row in site.data.atlases.subject.atlases.a2009s.rows %}
-    <tr data-id="{{ row.id }}" data-mni="{{ row.centroid_mni | join: ',' }}">
-      <td>{{ row.id }}</td>
-      <td class="atlas-name">{{ row.name }}</td>
-      <td><span class="atlas-swatch" style="background: rgb({{ row.r }}, {{ row.g }}, {{ row.b }});"></span></td>
-      <td>{{ row.volume_mm3 }} mm&sup3;</td>
-      <td>{{ row.centroid_mni | join: ", " }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-</div>
-
-<br>
+</section>
 
 ## Atlas Resampling
 
@@ -376,8 +229,6 @@ Resampling is logged at INFO level, so a mismatch is visible in the analyzer's l
 ```
 INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (256, 256, 208) (nearest-neighbour)
 ```
-
-<br>
 
 ## Licence, attribution and citation
 
@@ -414,7 +265,7 @@ the left putamen only; to target both, pick both.
      silently does nothing against the new markup (it looks for ids that no
      longer exist), leaving both canvases black. Bump v whenever the markup
      contract or the script changes. -->
-<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=3"></script>
+<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=5"></script>
 
 <style>
 .atlas-viewer {
@@ -474,7 +325,7 @@ the left putamen only; to target both, pick both.
 /* Show roughly seven rows, then scroll, so a 360-row table does not run away
    with the page. The header stays put while the body scrolls. */
 .atlas-table-scroll {
-  max-height: 23rem;
+  max-height: 320px;
   overflow-y: auto;
   overflow-x: auto;
   border: 1px solid #e2e2e2;
@@ -507,13 +358,13 @@ the left putamen only; to target both, pick both.
   border: 1px solid rgba(0, 0, 0, 0.25);
   vertical-align: middle;
 }
-table[data-atlas] tbody tr {
+#atlas-table tbody tr {
   cursor: pointer;
 }
-table[data-atlas] tbody tr:hover {
+#atlas-table tbody tr:hover {
   background: rgba(0, 0, 0, 0.05);
 }
-table[data-atlas] mark {
+#atlas-table mark {
   background: #fff3a3;
   padding: 0 2px;
 }

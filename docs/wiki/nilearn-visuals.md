@@ -4,7 +4,7 @@ title: Nilearn Visuals
 permalink: /wiki/nilearn-visuals/
 ---
 
-The Nilearn Visuals extension creates publication-ready visualizations of temporal interference (TI) and multipolar (mTI) stimulation fields using the Nilearn neuroimaging library. It averages the chosen simulations in MNI space and draws the result as a multi-slice figure with atlas outlines and as a glass-brain figure, both saved as PDF files.
+The Nilearn Visuals extension creates publication-ready visualizations of stimulation fields using the Nilearn neuroimaging library. It averages the chosen simulations in MNI space and draws the result as a multi-slice figure with atlas outlines and as a glass-brain figure, both saved as PDF files.
 
 ## Key Features
 
@@ -30,14 +30,17 @@ All rows run as one job. A row without a subject or without a simulation blocks 
 ### Visualization Parameters
 
 #### Output Configuration
+
 - **Output ▸ Sub-directory name** (required): the folder created inside `derivatives/ti-toolbox/nilearn_visuals/` for this run's files
 
 #### Atlas and Region
-- **Visualization parameters ▸ Atlas selection**: the atlas whose regions are outlined on the slice figure (see [Atlas Options](#atlas-options))
+
+- **Visualization parameters ▸ Atlas selection**: the atlas whose regions are outlined on the slice figure
 - **Visualization parameters ▸ Region selection**: **All regions** is the only choice. Every region of the chosen atlas is outlined; picking specific regions is not available
 
 #### Threshold Settings
-- **Visualization parameters ▸ percentile checkbox** (*Give cutoffs as percentiles (0–100) of the field's non-zero voxels instead of V/m*): off, the cutoffs are in V/m; on, they are percentiles. Switching it clears both values, because a number typed in one unit means nothing in the other
+
+- **Visualization parameters ▸ percentile checkbox** (_Give cutoffs as percentiles (0–100) of the field's non-zero voxels instead of V/m_): off, the cutoffs are in V/m; on, they are percentiles. Switching it clears both values, because a number typed in one unit means nothing in the other
 - **Minimum cutoff**: field values below it are hidden. Empty means the 95th percentile of the averaged field's non-zero voxels
 - **Maximum cutoff**: the top of the colour bar. Empty means the 99.9th percentile of the averaged field's non-zero voxels
 
@@ -67,49 +70,6 @@ hippocampus_stimulation/
 ├── group_averaged_5_subjects_multiple_views.pdf    # Multi-slice view with atlas outlines
 └── group_averaged_5_subjects_glass_brain.pdf       # Glass brain view
 ```
-
-## Technical Details
-
-### Data Processing Pipeline
-
-1. **Data Loading**: Load each pair's MNI grey-matter field NIfTI (see [File Format Requirements](#file-format-requirements))
-2. **Group Averaging**: Compute the voxelwise mean across all pairs. The pairs must share one voxel grid; otherwise the job stops and names the subject that differs
-3. **Cutoff Resolution**: Turn the cutoffs into a display range in V/m (see [Thresholding Strategies](#thresholding-strategies))
-4. **Atlas Overlay**: Add outlines of the selected atlas to the slice figure
-5. **Visualization Generation**: Create the multi-slice and glass-brain PDFs using Nilearn
-
-### Thresholding Strategies
-
-The job works on the non-zero voxels of the averaged field. Below the minimum the field is hidden; the colour bar runs from the minimum to the maximum.
-
-#### Default (Empty Cutoffs)
-- An empty minimum is the 95th percentile and an empty maximum is the 99.9th percentile of the averaged field's non-zero voxels
-- This works for any field strength. Typical TI group fields peak around 0.1–0.2 V/m, so a fixed 0.3 V/m cutoff would hide the whole field and give blank figures
-- The job log prints `Field range: …` (the range and percentiles of the averaged field) and `Display range: a–b V/m`, followed by `(data-driven default)` when the minimum was left empty
-
-#### Absolute Mode
-- The percentile checkbox is off, so the values are in V/m
-- Useful for comparing across different studies or protocols with the same display range
-- Choose values from your own field's range. The `Field range` line of an earlier run shows it
-
-#### Percentile Mode
-- The percentile checkbox is on, so the values are percentiles 0–100 of the averaged field's non-zero voxels. They are not a percentage of the maximum
-- Example: 95 to 99.9 shows the strongest 5% of field values without the top 0.1%
-- Pro Tip: Never set the upper cutoff to the 100th percentile, as the peak voxel can be an outlier
-
-#### Checks
-- A minimum at or above the maximum fails the job, and the message gives the averaged field's range
-- A minimum at or above the field's peak, with a maximum above it, still runs but logs a warning that the figures will be blank
-
-### Atlas Options
-
-The atlases ship with TI-Toolbox: they are MNI atlases in `resources/atlas/`, the same files the ROI picker offers (see [Brain Atlases]({{ site.baseurl }}/wiki/atlases/) for their sources and licences), so nothing is downloaded and the outlines draw offline. If an atlas cannot be loaded, the job log says why and the PDF is drawn without outlines.
-
-| Panel label | Atlas | Regions | Notes |
-|---|---|---|---|
-| Harvard-Oxford (subcortical) (default) | `HarvardOxford-sub-maxprob-thr25-1mm` | 21 | Includes left and right cerebral cortex and white matter, the lateral ventricles and the brain stem |
-| Harvard-Oxford (cortical) | `HarvardOxford-cortl-maxprob-thr25-1mm` | 96 | 48 cortical regions, each split into left and right; no subcortical structures |
-| Schaefer 2018 (400 parcels) | `Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm` | 400 | 7 networks |
 
 ## Example Results
 

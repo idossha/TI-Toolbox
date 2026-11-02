@@ -14,9 +14,9 @@
  *     <p class="atlas-hint"></p>   (the one label: selected atlas + space)
  *   </div>
  *   <div class="atlas-no-webgl" style="display:none">...</div>
- *   <table data-space="mni" data-atlas="cit168"> ... <tr data-mni="x,y,z">
+ *   <input id=atlas-filter> <span id=atlas-count> <table id=atlas-table>
  *
- * Table filtering copies the case-insensitive substring + <mark> highlight
+ * The region table filter copies the case-insensitive substring + <mark> highlight
  * pattern from assets/js/search/results.js verbatim - no new dependency.
  */
 (function () {
@@ -218,7 +218,7 @@
     }
   };
 
-  // --- Table filter: copied pattern from assets/js/search/results.js ---
+  // --- One region table, rebuilt for whichever atlas the dropdown selects ---
 
   function escapeRegex(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -243,71 +243,80 @@
     return fragment;
   }
 
-  function wireFilter(inputEl, tableEl, countEl) {
-    var rows = Array.prototype.slice.call(tableEl.querySelectorAll('tbody tr'));
-    var nameCells = rows.map(function (row) {
-      return row.querySelector('.atlas-name');
-    });
-    var originalNames = nameCells.map(function (cell) {
-      return cell ? cell.textContent : '';
-    });
-    var total = rows.length;
+  function wireTable(viewer) {
+    var selectEl = document.getElementById('atlas-select');
+    var hash = location.hash.match(/^#atlas=(\w+:\w+)$/);
+    if (selectEl && hash && selectEl.querySelector('option[value="' + hash[1] + '"]')) {
+      selectEl.value = hash[1];
+    }
+    var inputEl = document.getElementById('atlas-filter');
+    var countEl = document.getElementById('atlas-count');
+    var table = document.getElementById('atlas-table');
+    if (!selectEl || !inputEl || !table) {
+      return;
+    }
+    var tbody = table.tBodies[0];
+    var space = null;
+    var key = null;
+    var rows = [];
 
-    inputEl.addEventListener('input', function () {
+    function applyFilter() {
       var query = inputEl.value.trim();
-      var lowerQuery = query.toLowerCase();
+      var q = query.toLowerCase();
       var shown = 0;
       for (var i = 0; i < rows.length; i++) {
-        var id = rows[i].getAttribute('data-id') || '';
-        var name = originalNames[i] || '';
-        var match = !lowerQuery || name.toLowerCase().indexOf(lowerQuery) !== -1 || id.indexOf(lowerQuery) !== -1;
-        rows[i].style.display = match ? '' : 'none';
+        var r = rows[i];
+        var match = !q || r.name.toLowerCase().indexOf(q) !== -1 || String(r.id).indexOf(q) !== -1;
+        r.tr.style.display = match ? '' : 'none';
+        r.nameCell.replaceChildren(highlightText(r.name, query));
         if (match) {
           shown++;
         }
-        if (nameCells[i]) {
-          nameCells[i].replaceChildren(highlightText(originalNames[i], query));
-        }
       }
-      if (countEl) {
-        countEl.textContent = lowerQuery
-          ? shown + ' of ' + total + ' regions'
-          : total + ' regions';
+      countEl.textContent = q ? shown + ' of ' + rows.length + ' regions' : rows.length + ' regions';
+    }
+
+    var panel = document.getElementById('atlas-desc');
+    var descs = Array.prototype.slice.call(document.querySelectorAll('.atlas-desc, .atlas-note'));
+    // Without JS the descriptions stay where they are in the page, all visible.
+    descs.forEach(function (d) { panel.appendChild(d); });
+
+    function build() {
+      var p = selectEl.value.split(':');
+      descs.forEach(function (d) {
+        var on = d.getAttribute('data-atlas') === selectEl.value || d.getAttribute('data-space') === p[0];
+        d.style.display = on ? '' : 'none';
+      });
+      space = p[0];
+      key = p[1];
+      var data = atlasData[space].atlases[key].rows;
+      table.tHead.innerHTML = '<tr><th>ID</th><th>Name</th><th>Colour</th><th>Volume</th><th>Centroid (' +
+        (space === 'mni' ? 'MNI' : 'subject') + ', mm)</th></tr>';
+      tbody.textContent = '';
+      rows = data.map(function (d) {
+        var tr = document.createElement('tr');
+        var c = d.centroid_mni.join(', ');
+        tr.setAttribute('data-mni', d.centroid_mni.join(','));
+        tr.innerHTML = '<td></td><td class="atlas-name"></td><td><span class="atlas-swatch"></span></td><td></td><td></td>';
+        tr.cells[0].textContent = d.id;
+        tr.cells[2].firstChild.style.background = 'rgb(' + d.r + ', ' + d.g + ', ' + d.b + ')';
+        tr.cells[3].textContent = d.volume_mm3 + ' mm\u00b3';
+        tr.cells[4].textContent = c;
+        tbody.appendChild(tr);
+        return { id: d.id, name: d.name, tr: tr, nameCell: tr.cells[1] };
+      });
+      applyFilter();
+    }
+
+    selectEl.addEventListener('change', build);
+    inputEl.addEventListener('input', applyFilter);
+    tbody.addEventListener('click', function (evt) {
+      var row = evt.target.closest ? evt.target.closest('tr[data-mni]') : null;
+      if (row) {
+        viewer.jumpTo(space, key, row.getAttribute('data-mni').split(',').map(Number));
       }
     });
-  }
-
-  function wireFilters() {
-    var inputs = document.querySelectorAll('input.atlas-filter[data-target]');
-    for (var i = 0; i < inputs.length; i++) {
-      var input = inputs[i];
-      var table = document.getElementById(input.getAttribute('data-target'));
-      var countEl = input.parentNode
-        ? input.parentNode.querySelector('.atlas-count')
-        : null;
-      if (table) {
-        wireFilter(input, table, countEl);
-      }
-    }
-  }
-
-  // --- Wire up row clicks for every atlas table on the page ---
-
-  function wireRowClicks(viewer) {
-    var tables = document.querySelectorAll('table[data-atlas]');
-    for (var t = 0; t < tables.length; t++) {
-      (function (table) {
-        var atlasKey = table.getAttribute('data-atlas');
-        var space = table.getAttribute('data-space');
-        table.addEventListener('click', function (evt) {
-          var row = evt.target.closest ? evt.target.closest('tr[data-mni]') : null;
-          if (!row || !table.contains(row)) {
-            return;
-          }
-          viewer.jumpTo(space, atlasKey, row.getAttribute('data-mni').split(',').map(Number));
-        });
-      })(tables[t]);
-    }
+    build();
   }
 
   /**
@@ -327,8 +336,7 @@
       var p = notes[j].querySelector('p');
       if (p) {
         p.innerHTML = '<strong>Viewer could not start.</strong> ' + reason +
-          ' Try a hard refresh (Cmd/Ctrl + Shift + R). The label tables below ' +
-          'remain fully searchable.';
+          ' Try a hard refresh (Cmd/Ctrl + Shift + R).';
       }
     }
   }
@@ -341,8 +349,7 @@
       return;
     }
     var viewer = new Viewer(box);
-    wireFilters();
-    wireRowClicks(viewer);
+    wireTable(viewer);
     viewer.init();
   }
 
