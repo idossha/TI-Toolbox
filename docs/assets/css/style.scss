@@ -592,9 +592,18 @@ table {
 // rule survives future wrapper changes.
 .image-container:not(.image-row *):not(.image-row-natural *),
 .image-container-natural:not(.image-row *):not(.image-row-natural *) {
-  margin-left: auto;
-  margin-right: auto;
+  width: fit-content;
+  margin: 28px auto 32px;
   max-width: 100%;
+}
+
+// The caption takes the figure's width: width:0 keeps it out of the container's
+// shrink-to-fit width (so the image alone sets it), min-width:100% then fills it.
+.image-container em,
+.image-container-natural em {
+  width: 0;
+  min-width: 100%;
+  text-align: left;
 }
 
 // Images wrapped in a link (lightbox / full-size anchors) still centre: the
