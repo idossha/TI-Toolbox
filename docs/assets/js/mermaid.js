@@ -14,7 +14,12 @@
   s.type = 'module';
   s.textContent =
     "import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';" +
-    "mermaid.initialize({ startOnLoad: false, theme: 'neutral' });" +
-    "mermaid.run({ querySelector: 'pre.mermaid' });";
+    // htmlLabels:false draws labels as SVG <text>, which is never clipped; HTML
+    // labels sit in a <foreignObject> sized by a measurement that can come out
+    // narrower than the final render (macOS browsers), cropping the text.
+    "var font = getComputedStyle(document.body).fontFamily;" +
+    "mermaid.initialize({ startOnLoad: false, theme: 'neutral', fontFamily: font," +
+    "  htmlLabels: false, flowchart: { htmlLabels: false } });" +
+    "document.fonts.ready.then(function () { mermaid.run({ querySelector: 'pre.mermaid' }); });";
   document.head.appendChild(s);
 })();

@@ -542,6 +542,9 @@ table {
   &:hover { opacity: 0.94; }
 }
 .wiki-content img + img { margin-top: 0; }
+// An inline width (style="width: 100%; max-width: …") sizes the image by width;
+// the 500px height cap above would then squash it, so let height follow width.
+.wiki-content img[style*="width"] { max-height: none; height: auto; }
 
 .wiki-content li p { margin-bottom: 0.4em; }
 

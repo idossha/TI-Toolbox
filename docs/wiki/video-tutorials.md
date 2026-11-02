@@ -55,11 +55,7 @@ This video shows the v2 steps (an X11 server, the PyQt interface). For current s
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
-  /* Modern CSS aspect ratio (16:9) */
   aspect-ratio: 16 / 9;
-  /* Fallback for older browsers */
-  padding-bottom: 56.25%; /* 9/16 * 100% = 56.25% */
-  height: 0;
   overflow: hidden;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
