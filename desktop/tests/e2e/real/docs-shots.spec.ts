@@ -137,10 +137,6 @@ test("Optimizer Ex row and its settings dialog", async () => {
   await page.mouse.move(4, 4);
   await page.waitForTimeout(800);
   await crisp(dialog, "ex-search-settings");
-  await dialog.getByText("4 channels (mTI)", { exact: true }).click();
-  await page.waitForTimeout(800);
-  await crisp(dialog, "ex-search-settings-mti");
-  await dialog.getByText("2 channels (TI)", { exact: true }).click();
   await closeOptEditor(page);
   await page.mouse.move(4, 4);
   await page.waitForTimeout(800);

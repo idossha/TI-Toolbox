@@ -44,11 +44,6 @@ Open an Ex job's settings from its row (the settings button, or double-click the
   <em>The Ex job settings with 2 channels (TI) and bucketed electrodes.</em>
 </div>
 
-<div class="image-container" style="max-width: min(600px, 100%)">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/ex-search-settings-mti.png" alt="The Ex search dialog with 4 channels (mTI): eight electrode buckets E1± to E4± and the Carriers section with Channel current and Symmetry" style="width: 100%;">
-  <em>With 4 channels (mTI): eight buckets and the Carriers section.</em>
-</div>
-
 ## Defining the Target (ROI)
 
 The **Target** section offers three choices:
