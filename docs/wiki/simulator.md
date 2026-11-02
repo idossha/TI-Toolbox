@@ -4,7 +4,7 @@ title: Simulator
 permalink: /wiki/simulator/
 ---
 
-The Simulator computes the full FEM temporal interference field. It sits between the optimizers and the analyzer: take a montage from the montage list or from a [flex-search]({{ site.baseurl }}/wiki/flex-search/) or [ex-search]({{ site.baseurl }}/wiki/ex-search/) result, or placed by hand and simulate it here. Then, quantify the resulting field with the [Analyzer]({{ site.baseurl }}/wiki/analyzer/). It can be invoked programmatically via `run_simulation()` or through a JSON config entrypoint.
+The Simulator computes the full FEM temporal interference field. It sits between the optimizers and the analyzer: take a montage from the montage list or from a [flex-search]({{ site.baseurl }}/wiki/flex-search/) or [ex-search]({{ site.baseurl }}/wiki/ex-search/) result, or placed by hand and simulate it here. Then, quantify the resulting field with the [Analyzer]({{ site.baseurl }}/wiki/analyzer/).
 
 ## In the application
 
@@ -55,9 +55,9 @@ To simulate an [ex-search]({{ site.baseurl }}/wiki/ex-search/) result, open the 
 
 Pre-processing places every EEG net in the image on the head model, so no manual registration step is needed; the same nets serve montages, flex-search electrode mapping and leadfield generation. A row lists the nets in the subject's `m2m_<id>/eeg_positions/`.
 
-| Shipped by | Nets |
-| ---------- | ---- |
-| TI-Toolbox | `GSN-HydroCel-128`, `GSN-HydroCel-185`, `GSN-HydroCel-256`, `BioSemi-64-10-10`, `BioSemi-128-A1`, `BioSemi-256-A1` |
+| Shipped by | Nets                                                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| TI-Toolbox | `GSN-HydroCel-128`, `GSN-HydroCel-185`, `GSN-HydroCel-256`, `BioSemi-64-10-10`, `BioSemi-128-A1`, `BioSemi-256-A1`                                      |
 | SimNIBS    | `EEG10-10_UI_Jurak_2007`, `EEG10-10_Cutini_2011`, `EEG10-10_Neuroelectrics`, `EEG10-20_Okamoto_2004`, `EEG10-20_extended_SPM12`, `easycap_BC_TMS64_X21` |
 
 To add a net to a head model that already exists, such as your own MNI cap, use the [EEG caps]({{ site.baseurl }}/wiki/eeg-caps/) panel instead of re-running pre-processing.
@@ -97,7 +97,7 @@ Multipolar temporal interference (mTI) uses 8 or more electrodes: 4 or more chan
   <em>Unipolar (top, A–C) vs. multipolar (bottom, D–F) TI targeting the same deep ROI. Left: electrode montage — two channels at 8 mA each vs. four channels at 5 mA each. Middle: peak high-frequency field. Right: the amplitude-modulated (AM) envelope field that actually drives neurons. The multipolar montage trades some ROI intensity (mean 1.00 vs. 1.45 V/m) for a more focal envelope (focality 1.40 vs. 1.17) and a lower per-channel current. Adapted from <a href="https://doi.org/10.1176/appi.ajp.20250873">Albantakis &amp; Tononi 2026</a>, <i>American Journal of Psychiatry</i>.</em>
 </div>
 
-- **Configuration**: Any even number of channels, 4 or more — i.e. 8+ electrodes (capped at 26 channels)
+- **Configuration**: Any even number of channels, 4 or more — i.e. 8+ electrodes (at most 12 channels, 24 electrodes)
 - **Current Settings**: One current input per channel
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
@@ -109,7 +109,7 @@ For the envelope field math behind these quantities see [Envelope Math and Criti
 TI vs. mTI is not a setting: it is read off how many channels (electrode pairs) a montage has.
 
 - **2 channels**: standard TI
-- **4, 6, 8 … channels**: mTI, up to 26 channels
+- **4, 6, 8, 10 or 12 channels**: mTI (at most 12 channels, 24 electrodes)
 - **A single channel or an odd number of channels** is rejected: every channel needs a beating partner. The error reads "Expected an even number of electrode pairs, at least 2 (2 = TI, 4 or more = mTI)".
 
 Saved montages are kept per EEG net, with TI and mTI montages listed separately.
@@ -155,7 +155,7 @@ A carrier-only control drives the two channels of a TI montage at the **same** f
 
 Without a beat the two channel fields add coherently into one fixed field, so the carrier fields become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_rms} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert / \sqrt{2}$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
 
-- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under *Output fields*. `hf_peak` and `hf_rms` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
+- **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under _Output fields_. `hf_peak` and `hf_rms` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
 - **From Python or a JSON config**:
 
 ```python

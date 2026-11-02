@@ -5,8 +5,7 @@ permalink: /wiki/reports/
 ---
 
 Every head model, DTI extraction, simulation, flex-search and ex-search run writes one self-contained
-HTML report; an mEx-search writes none.
-Open them in **Results ▸ sub-… ▸ Reports**, or from the job in **Jobs**. They follow the app's light or
+HTML report. Open them in **Results ▸ sub-… ▸ Reports**, or from the job in **Jobs**. They follow the app's light or
 dark theme, work offline and can be shared as single files.
 
 ## The five reports

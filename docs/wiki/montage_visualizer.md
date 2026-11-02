@@ -32,18 +32,12 @@ derivatives/SimNIBS/sub-{ID}/Simulations/{montage}/
 
 Every supported net is drawn on one diagram, `resources/amv/GSN-256.png`, through one of two label-to-pixel maps:
 
-| Map          | EEG nets                                                                                                             |
-| ------------ | -------------------------------------------------------------------------------------------------------------------- |
+| Map           | EEG nets                                                                                                             |
+| ------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `GSN-256.csv` | `GSN-HydroCel-185.csv`, `GSN-HydroCel-256.csv`                                                                       |
-| `10-10.csv`  | `EEG10-10_UI_Jurak_2007.csv`, `EEG10-10_Cutini_2011.csv`, `EEG10-20_Okamoto_2004.csv`, `EEG10-10_Neuroelectrics.csv` |
+| `10-10.csv`   | `EEG10-10_UI_Jurak_2007.csv`, `EEG10-10_Cutini_2011.csv`, `EEG10-20_Okamoto_2004.csv`, `EEG10-10_Neuroelectrics.csv` |
 
 Any other net has no map, so its simulations get no PNG: the log records a warning, and the simulation report lists the channels without a cap figure. That includes caps TI-Toolbox ships (`GSN-HydroCel-128`, `BioSemi-64-10-10`, `BioSemi-128-A1`, `BioSemi-256-A1`), `easycap_BC_TMS64_X21`, `EEG10-20_extended_SPM12`, caps you added yourself, and free-hand or flex-search XYZ montages, which have no net labels.
-
-## Reading the image
-
-Channel k is made of electrodes Ek+ and Ek-. Each channel has its own colour: a ring on each of its two electrodes and an arc between them. The arc bows toward the channel's partner (channel 1 toward channel 2, channel 3 toward channel 4), so the two channels that beat together face each other.
-
-The legend in the bottom-left corner names the channels in montage order: `Channel 1`, `Channel 2`, and so on. The [simulation report]({{ site.baseurl }}/wiki/reports/) lists the same channels in the same colours.
 
 ## Calling It Directly
 
@@ -58,5 +52,3 @@ visualize_montage(
     sim_mode="U",          # "U" = one image per montage, "M" = combined image
 )
 ```
-
-ImageMagick (`convert`) is required; it is included in the TI-Toolbox container.
