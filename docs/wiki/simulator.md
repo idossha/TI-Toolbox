@@ -143,12 +143,6 @@ hf_peak and hf_rms were not saved for L_Insula; computing them from the channel 
 
 The next step finds it saved. A simulation that wrote NIfTIs (**Write NIfTI volumes**) gets the new field's NIfTIs too, in the spaces it wrote, so its NIfTIs stay one per mesh field; one that did not gets only the NIfTIs a voxel step reads. Everything is written to a hidden staging folder and moved into place, the field mesh last, so a job stopped midway leaves nothing half-written. Two exceptions, which refuse the job before it runs and say why: `hf_power_density` needs the conductivity of the original solve, which is not kept, so tick it before the run; and a carrier-only control has no `TI_max` or `TI_avg`. A simulation whose `high_Frequency/mesh/` channel meshes were deleted can no longer produce anything it did not save; NIfTIs it did save are still analysed.
 
-What each field _means_ — the beat-envelope modulation depth, the direction-averaged envelope, and the carrier fields — is documented once, under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest). `TI_max` and `TI_normal` are computed with `tit.calc` (`envelope_max`, and `envelope` along the cortical normals), `TI_avg` with `envelope_mean`.
-
-`hf_power_density` ($$p_{HF}$$, W/m³) is the absorbed (Joule) power density of the carriers, $$\tfrac{1}{2}\sum_j \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j$$, with the conductivity this job solved with: the tissue values (including any overrides) for `scalar`, and each element's DTI tensor for the anisotropic models. It is not SAR (SAR is this divided by the tissue density). It is a volume field only and is not projected to fsaverage.
-
-All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_rms` is the RMS carrier field over time ([Carrier fields]({{ site.baseurl }}/wiki/analyzer/#safety-metrics)).
-
 ## Carrier-only control (ΔF = 0) {#carrier-only-control}
 
 A carrier-only control drives the two channels of a TI montage at the **same** frequency and in phase (e.g. 15,000 / 15,000 Hz instead of 15,000 / 15,010 Hz), so there is no interference beat. Use it for carrier-only or sham-style control conditions: the tissue receives the kHz carriers without an envelope.

@@ -4,8 +4,7 @@ title: Scripting
 permalink: /wiki/scripting/
 ---
 
-Every page of the app calls the `tit` Python API. This is the whole workflow as a notebook, on the
-example subject `ernie`, run inside the container (for example from the app's Notebooks page).
+Example workflow on the freely available subject `ernie`.
 
 ### 1. Load
 

@@ -11,11 +11,11 @@ Ex-Search is the toolbox's **exhaustive** montage optimizer: it evaluates every 
 Every ex-search runs against a leadfield matrix for one subject and one EEG net. An Ex job's settings dialog opens with a **Leadfield** strip: choose an **EEG net**, and the strip shows the leadfield's size and the electrode it was computed with if it exists, or "No leadfield for this net yet" and **Generate (≈ N min)** (the estimate is for that net on this machine, one FEM solve per electrode). **Generate**, here or as **Generate leadfield** in the job's row, first asks for the electrode — **Shape**, **Dimensions** (width × height, mm) and **Gel thickness**, starting at the Simulator's defaults (ellipse, 8 × 8 mm, 1 mm gel, 2 mm rubber); the **?** beside **Electrodes** explains each — and queues the leadfield job when you click **Generate**. A row with no net yet takes the subject's first computed leadfield, or the first net when none is computed. Leadfields are 2–20 GB depending on the number of electrodes. The nets are the ones pre-processing placed on the head model (see [Available EEG Nets]({{ site.baseurl }}/wiki/simulator/#available-eeg-nets)).
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_EEG10-20_Okamoto_2004_net.png" alt="EEG 10-20 Network">
     <em>EEG 10-20 Okamoto 2004 electrode configuration - widely used standard with 32 electrodes</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_GSN256_net.png" alt="GSN 256 Network">
     <em>GSN-HydroCel 256 electrode configuration - high-density net for precise targeting</em>
   </div>
@@ -27,9 +27,9 @@ A leadfield is the field of one electrode placed at every position of the net, s
 
 ## In the application
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-page.png" alt="The Optimizer page: one job row whose Method column offers Flex or Ex, with the target region highlighted in the atlas pane" style="width: 100%; max-width: 1000px;">
-  <em>Ex-search is the <strong>Ex</strong> method on the Optimizer page (⌘2), not a page of its own; the row shown uses Flex. An Ex row with eight electrodes runs mEx.</em>
+<div class="image-container" style="max-width: min(800px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/ex-search-row.png" alt="An Optimizer job row for subject 101 with Method Ex and the EEG10-10_UI_Jurak_2007 leadfield; its second line reads Left-Hippocampus, 2 channels (TI), 2 mA, 16 montages" style="width: 100%;">
+  <em>Ex-search is the <strong>Ex</strong> method of an Optimizer job row (⌘2): pick the subject, the net/leadfield, then open the row's settings.</em>
 </div>
 
 Open an Ex job's settings from its row (the settings button, or double-click the row). The dialog has:
@@ -38,6 +38,16 @@ Open an Ex job's settings from its row (the settings button, or double-click the
 - **Target**: **Subcortical**, **Saved** or **NIfTI mask** (see [Defining the Target](#defining-the-target-roi)).
 - **Electrodes**: **Count** (**2 channels (TI)**, four electrodes, or **4 channels (mTI)**, eight), **Search space** (**Bucketed** or **All combinations**) and the electrode buckets or pool (see [Defining the Search Space](#defining-the-search-space)). The line under the section counts the electrodes, montages, current splits and iterations.
 - **Current**: **Total current**, **Step** and **Channel limit** (see [Current ratios](#current-ratios)). With 8 electrodes this section is **Carriers** instead (see [Multipolar (mTI) Mode](#multipolar-mti-mode)).
+
+<div class="image-container" style="max-width: min(600px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/ex-search-settings.png" alt="The Ex search dialog: Leadfield, Target (Subcortical, labeling.nii.gz, Left-Hippocampus), Electrodes (2 channels, Bucketed, two electrodes per bucket) and Current (2 mA total, 0.2 mA step, 1 mA channel limit)" style="width: 100%;">
+  <em>The Ex job settings with 2 channels (TI) and bucketed electrodes.</em>
+</div>
+
+<div class="image-container" style="max-width: min(600px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/ex-search-settings-mti.png" alt="The Ex search dialog with 4 channels (mTI): eight electrode buckets E1± to E4± and the Carriers section with Channel current and Symmetry" style="width: 100%;">
+  <em>With 4 channels (mTI): eight buckets and the Carriers section.</em>
+</div>
 
 ## Defining the Target (ROI)
 
@@ -96,7 +106,7 @@ The balanced default is there because an exhaustive search over every 10-10 mont
 **Total evaluations** = electrode combinations × current ratios. Each montage's two unit-current channel fields are computed once and rescaled per split — the FEM is linear, so a split costs almost nothing extra.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_combos.png" alt="Example exhaustive-search electrode combinations" style="width: 100%; max-width: 850px;">
+  <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_ex-search_combos.png" alt="Example exhaustive-search electrode combinations" style="width: 100%; max-width: 450px;">
   <em>Example candidate electrode combinations. The final search size is determined by the selected pools or buckets, symmetry constraints, and current splits.</em>
 </div>
 
@@ -140,11 +150,11 @@ Each run writes to `derivatives/SimNIBS/sub-{id}/ex-search/{run_name}/`:
 - Five PNG figures: `montage_distributions.png` (histograms of TImax, TImean, focality), `intensity_vs_focality_scatter.png`, and three EEG-map figures — `electrode_score_heatmap.png` (electrode participation across the top-50 montages: colour = summed Composite Index, size = frequency), `montage_strength_map.png` and `montage_focality_map.png` (the top-150 montages drawn as arcs on the cap, coloured by `TImean_ROI` / `Focality`, best montage highlighted). The maps need the net's EEG-position CSV (resolved like `symmetry_eeg_csv`) and are skipped with a log line otherwise; regenerate them for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir> [--eeg-csv CSV]`.
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/electrode_score_heatmap.png" alt="Electrode contribution heatmap">
     <em><code>electrode_score_heatmap.png</code> — which electrodes recur in the best montages (16,807-evaluation run)</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/montage_strength_map.png" alt="Montage strength map">
     <em><code>montage_strength_map.png</code> — top-150 montages by ROI strength</em>
   </div>
@@ -162,13 +172,15 @@ _(example output from v2.4.0)_ Top 5 of 16,807 evaluations by `Composite_Index` 
 | F7_TP7 <> F3_P3   | 1.0            | 1.0            | 0.3451    | 0.2109     | 0.1050    | 2.0091   | 0.4237          |
 | F7_TP9 <> F3_O1   | 1.0            | 1.0            | 0.3766    | 0.2103     | 0.1047    | 2.0092   | 0.4225          |
 
-![Ex-Search Distribution Analysis]({{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png)
+<div class="image-container" style="max-width: min(850px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/ex-search/ex-search_distribution.png" alt="Ex-Search Distribution Analysis">
+  <em>`montage_distributions.png` from the same run: TImax, TImean and focality across all 16,807 evaluations.</em>
+</div>
 
-_`montage_distributions.png` from the same run: TImax, TImean and focality across all 16,807 evaluations._
-
-![Ex-Search Intensity vs Focality]({{ site.baseurl }}/assets/imgs/ex-search/intensity_vs_focality_scatter.png)
-
-_`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean intensity against focality, coloured by `Composite_Index`. With ~17k candidates the Pareto front emerges along the upper-right edge — no montage improves intensity without giving up focality beyond it. Equal 1.0/1.0 mA splits populate the high-intensity end; strongly unequal splits (0.2/1.8) collapse to the low-intensity cluster on the left._
+<div class="image-container" style="max-width: min(560px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/ex-search/intensity_vs_focality_scatter.png" alt="Ex-Search Intensity vs Focality">
+  <em>`intensity_vs_focality_scatter.png`: every evaluation plotted as ROI mean intensity against focality, coloured by `Composite_Index`. With ~17k candidates the Pareto front emerges along the upper-right edge — no montage improves intensity without giving up focality beyond it. Equal 1.0/1.0 mA splits populate the high-intensity end; strongly unequal splits (0.2/1.8) collapse to the low-intensity cluster on the left.</em>
+</div>
 
 ### Symmetric example
 
@@ -181,11 +193,11 @@ _(example output from v2.4.0)_ `within_pairs`, 7 bilateral candidates per channe
 | F7_F8 <> TP7_TP8   | 0.8    | 1.2    | 0.3964    | 0.2021     | 0.0938    | 2.1540   | 0.4353          |
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_montage_strength_map.png" alt="Symmetric ex-search montage strength map">
     <em>Top bilateral montages by ROI strength</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/ex-search/symmetric_scatter.png" alt="Symmetric ex-search intensity vs focality">
     <em>Intensity vs focality, 343 evaluations</em>
   </div>
@@ -230,11 +242,11 @@ mEx writes the same file set as ex-search to `derivatives/SimNIBS/sub-{id}/m-ex-
 - The same five figures as two-channel ex-search, with four arcs per candidate on the montage maps; regenerate them for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir>`.
 
 <div class="image-row">
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/mti/mex_electrode_score_heatmap.png" alt="mex-search electrode contribution heatmap">
     <em><code>electrode_score_heatmap.png</code>, 576-candidate run</em>
   </div>
-  <div class="image-container">
+  <div class="image-container" style="max-width: min(440px, 100%)">
     <img src="{{ site.baseurl }}/assets/imgs/mti/mex_montage_strength_map.png" alt="mex-search montage strength map">
     <em><code>montage_strength_map.png</code>, four arcs per candidate</em>
   </div>
@@ -253,9 +265,10 @@ _(example output from v2.4.0)_ Bucket search with 3·3·2·2·2·2·2·2 candida
 | F7_CP5 <> F5_CP3 <> F3_P3 <> AF7_P9  | 0.4810    | 0.3043     | 0.1572    | 1.9364   | 0.5893          |
 | F7_P7 <> F5_P5 <> F3_CP1 <> F9_PO7   | 0.4699    | 0.3017     | 0.1568    | 1.9239   | 0.5804          |
 
-![mex-search intensity vs focality, 576 candidates]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_large.png)
-
-_`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits._
+<div class="image-container" style="max-width: min(560px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_large.png" alt="mex-search intensity vs focality, 576 candidates">
+  <em>`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits.</em>
+</div>
 
 **Symmetric (bilateral) search** _(example output from v2.4.0)_. With `symmetric_bucket: true` and `symmetry_pairing: "within_pairs"` only left/right-mirrored channels are enumerated: each channel's minus electrode must be the mirror of its plus electrode (F7–F8, CP5–CP6, …), so the buckets are written as left candidates in `e{k}_plus` and their mirrors in `e{k}_minus`. Five bilateral candidates per channel → 5⁴ = 625 candidates, 13.9 min (1.33 s each):
 
@@ -265,9 +278,10 @@ _`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–f
 | F7_F8 <> CP5_CP6 <> F1_F2 <> P9_P10  | 0.3920    | 0.2102     | 0.1073    | 1.9584   | 0.4117          |
 | F5_F6 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3915    | 0.2085     | 0.1057    | 1.9722   | 0.4113          |
 
-![symmetric mex-search intensity vs focality]({{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png)
-
-_Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors channel 1 onto channel 3 and channel 2 onto channel 4._
+<div class="image-container" style="max-width: min(560px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png" alt="symmetric mex-search intensity vs focality">
+  <em>Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors channel 1 onto channel 3 and channel 2 onto channel 4.</em>
+</div>
 
 **Cost.** Scoring one four-channel candidate with the joint envelope maximum of two beating pairs is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every channel carries the same **Channel current**.
 

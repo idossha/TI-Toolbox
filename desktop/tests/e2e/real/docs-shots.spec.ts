@@ -18,12 +18,12 @@
  * wide (`sips --resampleWidth 1600`) before committing. `TIT_DOCS_SHOTS_DIR` redirects the output,
  * e.g. to check selectors against the mock server without touching docs/.
  */
-import { mkdirSync, mkdtempSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { connectReal, expectPage, gotoPage, launchElectronApp, selectSubject, setTheme } from "../_helpers";
-import { analysisRows, jobRows, setAnalysisCell, setAnalysisSphere, setAnalysisSubject } from "../_jobs";
+import { analysisRows, closeOptEditor, jobRows, openOptEditor, optRows, setAnalysisCell, setAnalysisSphere, setAnalysisSubject, setOptCell } from "../_jobs";
 
 /** Dataset 000's sub-101 and its L_Insula simulation; overridable for another project. */
 const SUBJECT = process.env.TIT_DOCS_SUBJECT ?? "101";
@@ -95,6 +95,56 @@ test("Optimizer with an atlas region picked in the pane", async () => {
   await page.mouse.click(box.x + box.width / 2 - 40, box.y + box.height / 2 - 30);
   await page.waitForTimeout(1500);
   await shot("optimizer-page");
+});
+
+test("Optimizer Ex row and its settings dialog", async () => {
+  test.setTimeout(120_000);
+  await open("optimizer");
+  const row = optRows(page).first();
+  await setOptCell(page, row, "method", "Ex");
+  await row.locator('td[data-cell="net"]').getByRole("combobox").click();
+  await page.getByRole("option", { name: /EEG10-10_UI_Jurak_2007/ }).first().click();
+  // Element crops at the window's device pixels (2x here); Playwright's own crop is CSS pixels on Electron.
+  const cdp = await page.context().newCDPSession(page);
+  const crisp = async (el: Locator, name: string) => {
+    const { x, y, width, height } = (await el.boundingBox())!;
+    const { data } = await cdp.send("Page.captureScreenshot", { clip: { x, y, width, height, scale: 1 } });
+    writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(data, "base64"));
+  };
+  const dialog = await openOptEditor(page, row);
+  await dialog.getByRole("radio", { name: "Subcortical", exact: true }).click();
+  await dialog.locator(".field", { hasText: "Volume atlas" }).first().locator(".combobox-trigger").click();
+  await page.getByPlaceholder("Search atlases…").fill("labeling.nii.gz");
+  await page.getByRole("option", { name: "labeling.nii.gz", exact: true }).click();
+  await dialog.locator(".field", { hasText: "Region(s)" }).first().getByRole("combobox").click();
+  await page.getByPlaceholder(/Filter regions…|Search…/).fill("Hippocampus");
+  await page.getByRole("option", { name: "Left-Hippocampus", exact: true }).click();
+  await page.getByTestId("roi-region-done").click();
+  for (const [bucket, electrodes] of [
+    ["E1+", ["F3", "F7"]],
+    ["E1-", ["P3", "P7"]],
+    ["E2+", ["F4", "F8"]],
+    ["E2-", ["P4", "P8"]],
+  ] as const) {
+    await dialog.locator(".field", { hasText: bucket }).first().getByRole("combobox").click();
+    const list = page.getByRole("dialog").filter({ hasText: `${bucket} — choose electrodes` });
+    for (const e of electrodes) {
+      await list.getByPlaceholder("Filter electrodes…").fill(e);
+      await list.getByRole("option", { name: e, exact: true }).click();
+    }
+    await list.getByRole("button", { name: "Done" }).click();
+  }
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(800);
+  await crisp(dialog, "ex-search-settings");
+  await dialog.getByText("4 channels (mTI)", { exact: true }).click();
+  await page.waitForTimeout(800);
+  await crisp(dialog, "ex-search-settings-mti");
+  await dialog.getByText("2 channels (TI)", { exact: true }).click();
+  await closeOptEditor(page);
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(800);
+  await crisp(row.locator("xpath=ancestor::table[1]"), "ex-search-row");
 });
 
 test("Simulator with a montage drawn on the head", async () => {
