@@ -33,11 +33,13 @@ wiki:
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
     - { title: Analyzer, url: /wiki/analyzer/ }
-    - { title: Notebooks, url: /wiki/notebooks/ }
+    - title: Notebooks
+      url: /wiki/notebooks/
+      children:
+        - { title: Scripting, url: /wiki/scripting/ }
     - { title: Results, url: /wiki/results/ }
     - { title: Viewer, url: /wiki/visualizers/ }
     - { title: Jobs, url: /wiki/jobs/ }
-    - { title: Scripting, url: /wiki/scripting/ }
     - { title: Example Data, url: /wiki/example-data/ }
     - { title: AI Assistant, url: /wiki/ai-assistant/ }
     - { title: Telemetry & Privacy, url: /wiki/telemetry/ }

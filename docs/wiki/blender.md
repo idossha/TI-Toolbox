@@ -31,27 +31,6 @@ Exports are written under `derivatives/ti-toolbox/visual_exports/sub-<id>/`.
 
 Missing inputs produce a preview message; the preview does not substitute another subject.
 
-## Rendering environment
-
-Montage preparation runs in the scientific SimNIBS environment with NumPy 2.3.5. Scene
-creation and rendering use pinned standalone Blender 4.4.3 in a separate background process,
-so Blender's Python dependencies do not downgrade scientific NumPy. The montage mesh lookup
-follows the canonical project mesh location.
-
-### Full-net montage memory
-
-A montage export reserves **16 GiB of container memory**, whether it places the full net or
-only the montage electrodes; a full-net montage can need about that much. Give Docker at least
-20 GB (**Docker Desktop ▸ Settings ▸ Resources ▸ Memory**) and restart TI-Toolbox after changing
-it. With less, the job does not wait forever: it runs alone once nothing else is running, and can
-run out of memory. The 16 GiB is a conservative reservation, **not an uncapped measured peak**;
-actual demand depends on the scene. Vector, region and sub-cortical exports reserve 2 GiB.
-
-## Overview
-
-- **Purpose**: Export 3D assets in formats compatible with Blender, CAD software, and other 3D modeling tools to enable better visualization and presentation of simulation results.
-- **Outputs**: PLY surface meshes, STL geometry, PLY vector clouds, electrode placements (.blend/.glb), skin surfaces, and sub-cortical structures stored under the TI-Toolbox derivatives tree.
-
 ## Supported Modes
 
 ### Cortical Regions
@@ -85,22 +64,19 @@ This mode exports cortical surface regions defined by anatomical atlases as 3D m
 </div>
 
 **What is produced:**
+
 - **STL files**: Binary STL format containing only geometry (no color information). These are lightweight files suitable for CAD software, 3D printing, or any workflow that doesn't require color mapping.
 - **PLY files**: PLY format with embedded color information. Each region is color-mapped according to the field values (e.g., `TI_max`) from the simulation mesh. These files preserve both geometry and field data for visualization in Blender or other 3D tools.
 
-**Atlas options:**
-- The app offers the DK40 and a2009s atlases; HCP_MMP1 is available from the Python API (`RegionConfig(atlas="HCP_MMP1")`).
-- Select individual cortical regions to export. With no selection the app exports only the whole gray matter (GM) surface; from the Python API, an empty `regions` list exports every region of the atlas.
-- The app always exports the whole GM surface as a single mesh file (`skip_whole_gm=True` skips it from the Python API).
-
 **Output structure** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/<simulation>/`):
+
 - STL: `stl/cortical_stls/regions/<region>.stl` and `stl/cortical_stls/whole_gm.stl`.
 - PLY: `ply/cortical_plys/regions/<region>.ply` and `ply/cortical_plys/whole_gm.ply`.
 - The app always keeps the intermediate `.msh` files of the PLY export for audit trails and debugging: `ply/meshes/<region>_region.msh` and `ply/whole_gm.msh`.
 
 ### Field Vectors
 
-This mode exports electric field vectors from TDCS simulations as arrow clouds in PLY format. The vectors represent the electric field direction and magnitude at sampled points in the brain.
+This mode exports electric field vectors from each channel's simulation as arrow clouds in PLY format. The vectors represent the electric field direction and magnitude at sampled points in the brain.
 
 <div class="carousel-container">
   <div class="carousel-wrapper">
@@ -113,39 +89,39 @@ This mode exports electric field vectors from TDCS simulations as arrow clouds i
         <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_vectors_close.png" alt="Close-up Vector Field Visualization">
         <p>Close-up view of the vector field, highlighting individual arrow placement and detail</p>
       </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/blender/visual_exporter_rgb_vectors.png" alt="RGB Vector Visualization">
-        <p>RGB color-coded vectors showing CH1 (red), CH2 (blue), TI (green), TI_sum (yellow), and TI_normal (cyan) fields</p>
-      </div>
     <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
     <button class="carousel-btn next" onclick="changeSlide(this, 1)">&#10095;</button>
     </div>
     <div class="carousel-dots">
       <span class="dot active" onclick="currentSlide(this, 0)"></span>
       <span class="dot" onclick="currentSlide(this, 1)"></span>
-      <span class="dot" onclick="currentSlide(this, 2)"></span>
     </div>
   </div>
 </div>
 
 **What is produced:**
-- **CH1 (Channel 1)**: Vector field from the first TDCS electrode configuration. Represents the electric field distribution (E1) when current flows through channel 1. **Color**: Red (RGB: 255, 0, 0) in RGB mode.
-- **CH2 (Channel 2)**: Vector field from the second TDCS electrode configuration. Represents the electric field distribution (E2) when current flows through channel 2. **Color**: Blue (RGB: 0, 0, 255) in RGB mode.
-- **TI (Temporal Interference)**: Modulation amplitude vectors representing the temporal interference pattern when two electric fields with slightly different frequencies interfere. The TI vector indicates both the spatial direction of maximum envelope modulation and the magnitude of maximum envelope amplitude (2 × effective amplitude). Calculated with `tit.calc.envelope_max(fields, return_direction=True)` (Grossman et al. 2017; any number of channels), the length being `TI_max` and the direction that of the maximum, when two sinusoidal fields $$\mathbf{E}_1(t)$$ and $$\mathbf{E}_2(t)$$ create a beating pattern. **Color**: Green (RGB: 0, 255, 0) in RGB mode.
-- **TI_sum**: Optional output representing the vector addition of CH1 and CH2, $$\mathbf{E}_1 + \mathbf{E}_2$$. This is the direct vector sum of the two electric field vectors, useful for visualizing the combined field distribution. **Color**: Yellow (RGB: 255, 255, 0) in RGB mode.
-- **TI_normal**: Optional output: at each face, the TI envelope along the cortical surface normal, drawn along the outward normal (out of the cortex). It is the simulation's `TI_normal` quantity (`tit.calc.envelope` of every channel field along the normal), not the projection of the TI vector onto the normal, which generally differs. This is particularly useful for understanding stimulation perpendicular to the cortex, as it isolates the modulation along the direction orthogonal to the gray matter surface. **Color**: Cyan (RGB: 0, 255, 255) in RGB mode.
+
+- **CH1, CH2** — the first two channels' electric fields in V/m (red, blue), optional.
+- **TI** (`mTI` for four channels) — the TI_max vector: its length is TI_max over all channels and it points along the direction of maximum modulation (green).
+- **TI_sum** — the vector sum of all channel fields (E1 + E2 for two channels) (yellow), optional.
+- **TI_normal** — the TI envelope along the cortical normal, drawn outward (cyan), optional.
+
+For what each field means, see [Analyzer › Field quantities]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
 
 **Vector properties:**
+
 - Each arrow's direction represents the electric field direction at that point.
 - Arrow length is scaled by the field magnitude (configurable via length scale parameter).
 - Colors can be mapped using RGB mode (fixed colors per vector type: CH1=red, CH2=blue, TI=green, TI_sum=yellow, TI_normal=cyan) or magnitude-based scaling (magscale) to visualize field intensity across a blue-green-red gradient.
 - Vector width and anchor point (tail or head) are customizable for visualization clarity.
 
 **TI vs mTI modes:**
-- **TI mode**: Uses 2 TDCS meshes (CH1 and CH2) to compute standard TI vectors.
-- **mTI mode**: Uses 4 TDCS meshes (CH1, CH2, CH3, CH4) to compute multi-channel TI vectors, enabling more complex stimulation patterns.
+
+- **TI mode**: Uses 2 channel meshes (CH1 and CH2) to compute standard TI vectors.
+- **mTI mode**: Uses 4 channel meshes (CH1, CH2, CH3, CH4) to compute multi-channel TI vectors, enabling more complex stimulation patterns.
 
 **Sampling options:**
+
 - Configure the number of vectors to sample (default 10,000 in the app, 100,000 in the Python API) or use all nodes for maximum detail.
 - When using the maximum sample count, the script will produce a vector on every node of the given surface mesh. This is an expensive process that requires a large amount of memory and can take multiple hours for all vectors to be produced.
 - Random seed controls reproducibility of sampling patterns.
@@ -171,6 +147,8 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
   <div class="glb-viewer">
     <model-viewer
       src="{{ site.baseurl }}/assets/imgs/blender/electrodes_GSN-HydroCel-185.glb"
+      poster="{{ site.baseurl }}/assets/imgs/blender/electrodes_GSN-HydroCel-185_poster.webp"
+      loading="lazy"
       alt="GSN-HydroCel-185 electrode placement example"
       camera-controls
       auto-rotate
@@ -184,11 +162,13 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 </div>
 
 **What is produced** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/montage_publication/`):
+
 - **`<id>_<simulation>_montage_publication.blend`**: the publication scene with scalp, grey matter, electrode objects and text labels, sensible cameras, lighting conditions and material transparency.
 - **`<id>_electrodes_<net>.blend`** and **`<id>_electrodes_<net>.glb`**: the electrode placement on the scalp; the GLB (GLTF binary) is for web-based 3D viewers or other applications.
 - **`scalp.stl`** and **`gm.stl`**: the extracted scalp and grey-matter surfaces, for reference.
 
 **Electrode configuration:**
+
 - The EEG net and the montage's channels come from the selected simulation.
 - **Show only montage electrodes** places only the montage's electrodes; otherwise the whole net is placed.
 - **Electrode diameter** and **Electrode height** size the electrode cylinders (defaults 10 mm and 6 mm).
@@ -198,17 +178,20 @@ This mode creates 3D electrode placements on the scalp surface using Blender for
 This mode extracts sub-cortical structures from NIfTI segmentation files and converts them to 3D mesh formats. It can extract specific anatomical regions by label or export the entire segmentation volume.
 
 **What is produced** (under `derivatives/ti-toolbox/visual_exports/sub-<id>/sub-cortical/`):
+
 - **STL files**: Binary STL format geometry files suitable for CAD software and 3D printing
 - **MSH files**: SimNIBS mesh format for compatibility with simulation workflows
 - **PLY files**: the same mesh coloured by a simulation field (`TI_max` by default), written when a simulation is selected; its subject-space field volume is written from the simulation's field mesh first if the simulation did not save it
 - **NIfTI files**: Copied segmentation files for reference
 
 **Segmentation options:**
+
 - Extract specific anatomical labels (e.g., thalamus: 10,49) or export the entire volume
 - Optional cleaning of small disconnected components to reduce mesh complexity
 - Automatic label extraction from FreeSurfer or other segmentation atlases
 
 **Input sources:**
+
 - Default: `m2m_<subject>/segmentation/labeling.nii.gz` (the charm segmentation)
 - Custom: Any NIfTI file containing labeled anatomical regions
 
@@ -218,6 +201,8 @@ This can be incoporated into other visualization to produce images and animation
   <div class="glb-viewer">
     <model-viewer
       src="{{ site.baseurl }}/assets/imgs/blender/ernie_electrodes_GSN-HydroCel-256_subcor.glb"
+      poster="{{ site.baseurl }}/assets/imgs/blender/ernie_electrodes_GSN-HydroCel-256_subcor_poster.webp"
+      loading="lazy"
       alt="GSN-HydroCel-185 electrode placement example"
       camera-controls
       auto-rotate
@@ -292,7 +277,6 @@ config = RegionConfig(
 )
 run_regions(config)
 ```
-
 
 ## Tips and troubleshooting
 
@@ -376,4 +360,3 @@ Your mesh should now display the color-mapped field data from your simulation. T
 **Note**: If your PLY file uses a different attribute name for colors, replace `Col` in step 4 with the appropriate attribute name. You can check available attributes by selecting the mesh and viewing the **Geometry Nodes** or **Mesh Data** properties.
 
 <script type="module" src="https://unpkg.com/@google/model-viewer@4.3.1/dist/model-viewer.min.js" integrity="sha384-cprcVQt7wbUl0xngF3PGP6yBB7n4/t+4AoAMG9biiMCGFiWOdzUH10Ie2COTqFNW" crossorigin="anonymous"></script>
-

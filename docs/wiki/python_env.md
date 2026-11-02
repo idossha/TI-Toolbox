@@ -9,7 +9,7 @@ bundled interpreter, and it is where the `tit` package is installed — every si
 optimization and analysis runs under it.
 
 Where you type Python — the **Notebooks** page, or `docker exec` into the container from your own
-terminal — is covered under [Where scripts run]({{ site.baseurl }}/wiki/scripting/#where-scripts-run) on the Scripting page.
+terminal — is shown on the [Scripting]({{ site.baseurl }}/wiki/scripting/) page.
 A run page's **Terminal** tab is a read-only job log, not a shell. Nothing is installed on your
 host: the science needs SimNIBS, which is in the image.
 
@@ -32,7 +32,7 @@ If you want to add a package for a new feature, follow the steps below.
   process with its own Python environment; do not install `bpy` into SimNIBS or downgrade
   scientific NumPy to satisfy Blender. See [Blender Integration]({{ site.baseurl }}/wiki/blender/).
   See the
-  [full-net montage memory guidance]({{ site.baseurl }}/wiki/blender/#full-net-montage-memory)
+  [full-net montage memory guidance]({{ site.baseurl }}/wiki/blender/)
   before allocating container resources.
 
 - **Script executions**: Inside the container, run scripts with `simnibs_python script.py`, not `python`.
