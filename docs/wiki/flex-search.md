@@ -27,8 +27,10 @@ For scripting, the same form is `FlexConfig`; see [Scripting]({{ site.baseurl }}
 
 Flex-search is the **Flex** method on the **Optimizer** page (⌘2).
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-page.png" alt="The Optimizer page: a Flex job for subject 101 with lh.rostralmiddlefrontal from DK40 as the target, highlighted in the atlas pane" style="width: 100%; max-width: 1000px;">
-<em>The Optimizer. Flex is a <strong>method</strong> in a job row, not a page of its own; the atlas in the pane is the ROI you are choosing.</em>
+<div class="image-container" style="max-width: min(800px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/flex-search-row.png" alt="An Optimizer job row for subject 101 with Method Flex, Optimised positions and the Threshold-based focality goal; its second line reads lh.rostralmiddlefrontal · DK40, goal focality (adaptive), 2 channels, 1 mA, ratio 1:1" style="width: 100%;">
+  <em>A Flex job row: subject, method, net (or optimised positions) and goal; the second line summarises the target and search.</em>
+</div>
 
 A Flex job row has a **Target** and four form sections:
 
@@ -36,6 +38,16 @@ A Flex job row has a **Target** and four form sections:
 - **Electrodes**: current, shape, size, gel, minimum distance and the current-ratio search.
 - **Solver**: differential-evolution settings, conductivity model and the valid skin region.
 - **After the search**: which simulations run on the winning placement.
+
+<div class="image-container" style="max-width: min(600px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/flex-search-settings-target.png" alt="The Flex search dialog, top half: Target (Cortical, DK40, L rostralmiddlefrontal) and Objective (Threshold-based focality, max_TI, Non-ROI everything else, Adaptive thresholds with 20 % non-ROI and 80 % ROI share)" style="width: 100%;">
+  <em>The Flex job settings: Target and Objective, with a focality goal.</em>
+</div>
+
+<div class="image-container" style="max-width: min(600px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/flex-search-settings-solver.png" alt="The Flex search dialog, bottom half: Electrodes (current, shape, diameter, gel thickness, min distance, current ratio), Solver (differential-evolution and anisotropy settings, skin region) and After the search" style="width: 100%;">
+  <em>The same dialog, continued: Electrodes, Solver and After the search.</em>
+</div>
 
 ## Choosing the target
 
@@ -75,7 +87,7 @@ Under **Threshold mode**:
 - **Multi-threshold**: one Mean TImax calibration run, then one focality run per ROI × non-ROI pair of percentages. Defaults: ROI 80, non-ROI 20, 30, 40 (three runs). The form shows the number of combinations and the total cost.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 70%; max-width: 400px;">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/focality_thresholds.png" alt="Focality Threshold Analysis" style="width: 100%; max-width: 620px;">
 </div>
 
 **Threshold choice changes the result.** Relative thresholds (50 % of the peak from a first Mean TImax pass) gave 75 % higher focality than fixed 0.1/0.3 V/m thresholds, while 80 % thresholds reduced it by 37 %. _Data from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
@@ -130,29 +142,14 @@ The split is searched **jointly with placement**: every candidate is scored at i
 
 **When to use it:** when placement is constrained (few or fixed electrodes), or to confirm 1:1. Otherwise leave it off (the default).
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/flex-search/flex-search_current-ratio.png" alt="Current split versus placement" style="width: 100%; max-width: 900px;">
-</div>
-
-**Current split versus placement.** (A) The best 1:1 montage peaks at 1:1, while a weaker montage peaks off 1:1. (B) The gain of searching the split together with placement, over the best 1:1 montage, at 4 mA total.
-
 ## Solver
-
-| Control                | App default | Notes                                                        |
-| ---------------------- | ----------- | ------------------------------------------------------------ |
-| **Optimization runs**  | 1           | Independent runs (1–20); the best valid one is kept          |
-| **Max iterations**     | 500         | Generations of differential evolution                        |
-| **Population size**    | 13          |                                                              |
-| **Tolerance**          | 0.1         | Convergence tolerance                                        |
-| **Mutation (min, max)**| 0.01, 0.5   |                                                              |
-| **Recombination**      | 0.7         |                                                              |
 
 The cost line under the section reads `population × generations [× runs] [× sweeps] ≈ N solves`. CPU use is set globally under **Settings ▸ Project ▸ Execution** (CPU limit), not per job.
 
 Several runs explore different starting populations; each run's best value is listed in `flex_meta.json` (`result.all_values`, with `result.best_run_index` for the winner) and gets its own row in the report.
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization Strategy" style="width: 50%; max-width: 400px;">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/multi-start.png" alt="Multi-Start Optimization Strategy" style="width: 100%; max-width: 620px;">
 </div>
 
 **Multiple runs help modestly**: the best of several independent runs improved mean TImax by 4.18 % over a single run, at a proportional cost. _Data from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._

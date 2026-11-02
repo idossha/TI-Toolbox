@@ -143,6 +143,46 @@ test("Optimizer Ex row and its settings dialog", async () => {
   await crisp(row.locator("xpath=ancestor::table[1]"), "ex-search-row");
 });
 
+test("Optimizer Flex row and its settings dialog", async () => {
+  test.setTimeout(120_000);
+  await open("optimizer");
+  const row = optRows(page).first();
+  await setOptCell(page, row, "method", "Flex");
+  await setOptCell(page, row, "goal", "Threshold-based focality");
+  // Tall enough that the whole dialog lays out without an inner scroll.
+  await page.setViewportSize({ width: 1900, height: 2600 });
+  const cdp = await page.context().newCDPSession(page);
+  const clip = async (top: Locator, bottom: Locator, box: Locator, name: string) => {
+    const b = (await box.boundingBox())!;
+    const y0 = (await top.boundingBox())!.y;
+    const y1 = (await bottom.boundingBox())!;
+    const { data } = await cdp.send("Page.captureScreenshot", {
+      clip: { x: b.x, y: y0, width: b.width, height: y1.y + y1.height - y0, scale: 1 },
+    });
+    writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(data, "base64"));
+  };
+  const dialog = await openOptEditor(page, row);
+  await dialog.locator(".field", { hasText: "Atlas" }).first().locator(".combobox-trigger").click();
+  await page.getByPlaceholder("Search atlases…").fill("DK40");
+  await page.getByRole("option", { name: "DK40", exact: true }).click();
+  await dialog.locator(".field", { hasText: "Region(s)" }).first().getByRole("combobox").click();
+  await page.getByPlaceholder(/Filter regions…|Search…/).fill("rostralmiddlefrontal");
+  await page.getByRole("option", { name: "L · rostralmiddlefrontal" }).click();
+  await page.getByTestId("roi-region-done").click();
+  for (const t of await dialog.locator('.form-section-header-trigger[aria-expanded="false"]').all()) await t.click();
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(800);
+  const section = (id: string) => dialog.locator(`[data-fill-section="${id}"]`);
+  await clip(dialog, section("Objective"), dialog, "flex-search-settings-target");
+  await clip(section("Electrodes"), dialog, dialog, "flex-search-settings-solver");
+  await closeOptEditor(page);
+  await page.setViewportSize({ width: 1900, height: 1000 });
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(800);
+  const table = row.locator("xpath=ancestor::table[1]");
+  await clip(table, table, table, "flex-search-row");
+});
+
 test("Simulator with a montage drawn on the head", async () => {
   test.setTimeout(120_000);
   await open("simulator");

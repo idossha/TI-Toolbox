@@ -37,7 +37,7 @@ Open an Ex job's settings from its row (the settings button, or double-click the
 - **Leadfield**: the EEG net and its leadfield (see [above](#prerequisites-leadfield-and-eeg-net)).
 - **Target**: **Subcortical**, **Saved** or **NIfTI mask** (see [Defining the Target](#defining-the-target-roi)).
 - **Electrodes**: **Count** (**2 channels (TI)**, four electrodes, or **4 channels (mTI)**, eight), **Search space** (**Bucketed** or **All combinations**) and the electrode buckets or pool (see [Defining the Search Space](#defining-the-search-space)). The line under the section counts the electrodes, montages, current splits and iterations.
-- **Current**: **Total current**, **Step** and **Channel limit** (see [Current ratios](#current-ratios)). With 8 electrodes this section is **Carriers** instead (see [Multipolar (mTI) Mode](#multipolar-mti-mode)).
+- **Current**: **Total current**, **Step** and **Channel limit** (see [Current ratios](#current-ratios)). With 8 electrodes this section is **Carriers** instead.
 
 <div class="image-container" style="max-width: min(600px, 100%)">
   <img src="{{ site.baseurl }}/assets/imgs/v3/ex-search-settings.png" alt="The Ex search dialog: Leadfield, Target (Subcortical, labeling.nii.gz, Left-Hippocampus), Electrodes (2 channels, Bucketed, two electrodes per bucket) and Current (2 mA total, 0.2 mA step, 1 mA channel limit)" style="width: 100%;">
@@ -79,7 +79,7 @@ Under the hood, ROI resolution OR-folds a mixed list of CSV centers, whole NIfTI
 
 ### Symmetric (Bilateral) Constraint
 
-Two-channel bucketed searches can be restricted to left/right-mirrored montages with `symmetric_bucket: true`, from Python or a JSON config only: the app has no control for it and always sends `false`. In the app, symmetry is offered for mEx only ([Multipolar (mTI) Mode](#multipolar-mti-mode)). The mirror map is read from the EEG-position CSV (`symmetry_eeg_csv`; inferred from the leadfield name `{subject}_leadfield_{net}.hdf5` when omitted). Two pairings:
+Two-channel bucketed searches can be restricted to left/right-mirrored montages with `symmetric_bucket: true`, from Python or a JSON config only: the app has no control for it and always sends `false`. In the app, symmetry is offered for mEx only. The mirror map is read from the EEG-position CSV (`symmetry_eeg_csv`; inferred from the leadfield name `{subject}_leadfield_{net}.hdf5` when omitted). Two pairings:
 
 - `symmetry_pairing: "within_pairs"` — each channel is bilateral: `E1-` must be the mirror of `E1+` and `E2-` of `E2+` (e.g. `F7_F8 <> TP7_TP8`). Write left candidates in the `+` buckets and their mirrors in the `-` buckets.
 - `symmetry_pairing: "cross_pairs"` — channel 2 is the mirror of channel 1: `E2+ = mirror(E1+)`, `E2- = mirror(E1-)` (e.g. `F5_TP7 <> F6_TP8`).
@@ -105,32 +105,22 @@ The balanced default is there because an exhaustive search over every 10-10 mont
   <em>Example candidate electrode combinations. The final search size is determined by the selected pools or buckets, symmetry constraints, and current splits.</em>
 </div>
 
-## Running a Search
-
-The app runs each Ex job as the module below in the container; the same works from a shell:
-
-```
-simnibs_python -m tit.opt.ex config.json
-```
-
-All computation is in-memory (no intermediate mesh files), with constant memory footprint regardless of combination count, real-time progress and ETA tracking, and graceful interruption: SIGINT/SIGTERM sets a stop flag that breaks after the current candidate, and partial results are still written. Candidates are spread over worker processes (`n_jobs`, default the **CPU limit** from **Settings ▸ Project ▸ Execution**, 70 % of the cores; larger values are capped at it). Run time ranges from minutes to hours depending on leadfield size and combination count.
-
 ## Outputs
 
 ### Metrics
 
 Every evaluated candidate is scored on the closed-form two-channel TI envelope (`TI_max`; the math lives on the [Analyzer page]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values)). The ROI metrics use every leadfield element in the region, grey and white matter alike (the leadfield covers both); only `TImean_GM` is restricted to grey matter:
 
-| Key               | Meaning                                                 |
-| ----------------- | ------------------------------------------------------- |
-| `TImax_ROI`       | Max over ROI elements                                   |
-| `TImean_ROI`      | Volume-weighted mean over ROI elements                  |
-| `TImean_GM`       | Volume-weighted mean over GM elements (SimNIBS tag `2`) |
-| `Focality`        | `TImean_ROI / TImean_GM`                                |
-| `Composite_Index` | `TImean_ROI × Focality`                                 |
-| `HFpeak_Focality`     | `Focality` computed on `hf_peak`, the peak carrier field of every channel |
-| `TI_Selectivity`  | `Focality / HFpeak_Focality`                                |
-| `n_elements`      | ROI element count                                       |
+| Key               | Meaning                                                                   |
+| ----------------- | ------------------------------------------------------------------------- |
+| `TImax_ROI`       | Max over ROI elements                                                     |
+| `TImean_ROI`      | Volume-weighted mean over ROI elements                                    |
+| `TImean_GM`       | Volume-weighted mean over GM elements (SimNIBS tag `2`)                   |
+| `Focality`        | `TImean_ROI / TImean_GM`                                                  |
+| `Composite_Index` | `TImean_ROI × Focality`                                                   |
+| `HFpeak_Focality` | `Focality` computed on `hf_peak`, the peak carrier field of every channel |
+| `TI_Selectivity`  | `Focality / HFpeak_Focality`                                              |
+| `n_elements`      | ROI element count                                                         |
 
 `Focality` is the same ratio as the analyzer's `roi_focality`, but averaged over the leadfield's volume elements (grey and white matter, volume-weighted) rather than the analyzer's surface nodes or voxels, so the two values differ.
 
@@ -199,96 +189,6 @@ _(example output from v2.4.0)_ `within_pairs`, 7 bilateral candidates per channe
 </div>
 
 ---
-
-## Multipolar (mTI) Mode
-
-Set **Electrodes ▸ Count ▸ 4 channels (mTI)** to run a multipolar exhaustive search (mEx) instead of the standard two-channel one: four channels (eight electrodes), scored with the same verified joint mTI envelope the simulator uses — explicitly **not** a recursive envelope-of-envelopes (see [Envelope Math]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page for the $$K$$-pair modulation-depth math, and [Multipolar Mode on the Simulator page]({{ site.baseurl }}/wiki/simulator/#multipolar-mode-mti) for how mTI montages are simulated). From Python it is `run_m_ex_search(MExConfig)`; see [Scripting]({{ site.baseurl }}/wiki/scripting/).
-
-### mTI in the Optimizer
-
-Choose the **Ex** method for a job row, open its settings and select **4 channels (mTI)**
-under **Electrodes ▸ Count**. The default **2 channels (TI)** uses four electrodes. Selecting mTI:
-
-- Uses eight electrode buckets, **E1+ … E4-**, from the leadfield's EEG net. mEx is bucket-only in the app; **All combinations** is offered for TI only.
-- Replaces **Current** with **Carriers**: **Channel current**, the current of each of the four channels (0.1–10 mA, default 2.0 mA per channel, i.e. 8 mA in total), and **Symmetry ▸ Force left/right symmetry** (off by default), which enables **Symmetry pairing**: **Within each channel** or **Across channels (E1↔E3, E2↔E4)**.
-- Hides **Combine selected ROIs into one target**: the multipolar run path has no combined mode, so several selected saved ROIs run one search each. Saved spheres, subcortical regions and NIfTI masks all remain available as targets.
-- Submits an `mex` job. Follow its Terminal log or stop it from Jobs.
-
-### Candidate enumeration
-
-- **Bucket mode** (the app's mode): the Cartesian product of the eight buckets, keeping only montages whose eight electrodes are distinct.
-- **Pool mode** (Python or JSON only, `PoolElectrodes`): every 8-electrode subset, with one representative per group of montages the envelope scores identically (channels swapped within a beating pair, the two pairs swapped, and polarity flips that leave the envelope unchanged). A pool of exactly 8 electrodes yields 630 candidates, not $$8! = 40{,}320$$.
-- **Symmetric bucket search** (**Force left/right symmetry**, `symmetric_bucket=True`, bucket mode only): only montages whose channels mirror left/right, using a mirror map built from the net's EEG-position CSV (reflecting the x-coordinate across the midline). Two pairing schemes:
-  - **Within each channel** (`within_pairs`, default): each channel's Ek- electrode must mirror its Ek+ electrode.
-  - **Across channels** (`cross_pairs`): channel 3 must mirror channel 1 and channel 4 must mirror channel 2 (E3+ mirrors E1+, E3- mirrors E1-, and so on). This replaces the within-channel rule; it does not add to it.
-
-  Either way one electrode of each mirrored couple fixes the other, so for $$N$$ candidates per bucket the search shrinks from about $$N^8$$ to about $$N^4$$ montages.
-
-### Scoring
-
-Each candidate's four channel fields come from the leadfield at the channel current, and the score is their joint modulation depth (both beating pairs at once). The metrics are those of two-channel ex-search ([Metrics](#metrics) above), with all four channels at the same current. Targets are resolved as in two-channel ex-search.
-
-### Outputs
-
-mEx writes the same file set as ex-search to `derivatives/SimNIBS/sub-{id}/m-ex-search/{run_name}/`:
-
-- `run_config.json` — provenance snapshot of the search configuration.
-- `final_output.csv` — one row per evaluated candidate, in **enumeration order** (not sorted), with the same columns as two-channel ex-search; the `Montage` cell lists the four channels, Ek+ then Ek- (`F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9`). All four channels carry the same current, so the two current columns stand for all four.
-- The same five figures as two-channel ex-search, with four arcs per candidate on the montage maps; regenerate them for an existing run with `simnibs_python -m tit.opt.ex.results <run_dir>`.
-
-<div class="image-row">
-  <div class="image-container" style="max-width: min(440px, 100%)">
-    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_electrode_score_heatmap.png" alt="mex-search electrode contribution heatmap">
-    <em><code>electrode_score_heatmap.png</code>, 576-candidate run</em>
-  </div>
-  <div class="image-container" style="max-width: min(440px, 100%)">
-    <img src="{{ site.baseurl }}/assets/imgs/mti/mex_montage_strength_map.png" alt="mex-search montage strength map">
-    <em><code>montage_strength_map.png</code>, four arcs per candidate</em>
-  </div>
-</div>
-
-Interruption and the failure on an empty candidate set behave exactly as in two-channel ex-search.
-
-### Example run (sub-ernie, v2.4.0)
-
-_(example output from v2.4.0)_ Bucket search with 3·3·2·2·2·2·2·2 candidate electrodes for `e1_plus` … `e4_minus` → **576 four-channel candidates**, Jurak 10-10 leadfield, 5 mm ROI at MNI (−38, 5, 0), `current_mA = 1.0`. Wall time 13.0 min on 12 cores (1.35 s per candidate).
-
-| Best montages (by `Composite_Index`) | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
-| ------------------------------------ | --------- | ---------- | --------- | -------- | --------------- |
-| F7_P7 <> F5_CP3 <> F3_P3 <> AF7_P9   | 0.4769    | 0.3074     | 0.1571    | 1.9573   | 0.6017          |
-| F7_TP7 <> F5_CP3 <> F3_P3 <> AF7_P9  | 0.4754    | 0.3009     | 0.1532    | 1.9641   | 0.5911          |
-| F7_CP5 <> F5_CP3 <> F3_P3 <> AF7_P9  | 0.4810    | 0.3043     | 0.1572    | 1.9364   | 0.5893          |
-| F7_P7 <> F5_P5 <> F3_CP1 <> F9_PO7   | 0.4699    | 0.3017     | 0.1568    | 1.9239   | 0.5804          |
-
-<div class="image-container" style="max-width: min(560px, 100%)">
-  <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_large.png" alt="mex-search intensity vs focality, 576 candidates">
-  <em>`intensity_vs_focality_scatter.png`: the 576 candidates trace the intensity–focality trade-off; the isolated low-intensity cluster on the left is the `T7`-anode family, the frontier on the upper right is where the `Composite_Index` maximum sits.</em>
-</div>
-
-**Symmetric (bilateral) search** _(example output from v2.4.0)_. With `symmetric_bucket: true` and `symmetry_pairing: "within_pairs"` only left/right-mirrored channels are enumerated: each channel's minus electrode must be the mirror of its plus electrode (F7–F8, CP5–CP6, …), so the buckets are written as left candidates in `e{k}_plus` and their mirrors in `e{k}_minus`. Five bilateral candidates per channel → 5⁴ = 625 candidates, 13.9 min (1.33 s each):
-
-| Best bilateral montages              | TImax_ROI | TImean_ROI | TImean_GM | Focality | Composite_Index |
-| ------------------------------------ | --------- | ---------- | --------- | -------- | --------------- |
-| F7_F8 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3910    | 0.2103     | 0.1074    | 1.9577   | 0.4117          |
-| F7_F8 <> CP5_CP6 <> F1_F2 <> P9_P10  | 0.3920    | 0.2102     | 0.1073    | 1.9584   | 0.4117          |
-| F5_F6 <> CP5_CP6 <> F1_F2 <> PO7_PO8 | 0.3915    | 0.2085     | 0.1057    | 1.9722   | 0.4113          |
-
-<div class="image-container" style="max-width: min(560px, 100%)">
-  <img src="{{ site.baseurl }}/assets/imgs/mti/mex_scatter_symmetric.png" alt="symmetric mex-search intensity vs focality">
-  <em>Bilateral montages reach ~⅔ of the ROI intensity of the unconstrained search for this left-lateral target (0.21 vs 0.31 V/m at similar focality) — the expected price of symmetry. `symmetry_pairing: "cross_pairs"` instead mirrors channel 1 onto channel 3 and channel 2 onto channel 4.</em>
-</div>
-
-**Cost.** Scoring one four-channel candidate with the joint envelope maximum of two beating pairs is a per-element root-find (`tit.calc.envelope_max`), not a closed form like two-channel ex-search, so a candidate costs more than in the two-channel search. It is evaluated on the ROI and grey matter only, with candidates spread over worker processes up to the global CPU limit. The first run compiles the envelope kernel, cached afterwards. There is no current-ratio sweep in mEx; every channel carries the same **Channel current**.
-
-### Running it
-
-```
-simnibs_python -m tit.opt.mex config.json
-```
-
-The config is `MExConfig`; its fields are listed under [Scripting]({{ site.baseurl }}/wiki/scripting/).
-
-_The multipolar exhaustive search was ported from collaborator Larissa Albantakis's branch `alba/ex-search-multipolar`._
 
 ## Scene pane
 
