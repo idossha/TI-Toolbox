@@ -9,15 +9,39 @@ permalink: /wiki/atlases/
 Atlases reach TI-Toolbox two different ways, and the distinction matters when you define an ROI:
 
 - **[MNI-space atlases](#mni-space-atlases)** are _shipped with the toolbox_ as ready-to-use NIfTI volumes in `resources/atlas/`. They are the same seven volumes for every user, and SimNIBS transforms a selected label into your subject's space at run time.
-- **[Subject-space atlases](#subject-space-atlases)** are _generated per subject_ during preprocessing by SimNIBS `charm`/`subject_atlas` and FastSurfer or optional FreeSurfer. Existing FreeSurfer outputs are also read. Nothing is shipped — they only exist once you have run the pipeline on a head model. The browser below uses the `ernie` example subject so you can see what they look like.
+- **[Subject-space atlases](#subject-space-atlases)** are _generated per subject_ during preprocessing by SimNIBS `charm`/`subject_atlas` and FastSurfer or optional FreeSurfer. Existing FreeSurfer outputs are also read. Nothing is shipped — they only exist once you have run the pipeline on a head model. The viewer above uses the `ernie` example subject so you can see what they look like.
 
 Both families are queried through the same ROI picker used in flex-search, ex-search, and the analyzer.
 
-|                          | MNI-space                  | Subject-space              |
-| ------------------------ | -------------------------- | -------------------------- |
-| Shipped with the toolbox | Yes, in `resources/atlas/` | No — generated per subject |
-| Same for every user      | Yes                        | No                         |
+|                          | MNI-space                  | Subject-space                            |
+| ------------------------ | -------------------------- | ---------------------------------------- |
+| Shipped with the toolbox | Yes, in `resources/atlas/` | No — generated per subject               |
+| Same for every user      | Yes                        | No                                       |
 | Produced by              | Bundled with TI-Toolbox    | `charm`, FastSurfer, optional FreeSurfer |
+
+<div class="atlas-viewer">
+  <div class="atlas-controls">
+    <label for="atlas-select">Atlas:</label>
+    <select id="atlas-select" class="atlas-select">
+      <optgroup label="Subject (ernie)">
+        <option value="subject:charm">CHARM tissue labeling</option>
+        <option value="subject:dkt">Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)</option>
+        <option value="subject:a2009s">Destrieux (aparc.a2009s+aseg)</option>
+      </optgroup>
+      <optgroup label="MNI">
+        <option value="mni:cit168">CIT168 Subcortical</option>
+        <option value="mni:glasser">Glasser HCP-MMP1.0</option>
+        <option value="mni:massp">MASSP Subcortical</option>
+      </optgroup>
+    </select>
+  </div>
+  <div class="atlas-canvas-wrap"><canvas id="atlas-canvas" width="640" height="480"></canvas></div>
+  <p class="atlas-hint"></p>
+</div>
+
+<div class="atlas-no-webgl" style="display:none;">
+  <p><strong>Interactive viewer unavailable.</strong> Your browser does not support WebGL2, which the viewer requires. The label tables remain fully searchable.</p>
+</div>
 
 ---
 
@@ -25,15 +49,15 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
 
 TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
 
-| Atlas                                   | Regions | Native space                                        |
-| --------------------------------------- | ------- | --------------------------------------------------- |
-| CIT168 Subcortical (left/right)         | 32      | MNI152NLin2009cAsym                                 |
-| Glasser HCP-MMP1.0                      | 360     | FreeSurfer-conformed 256x256x256 1mm grid           |
-| MASSP Subcortical                       | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm    |
-| Harvard-Oxford cortical, lateralized    | 96      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
-| Harvard-Oxford subcortical              | 21      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
-| Cerebellum-MNIfnirt (Diedrichsen 2009)  | 28      | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
-| Schaefer 2018, 400 parcels / 7 networks | 400     | MNI152NLin6Asym, FSL 182x218x182 1mm grid           |
+| Atlas                                   | Regions | Native space                                     |
+| --------------------------------------- | ------- | ------------------------------------------------ |
+| CIT168 Subcortical (left/right)         | 32      | MNI152NLin2009cAsym                              |
+| Glasser HCP-MMP1.0                      | 360     | FreeSurfer-conformed 256x256x256 1mm grid        |
+| MASSP Subcortical                       | 31      | ICBM152 2009b nonlinear asymmetric, hi-res 0.5mm |
+| Harvard-Oxford cortical, lateralized    | 96      | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
+| Harvard-Oxford subcortical              | 21      | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
+| Cerebellum-MNIfnirt (Diedrichsen 2009)  | 28      | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
+| Schaefer 2018, 400 parcels / 7 networks | 400     | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
 
 The four FSL-grid atlases sit on exactly the grid SimNIBS's `mni2subject` warps assume (their
 headers were checked against the shipped `MNI152_T1_1mm.nii.gz`), so they need no template
@@ -43,7 +67,7 @@ Every one of them is a **label volume**, including Glasser: that is a cortical p
 is distributed as a NIfTI, so you target it through the ROI picker's **Subcortical** mode, not the
 **Cortical** mode. The picker knows which is which because each atlas declares it in
 `resources/atlas/manifest.json`, and it will not offer you an atlas the mode you are in cannot read.
-TI-Toolbox ships no MNI-space *surface* parcellation; the Cortical mode's atlases are your own
+TI-Toolbox ships no MNI-space _surface_ parcellation; the Cortical mode's atlases are your own
 subject's, built by preprocessing.
 
 In MNI mode, the Optimizer's and Analyzer's target pane has an **Explode** button next to **Clear
@@ -57,102 +81,28 @@ left and right regions, a click selects one hemisphere.
   <em>Explode on the CIT168 atlas (32 regions) in MNI mode.</em>
 </div>
 
-## Licence, attribution and citation
-
-Atlases are other people's data. If you publish work that used one, cite it; if you redistribute
-TI-Toolbox, these are the terms you are redistributing under. Each row is also machine-readable in
-`resources/atlas/manifest.json`.
-
-| Atlas | Licence | May be redistributed | Cite |
-| --- | --- | --- | --- |
-| CIT168 Subcortical | CC BY 4.0 | Yes | Pauli W. M., Nili A. N., Tyszka J. M. *Scientific Data* 5:180063 (2018). [doi:10.1038/sdata.2018.63](https://doi.org/10.1038/sdata.2018.63) |
-| MASSP 2021 Subcortical | CC BY 4.0 | Yes | Bazin P.-L. et al. *eLife* 9:e59430 (2020); atlas release [doi:10.21942/uva.19646328](https://doi.org/10.21942/uva.19646328) |
-| Glasser HCP-MMP1.0 | WU-Minn HCP Open Access Data Use Terms | Yes, **under those same terms** | Glasser M. F. et al. *Nature* 536:171-178 (2016). [doi:10.1038/nature18933](https://doi.org/10.1038/nature18933) |
-| Harvard-Oxford cortical / subcortical | CC BY-SA 4.0 ([FSL licence page](https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html)) | Yes, share-alike | Desikan R. S. et al. *NeuroImage* 31:968-980 (2006); Frazier J. A. et al. *Am J Psychiatry* 162:1256-1265 (2005); Makris N. et al. *Schizophr Res* 83:155-171 (2006) |
-| Cerebellum-MNIfnirt | CC BY-SA 4.0 (same FSL sentence) | Yes, share-alike | Diedrichsen J. et al. *NeuroImage* 46:39-46 (2009). [doi:10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045) |
-| Schaefer 2018 400/7 | MIT (CBIG) | Yes | Schaefer A. et al. *Cerebral Cortex* 28:3095-3114 (2018). [doi:10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179) |
-| MNI152 T1 1mm template | MNI/McGill permissive (any purpose, without fee, keep the notice) | Yes | Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, MNI, McGill University |
-
-Using Glasser also carries an acknowledgement: *"Data were provided [in part] by the Human
-Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen and Kamil Ugurbil;
-1U54MH091657) funded by the 16 NIH Institutes and Centers that support the NIH Blueprint for
-Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington
-University."*
-
-The full notices, with copyright holders, are in the repository's `NOTICE` file.
-
-Every shipped atlas names **one hemisphere per label**, apart from true midline structures
-(cerebellar vermis, brain stem, third and fourth ventricle, fornix). Picking "Left-Putamen" targets
-the left putamen only; to target both, pick both.
-
 ### Not shipped
 
 **Bilateral CIT168 and Harvard-Oxford cortical** (`CIT168_labeling_MNI152NLin2009cAsym.nii.gz`,
 `HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`) were shipped until 2026-09-23. Each of their labels
-covered a structure in *both* hemispheres, so choosing one region silently targeted both sides.
+covered a structure in _both_ hemispheres, so choosing one region silently targeted both sides.
 They were replaced by `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (label k became
 2k-1 left and 2k right) and FSL's own lateralized `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`
 (same numbering). A configuration that still names an old file stops with a sentence naming its
 replacement; pick the side(s) you meant from the new atlas.
-
 
 **Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) was shipped until
 2026-09-17 and has been removed. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
 13918589](https://doi.org/10.5281/zenodo.13918589); (C) University of Zurich and ETH Zurich, Andras
 Jakab, Remi Blanc and Gabor Szekely), which forbids commercial use — a promise TI-Toolbox's own
 GPL-3 licence cannot make for you, so a GPL-3 project cannot redistribute it. A configuration that
-still names it stops with *"The Morel atlas is no longer shipped (CC BY-NC-SA); see
-docs/wiki/atlases.md"*; pick another thalamic target (Harvard-Oxford subcortical or MASSP both label
+still names it stops with _"The Morel atlas is no longer shipped (CC BY-NC-SA); see
+docs/wiki/atlases.md"_; pick another thalamic target (Harvard-Oxford subcortical or MASSP both label
 the thalamus; neither subdivides it into nuclei) or, if your own use is non-commercial, fetch the
 atlas from Zenodo yourself and import it as a custom NIfTI mask. The plan for bringing it back as an
 optional, user-fetched download is recorded in `resources/atlas/README.md § Not shipped`. Cite,
-if you use it: Krauth A. et al. *NeuroImage* 49(3):2053-2062 (2010); Jakab A. et al. *AJNR*
+if you use it: Krauth A. et al. _NeuroImage_ 49(3):2053-2062 (2010); Jakab A. et al. _AJNR_
 33(11):2110-2116 (2012).
-
-## Which MNI template, and how far off
-
-SimNIBS warps between MNI and your subject with the deformation fields `charm` wrote into
-`m2m_<id>/toMNI/`, and those were computed against **FSL's `MNI152_T1_1mm.nii.gz`, i.e.
-MNI152NLin6Asym**. CIT168 and Glasser are defined in MNI152NLin2009cAsym and MASSP in 2009b, so
-their labels travel through a warp that targets a slightly different template. The templates differ
-by roughly **1.3 mm** globally.
-
-Measured on the `ernie` example subject, against `charm`'s own subcortical segmentation
-(`m2m_ernie/segmentation/labeling.nii.gz`) for the same structure:
-
-| Target | Distance between centroids |
-| --- | --- |
-| CIT168 putamen vs charm Left+Right-Putamen | 1.05 mm |
-| CIT168 caudate vs charm Left+Right-Caudate | 2.20 mm |
-| MASSP thalamus (left) vs charm Left-Thalamus | 2.00 mm |
-| MASSP thalamus (right) vs charm Right-Thalamus | 1.19 mm |
-
-That is the same order as the disagreement between two segmentations of the same structure, and it
-is accepted rather than corrected. Every optimizer target writes an `roi.tetravox.json` scene showing the
-mask that will actually be used on your subject's own T1 (an MNI target's transformed mask is saved
-beside it as `roi_mask.nii.gz`), and an analysis writes a `scene.tetravox.json` with the field masked
-to the ROI. With TetraVox in the desktop app, a matching `roi.png` or `scene.png` is rendered next to
-the scene. Look at it before you trust a deep target.
-
-Pick an atlas from the dropdown to load it over the MNI152 template. The browser shows CIT168, Glasser and MASSP; the Harvard-Oxford, Cerebellum and Schaefer atlases are described below and offered in the ROI picker, but are not yet in this browser. Click any row in a label table below to jump the crosshair to that region's centroid — the viewer switches atlases automatically if needed. Only the template and the currently selected atlas are ever loaded.
-
-<div class="atlas-viewer" data-space="mni">
-  <div class="atlas-controls">
-    <label for="atlas-select-mni">Atlas:</label>
-    <select id="atlas-select-mni" class="atlas-select" data-space="mni">
-      <option value="cit168">CIT168 Subcortical</option>
-      <option value="glasser">Glasser HCP-MMP1.0</option>
-      <option value="massp">MASSP Subcortical</option>
-    </select>
-    <span class="atlas-status" data-space="mni"></span>
-  </div>
-  <div class="atlas-canvas-wrap"><canvas id="atlas-canvas-mni" width="640" height="480"></canvas></div>
-  <p class="atlas-hint">Overlay opacity is fixed at 70% over the grayscale MNI152 template. Colours match each atlas's own lookup table.</p>
-</div>
-
-<div class="atlas-no-webgl" data-space="mni" style="display:none;">
-  <p><strong>Interactive viewer unavailable.</strong> Your browser does not support WebGL2, which the viewer requires. The label tables remain fully searchable — use the centroid column to locate a region in your own viewer.</p>
-</div>
 
 ## CIT168 Subcortical Atlas
 
@@ -300,27 +250,9 @@ These are **not shipped**. They are produced for each subject during preprocessi
 
 The gallery includes legacy FreeSurfer atlases for reference; their presence here does not mean a new v3 FastSurfer run produces them.
 
-The viewer below uses the **`ernie` example subject** that ships with SimNIBS, so the anatomy is a real head model rather than a template average. The surface `.annot` parcellations are not shown — they are cortical surface files, not volumes, and cannot be overlaid on a NIfTI.
+The viewer at the top of the page uses the **`ernie` example subject** that ships with SimNIBS, so the anatomy is a real head model rather than a template average. The surface `.annot` parcellations are not shown — they are cortical surface files, not volumes, and cannot be overlaid on a NIfTI.
 
 **Read the coordinates as subject space.** The centroid column here is in ernie's own scanner/world coordinates, **not** MNI. The same structure will sit at different coordinates in your own subject.
-
-<div class="atlas-viewer" data-space="subject">
-  <div class="atlas-controls">
-    <label for="atlas-select-subject">Atlas:</label>
-    <select id="atlas-select-subject" class="atlas-select" data-space="subject">
-      <option value="charm">CHARM tissue labeling</option>
-      <option value="dkt">Desikan-Killiany-Tourville (aparc.DKTatlas+aseg)</option>
-      <option value="a2009s">Destrieux (aparc.a2009s+aseg)</option>
-    </select>
-    <span class="atlas-status" data-space="subject"></span>
-  </div>
-  <div class="atlas-canvas-wrap"><canvas id="atlas-canvas-subject" width="640" height="480"></canvas></div>
-  <p class="atlas-hint">Overlaid on ernie's own T1, not a template. Colours come from each atlas's lookup table — the FreeSurfer parcellations use the standard <code>FreeSurferColorLUT.txt</code> shipped in <code>resources/atlas/</code>.</p>
-</div>
-
-<div class="atlas-no-webgl" data-space="subject" style="display:none;">
-  <p><strong>Interactive viewer unavailable.</strong> Your browser does not support WebGL2. The label tables remain fully searchable.</p>
-</div>
 
 <br>
 
@@ -447,11 +379,33 @@ INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (25
 
 <br>
 
-## See Also
+## Licence, attribution and citation
 
-- [Analyzer]({{ site.baseurl }}/wiki/analyzer/) — the primary consumer of ROI/atlas selection
-- [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/) — how the subject-space atlases get generated
-- Return to [Wiki]({{ site.baseurl }}/wiki/)
+Atlases are other people's data. If you publish work that used one, cite it; if you redistribute
+TI-Toolbox, these are the terms you are redistributing under. Each row is also machine-readable in
+`resources/atlas/manifest.json`.
+
+| Atlas                                 | Licence                                                                             | May be redistributed            | Cite                                                                                                                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CIT168 Subcortical                    | CC BY 4.0                                                                           | Yes                             | Pauli W. M., Nili A. N., Tyszka J. M. _Scientific Data_ 5:180063 (2018). [doi:10.1038/sdata.2018.63](https://doi.org/10.1038/sdata.2018.63)                          |
+| MASSP 2021 Subcortical                | CC BY 4.0                                                                           | Yes                             | Bazin P.-L. et al. _eLife_ 9:e59430 (2020); atlas release [doi:10.21942/uva.19646328](https://doi.org/10.21942/uva.19646328)                                         |
+| Glasser HCP-MMP1.0                    | WU-Minn HCP Open Access Data Use Terms                                              | Yes, **under those same terms** | Glasser M. F. et al. _Nature_ 536:171-178 (2016). [doi:10.1038/nature18933](https://doi.org/10.1038/nature18933)                                                     |
+| Harvard-Oxford cortical / subcortical | CC BY-SA 4.0 ([FSL licence page](https://fsl.fmrib.ox.ac.uk/fsl/docs/license.html)) | Yes, share-alike                | Desikan R. S. et al. _NeuroImage_ 31:968-980 (2006); Frazier J. A. et al. _Am J Psychiatry_ 162:1256-1265 (2005); Makris N. et al. _Schizophr Res_ 83:155-171 (2006) |
+| Cerebellum-MNIfnirt                   | CC BY-SA 4.0 (same FSL sentence)                                                    | Yes, share-alike                | Diedrichsen J. et al. _NeuroImage_ 46:39-46 (2009). [doi:10.1016/j.neuroimage.2009.01.045](https://doi.org/10.1016/j.neuroimage.2009.01.045)                         |
+| Schaefer 2018 400/7                   | MIT (CBIG)                                                                          | Yes                             | Schaefer A. et al. _Cerebral Cortex_ 28:3095-3114 (2018). [doi:10.1093/cercor/bhx179](https://doi.org/10.1093/cercor/bhx179)                                         |
+| MNI152 T1 1mm template                | MNI/McGill permissive (any purpose, without fee, keep the notice)                   | Yes                             | Copyright (C) 1993-2009 Louis Collins, McConnell Brain Imaging Centre, MNI, McGill University                                                                        |
+
+Using Glasser also carries an acknowledgement: _"Data were provided [in part] by the Human
+Connectome Project, WU-Minn Consortium (Principal Investigators: David Van Essen and Kamil Ugurbil;
+1U54MH091657) funded by the 16 NIH Institutes and Centers that support the NIH Blueprint for
+Neuroscience Research; and by the McDonnell Center for Systems Neuroscience at Washington
+University."_
+
+The full notices, with copyright holders, are in the repository's `NOTICE` file.
+
+Every shipped atlas names **one hemisphere per label**, apart from true midline structures
+(cerebellar vermis, brain stem, third and fourth ventricle, fornix). Picking "Left-Putamen" targets
+the left putamen only; to target both, pick both.
 
 <script type="application/json" id="atlas-data">{{ site.data.atlases | jsonify }}</script>
 <script src="{{ '/assets/js/niivue.min.js' | relative_url }}"></script>
@@ -460,7 +414,7 @@ INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (25
      silently does nothing against the new markup (it looks for ids that no
      longer exist), leaving both canvases black. Bump v whenever the markup
      contract or the script changes. -->
-<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=2"></script>
+<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=3"></script>
 
 <style>
 .atlas-viewer {
@@ -476,11 +430,6 @@ INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (25
 .atlas-controls select {
   padding: 0.3rem 0.5rem;
   max-width: 100%;
-}
-.atlas-status {
-  color: #666;
-  font-size: 0.9rem;
-  min-height: 1.2em;
 }
 .atlas-canvas-wrap {
   height: 480px;

@@ -1,19 +1,19 @@
 /**
  * Atlas Browser page script (docs/wiki/atlases.md only).
  *
- * Drives one independent NiiVue viewer per coordinate space. Each viewer
- * draws its own template as a grayscale base layer and overlays one atlas at
+ * Drives the single NiiVue viewer. It draws the selected atlas's template
+ * (MNI152 or ernie's T1) as a grayscale base layer and overlays one atlas at
  * a time as a sparse label colormap. Label metadata (id/name/colour/centroid)
  * is read from a JSON blob the page embeds inline (Jekyll does not publish
  * _data/ as a URL, so the data cannot be fetched separately).
  *
- * Expected markup, per space:
- *   <div class="atlas-viewer" data-space="mni">
- *     <select class="atlas-select" data-space="mni">...</select>
- *     <span class="atlas-status" data-space="mni"></span>
- *     <canvas id="atlas-canvas-mni"></canvas>
+ * Expected markup:
+ *   <div class="atlas-viewer">
+ *     <select class="atlas-select"><option value="mni:cit168">...</select>
+ *     <canvas id="atlas-canvas"></canvas>
+ *     <p class="atlas-hint"></p>   (the one label: selected atlas + space)
  *   </div>
- *   <div class="atlas-no-webgl" data-space="mni" style="display:none">...</div>
+ *   <div class="atlas-no-webgl" style="display:none">...</div>
  *   <table data-space="mni" data-atlas="cit168"> ... <tr data-mni="x,y,z">
  *
  * Table filtering copies the case-insensitive substring + <mark> highlight
@@ -93,16 +93,15 @@
    * One viewer per coordinate space. Instances are fully independent: their
    * own Niivue object, template and currently-loaded overlay.
    */
-  function Viewer(space, box) {
-    this.space = space;
+  function Viewer(box) {
     this.box = box;
-    this.spec = atlasData[space];
     this.canvas = box.querySelector('canvas');
     this.selectEl = box.querySelector('.atlas-select');
-    this.statusEl = box.querySelector('.atlas-status');
-    this.fallbackEl = document.querySelector('.atlas-no-webgl[data-space="' + space + '"]');
+    this.statusEl = box.querySelector('.atlas-hint');
+    this.fallbackEl = document.querySelector('.atlas-no-webgl');
     this.nv = null;
     this.ready = false;
+    this.space = null;
     this.current = null;
   }
 
@@ -126,13 +125,22 @@
    * at volume index 0; only the overlay is removed and re-fetched, so at most
    * two volumes are ever in memory and only one atlas .nii.gz is in flight.
    */
-  Viewer.prototype.loadAtlas = async function (key) {
-    var entry = this.spec && this.spec.atlases[key];
+  Viewer.prototype.loadAtlas = async function (space, key) {
+    var spec = atlasData[space];
+    var entry = spec && spec.atlases[key];
     if (!this.nv || !entry) {
       return;
     }
     this.setStatus('Loading ' + entry.display_name + '…');
     try {
+      if (this.space !== space) {
+        await this.nv.loadVolumes([{
+          url: ATLAS_DIR + '/' + spec.template.filename,
+          colormap: 'gray',
+          opacity: 1
+        }]);
+        this.space = space;
+      }
       while (this.nv.volumes.length > 1) {
         this.nv.removeVolumeByIndex(1);
       }
@@ -148,15 +156,17 @@
       vol.setColormapLabel(buildColormapLabel(entry.rows));
       vol.alphaThreshold = true;
       this.nv.updateGLVolume();
-      this.current = key;
-      this.setStatus('');
+      this.current = space + ':' + key;
+      this.setStatus(entry.display_name + ' — ' + (space === 'mni'
+        ? 'MNI space, over the MNI152 template'
+        : "ernie's subject space, over ernie's own T1") + '. Overlay opacity 70%.');
     } catch (e) {
       this.setStatus('Could not load ' + entry.display_name + '.');
     }
   };
 
   Viewer.prototype.init = async function () {
-    if (!this.canvas || !this.selectEl || !this.spec) {
+    if (!this.canvas || !this.selectEl) {
       return;
     }
     if (!hasWebGL2() || !window.niivue || !window.niivue.Niivue) {
@@ -167,17 +177,13 @@
     try {
       this.nv = new window.niivue.Niivue({ isResizeCanvas: true, dragAndDropEnabled: false });
       await this.nv.attachTo(this.canvas.id);
-      this.setStatus('Loading template…');
-      await this.nv.loadVolumes([{
-        url: ATLAS_DIR + '/' + this.spec.template.filename,
-        colormap: 'gray',
-        opacity: 1
-      }]);
       this.ready = true;
-      await this.loadAtlas(this.selectEl.value || Object.keys(this.spec.atlases)[0]);
-      this.selectEl.addEventListener('change', function () {
-        self.loadAtlas(self.selectEl.value);
-      });
+      var load = function () {
+        var p = self.selectEl.value.split(':');
+        return self.loadAtlas(p[0], p[1]);
+      };
+      await load();
+      this.selectEl.addEventListener('change', load);
     } catch (e) {
       this.setStatus('');
       this.showFallback();
@@ -192,7 +198,7 @@
    * setCrosshairPosition, and moveCrosshairInVox takes a relative voxel step
    * rather than an absolute coordinate, so neither name applies here.
    */
-  Viewer.prototype.jumpTo = function (key, coord) {
+  Viewer.prototype.jumpTo = function (space, key, coord) {
     if (!this.nv || !this.ready) {
       return;
     }
@@ -201,9 +207,9 @@
       self.nv.scene.crosshairPos = self.nv.mm2frac(coord);
       self.nv.updateGLVolume();
     };
-    if (this.current !== key) {
-      this.selectEl.value = key;
-      this.loadAtlas(key).then(go);
+    if (this.current !== space + ':' + key) {
+      this.selectEl.value = space + ':' + key;
+      this.loadAtlas(space, key).then(go);
     } else {
       go();
     }
@@ -287,7 +293,7 @@
 
   // --- Wire up row clicks for every atlas table on the page ---
 
-  function wireRowClicks(viewers) {
+  function wireRowClicks(viewer) {
     var tables = document.querySelectorAll('table[data-atlas]');
     for (var t = 0; t < tables.length; t++) {
       (function (table) {
@@ -298,11 +304,7 @@
           if (!row || !table.contains(row)) {
             return;
           }
-          var viewer = viewers[space];
-          if (!viewer) {
-            return;
-          }
-          viewer.jumpTo(atlasKey, row.getAttribute('data-mni').split(',').map(Number));
+          viewer.jumpTo(space, atlasKey, row.getAttribute('data-mni').split(',').map(Number));
         });
       })(tables[t]);
     }
@@ -332,24 +334,16 @@
   }
 
   function init() {
-    var viewers = {};
-    var boxes = document.querySelectorAll('.atlas-viewer[data-space]');
-    for (var i = 0; i < boxes.length; i++) {
-      var space = boxes[i].getAttribute('data-space');
-      if (atlasData[space]) {
-        viewers[space] = new Viewer(space, boxes[i]);
-      }
-    }
-    if (!Object.keys(viewers).length) {
+    var box = document.querySelector('.atlas-viewer');
+    if (!box) {
       reportDead('The page markup and this script are out of step, most likely ' +
         'because an older copy of the script is cached.');
       return;
     }
+    var viewer = new Viewer(box);
     wireFilters();
-    wireRowClicks(viewers);
-    Object.keys(viewers).forEach(function (k) {
-      viewers[k].init();
-    });
+    wireRowClicks(viewer);
+    viewer.init();
   }
 
   if (document.readyState === 'loading') {
