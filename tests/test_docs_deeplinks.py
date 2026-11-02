@@ -268,7 +268,7 @@ def test_raw_ids_are_anchors_but_code_blocks_are_not_headings():
 # ── this repository ─────────────────────────────────────────────────────────
 
 # Written by hand from the files that hold them (stepInfo.tsx, SurferSettingsCard.tsx,
-# caps/index.tsx, the 3.x release notes and the changelog).
+# caps/index.tsx, SimulationSettings.tsx, the 3.x release notes and the changelog).
 KNOWN_DEEP_LINKS = {
     "/wiki/pre-processing/#workflow",
     "/wiki/pre-processing/#supported-input-formats",
@@ -279,6 +279,7 @@ KNOWN_DEEP_LINKS = {
     "/wiki/eeg-caps/#apply-a-cap",
     "/wiki/eeg-caps/#inspect-a-net",
     "/wiki/simulator/#carrier-only-control",
+    "/wiki/analyzer/#quantities-of-interest",
     "/installation/#install",
     "/wiki/ai-assistant/#approving-a-plan",
 }

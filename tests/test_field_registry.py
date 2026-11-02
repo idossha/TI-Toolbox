@@ -240,7 +240,8 @@ class TestOutputFieldDefinitions:
         Maintainer, docs/dev/DECISIONS.md "Field metrics are described, never ranked for
         compliance": no description says which field to compare with exposure limits or that
         one is "not a compliance metric". The forbidden words are that request, not the code.
-        The desktop mirror is held to it by desktop/tests/unit/field-descriptions.test.ts.
+        The desktop copies no description (its Output fields link to the wiki); what its form
+        shows is held to the rule by desktop/tests/unit/field-descriptions.test.ts.
         """
         user_text = [" ".join(d[2:]) for d in const.OUTPUT_FIELD_DEFINITIONS] + [
             spec.description for spec in const.FIELD_REGISTRY

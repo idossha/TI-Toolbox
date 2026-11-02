@@ -7,8 +7,14 @@ import { Select } from "../../ui/Select";
 import { Subscripted } from "../../ui/Subscripted";
 import { Checkbox } from "../../ui/Toggle";
 import { ElectrodeSettings } from "../_shared/electrodes/ElectrodeSettings";
+import { DOCS_SITE } from "../help/api";
+import { ReadMore } from "../preprocess/stepInfo";
 import { ConductivityDialog, type CustomConductivities } from "./ConductivityDialog";
-import { CARRIER_FIELDS, CARRIER_ONLY_HELP, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
+import { CARRIER_FIELDS, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
+
+/** The wiki explains the fields once; the form links there instead of repeating it. */
+const FIELDS_DOCS = `${DOCS_SITE}wiki/analyzer/#quantities-of-interest`;
+const CARRIER_ONLY_DOCS = `${DOCS_SITE}wiki/simulator/#carrier-only-control`;
 
 /**
  * The simulation controls: one job's (the Simulator's Job settings dialog) and the defaults for new
@@ -78,7 +84,9 @@ export function SimulationSettings({
           </section>
 
           <section>
-            <h4>Output fields</h4>
+            <h4 style={{ display: "flex", alignItems: "baseline", gap: "var(--space-2)" }}>
+              Output fields <ReadMore href={FIELDS_DOCS}>Field definitions</ReadMore>
+            </h4>
             <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)", marginBottom: "var(--space-2)" }}>
               <label
                 className="checkbox-label-row"
@@ -92,11 +100,11 @@ export function SimulationSettings({
                 />
                 Carrier-only control (ΔF = 0, coherent carriers)
               </label>
-              <HelpIcon variant="plain" title="Carrier-only control" text={CARRIER_ONLY_HELP} label="About carrier-only control" />
+              <ReadMore href={CARRIER_ONLY_DOCS} />
             </div>
             <div style={{ display: "flex", gap: "var(--space-4)", flexWrap: "wrap" }}>
               {OUTPUT_FIELDS.map((f) => (
-                <label key={f.name} title={f.description} className="checkbox-label-row">
+                <label key={f.name} className="checkbox-label-row">
                   <Checkbox
                     aria-label={f.name}
                     checked={draft.outputFields.includes(f.name)}

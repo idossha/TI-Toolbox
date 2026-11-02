@@ -318,12 +318,6 @@ export function withMni(settings: JobSettings, on: boolean): JobSettings {
 export const WRITE_NIFTIS_HELP =
   "Also save every output field as a 3-D NIfTI, one file per field. Off, the field mesh is the output: a voxel analysis or a group tool writes the NIfTI it reads when it needs one.";
 
-export const CARRIER_ONLY_HELP =
-  "A control with no temporal interference: both channels run at the same carrier frequency (ΔF = 0) and in phase, " +
-  "so there is no beat and no envelope. The carriers add as one fixed field, so hf_peak = |E1+E2|, hf_rms = |E1+E2|/√2 and hf_power_density = ½(E1+E2)·σ·(E1+E2) " +
-  "(coherent superposition, Cassarà et al. 2025) instead of the TI worst case max(|E1+E2|, |E1−E2|). " +
-  "Only hf_peak, hf_rms and hf_power_density are computed; TI_max, TI_avg and TI_normal are undefined. 2-channel TI montages only.";
-
 /** Which montage bucket a montage lives in: `uni_polar_montages` / `multi_polar_montages`. */
 export type MontageKind = "uni_polar" | "multi_polar";
 

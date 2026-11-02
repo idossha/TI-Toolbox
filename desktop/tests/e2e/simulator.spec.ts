@@ -425,6 +425,38 @@ test("a carrier-only job sends carrier_only with carrier fields only, and an mTI
   expect(byMontage("mTI_F3F4_P3P4")).not.toHaveProperty("carrier_only");
 });
 
+/**
+ * The Output fields explain themselves with links into the wiki, not tooltips (maintainer,
+ * 2026-11-02: "instead of this dense tooltip we should just give the link to the place in the
+ * docs that explains it"). The claim is the URL the app hands the system browser.
+ */
+test("Output fields link to the wiki's field definitions, with no tooltip on any field", async () => {
+  await app.evaluate(({ shell }) => {
+    (globalThis as unknown as { opened: string[] }).opened = [];
+    shell.openExternal = async (url: string) => { (globalThis as unknown as { opened: string[] }).opened.push(url); };
+  });
+  await clearMontageRows();
+  const row = montageRows().first();
+  await configureMontageJob(page, row, { subject: "ernie", net: "GSN-HydroCel-185", montage: "F3_F4 · TI" });
+  await row.locator('td[data-cell="actions"]').getByRole("button", { name: /^Job settings/ }).click();
+  const dialog = page.getByRole("dialog");
+  const outputs = dialog.locator("section").filter({ has: page.locator("h4", { hasText: "Output fields" }) });
+  await expect(outputs.getByRole("checkbox")).toHaveCount(6); // carrier-only + five fields
+  await expect(outputs.locator("[title]")).toHaveCount(0);
+  await outputs.screenshot({ path: "tests/e2e/artifacts/simulator-output-fields-docs-link.png" });
+
+  await outputs.getByRole("button", { name: "Field definitions" }).click();
+  await outputs.getByRole("button", { name: "Read more" }).click();
+  await expect
+    .poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened))
+    .toEqual([
+      "https://idossha.github.io/TI-Toolbox/wiki/analyzer/#quantities-of-interest",
+      "https://idossha.github.io/TI-Toolbox/wiki/simulator/#carrier-only-control",
+    ]);
+  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+});
+
 test("the page is the jobs table — no page-level electrode, conductivity or output-field form", async () => {
   // 2026-09-06: those three sections used to sit under the table and apply to every job. They are
   // gone; each row carries its own, edited in the row's own dialog (`Job settings`), and a new row

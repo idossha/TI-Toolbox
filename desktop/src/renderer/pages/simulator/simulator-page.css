@@ -214,6 +214,14 @@
   color: var(--text-secondary);
 }
 
+/* A docs link sits right after what it explains, in body case even inside a heading. */
+.job-settings-form .help-more {
+  margin-left: 0;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .job-polarity {
   flex: none;
   color: var(--text-secondary);

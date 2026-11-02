@@ -4156,3 +4156,20 @@ decision; the toolbox computes and saves the fields and says what they are.
 
 **Alternatives rejected.** Keeping the guidance in the wiki only (the wiki is what users read, so
 it still steers them); removing `hf_rms` or `hf_peak` (the request keeps every metric).
+
+## 2026-11-02 — The desktop links to the wiki for what a field is
+
+**Decision.** The Simulator's Output fields (Job settings and Settings ▸ Simulator, one form) carry
+no field tooltips: a **Field definitions** link beside the heading opens
+`wiki/analyzer/#quantities-of-interest`, and the carrier-only control's **Read more** opens
+`wiki/simulator/#carrier-only-control`, both through the app's `ReadMore` (system browser in the
+app, a new tab in a browser). `pages/analyzer/fields.ts` no longer copies the registry's
+descriptions. This replaces "the desktop tooltip" in the entry above; the rest of that entry
+stands. Pinned by `desktop/tests/unit/field-descriptions.test.ts`, `tests/test_docs_deeplinks.py`
+and `desktop/tests/e2e/simulator.spec.ts`.
+
+**Why.** Maintainer, 2026-11-02: "instead of this dense tooltip we should just give the link to the
+place in the docs that explains it." The wiki already defines every field once, with its formula.
+
+**Alternatives rejected.** Shorter tooltips (still a second copy of the definitions to keep in
+step); one link per checkbox (six links to one section).

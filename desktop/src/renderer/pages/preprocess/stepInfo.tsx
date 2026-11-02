@@ -402,17 +402,17 @@ export function StepFlow({ info }: { info: StepInfo }) {
   );
 }
 
-export function ReadMore({ href }: { href: string }) {
+export function ReadMore({ href, children = "Read more" }: { href: string; children?: ReactNode }) {
   if (isElectron) {
     return (
       <button type="button" className="help-more" onClick={() => void window.tit?.openExternal(href)}>
-        Read more <ExternalLink size={10} aria-hidden />
+        {children} <ExternalLink size={10} aria-hidden />
       </button>
     );
   }
   return (
     <a className="help-more" href={href} target="_blank" rel="noreferrer">
-      Read more <ExternalLink size={10} aria-hidden />
+      {children} <ExternalLink size={10} aria-hidden />
     </a>
   );
 }

@@ -722,7 +722,10 @@ is what files, configs, IDs and scripts use; the label (`TI_{max}`, `mTI_{max}`,
 subscript. The desktop mirrors the registry in `desktop/src/renderer/pages/analyzer/fields.ts`
 (`tests/test_field_registry.py` holds name, label and units equal) and renders labels with one
 helper, `fieldLabel()` + `<Subscripted>`; a place that holds no markup (a `title`) shows the
-saved spelling. The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
+saved spelling. It copies no description: the Simulator's Output fields link to the wiki's
+definitions (`wiki/analyzer/#quantities-of-interest`; the carrier-only control to
+`wiki/simulator/#carrier-only-control`) instead of tooltips.
+The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
 layer from the same registry. `hf_peak` is zero-to-peak; `hf_rms` = √`hf_power` is the RMS
 carrier field over time; `hf_power_density` is the absorbed (Joule) power density, never called
 SAR. Every field is described neutrally (what it is, its formula, units and peak/RMS convention):
