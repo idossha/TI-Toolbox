@@ -178,7 +178,7 @@ export function savedMarkers(positions: ElectrodePosition[]): SceneMarker[] {
 export const POSITIONS_PER_STEP = 2;
 
 /**
- * 4 positions (2 pairs, TI) or 8, 12, 16 … (an even pair count from 4, mTI) — `isValidPairCount`
+ * 4 positions (2 pairs, TI) or 8, 12, 16 … 24 (an even pair count from 4 to 12, mTI) — `isValidPairCount`
  * on the positions' pairs. 6 or 10 positions are 3 or 5 pairs, which the server refuses.
  */
 export function isValidPositionCount(n: number): boolean {

@@ -387,6 +387,11 @@ MIN_ELECTRODE_PAIRS = 2
 #: Electrode-pair count that means standard TI rather than mTI.
 TI_ELECTRODE_PAIRS = 2
 
+#: Most channels (electrode pairs) an mTI montage may have: 12 channels, 24 electrodes.
+#: A product limit, not a physical one -- raise it here; the desktop mirrors it as
+#: ``MAX_MTI_CHANNELS`` in ``desktop/src/renderer/pages/simulator/types.ts``.
+MAX_MTI_CHANNELS = 12
+
 
 def is_valid_pair_count(n: int) -> bool:
     """Is *n* an allowed electrode-pair (channel) count?

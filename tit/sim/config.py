@@ -11,7 +11,7 @@ Defines the primary configuration types consumed by
 * :func:`parse_intensities` -- helper to parse intensity strings from
   the CLI or GUI.
 * :func:`check_electrode_pairs` -- the electrode rules every saved or
-  simulated montage meets (pair shape, 2-26 pairs, each electrode its own
+  simulated montage meets (pair shape, 2-12 pairs, each electrode its own
   point). ``SimulationConfig`` also refuses two montages with one name and a
   zero or non-finite current on a channel a montage uses.
 
@@ -274,9 +274,6 @@ class Montage:
 
 _VALID_CONDUCTIVITIES = {"scalar", "vn", "dir", "mc"}
 
-#: mTI names its channels A..Z (``tit.sim.mTI``), so a montage holds at most 26 pairs.
-MAX_ELECTRODE_PAIRS = 26
-
 #: Two electrodes closer than this are one point: SimNIBS would place both pads on the same
 #: patch of scalp. Mirrors the desktop's ``MIN_ELECTRODE_SEPARATION_MM``
 #: (``desktop/src/renderer/pages/simulator/types.ts``); real montages measure 11.5-127 mm.
@@ -295,7 +292,7 @@ def check_electrode_pairs(pairs, *, xyz: bool) -> None:
     The rules a montage's electrodes must meet wherever it is saved or run:
     every pair holds exactly two electrodes; the pair count is an allowed one
     (:func:`tit.constants.is_valid_pair_count`) and at most
-    :data:`MAX_ELECTRODE_PAIRS`; every electrode is its own point -- a label is
+    :data:`tit.constants.MAX_MTI_CHANNELS`; every electrode is its own point -- a label is
     a non-empty string used once in the montage (an electrode cannot be its own
     return, and two channels cannot share one), an XYZ electrode is three
     finite numbers at least :data:`MIN_ELECTRODE_SEPARATION_MM` from every other.
@@ -324,10 +321,10 @@ def check_electrode_pairs(pairs, *, xyz: bool) -> None:
         raise ValueError(
             f"Invalid number of electrode pairs: {n}. Expected {const.PAIR_COUNT_RULE}."
         )
-    if n > MAX_ELECTRODE_PAIRS:
+    if n > const.MAX_MTI_CHANNELS:
         raise ValueError(
-            f"{n} electrode pairs; mTI names its channels A-Z, so at most "
-            f"{MAX_ELECTRODE_PAIRS} pairs."
+            f"{n} channels; mTI is limited to {const.MAX_MTI_CHANNELS} channels "
+            f"({2 * const.MAX_MTI_CHANNELS} electrodes)."
         )
     electrodes = [electrode for pair in pairs for electrode in pair]
     if not xyz:
@@ -603,7 +600,7 @@ class SimulationConfig:
             # run time with "Invalid number of electrode pairs: 5" (2026-10-21).
             try:
                 mode = montage.simulation_mode
-                # 2026-10-22: the A-Z pair cap, repeated or coincident electrodes and
+                # 2026-10-22: the mTI channel cap, repeated or coincident electrodes and
                 # non-finite coordinates failed only after the FEM solves, or never.
                 check_electrode_pairs(montage.electrode_pairs, xyz=montage.is_xyz)
             except ValueError as exc:

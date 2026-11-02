@@ -189,7 +189,7 @@ describe("rendered editors", () => {
     renderTable([row({ kind: "multi_polar", pairs: [["E1", "E2"], ["E3", "E4"], ["E5", "E6"]], currents: "1,1,1" })], null);
     await flush();
     expect(container.querySelector("[data-job-row='r1']")?.getAttribute("data-runnable")).toBe("false");
-    expect(container.querySelector("[data-testid='job-row-problem']")?.textContent).toBe("3 channels: a montage needs 2 channels (TI) or an even number from 4 (mTI).");
+    expect(container.querySelector("[data-testid='job-row-problem']")?.textContent).toBe("3 channels: a montage needs 2 channels (TI) or an even number from 4 to 12 (mTI).");
   });
 
   it("the channel inputs show the currents the job sends: blank is 1.0 mA, one input per channel", async () => {

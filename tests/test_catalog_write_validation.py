@@ -15,7 +15,7 @@ Where the expected values come from
   NaN or infinity).
 * The pair-count rule, written in ``upsert_montage``'s docstring and
   ``tit.constants.is_valid_pair_count``: uni-polar is 2 pairs (TI), multi-polar an even number
-  from 4 (mTI), at most 26 (mTI's A-Z channel names).
+  from 4 (mTI), at most 12 (the mTI channel limit, 2026-11-02).
 * Electrode physics, as the Simulator applies it (``desktop/.../simulator/types.ts``): an
   electrode is used once in a montage and two electrodes are at least 1 mm apart.
 * Free-hand positions are paired consecutively (``resolve_freehand_montage``): 4 for U,
@@ -96,7 +96,7 @@ BAD_MONTAGES = [
     ("multi_polar", _labels(5), "odd pair count"),
     ("uni_polar", _labels(4), "4 pairs are mTI, not uni-polar"),
     ("multi_polar", _labels(2), "2 pairs are TI, not multi-polar"),
-    ("multi_polar", _labels(28), "more pairs than A-Z channel names"),
+    ("multi_polar", _labels(14), "14 channels, over the 12-channel mTI limit"),
     ("uni_polar", [["E1", "E1"], ["E2", "E3"]], "an electrode as its own return"),
     ("uni_polar", [["E1", "E2"], ["E1", "E3"]], "two channels on one electrode"),
     ("uni_polar", [["E1"], ["E2", "E3"]], "a pair of one"),
@@ -133,7 +133,7 @@ def test_an_invalid_montage_is_refused_and_nothing_is_written(
 
 
 @pytest.mark.parametrize(
-    "kind, n_pairs", [("uni_polar", 2), ("multi_polar", 4), ("multi_polar", 26)]
+    "kind, n_pairs", [("uni_polar", 2), ("multi_polar", 4), ("multi_polar", 12)]
 )
 def test_a_valid_montage_round_trips(client: TestClient, kind: str, n_pairs: int):
     pairs = _labels(n_pairs)
@@ -269,6 +269,7 @@ BAD_FREEHAND = [
     ({"type": "U", "electrode_positions": _positions(8)}, "8 positions are M"),
     ({"type": "M", "electrode_positions": _square()}, "4 positions are U"),
     ({"type": "M", "electrode_positions": _positions(10)}, "5 pairs"),
+    ({"type": "M", "electrode_positions": _positions(28)}, "14 channels, over the mTI limit"),
     # An odd count leaves the last electrode without a partner: pairing consecutively would
     # drop it without a word (5 as M looks like 2 pairs, 9 like 4).
     ({"type": "M", "electrode_positions": _positions(5)}, "5 positions as M"),
@@ -352,7 +353,7 @@ def test_a_non_finite_json_number_is_refused(client: TestClient, token: str) -> 
     assert _stim_files() == before
 
 
-@pytest.mark.parametrize("kind, n", [("U", 4), ("M", 8), ("M", 12)])
+@pytest.mark.parametrize("kind, n", [("U", 4), ("M", 8), ("M", 12), ("M", 24)])
 def test_a_valid_freehand_config_round_trips(client: TestClient, kind: str, n: int):
     body = {"type": kind, "electrode_positions": _positions(n)}
     r = client.put(

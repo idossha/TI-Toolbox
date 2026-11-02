@@ -122,13 +122,13 @@ class mTISimulation(BaseSimulation):
         Raises
         ------
         ValueError
-            If the montage has more than 26 channels (A-Z limit).
+            If the montage has more than ``MAX_MTI_CHANNELS`` channels.
         """
         name = self.montage.name
         n_pairs = self.montage.num_pairs
-        if n_pairs > 26:
+        if n_pairs > const.MAX_MTI_CHANNELS:
             raise ValueError(
-                f"mTI supports at most 26 pairs (A-Z labeling), got {n_pairs}"
+                f"mTI is limited to {const.MAX_MTI_CHANNELS} channels, got {n_pairs}"
             )
         meshes = self._cropped_carriers(dirs["hf_dir"], n_pairs)
         # The envelope of all N channel fields jointly -- not a recursive TI-of-TI.

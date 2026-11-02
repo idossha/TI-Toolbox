@@ -4173,3 +4173,25 @@ place in the docs that explains it." The wiki already defines every field once, 
 
 **Alternatives rejected.** Shorter tooltips (still a second copy of the definitions to keep in
 step); one link per checkbox (six links to one section).
+
+## 2026-11-02 — mTI is limited to 12 channels
+
+**Decision.** A montage has at most 12 channels (24 electrodes), down from the 26 that mTI's
+lettered channel files (`TDCS_A` … `TDCS_Z`) allowed. The limit is one constant,
+`tit.constants.MAX_MTI_CHANNELS`, read by `tit.sim.config.check_electrode_pairs` (so
+`SimulationConfig`, `POST /api/validate/sim`, plans, montage and free-hand catalog writes refuse 14+
+channels) and by `mTISimulation`'s own guard; the desktop mirrors it once as `MAX_MTI_CHANNELS` in
+`desktop/src/renderer/pages/simulator/types.ts`, which `isValidPairCount` (montage editor, free-hand
+editor, job-row problem) reads. `tit.calc` is not capped: an envelope of more fields is still
+mathematics, only the product refuses it. Pinned by
+`tests/test_sim_config_cross_field_rules.py`, `tests/test_catalog_write_validation.py`,
+`desktop/tests/unit/simulator-defaults.test.ts` and `desktop/tests/unit/freehand-placement.test.ts`.
+Replaces the 26-channel ceiling of the 2026-10-22 rule and the "more than 26 channels" revisit
+condition of the 2026-10-28 channel-naming entry.
+
+**Why.** Maintainer, 2026-11-02: limit mTI to 12 channels "for now".
+
+**Alternatives rejected.** Folding the cap into `is_valid_pair_count` (it would also cap `tit.calc`,
+which is not a product limit); per-site literals (the limit is to be raised later in one place).
+
+**Revisit if.** A study needs more than 12 channels: raise both constants together.

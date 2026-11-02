@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import math
 import os
-import string
 from copy import deepcopy
 
 import pytest
@@ -145,9 +144,9 @@ def test_the_validate_route_now_reports_the_mismatch():
 # ── p15 (2026-10-22): the rules a config is refused for before any FEM solve ──────────────────
 #
 # Where the expected values come from: the spec, not the code under test.
-# * mTI channels are named A..Z (``tit/sim/mTI.py``, ``string.ascii_uppercase``), so a montage
-#   holds at most 26 pairs; before this, a 28-pair config constructed and failed only in
-#   ``mTISimulation._post_process``, after 28 FEM solves.
+# * mTI is limited to 12 channels (24 electrodes) -- the maintainer's limit, 2026-11-02; before
+#   any cap, a 28-pair config constructed and failed only in ``mTISimulation._post_process``,
+#   after 28 FEM solves.
 # * Every montage writes ``Simulations/<name>/``, so two montages of one config with one name
 #   would overwrite each other.
 # * A TI montage reads the first two currents, an mTI montage one per pair (the class docstring).
@@ -171,18 +170,20 @@ _FOUR_POINTS = [
 ]
 
 
-def test_the_largest_montage_the_a_to_z_channel_names_allow_is_accepted():
-    n = len(string.ascii_uppercase)  # 26 channel letters
+def test_a_12_channel_mti_montage_the_largest_allowed_is_accepted():
     config = SimulationConfig(
-        subject_id="101", montages=[_montage("az", n)], intensities=[1.0] * n
+        subject_id="101", montages=[_montage("max", 12)], intensities=[1.0] * 12
     )
-    assert config.montages[0].num_pairs == 26
+    assert config.montages[0].num_pairs == 12
 
 
-def test_a_28_pair_montage_is_refused_at_construction_not_after_its_fem_solves():
-    with pytest.raises(ValueError, match="'big'.*at most 26"):
+@pytest.mark.parametrize("n", [13, 14, 28])
+def test_an_mti_montage_over_12_channels_is_refused_at_construction(n):
+    # 13 is also odd; 14 and 28 are even, so only the channel cap refuses them.
+    match = "'big'" if n % 2 else "'big'.*limited to 12 channels \\(24 electrodes\\)"
+    with pytest.raises(ValueError, match=match):
         SimulationConfig(
-            subject_id="101", montages=[_montage("big", 28)], intensities=[1.0] * 28
+            subject_id="101", montages=[_montage("big", n)], intensities=[1.0] * n
         )
 
 

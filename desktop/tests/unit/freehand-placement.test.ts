@@ -190,11 +190,12 @@ describe("row ↔ dot", () => {
 });
 
 describe("what Save accepts", () => {
-  it("takes 4 positions (TI) or 8, 12, 16 … (an even pair count, mTI) — never 3 or 5 pairs", () => {
+  it("takes 4 positions (TI) or 8, 12, 16 … 24 (an even pair count up to 12, mTI) — never 3 or 5 pairs", () => {
     // `tit.constants.is_valid_pair_count` on half the count: 6 and 10 positions are 3 and 5 pairs,
     // which the job runner refused with "Invalid number of electrode pairs: 5" after Save took them.
-    const valid = Array.from({ length: 20 }, (_, n) => n).filter(isValidPositionCount);
-    expect(valid).toEqual([4, 8, 12, 16]);
+    // 24 positions is the 12-channel mTI cap (2026-11-02); 28 is 14 channels, over it.
+    const valid = Array.from({ length: 30 }, (_, n) => n).filter(isValidPositionCount);
+    expect(valid).toEqual([4, 8, 12, 16, 20, 24]);
   });
 
   it("names a label two rows share, counting an empty label as the server's E<row>", () => {

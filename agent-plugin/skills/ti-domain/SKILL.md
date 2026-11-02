@@ -89,7 +89,7 @@ This equals `2 · min(|E1|, |E2|)` when the fields point in the same direction. 
 Standard TI is one beating pair: two channels at slightly different carrier
 frequencies that beat at Δf. Multi-polar TI (mTI) uses `2K` channels in `K` beating
 pairs — 4 or more channels, beating in pairs at a common Δf. TI-Toolbox accepts any
-even number of channels from 4 (E1± to E4±, `K = 2`) up to 26; the optimizers'
+even number of channels from 4 (E1± to E4±, `K = 2`) up to 12 (`tit.constants.MAX_MTI_CHANNELS`); the optimizers'
 mEx-search uses exactly 4.
 
 ### How mTI Works (the model TI-Toolbox computes)

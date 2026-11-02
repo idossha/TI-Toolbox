@@ -48,7 +48,7 @@ import { isSafeName, safeNameProblem } from "../_shared/entityNames";
 import { putFreehand, type ElectrodePosition, type FreehandConfig } from "./api";
 import { useFreehandDraft } from "./freehandDraft";
 import { POSITIONS_PER_STEP, isPlaced, isValidPositionCount, positionSwatch, repeatedLabels } from "./freehandPlacement";
-import { MIN_ELECTRODE_SEPARATION_MM, coincidentElectrodes } from "./types";
+import { MAX_MTI_CHANNELS, MIN_ELECTRODE_SEPARATION_MM, coincidentElectrodes } from "./types";
 import "./freehand-editor.css";
 
 /** A row still at the origin has not been placed: the origin is inside the head, so no scalp pick
@@ -271,7 +271,7 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             have made a mistake when they have simply not finished; the blocking reason is carried
             by the disabled Save button directly above it (DESIGN.md §6.3). */}
         <span className="field-help">
-          Use 4 positions (2 channels, standard TI) or 8, 12, 16 … (an even number of channels from 4, multi-channel mTI).
+          Use 4 positions (2 channels, standard TI) or 8, 12, 16 … {2 * MAX_MTI_CHANNELS} (an even number of channels from 4 to {MAX_MTI_CHANNELS}, multi-channel mTI).
         </span>
         {/* Unlike the count, a repeated label is a mistake, not an unfinished table: saving would
             keep only one of the positions that share it. */}

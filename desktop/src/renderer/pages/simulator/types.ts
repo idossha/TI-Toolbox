@@ -238,7 +238,7 @@ export function rowProblem(row: SelectedRow): string | null {
   const n = sentPairCount(row);
   if (n === 0) return null;
   if (!isValidPairCount(n)) {
-    return `${plural(n, "channel")}: a montage needs 2 channels (TI) or an even number from 4 (mTI).`;
+    return `${plural(n, "channel")}: a montage needs 2 channels (TI) or an even number from 4 to ${MAX_MTI_CHANNELS} (mTI).`;
   }
   const shown = rowCurrentsCount(row);
   const required = requiredCurrents(n);
@@ -335,12 +335,16 @@ export function inferMontageKind(numPairs: number): MontageKind {
   return numPairs > 2 ? "multi_polar" : "uni_polar";
 }
 
+/** Most channels an mTI montage may have (24 electrodes); mirrors `tit.constants.MAX_MTI_CHANNELS`. */
+export const MAX_MTI_CHANNELS = 12;
+
 /**
- * `tit.constants.is_valid_pair_count`: 2 pairs (TI) or an even count from 4 (mTI). An odd count
- * leaves a channel with nothing to beat against, and the server refuses it.
+ * `tit.constants.is_valid_pair_count` plus the server's `MAX_MTI_CHANNELS` cap: 2 pairs (TI) or an
+ * even count from 4 to 12 (mTI). An odd count leaves a channel with nothing to beat against, and
+ * the server refuses it and any count over the cap.
  */
 export function isValidPairCount(n: number): boolean {
-  return n === 2 || (n >= 4 && n % 2 === 0);
+  return n === 2 || (n >= 4 && n <= MAX_MTI_CHANNELS && n % 2 === 0);
 }
 
 /** Human label for a polarity — the chip shown beside a montage in the table. */

@@ -1116,7 +1116,8 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
         "science_rules": {
             "pair_count": "tit.constants.is_valid_pair_count — an even number of channels "
             "(electrode pairs; channel k is electrodes Ek+ and Ek-), at least 2. 2 channels "
-            "= TI, 4 or more (even) = mTI. Odd counts leave a channel with nothing to beat "
+            "= TI, 4 or more (even) = mTI, at most tit.constants.MAX_MTI_CHANNELS (12) "
+            "channels for a simulated montage. Odd counts leave a channel with nothing to beat "
             "against; a single channel is tACS, not TI.",
             "envelope_api": "tit.calc exposes exactly five functions: "
             "envelope(fields, direction) -> TI_normal; envelope_max(fields, *, "

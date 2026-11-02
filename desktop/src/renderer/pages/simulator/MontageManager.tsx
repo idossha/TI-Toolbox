@@ -57,6 +57,7 @@ import {
   isRunnableRow,
   isCustomised,
   isValidPairCount,
+  MAX_MTI_CHANNELS,
   newRowId,
   polarityLabel,
   repeatedElectrodes,
@@ -372,7 +373,7 @@ export function montageDraftProblem(draft: MontageDraft): string | null {
   const badName = safeNameProblem(name, "montage");
   if (badName) return badName;
   if (draft.pairs.some((p) => !p[0] || !p[1])) return "Pick both electrodes (Ek+ and Ek-) of every channel.";
-  if (!isValidPairCount(draft.pairs.length)) return "Use exactly 2 channels (standard TI) or an even number of channels from 4.";
+  if (!isValidPairCount(draft.pairs.length)) return `Use exactly 2 channels (standard TI) or an even number of channels from 4 to ${MAX_MTI_CHANNELS}.`;
   const repeated = repeatedElectrodes(draft.pairs);
   if (repeated.length > 0) return repeatedElectrodesSentence(repeated);
   return null;
@@ -1295,7 +1296,7 @@ export function JobsTable({
                   />
                 )}
                 {!isValidPairCount(editing.pairs.length) && (
-                  <span className="field-error">Use exactly 2 channels (standard TI) or an even number of channels from 4: 4, 6, 8 … (multi-channel mTI).</span>
+                  <span className="field-error">Use exactly 2 channels (standard TI) or an even number of channels from 4 to {MAX_MTI_CHANNELS}: 4, 6, 8 … (multi-channel mTI).</span>
                 )}
                 {repeatedElectrodes(editing.pairs).length > 0 && (
                   <span className="field-error" role="alert" data-testid="montage-repeated-electrodes">

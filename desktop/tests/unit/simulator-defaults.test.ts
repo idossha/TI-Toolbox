@@ -337,6 +337,11 @@ describe("montage table derivations", () => {
     expect(Array.from({ length: 11 }, (_, n) => n).filter(isValidPairCount)).toEqual([2, 4, 6, 8, 10]);
   });
 
+  it("caps mTI at 12 channels (24 electrodes), as the server's MAX_MTI_CHANNELS does", () => {
+    // The maintainer's limit, 2026-11-02: 12 is the largest montage, 13 is odd, 14 is over the cap.
+    expect([12, 13, 14, 26].filter(isValidPairCount)).toEqual([12]);
+  });
+
   it("labels the polarity as the chip does", () => {
     expect(polarityLabel("uni_polar")).toBe("TI");
     expect(polarityLabel("multi_polar")).toBe("mTI");
