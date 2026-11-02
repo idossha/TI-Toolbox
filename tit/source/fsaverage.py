@@ -273,7 +273,7 @@ def _compute_fields(
         except Exception as exc:  # noqa: BLE001 - shared carrier read; skip both
             errors.append(f"carriers: {exc!r}")
         else:
-            # Cassarà 2025 safety metrics (same formulas as the volume output).
+            # Cassarà 2025 carrier fields (same formulas as the volume output).
             _project("hf_peak", lambda: hf_peak(e_fields, coherent=carrier_only))
             _project(
                 "hf_rms", lambda: np.sqrt(hf_power(e_fields, coherent=carrier_only))

@@ -604,10 +604,7 @@ def hf_power(
     average out).  The saved ``hf_rms`` field is ``sqrt(hf_power)``, and
     ``sigma * hf_power`` (isotropic ``sigma``) the absorbed (Joule) power density
     ``hf_power_density`` in W/m^3.  Unlike every other output this is a time
-    average, and not the quantity to compare with exposure limits: ICNIRP 2010
-    and IEEE C95.1-2019 sum amplitudes across frequencies, so compare
-    :func:`hf_peak` with ``sqrt(2)`` times their RMS tables (``sqrt(hf_power)``
-    against them is up to ``sqrt(N)`` low for N carriers).
+    average (an RMS squared), not a zero-to-peak amplitude.
 
     Method: closed form, exact for any number of channels.  Literature:
     Cassarà et al. 2025 Part I p. 11 and Part II Eq. 1; IEEE C95.1-2019 p. 35.

@@ -121,7 +121,7 @@ After simulation, TI-Toolbox produces several derived field types:
 | **TI_max** | Maximum TI envelope over all directions — scalar field on volume elements (TI mode) |
 | **TI_normal** | TI envelope along the cortical surface normal — node field on the central surface `mesh/surfaces/<montage>_<TI|mTI>_central.msh` |
 | **mTI_max** | Maximum joint envelope of all channels — scalar field on volume elements (mTI mode) |
-| **hf_peak**, **hf_rms** | Saved by default with `TI_max`/`mTI_max` (`output_fields=None`): peak carrier field (V/m, zero-to-peak; the one to compare with exposure limits), `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field (V/m; not a compliance metric) |
+| **hf_peak**, **hf_rms** | Saved by default with `TI_max`/`mTI_max` (`output_fields=None`): peak carrier field (V/m, zero-to-peak), `hf_rms` = √`tit.calc.hf_power`, the RMS carrier field over time (V/m) |
 | **TI_avg**, **hf_power_density** | Opt-in volume fields (`output_fields`): direction-averaged envelope, absorbed carrier power with the run's conductivity (W/m³) |
 
 The selected fields are written into one field mesh, `<montage>_TI.msh` (`<montage>_mTI.msh`), and

@@ -711,27 +711,13 @@ E(x) = Σ_k  I_k · L(x, k)
 
 Where I_k is the current at electrode k and L(x, k) is the precomputed leadfield at point x for electrode k. This is the basis of fast optimization.
 
----
+### Carrier fields: `hf_peak`, `hf_rms`, `hf_power_density`
 
-## 9. Safety Considerations
-
-These safety parameters are embedded in the codebase's validation and constraint systems:
-
-### Current Limits
-- **Total injected current per channel**: typically capped at **2 mA** (milliamperes)
-- **Current density at electrode-skin interface**: must stay below **2 mA/cm²** to prevent skin irritation or burns
-- Larger electrodes spread the same current over more area, reducing current density
-
-### Thermal Effects
-- Resistive heating occurs at electrode contacts and in tissue (P = I²R)
-- Most significant at the electrode-skin interface where impedance is highest
-- Electrode gel/sponge must maintain good electrical contact to prevent hot spots
-
-### Exposure metrics: `hf_peak`, `hf_rms`, `hf_power_density`
-
-These are the toolbox's carrier-exposure outputs, and their definitions are
-precise. Follow Cassarà et al. 2025 (Parts I and II), which the implementation is
-written to.
+These are the toolbox's carrier-field outputs, and their definitions are
+precise. Describe each by what it is (formula, units, peak or RMS); the toolbox
+designates none of them as the one to compare with exposure limits, so do not
+recommend one over another on those grounds. Follow Cassarà et al. 2025 (Parts I
+and II), which the implementation is written to.
 
 **The engine is quasi-static.** An FEM field `E` is a **phasor amplitude** vector
 in V/m — a **peak**, not an RMS — and there is no time axis anywhere in the
@@ -741,14 +727,7 @@ worst phase is actually attained (which it is, for incommensurate frequencies), 
 upper bound otherwise.
 
 **Peak vs RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes
-for zero-to-peak channel currents; `hf_rms` is the RMS over time. **`hf_peak` is the
-quantity to compare with exposure limits**: ICNIRP 2010 and IEEE C95.1-2019 limit the
-in-situ E-field at 1–10 kHz (not SAR; their SAR limits start at 100 kHz), tabulate RMS
-values with a peak limit of `sqrt(2)` × RMS, and for several carriers sum amplitudes.
-Compare after their spatial averaging (ICNIRP: 2×2×2 mm³ cube and 99th percentile;
-IEEE: 5 mm line); per-element values are not the compliance quantity. `hf_rms` is
-**not** a compliance metric: against the RMS tables it underestimates by up to
-`sqrt(N)` for N carriers.
+for zero-to-peak channel currents; `hf_rms` is the RMS over time.
 
 **How channel fields combine** (Cassarà Part II, p. 8, verbatim): *"coherent field
 superposition was used for identical frequencies, and incoherent superposition
@@ -768,14 +747,9 @@ hf_power_density = (1/2) sum_c E_c^T sigma E_c   (saved; shown p_{HF}) (W/m^3)
 - `hf_power_density` uses the conductivity the simulation solved with (tissue
   values with overrides; each element's DTI tensor under `vn`/`dir`/`mc`): the absorbed
   (Joule) power density, not SAR (`SAR = hf_power_density / rho`, IEEE C95.1-2019 p. 35;
-  `rho` is not applied, and no SAR limit applies below 100 kHz). It is a volume
-  field only (not projected to fsaverage).
+  `rho` is not applied). It is a volume field only (not projected to fsaverage).
 - `hf_peak` is **exact** for any number of channels (zonotope vertices: the sign
   patterns around the directions `E_i x E_j`).
-- Cassarà's Table 3 (p. 15) limits are **peak** values, not RMS: brain 16 mA /
-  30 V/m below 2.5 kHz, scaling as `f / 2.5 kHz` above; skin 7 mA / 200 V/m. The
-  temperature-derived route gives 14 mA for the FDA's 0.1 °C brain limit and
-  100 mA for 2 °C in skin.
 - `TI_max`, `TI_avg`, `TI_normal` and everything downstream in the analyzer and
   statistics were never affected by the carrier-grouping question.
 - **Carrier-only control (ΔF = 0).** `SimulationConfig(carrier_only=True)` models
@@ -788,15 +762,29 @@ hf_power_density = (1/2) sum_c E_c^T sigma E_c   (saved; shown p_{HF}) (W/m^3)
   |E1| = 1, |E2| = 0.8 at 120°: TI worst case 1.56, carrier-only 0.92.
 
 **Deliberately not computed** (do not claim the toolbox reports them): current
-density `J = σE` (needs the 2 mm ICNIRP averaging kernel), SAR itself (`rho` is not
-applied to `hf_power_density`), spatially averaged in-situ fields,
-temperature rise (Pennes bioheat), charge per phase and the Shannon limit, exposure
-duration / CEM43, and the activating function.
+density `J = σE`, SAR itself (`rho` is not applied to `hf_power_density`),
+spatially averaged in-situ fields, temperature rise (Pennes bioheat), charge per
+phase and the Shannon limit, exposure duration / CEM43, and the activating function.
 
-### General SAR context
-- SAR = σ|E_rms|² / ρ = hf_power_density / ρ (W/kg), where ρ is tissue density. SAR limits
-  (2 W/kg over 10 g) apply from 100 kHz; at TI's 1–10 kHz carriers the standards limit the
-  in-situ E-field instead, so never present `hf_power_density` as SAR or check it against them.
+### SAR
+- SAR = σ|E_rms|² / ρ = hf_power_density / ρ (W/kg), where ρ is tissue density (IEEE
+  C95.1-2019 p. 35). The toolbox does not apply ρ, so never present `hf_power_density` as SAR.
+
+---
+
+## 9. Safety Considerations
+
+These safety parameters are embedded in the codebase's validation and constraint systems:
+
+### Current Limits
+- **Total injected current per channel**: typically capped at **2 mA** (milliamperes)
+- **Current density at electrode-skin interface**: must stay below **2 mA/cm²** to prevent skin irritation or burns
+- Larger electrodes spread the same current over more area, reducing current density
+
+### Thermal Effects
+- Resistive heating occurs at electrode contacts and in tissue (P = I²R)
+- Most significant at the electrode-skin interface where impedance is highest
+- Electrode gel/sponge must maintain good electrical contact to prevent hot spots
 
 ### Impedance Monitoring
 - Electrode-skin impedance should be monitored before and during stimulation

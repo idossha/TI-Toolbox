@@ -723,11 +723,13 @@ subscript. The desktop mirrors the registry in `desktop/src/renderer/pages/analy
 (`tests/test_field_registry.py` holds name, label and units equal) and renders labels with one
 helper, `fieldLabel()` + `<Subscripted>`; a place that holds no markup (a `title`) shows the
 saved spelling. The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
-layer from the same registry. `hf_peak` is zero-to-peak and is the field to compare with exposure
-limits (ICNIRP 2010 / IEEE C95.1-2019 peak limit = √2 × tabulated RMS, amplitudes summed across
-carriers, after the standards' spatial averaging); `hf_rms` = √`hf_power` is the RMS carrier field
-and not a compliance metric (it underestimates against RMS tables by up to √N for N carriers);
-`hf_power_density` is the absorbed (Joule) power density, never called SAR. The analyzer's carrier
+layer from the same registry. `hf_peak` is zero-to-peak; `hf_rms` = √`hf_power` is the RMS
+carrier field over time; `hf_power_density` is the absorbed (Joule) power density, never called
+SAR. Every field is described neutrally (what it is, its formula, units and peak/RMS convention):
+none is designated the one to compare with exposure limits or called a compliance metric, and none
+is hidden, disabled or steered against for policy reasons; a field option is disabled only when
+the field cannot be produced (`tests/test_field_registry.py`,
+`desktop/tests/unit/field-descriptions.test.ts`). The analyzer's carrier
 metrics are `hf_peak_*` / `hf_rms_*` (`hf_peak_focality`, `hf_rms_focality`,
 `hf_peak_focality_{50,75,90,95}_area`, their ROI/GM means) and `ti_selectivity`; Ex/mEx write
 `HFpeak_Focality` and `TI_Selectivity`, the group summary `HFpeak_Focality`, `HFrms_Focality` and

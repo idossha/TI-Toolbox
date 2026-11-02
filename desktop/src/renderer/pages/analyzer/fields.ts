@@ -53,15 +53,14 @@ export const FIELD_REGISTRY: FieldSpec[] = [
     kind: "safety",
     units: "V/m",
     description:
-      "Largest instantaneous magnitude of the summed carrier fields (zero-to-peak): max over sign choices of |sum_i s_i·E_i| (Cassarà et al. 2025, Eq. 3). The quantity to compare with exposure limits (peak limit = √2 × the tabulated RMS limit).",
+      "Largest instantaneous magnitude of the summed carrier fields (zero-to-peak): max over sign choices of |sum_i s_i·E_i| (Cassarà et al. 2025, Eq. 3).",
   },
   {
     name: "hf_rms",
     label: "HF_{rms}",
     kind: "safety",
     units: "V/m",
-    description:
-      "RMS carrier field over time, √(½ sum_i |E_i|²). Not a compliance metric: against RMS limit tables it underestimates by up to √N for N carriers; compare hf_peak instead.",
+    description: "RMS carrier field over time, √(½ sum_i |E_i|²).",
   },
   {
     name: "hf_power_density",

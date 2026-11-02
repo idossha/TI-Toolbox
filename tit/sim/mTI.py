@@ -50,7 +50,7 @@ class mTISimulation(BaseSimulation):
     4. Compute ``mTI_max`` from the modulation-depth envelope over all N
        channel fields jointly, plus its orientation-averaged companion
        ``TI_avg`` and the ``hf_peak``/``hf_rms``/``hf_power_density``
-       kHz-exposure maps (always over all N fields), and the central surface
+       carrier fields (always over all N fields), and the central surface
        with them and ``TI_normal``.
     5. Organize outputs; with ``map_to_vol``, write one NIfTI per field (whole,
        grey and white matter).

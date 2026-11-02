@@ -234,6 +234,25 @@ class TestOutputFieldDefinitions:
             assert "safety metric" not in lowered
             assert "functional" not in lowered
 
+    def test_no_field_is_ranked_for_compliance(self):
+        """Fields are described, never ranked against exposure limits (2026-11-02).
+
+        Maintainer, docs/dev/DECISIONS.md "Field metrics are described, never ranked for
+        compliance": no description says which field to compare with exposure limits or that
+        one is "not a compliance metric". The forbidden words are that request, not the code.
+        The desktop mirror is held to it by desktop/tests/unit/field-descriptions.test.ts.
+        """
+        user_text = [" ".join(d[2:]) for d in const.OUTPUT_FIELD_DEFINITIONS] + [
+            spec.description for spec in const.FIELD_REGISTRY
+        ]
+        assert len(user_text) >= 12, "the registry has descriptions to check"
+        for text in user_text:
+            lowered = text.lower()
+            for word in ("complian", "exposure", "icnirp", "limit"):
+                assert word not in lowered, (word, text)
+        assert "zero-to-peak" in const.get_field_spec("hf_peak").description
+        assert "RMS" in const.get_field_spec("hf_rms").description
+
 
 @pytest.mark.unit
 class TestDisplayLabels:

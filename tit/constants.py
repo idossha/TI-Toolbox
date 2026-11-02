@@ -191,8 +191,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         description=(
             "Largest instantaneous magnitude of the summed carrier fields "
             "(zero-to-peak): max over sign choices of |sum_i s_i*E_i| "
-            "(Cassarà et al. 2025, Eq. 3). The quantity to compare with exposure "
-            "limits (peak limit = sqrt(2) x the tabulated RMS limit)."
+            "(Cassarà et al. 2025, Eq. 3)."
         ),
     ),
     FieldSpec(
@@ -200,11 +199,7 @@ FIELD_REGISTRY: tuple[FieldSpec, ...] = (
         label="HF_{rms}",
         kind=FIELD_KIND_SAFETY,
         units="V/m",
-        description=(
-            "RMS carrier field over time, sqrt(1/2 sum_i |E_i|^2). Not a compliance "
-            "metric: against RMS limit tables it underestimates by up to sqrt(N) "
-            "for N carriers; compare hf_peak instead."
-        ),
+        description="RMS carrier field over time, sqrt(1/2 sum_i |E_i|^2).",
     ),
     FieldSpec(
         name=FIELD_HF_POWER_DENSITY,
@@ -266,23 +261,17 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         FIELD_HF_PEAK,
         "V/m",
         "Largest instantaneous magnitude the summed carrier fields can reach "
-        "(zero-to-peak, not peak-to-trough). ICNIRP 2010 and IEEE C95.1-2019 "
-        "tabulate RMS limits with a peak limit of sqrt(2) x RMS and, for several "
-        "carriers, sum amplitudes, so this is the field to compare with the "
-        "limits, after the standards' spatial averaging (ICNIRP: 2x2x2 mm^3 cube "
-        "and 99th percentile; IEEE: 5 mm line). Per-element values are not the "
-        "compliance quantity.",
+        "(zero-to-peak, not peak-to-trough).",
         "max over s_i in {-1,+1} of |sum_i s_i*E_i|, exact for any number of "
         "fields (zonotope vertices).",
-        "Cassara et al. 2025, Eq. 3; ICNIRP 2010; IEEE C95.1-2019.",
+        "Cassara et al. 2025, Eq. 3.",
     ),
     (
         FIELD_HF_RMS,
         "V/m",
         "RMS in-situ carrier field over time. The carriers sit at different, "
         "incommensurate frequencies, so their power adds rather than their "
-        "amplitudes. Not a compliance metric: comparing it with RMS limit tables "
-        "underestimates the exposure by up to sqrt(N) for N carriers.",
+        "amplitudes.",
         "sqrt((1/2) sum_i |E_i|^2) = sqrt(hf_power)",
         "Cassara et al. 2025.",
     ),
@@ -291,8 +280,7 @@ OUTPUT_FIELD_DEFINITIONS: tuple[tuple[str, str, str, str, str], ...] = (
         "W/m^3",
         "Absorbed (Joule) power density of the carriers, time-averaged, with the "
         "per-element conductivity the simulation solved with. It is not SAR "
-        "(SAR = this / tissue density), and no SAR limit applies below 100 kHz: "
-        "at 1-10 kHz the exposure standards limit the in-situ field.",
+        "(SAR = this / tissue density).",
         "(1/2) sum_i E_i^T sigma E_i: sigma*hf_power for isotropic conductivity, "
         "the conductivity tensor for anisotropic (DTI) models.",
         "IEEE C95.1-2019, p. 35; Cassara et al. 2025, Part II Eq. 1.",

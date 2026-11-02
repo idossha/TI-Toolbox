@@ -3975,6 +3975,9 @@ the whole form: a later factory change would never reach a user who changed one 
 
 ## 2026-10-30 — Field renames and display labels: `hf_sar` is `hf_rms`, carrier metrics say which carrier field
 
+**Superseded 2026-11-02 (in part):** item (4)'s exposure-limit and compliance statements; see
+"Field metrics are described, never ranked for compliance" below.
+
 **Decision.** (1) The saved field `hf_sar` (`Σ|E_c|²`, (V/m)²) is replaced by `hf_rms` =
 `sqrt(hf_power)` = `sqrt(½Σ|E_c|²)` in V/m, the RMS in-situ carrier field over time; an old run's
 `hf_sar` is never read, and its `hf_rms` is produced on demand from the channel meshes. (2) Every
@@ -4129,3 +4132,27 @@ matched column for column (user report, 2026-11-01).
 
 **Alternatives rejected.** Parsing the CSV in the renderer (a second reader, and up to 250,000 rows
 in the page); mapping more CSV columns into `metrics` (still a translation of the file, not the file).
+
+## 2026-11-02 — Field metrics are described, never ranked for compliance
+
+**Decision.** The toolbox presents every field metric neutrally: its registry description, the
+desktop tooltip, the wiki, the API docs and the agent plugin state what the quantity is, its
+formula, units and convention (`hf_peak` zero-to-peak, `hf_rms` an RMS over time), with the
+citation that sources the formula (Cassarà et al. 2025 Eq. 3 for `hf_peak`; IEEE C95.1-2019 p. 35
+for SAR = power density / ρ). No field is designated the one to compare with exposure limits,
+none is called "not a compliance metric", and no ICNIRP 2010 / IEEE C95.1-2019 comparison advice
+(√2 × RMS limits, spatial averaging, "no SAR limit below 100 kHz", the √N underestimate) is given.
+No field is hidden, disabled or steered against for policy reasons; options stay disabled only
+where the field cannot be produced (`TI_normal` in voxel space, an unsaved `hf_power_density`,
+envelope fields of a carrier-only run). The wiki section on `hf_peak`/`hf_rms`/`hf_power_density`
+is headed "Carrier fields", not "Safety metrics" (its `#safety-metrics` anchor is kept for the
+released v3.0.0 notes that link it). Supersedes item (4) of the 2026-10-30 field-rename entry.
+Pinned by `tests/test_field_registry.py::TestOutputFieldDefinitions` and
+`desktop/tests/unit/field-descriptions.test.ts`.
+
+**Why.** Maintainer, 2026-11-02: "remove the compliance metrics … we should not limit users
+regarding metric never." Which quantity a study compares with which standard is the user's
+decision; the toolbox computes and saves the fields and says what they are.
+
+**Alternatives rejected.** Keeping the guidance in the wiki only (the wiki is what users read, so
+it still steers them); removing `hf_rms` or `hf_peak` (the request keeps every metric).

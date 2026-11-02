@@ -91,7 +91,7 @@ def hf_power_density(fields, sigma, *, coherent: bool = False) -> np.ndarray:
     (V/m) at distinct frequencies: ``sigma * hf_power`` for isotropic
     ``sigma`` ``(N,)`` S/m, the full tensor form for ``(N, 9)`` anisotropic
     conductivities (``J . E`` averaged over time).  Not SAR (that is this over the
-    tissue density, IEEE C95.1-2019 p. 35, and no SAR limit applies below 100 kHz).  *coherent* is the carrier-only control: one
+    tissue density, IEEE C95.1-2019 p. 35).  *coherent* is the carrier-only control: one
     sinusoid of amplitude ``sum_c E_c``.
     """
     sigma = np.asarray(sigma, dtype=np.float64)

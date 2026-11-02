@@ -15,8 +15,8 @@ Each field has a saved name, used in files, configs and scripts, and a display l
 | `TI_max` (`mTI_max` for mTI) | $$TI_{max}$$ ($$mTI_{max}$$) | V/m | envelope modulation depth, maximised over direction |
 | `TI_normal` | $$TI_{normal}$$ | V/m | the envelope along the cortical surface normal |
 | `TI_avg` | $$TI_{avg}$$ | V/m | the envelope averaged over direction |
-| `hf_peak` | $$HF_{peak}$$ | V/m | peak (zero-to-peak) carrier field; the one to compare with exposure limits |
-| `hf_rms` | $$HF_{rms}$$ | V/m | RMS carrier field over time; not a compliance metric |
+| `hf_peak` | $$HF_{peak}$$ | V/m | peak (zero-to-peak) carrier field |
+| `hf_rms` | $$HF_{rms}$$ | V/m | RMS carrier field over time |
 | `hf_power_density` | $$p_{HF}$$ | W/m³ | absorbed (Joule) power density of the carriers |
 
 <div class="image-container">
@@ -30,7 +30,7 @@ Each field has a saved name, used in files, configs and scripts, and a display l
 
 A **channel** is one electrode pair driven by one current source at its own kHz carrier frequency. Two channels whose carrier frequencies differ by a small $$\Delta f$$ form a **beating pair** and beat at $$\Delta f$$. Standard TI is one beating pair: two channels at slightly different carrier frequencies (4 electrodes, for example 2.000 and 2.010 kHz). Multipolar TI (mTI) uses $$2K$$ channels in $$K$$ beating pairs, all beating at a common $$\Delta f$$ (8 electrodes for $$K = 2$$, for example 2.000/2.010 and 4.000/4.010 kHz).
 
-A kHz field alone does not modulate neurons. What matters is the amplitude of the slow beat where the channels' fields overlap (Grossman et al. 2017). Every statistic the Analyzer reports summarises that amplitude, or one of the safety metrics, over space.
+A kHz field alone does not modulate neurons. What matters is the amplitude of the slow beat where the channels' fields overlap (Grossman et al. 2017). Every statistic the Analyzer reports summarises that amplitude, or one of the carrier fields, over space.
 
 <div class="image-container" style="max-width: 800px;">
   <video controls muted playsinline style="width: 100%; border-radius: 8px;" preload="metadata">
@@ -84,7 +84,7 @@ $$
 \mathrm{TI\_avg} = \lVert \mathbf{E}_1 \rVert + \lVert \mathbf{E}_2 \rVert - \tfrac{1}{2}\bigl( \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert + \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert \bigr)
 $$
 
-`tit.calc` has five functions: `envelope`, `envelope_max` and `envelope_mean` for the envelope, and `hf_peak` and `hf_power` for the carriers ([Safety metrics](#safety-metrics)). The envelope functions take `fields = [E_1, E_2, ..., E_2K]`, one `(N, 3)` array per channel, with each two consecutive channels forming a beating pair. `envelope_max(fields, return_direction=True)` also returns the unit direction of the maximum; `TI_max` times that direction is the TI vector the [Blender export]({{ site.baseurl }}/wiki/blender/) draws. Every simulation, ex-search and mex-search computes its envelope fields with these functions.
+`tit.calc` has five functions: `envelope`, `envelope_max` and `envelope_mean` for the envelope, and `hf_peak` and `hf_power` for the carriers ([Carrier fields](#safety-metrics)). The envelope functions take `fields = [E_1, E_2, ..., E_2K]`, one `(N, 3)` array per channel, with each two consecutive channels forming a beating pair. `envelope_max(fields, return_direction=True)` also returns the unit direction of the maximum; `TI_max` times that direction is the TI vector the [Blender export]({{ site.baseurl }}/wiki/blender/) draws. Every simulation, ex-search and mex-search computes its envelope fields with these functions.
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/analyzer/analyzer_fig4c_ti_normal.png" alt="Schematic of two cortical surface points with the TI_max arrow and the surface normal: TI_normal is large where TI_max runs along the normal and small where TI_max runs tangential" style="width: 100%; max-width: 700px;">
@@ -128,7 +128,7 @@ The right-hand form subtracts no near-equal numbers and is the one the code eval
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/mti_envelope_time.png" alt="mTI time domain: per-pair envelopes and the joint envelope at one point" style="width: 100%; max-width: 900px;">
-  <em>One point of an mTI field (4 channels, 2 beating pairs), with every channel field along one axis for clarity. Pair 1's channels carry 0.5 + 0.5 V/m, pair 2's 0.3 + 0.7 V/m. On its own, each pair's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the pairs' power envelopes add (not their amplitudes) and the joint envelope amplitude is 1.01 V/m (<code>envelope_max</code>). The larger numbers are other quantities: the dotted sum of per-pair envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_power</code> = 0.54 (V/m)², so <code>hf_rms</code> = 0.73 V/m (see <a href="#safety-metrics">Safety metrics</a>).</em>
+  <em>One point of an mTI field (4 channels, 2 beating pairs), with every channel field along one axis for clarity. Pair 1's channels carry 0.5 + 0.5 V/m, pair 2's 0.3 + 0.7 V/m. On its own, each pair's envelope amplitude is 1.00 and 0.60 V/m (top, middle). Together (bottom), the pairs' power envelopes add (not their amplitudes) and the joint envelope amplitude is 1.01 V/m (<code>envelope_max</code>). The larger numbers are other quantities: the dotted sum of per-pair envelopes (2.00 V/m) is not a physical envelope, a TI-of-TI recombination would give 1.20 V/m, and <code>hf_peak</code> = 2.00 V/m is the instantaneous peak of the summed field. The dashed running RMS is the power view of the same field; its mean square is <code>hf_power</code> = 0.54 (V/m)², so <code>hf_rms</code> = 0.73 V/m (see <a href="#safety-metrics">Carrier fields</a>).</em>
 </div>
 
 <div class="image-container">
@@ -138,9 +138,9 @@ The right-hand form subtracts no near-equal numbers and is the one the code eval
 
 Two shortcuts give different and wrong numbers, and the toolbox offers neither: adding the per-pair envelopes (the pairs' power envelopes add, not their amplitudes), and feeding per-pair envelopes back into the two-channel formula as if they were fields (TI-of-TI). How the toolbox tells a TI montage from an mTI montage is described on the [Simulator page]({{ site.baseurl }}/wiki/simulator/#how-the-toolbox-detects-mti).
 
-### Safety metrics
+### Carrier fields {#safety-metrics}
 
-`hf_peak`, `hf_rms` and `hf_power_density` describe the kHz exposure itself rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed by `tit.calc.hf_peak` and `tit.calc.hf_power` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a beating pair differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
+`hf_peak`, `hf_rms` and `hf_power_density` describe the kHz carrier fields themselves rather than the envelope. They follow Cassarà et al. 2025 (_Bioelectromagnetics_, Part I 46(2):e22542, doi:10.1002/bem.22542; Part II 46(1):e22536, doi:10.1002/bem.22536) and are computed by `tit.calc.hf_peak` and `tit.calc.hf_power` from all $$N$$ channel fields $$\mathbf{E}_1, \dots, \mathbf{E}_N$$. The two channels of a beating pair differ by $$\Delta f$$, so no two channels share a frequency, and every channel field enters on its own.
 
 **Peak and RMS.** All E-fields, `TI_max` and `hf_peak` are zero-to-peak amplitudes for zero-to-peak channel currents; `hf_rms` is the RMS over time and `hf_power` its square, the time-averaged mean square.
 
@@ -150,9 +150,7 @@ $$
 \mathrm{hf\_peak} = \max_{s_j \in \{+1, -1\}} \left\lVert \sum_{j=1}^{N} s_j \mathbf{E}_j \right\rVert
 $$
 
-Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then a conservative upper bound. The maximum is exact for any number of channels: it lies at a vertex of the zonotope spanned by the $$\pm\mathbf{E}_j$$, and the candidate sign patterns are those around the directions $$\mathbf{E}_i \times \mathbf{E}_j$$.
-
-**`hf_peak` is the field to compare with exposure limits.** At 1–10 kHz ICNIRP 2010 and IEEE C95.1-2019 limit the in-situ electric field, not SAR (their SAR limits start at 100 kHz). They tabulate RMS values ("All values are rms", ICNIRP 2010 Table 2) with a peak limit of $$\sqrt{2}$$ times the RMS one, and for several frequencies both sum amplitudes rather than power. So compare `hf_peak` with $$\sqrt{2}$$ times the tabulated limit, after the standards' own spatial averaging: ICNIRP averages over a 2 × 2 × 2 mm³ cube and takes its 99th percentile, IEEE averages along a 5 mm line. A per-element value of `hf_peak` is not that compliance quantity.
+Each channel's field oscillates between $$+\mathbf{E}_j$$ and $$-\mathbf{E}_j$$, and the magnitude of the sum is largest when every channel is at a crest or a trough, so the maximum over sign choices is the maximum over all phase combinations. For two channels it is $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$, Cassarà Part I, Eq. 3 (p. 11). The field reaches this peak when every phase combination occurs over time. With harmonically related carriers, such as channels at 2.000, 2.010, 4.000 and 4.010 kHz, some combinations never occur, and `hf_peak` is then an upper bound. The maximum is exact for any number of channels: it lies at a vertex of the zonotope spanned by the $$\pm\mathbf{E}_j$$, and the candidate sign patterns are those around the directions $$\mathbf{E}_i \times \mathbf{E}_j$$.
 
 **`hf_rms`** ($$HF_{rms}$$, V/m) is the RMS in-situ carrier field over time. Fields at different frequencies add in power, not amplitude (Cassarà Part I, p. 11; Part II, p. 8), so
 
@@ -162,15 +160,13 @@ $$
 \mathrm{hf\_power} = \frac{1}{2} \sum_{j=1}^{N} \lVert \mathbf{E}_j \rVert^2 = \bigl\langle \lVert \mathbf{E}(t) \rVert^2 \bigr\rangle
 $$
 
-`hf_rms` is **not** a compliance metric. Compared with the RMS tables it underestimates the exposure by up to $$\sqrt{N}$$ for $$N$$ carriers, because the standards sum amplitudes across frequencies; use `hf_peak` for that.
-
 **`hf_power_density`** ($$p_{HF}$$, W/m³) is the absorbed (Joule) power density of the carriers, time-averaged, with the conductivity $$\boldsymbol{\sigma}$$ the simulation solved with:
 
 $$
 p_{HF} = \frac{1}{2} \sum_{j=1}^{N} \mathbf{E}_j^{\top} \boldsymbol{\sigma} \, \mathbf{E}_j
 $$
 
-For isotropic (`scalar`) conductivity this is $$\sigma \cdot \mathrm{hf\_power}$$, with each tissue's value including any overrides; for the anisotropic models (`vn`, `dir`, `mc`) each element's full DTI conductivity tensor is used. It is not SAR: SAR is this divided by the tissue density, $$\mathrm{SAR} = p_{HF} / \rho$$ (IEEE C95.1-2019, p. 35; Cassarà Part II, Eq. 1), the toolbox does not apply $$\rho$$, and no SAR limit applies below 100 kHz. It is written on the volume mesh and its NIfTIs only, not projected to fsaverage: that projection interpolates the fields onto the cortical surface, not the conductivity.
+For isotropic (`scalar`) conductivity this is $$\sigma \cdot \mathrm{hf\_power}$$, with each tissue's value including any overrides; for the anisotropic models (`vn`, `dir`, `mc`) each element's full DTI conductivity tensor is used. It is not SAR: SAR is this divided by the tissue density, $$\mathrm{SAR} = p_{HF} / \rho$$ (IEEE C95.1-2019, p. 35; Cassarà Part II, Eq. 1), and the toolbox does not apply $$\rho$$. It is written on the volume mesh and its NIfTIs only, not projected to fsaverage: that projection interpolates the fields onto the cortical surface, not the conductivity.
 
 A simulation saves `TI_max`, `hf_peak` and `hf_rms` by default; `TI_avg` and `hf_power_density` only when they are ticked (see [Output Fields on the Simulator page]({{ site.baseurl }}/wiki/simulator/#output-fields)). An analysis of a field the simulation did not save computes it first from the simulation's channel meshes and saves it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)), except `hf_power_density`, which needs the conductivity of the original solve and must be ticked before the run. The Analyzer treats each like any other field, in its own units.
 

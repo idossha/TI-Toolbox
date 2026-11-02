@@ -85,10 +85,10 @@ envelope_max([E1, E2, E3, E4])                 # K = 2 beating pairs, 4 channels
 beating partner gets a zero field as its partner in the envelope functions,
 `[E1, E2, Eu, np.zeros_like(Eu)]` (it lowers the envelope), and one more field
 in `hf_peak`/`hf_power`. `hf_peak(coherent=True)` is `|sum E_c|`, the phase-aligned
-"peak HF"; the default worst case over channel signs is the safety value. The
-on-disk field `hf_rms` stores `sqrt(hf_power)` (V/m, RMS over time; not a compliance metric,
-compare `hf_peak` with limits); `hf_power_density` stores `sigma * hf_power` in W/m^3 with the
-solve's own conductivity (absorbed Joule power density, not SAR).
+"peak HF"; the default is the worst case over channel signs. The on-disk field
+`hf_rms` stores `sqrt(hf_power)` (V/m, RMS over time); `hf_power_density` stores
+`sigma * hf_power` in W/m^3 with the solve's own conductivity (absorbed Joule power density,
+not SAR).
 
 **Removed — do not emit these.** Any `tit.calc` name other than the five above
 (the older vector/average/direction functions, their `psi` argument, and the
