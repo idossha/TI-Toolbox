@@ -61,7 +61,7 @@ TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
 
 The four FSL-grid atlases sit on exactly the grid SimNIBS's `mni2subject` warps assume (their
 headers were checked against the shipped `MNI152_T1_1mm.nii.gz`), so they need no template
-correction; see [Which MNI template](#which-mni-template-and-how-far-off) for the other three.
+correction.
 
 Every one of them is a **label volume**, including Glasser: that is a cortical parcellation, but it
 is distributed as a NIfTI, so you target it through the ROI picker's **Subcortical** mode, not the

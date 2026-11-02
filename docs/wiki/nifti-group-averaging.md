@@ -4,22 +4,7 @@ title: NIfTI Group Averaging
 permalink: /wiki/nifti-group-averaging/
 ---
 
-The NIfTI Group Averaging extension provides comprehensive tools for computing group averages and statistical comparisons of NIfTI files organized by experimental groups. This extension is particularly useful for temporal interference (TI) stimulation studies where researchers need to compare field distributions across multiple subjects and experimental conditions.
-
-## Before you start
-
-- **Turn the panel on.** Enable **NIfTI group averaging** in **Settings ▸ Extensions** and reload
-  the app; a panel toggle takes effect only after a reload. It then appears under **Extensions**
-  in the navigation rail.
-- **MNI-space NIfTIs are written when needed.** The default **Space**, **MNI volume**, reads each
-  simulation's MNI-space field NIfTI. A simulation writes one only when
-  **Simulator ▸ Job settings ▸ Output files ▸ Also in MNI space** is ticked; otherwise the job
-  writes it from the simulation's field mesh the first time it is needed, says so in its output,
-  and keeps it ([Fields computed on demand]({{ site.baseurl }}/wiki/simulator/#fields-computed-on-demand)). A simulation that cannot provide it
-  (its channel meshes are gone) is refused before the job starts, naming what is missing.
-- **mTI simulations work too.** They are read from the simulation's `mTI/niftis/` folder with mTI
-  file names (`grey_<sim>_mTI_MNI_MNI_mTI_max.nii.gz`); a **NIfTI pattern** typed in the TI
-  spelling (`_TI_`) is read as `_mTI_`.
+The NIfTI Group Averaging extension provides tools for computing group averages and statistical comparisons of NIfTI files organized by experimental groups.
 
 ## Import and export participant rows
 
@@ -31,18 +16,11 @@ subject_id,simulation_name,group
 101,L_Insula,Group1
 ```
 
-For TSV, use tabs instead of commas. Columns may be reordered, but all headers must be present
-with exactly these names. Subject IDs omit `sub-`; simulation names match the project catalog.
-`group` is a required group name. Quoted fields, embedded separators, UTF-8 BOM and Windows line endings are supported.
-An import replaces the table only after every row validates. A malformed file leaves existing
-rows unchanged. Import checks table structure and values; dataset files are checked by the job workflow.
-
-
 ## Workflow Example
 
 ### Basic Group Analysis
 
-1. **Open tool**: **Extensions ▸ NIfTI group averaging** in the navigation rail (see [Before you start](#before-you-start))
+1. **Open tool**: **Extensions ▸ NIfTI group averaging** in the navigation rail
 2. **Configure Subjects**:
    - Subject 001: Simulation "stim_A", Group "Treatment"
    - Subject 002: Simulation "stim_A", Group "Treatment"
@@ -60,15 +38,10 @@ rows unchanged. Import checks table structure and values; dataset files are chec
 **Analysis configuration ▸ Space** decides which file of each simulation is averaged. Leave
 **NIfTI pattern** empty to read the space's own file (it is shown as the field's placeholder):
 
-| Space | File read from `TI/niftis/` |
-|---|---|
+| Space                    | File read from `TI/niftis/`                       |
+| ------------------------ | ------------------------------------------------- |
 | **MNI volume** (default) | `grey_{simulation_name}_TI_MNI_MNI_TI_max.nii.gz` |
-| **Subject volume** | `grey_{simulation_name}_TI_subject_TI_max.nii.gz` |
-
-A pattern you type wins; changing **Space** clears it. Each subject's own volumes are on that
-subject's voxel grid, so **Subject volume** works only when every row is the same subject — for
-example, comparing two montages simulated in one subject. To average across subjects, use
-**MNI volume**.
+| **Subject volume**       | `grey_{simulation_name}_TI_subject_TI_max.nii.gz` |
 
 ### Output Structure
 
