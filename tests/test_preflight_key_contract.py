@@ -13,7 +13,8 @@ Where the expectations come from
     flex* -> FlexConfig, ex -> ExConfig, mex -> MExConfig, leadfield -> LeadfieldConfig,
     analyzer -> AnalyzerConfig, source -> SourceConfig, pre -> PreprocessConfig,
     stats -> GroupComparisonConfig | CorrelationConfig, nifti_average -> NiftiAverageConfig,
-    nilearn -> NilearnConfig, blender -> Montage|Vector|Region|SubcorticalConfig. The keys are
+    nilearn -> NilearnConfig, blender -> Montage|Vector|Region|SubcorticalConfig; a ``tools``
+    job has no dataclass, and its keys are the two ``tit.jobs.kinds.command_for`` reads. The keys are
     read from preflight's source with ``ast`` (not by calling it), so a checker that is never
     exercised by a test is still covered.
 
@@ -54,6 +55,9 @@ RUNNER_CONFIGS: dict[str, tuple[str, ...]] = {
     "nilearn": ("NilearnConfig",),
     "blender": ("MontageConfig", "VectorConfig", "RegionConfig", "SubcorticalConfig"),
 }
+#: Kinds whose runner reads a plain dict: ``tit.jobs.kinds.command_for`` builds a ``tools``
+#: job's command from ``config.get("module")`` and ``config.get("args", [])``.
+RUNNER_KEYS: dict[str, set[str]] = {"tools": {"module", "args"}}
 
 SOURCE = Path(preflight_module.__file__).read_text()
 TREE = ast.parse(SOURCE)
@@ -121,7 +125,7 @@ def _fields(class_names: tuple[str, ...]) -> set[str]:
 def test_every_checker_kind_has_a_runner_config_mapping() -> None:
     checkers = _checkers()
     assert len(checkers) >= 14  # has something to check
-    assert set(checkers) == set(RUNNER_CONFIGS)
+    assert set(checkers) == set(RUNNER_CONFIGS) | set(RUNNER_KEYS)
 
 
 #: Known divergences outside this package's edit scope (p06 edits only the analyzer checks).
@@ -142,7 +146,7 @@ KNOWN_GAPS = {
             if k in KNOWN_GAPS
             else k
         )
-        for k in sorted(RUNNER_CONFIGS)
+        for k in sorted({*RUNNER_CONFIGS, *RUNNER_KEYS})
     ],
 )
 def test_checker_reads_only_runner_config_fields(kind: str) -> None:
@@ -152,11 +156,13 @@ def test_checker_reads_only_runner_config_fields(kind: str) -> None:
     # An ambiguous kind's runner picks its class by the "_type" discriminator itself
     # (tit/blender/__main__.py dispatch, tit.config_io.deserialize_config), so reading it is
     # reading a runner key.
-    envelope = {"_type"} if len(RUNNER_CONFIGS[kind]) > 1 else set()
-    unknown = sorted(keys - _fields(RUNNER_CONFIGS[kind]) - envelope)
-    assert (
-        unknown == []
-    ), f"{func} ({kind}) reads {unknown}, which {RUNNER_CONFIGS[kind]} does not define"
+    envelope = {"_type"} if len(RUNNER_CONFIGS.get(kind, ())) > 1 else set()
+    runner = RUNNER_KEYS.get(kind) or _fields(RUNNER_CONFIGS[kind])
+    unknown = sorted(keys - runner - envelope)
+    assert unknown == [], (
+        f"{func} ({kind}) reads {unknown}, which {RUNNER_CONFIGS.get(kind, 'its runner')} "
+        "does not define"
+    )
 
 
 def test_the_walk_follows_helpers_into_the_analyzer_subcortical_branch() -> None:

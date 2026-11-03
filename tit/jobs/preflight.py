@@ -1139,6 +1139,70 @@ def _blender_simulation_inputs(
     return found
 
 
+# -- tools -----------------------------------------------------------------------------------
+
+
+def _check_tools(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
+    """The input files ``tit.tools.electrode_overlay`` names on its command line.
+
+    Read with the tool's own parser (:func:`tit.tools.electrode_overlay.build_parser`), so the
+    check and the tool agree on which argument is which; a relative path is resolved against
+    the project, as :func:`tit.jobs.kinds.check_tool_args` jails it. Other tools, and an
+    argument list the parser refuses (the tool reports that itself), yield nothing.
+    """
+    if config.get("module") != "tit.tools.electrode_overlay":
+        return []
+    from tit.jobs.kinds import KindError, _string_list
+    from tit.tools.electrode_overlay import build_parser
+
+    parser = build_parser()
+
+    def refuse(message: str) -> None:
+        raise ValueError(message)
+
+    parser.error = refuse  # argparse would print usage and exit the server
+    try:
+        args = parser.parse_args(_string_list(config.get("args", [])))
+    except (KindError, ValueError, SystemExit):  # SystemExit: a -h argument
+        return []
+
+    def path(value: str) -> str:
+        return os.path.join(pm.project_dir, os.path.expanduser(value))
+
+    tool = "tit.tools.electrode_overlay"
+    wanted = [
+        (
+            args.config,
+            f"simulation config for {tool}",
+            "Point the first argument at a simulation's documentation/config.json "
+            "(run that simulation first).",
+            Path.is_file,
+        ),
+        (
+            args.reference,
+            f"reference NIfTI for {tool}",
+            "Point the second argument at an existing NIfTI (a simulation's TI/niftis "
+            "volume or the subject's T1).",
+            Path.is_file,
+        ),
+    ]
+    if args.eeg_positions_dir:
+        wanted.append(
+            (
+                args.eeg_positions_dir,
+                f"EEG positions for {tool}",
+                "Point --eeg-positions-dir at the subject's m2m_<id>/eeg_positions folder "
+                "or a net CSV.",
+                Path.exists,
+            )
+        )
+    return [
+        MissingInput(what, path(value), how)
+        for value, what, how, present in wanted
+        if not present(Path(path(value)))
+    ]
+
+
 _CHECKERS: dict[str, Checker] = {
     "sim": _check_sim,
     "flex": _check_flex,
@@ -1154,6 +1218,6 @@ _CHECKERS: dict[str, Checker] = {
     "nifti_average": _check_nifti_average,
     "nilearn": _check_nilearn,
     "blender": _check_blender,
-    # project_init creates the tree; tools' arguments are
-    # already jailed to the project by tit.jobs.kinds.check_tool_args.
+    "tools": _check_tools,
+    # project_init creates the tree.
 }

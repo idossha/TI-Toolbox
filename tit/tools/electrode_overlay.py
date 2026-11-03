@@ -354,7 +354,8 @@ def _report_job_outputs(overlay_path: str) -> None:
         print(f"artifact reporting skipped: {exc}")
 
 
-def main(argv: list[str] | None = None) -> None:
+def build_parser() -> argparse.ArgumentParser:
+    """The command line of this tool; job preflight reads a ``tools`` job's inputs with it."""
     parser = argparse.ArgumentParser(
         description="Create a NIfTI electrode placement overlay from a simulation config."
     )
@@ -370,7 +371,11 @@ def main(argv: list[str] | None = None) -> None:
         "--eeg-positions-dir",
         help="Directory containing EEG cap CSVs, or a direct EEG positions CSV path",
     )
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
     overlay_path = create_electrode_overlay_nifti(
         args.config,
         args.reference,

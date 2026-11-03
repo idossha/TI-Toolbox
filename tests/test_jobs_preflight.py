@@ -563,6 +563,40 @@ def test_pre_charm_needs_a_bids_t1(project: Path) -> None:
     assert preflight("pre", {**cfg, "convert_dicom": True}, str(project)) == []
 
 
+def test_electrode_overlay_tool_needs_its_config_reference_and_net(
+    project: Path,
+) -> None:
+    """The smoke row's own shape: it was accepted with a config.json that did not exist and
+    then died with ``FileNotFoundError`` (job 6f516be8f8194e40, 2026-11-03)."""
+    pm = get_path_manager()
+    record = touch(Path(pm.simulation(SID, SIM)) / "documentation" / "config.json")
+    reference = Path(pm.simulation(SID, SIM)) / "TI" / "niftis"
+    reference = reference / f"grey_{SIM}_TI_subject_TI_max.nii.gz"
+    out = Path(pm.project_dir) / "derivatives" / "ti-toolbox" / "overlay.nii"
+
+    def tools(*args: str) -> list[MissingInput]:
+        config = {"module": "tit.tools.electrode_overlay", "args": list(args)}
+        return preflight("tools", config, str(project))
+
+    net = ["--eeg-positions-dir", pm.eeg_positions(SID)]
+    assert tools(str(record), str(reference), str(out), *net) == []
+    gone = Path(pm.simulation(SID, "gone")) / "documentation" / "config.json"
+    found = tools(str(gone), str(reference), str(out), *net)
+    assert missing_paths(found) == [str(gone)]
+    assert found[0].what == "simulation config for tit.tools.electrode_overlay"
+    found = tools(str(record), str(reference) + ".missing", str(out), "--eeg-positions-dir=/x")
+    assert missing_paths(found) == [str(reference) + ".missing", "/x"]
+    # A relative path is the project's, as the argument jail reads it; the output is never checked.
+    relative = str(record.relative_to(project))
+    assert tools(relative, str(reference), "no/such/dir/out.nii") == []
+    assert missing_paths(tools("nope.json", str(reference), str(out))) == [
+        str(project / "nope.json")
+    ]
+    # An argument list the tool's parser refuses is the tool's own error, not a missing file.
+    assert tools(str(gone)) == []
+    assert tools("-h") == []
+
+
 def test_unknown_or_uncheckable_kinds_and_configs_are_silent(project: Path) -> None:
     assert preflight("project_init", {}, str(project)) == []
     assert preflight("tools", {"module": "tit.tools.x"}, str(project)) == []

@@ -963,8 +963,10 @@ path it was expected at and what produces it ("run FastSurfer for sub-101", "run
 simulation first", "analyze in mesh space instead"). A `pre` group is checked with the whole
 group's flags, not per stage, because an early stage supplies what a later one needs. The
 desktop turns the body into one persistent notice, one line per input (`notifySubmitError`,
-`notify.blocked`); `ApiError.missing` carries the list. Kinds with nothing on disk to check
-(`project_init`, `tools`, whose arguments are jailed separately) return nothing.
+`notify.blocked`); `ApiError.missing` carries the list. A `tools` job of
+`tit.tools.electrode_overlay` has its simulation config, reference NIfTI and `--eeg-positions-dir`
+checked, read with the tool's own argument parser; other tools, and `project_init`, which creates
+the tree, return nothing.
 
 Preflight also refuses another subject's files: an `ex`/`mex` `leadfield_hdf`, or a subject-space
 flex/ex atlas or mask, that lies outside that subject's own SimNIBS, FastSurfer and FreeSurfer folders

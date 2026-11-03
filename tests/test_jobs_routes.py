@@ -1350,6 +1350,35 @@ def test_submit_refuses_a_job_whose_inputs_are_missing_and_creates_no_record(
     assert client.get("/api/jobs", headers=BEARER).json() == []
 
 
+def test_an_electrode_overlay_tool_job_with_a_missing_config_is_refused_not_queued(
+    client: TestClient, project: Path
+) -> None:
+    """It was accepted and then failed with a FileNotFoundError traceback (smoke row
+    tools_electrode_overlay, job 6f516be8f8194e40); it is now the same 422 as every kind."""
+    record = project / "derivatives" / "SimNIBS" / "sub-001" / "Simulations"
+    record = record / "gone" / "documentation" / "config.json"
+    reference = project / "derivatives" / "SimNIBS" / "sub-001" / "m2m_001" / "T1.nii.gz"
+    reference.parent.mkdir(parents=True, exist_ok=True)
+    reference.write_bytes(b"nii")
+    body = {
+        "kind": "tools",
+        "config": {
+            "module": "tit.tools.electrode_overlay",
+            "args": [str(record), str(reference), str(project / "overlay.nii")],
+        },
+        "subject_ids": [],
+    }
+    r = client.post("/api/jobs", headers=BEARER, json=body)
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"] == "Missing inputs"
+    assert [m["expected_path"] for m in r.json()["missing"]] == [str(record)]
+    assert client.get("/api/jobs", headers=BEARER).json() == []
+
+    record.parent.mkdir(parents=True)
+    record.write_text("{}")
+    assert client.post("/api/jobs", headers=BEARER, json=body).status_code == 201
+
+
 def test_group_submission_is_refused_when_one_subject_lacks_an_input(
     client: TestClient,
 ) -> None:

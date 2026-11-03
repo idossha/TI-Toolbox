@@ -109,6 +109,7 @@ results open as before.
 
 - **Fixed: many bugs squashed** — across group statistics, the analyzer, EEG forward models, optimizer plans and job scheduling, the desktop app, and the scripting API and its docs. Group comparisons and EEG forward models can give different results: re-run them.
 - **Fixed: Ex and mEx searches reserve the memory they use** — a search forks one worker per CPU it is given, and the workers add memory: on a 75-electrode leadfield with 8 CPUs an Ex search peaked at 7.3 GB and an mEx search of 256 montages at 12.6 GB, while the queue reserved 6 GB for either, so another job could start beside it and the container run out of memory. An Ex search now reserves 5 GB plus 0.5 GB per CPU (9 GB with 8 CPUs, 6 GB with 2), an mEx search 13 GB (5.5 GB on one CPU). On a Docker with less memory than that, the search still runs, alone, as other large jobs do; give Docker more memory in **Docker Desktop ▸ Settings ▸ Resources** to run it beside others. Results are unchanged.
+- **Fixed: an electrode-overlay tool job with a missing input is refused before it is queued** — a `tit.tools.electrode_overlay` job (submitted by a script or an agent) whose simulation config, reference NIfTI or EEG positions folder did not exist was queued and then failed with a Python traceback. It is now refused with the same *Missing inputs* list as every other job, naming the file; one whose inputs exist runs as before.
 
 ### v3.1.2 — October 22, 2026
 

@@ -4196,3 +4196,24 @@ condition of the 2026-10-28 channel-naming entry.
 which is not a product limit); per-site literals (the limit is to be raised later in one place).
 
 **Revisit if.** A study needs more than 12 channels: raise both constants together.
+
+## 2026-11-03 — The electrode-overlay tool's inputs are checked at submission
+
+**Decision.** Job preflight gains a `tools` checker: for `tit.tools.electrode_overlay` it reads the
+job's argument list with the tool's own parser (`build_parser()`, factored out of its `main`) and
+refuses a missing simulation config, reference NIfTI or `--eeg-positions-dir` with the same HTTP
+422 `{detail: "Missing inputs", missing: [...]}` every other kind uses, resolving a relative path
+against the project as `check_tool_args` jails it. Other tool modules and an argument list the
+parser refuses still return nothing. Replaces "`tools` returns nothing" in ARCHITECTURE's *Missing
+inputs are refused at submission*. Pinned by
+`tests/test_jobs_preflight.py::test_electrode_overlay_tool_needs_its_config_reference_and_net` and
+`tests/test_jobs_routes.py::test_an_electrode_overlay_tool_job_with_a_missing_config_is_refused_not_queued`.
+
+**Why.** The v3.1.3 smoke matrix (row `tools_electrode_overlay`, job 6f516be8f8194e40) showed the
+one kind still accepted with a missing input: it queued, started and died with a
+`FileNotFoundError` traceback, where the six other rows with missing inputs got a readable 422.
+
+**Alternatives rejected.** A hand-written argument scan (a second reading of the tool's command line
+that can disagree with argparse); checking every tool's positionals (inputs and outputs are not
+distinguishable without each tool's own parser); a readable error inside the tool (it would still
+queue a job that cannot run).
