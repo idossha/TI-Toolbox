@@ -106,7 +106,7 @@ Every project gets one seeded notebook the first time you open the page,
 Optimizer, Simulator, Analyzer, results — one cell per page, showing the single `tit` API call
 each page's **Run** button makes. Cell 1 fetches the `ernie` example subject
 ([Example Data]({{ site.baseurl }}/wiki/example-data/)), so it runs without your own data.
-The same calls are walked through in [The workflow in code](#the-workflow-in-code) above.
+The same calls are walked through in [The workflow in code](#example-workflow) above.
 
 <a href="{{ site.baseurl }}/assets/notebooks/example_workflow.ipynb" download>&#11015; Download example_workflow.ipynb</a>
 &nbsp;&nbsp;

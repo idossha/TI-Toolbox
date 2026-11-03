@@ -21,7 +21,7 @@ Flex-search places two channels (four electrodes) freely on the subject's valid 
 - **Conductivity**: isotropic (`scalar`) or volume-normalized anisotropic (`vn`).
 - **Optional**: a joint search over the two channels' current split, several independent optimization runs, and a simulation of the winner on the free or EEG-net-mapped positions.
 
-For scripting, the same form is `FlexConfig`; see [Scripting]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code).
+For scripting, the same form is `FlexConfig`; see [Scripting]({{ site.baseurl }}/wiki/notebooks/#example-workflow).
 
 ## In the application
 

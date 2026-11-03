@@ -158,7 +158,7 @@ To let the assistant queue jobs directly, without a plan card, turn on **Setting
 
 - **Give it your project path.** `inspect_project` needs the absolute path of your BIDS project (the folder you point the desktop app at). On the host that is e.g. `/Users/you/Studies/my_project`; inside the container it is `/mnt/my_project`.
 - **Ask it to check, not assume.** Prompts like *"read the wiki page before answering"* or *"verify the config fields in the source"* make it use the tools.
-- **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container, or paste it into the app's **Notebooks** page, whose kernel already runs there (see [Scripting]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code)). The assistant knows this and will remind you.
+- **Scripts still run in the container.** The assistant writes code; you run it with `simnibs_python` inside the SimNIBS container, or paste it into the app's **Notebooks** page, whose kernel already runs there (see [Scripting]({{ site.baseurl }}/wiki/notebooks/#example-workflow)). The assistant knows this and will remind you.
 - **Versions.** With a local checkout the plugin reads that checkout. Without one it reads `main` by default; set `TI_TOOLBOX_REF` to your installed release (for example `TI_TOOLBOX_REF=v3.1.2`) so it reads matching docs and source. The app's own **Assistant** page does this for you: it pins `TI_TOOLBOX_REF` to the installed app version.
 
 ## Privacy and safety

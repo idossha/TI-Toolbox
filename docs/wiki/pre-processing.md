@@ -85,7 +85,7 @@ Review the plan, then start the selected stages. When outputs already exist, cho
 skip them or replace and rerun. Use [Jobs]({{ site.baseurl }}/wiki/jobs/) for live progress, logs,
 cancellation and failures; the Overview shows which outputs are present for each subject.
 
-For programmatic execution, use the [scripting guide]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code).
+For programmatic execution, use the [scripting guide]({{ site.baseurl }}/wiki/notebooks/#example-workflow).
 Tool-specific inputs and output layouts live in the two subguides above.
 
 ## Pre-processing settings

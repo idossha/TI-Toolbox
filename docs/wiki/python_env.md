@@ -9,7 +9,7 @@ bundled interpreter, and it is where the `tit` package is installed — every si
 optimization and analysis runs under it.
 
 Where you type Python — the **Notebooks** page, or `docker exec` into the container from your own
-terminal — is shown on the [Scripting]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code) page.
+terminal — is shown on the [Scripting]({{ site.baseurl }}/wiki/notebooks/#example-workflow) page.
 A run page's **Terminal** tab is a read-only job log, not a shell. Nothing is installed on your
 host: the science needs SimNIBS, which is in the image.
 
@@ -40,4 +40,4 @@ If you want to add a package for a new feature, follow the steps below.
 - **Installs do not survive the container**: `simnibs_python -m pip install <package>` installs into the running container only, and closing the app stops and removes that container — so the package is gone the next time you open the project, not only after an image rebuild. To keep it, add it to the Dockerfile and rebuild (`container/blueprint/build.sh`), or install it at the top of the notebook that needs it.
 
 The `tit` imports and the `simnibs_python -m tit.<module> config.json` runners are listed on the
-[Scripting page]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code), which owns them.
+[Scripting page]({{ site.baseurl }}/wiki/notebooks/#example-workflow), which owns them.
