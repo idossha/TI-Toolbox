@@ -94,7 +94,7 @@ The tool generates a JSON file with the following structure:
 ## Mapping Distance and Target Depth
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Electrode Mapping Distance Analysis" style="width: 70%; max-width: 600px;">
+  <img src="{{ site.baseurl }}/assets/imgs/flex-search/mapping_distance.png" alt="Electrode Mapping Distance Analysis" style="width: 100%; max-width: 504px;">
 </div>
 
 **Mapping distance grows with target depth**: mapping flex-search positions onto the inner 185 electrodes of the GSN-HydroCel-256 net moved electrodes 11.74 ± 5.33 mm for the hippocampus, against 7.30 ± 1.38 mm for the insula and 8.01 ± 1.43 mm for spherical ROIs. Deep targets favour widely separated electrodes low on the head, where net coverage is sparse. _Data from the supplementary information of the [TI-Toolbox reference](<https://www.brainstimjrnl.com/article/S1935-861X(25)00418-8/fulltext>)._
@@ -102,7 +102,7 @@ The tool generates a JSON file with the following structure:
 ## EEG Net Density Impact on Optimization Performance
 
 <div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="Network Density Impact on TImax" style="width: 80%; max-width: 600px;">
+  <img src="{{ site.baseurl }}/assets/imgs/other/net_density_impact.png" alt="Network Density Impact on TImax" style="width: 100%; max-width: 576px;">
 </div>
 
 **Impact of EEG net density on TImax intensity**: This analysis demonstrates the progressive decline in achievable TImax intensity as electrode density decreases. Starting from fully optimized electrode positions (theoretical maximum), the study shows how mapping to standardized EEG nets progressively reduces field strength: fully optimized positions achieve maximum intensity, followed by 10:5 density (high coverage), 10:10 system (standard density), and finally 10:20 system showing the greatest reduction. This highlights the trade-off between practical electrode accessibility and theoretical optimization performance.

@@ -108,6 +108,11 @@ The job server needs the `docker` command on the assistant's `PATH`, except when
 
 No setup at all: open **Assistant** in the desktop app's rail (just above System). It is a real terminal running your own `claude` or `codex` on your computer, in your project folder, already connected to the TI-Toolbox you have open — there is nothing to install or configure in TI-Toolbox itself.
 
+<div class="image-container" style="max-width: min(800px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/ai-assistant-page.png" alt="The Assistant page before starting: Claude Code or Codex, Not started, Start Claude Code, Open in system terminal, example prompts, and the Effort and Model menus above the empty terminal" style="width: 100%;">
+  <em>The Assistant page before a session starts: pick the assistant, then <strong>Start</strong>.</em>
+</div>
+
 1. Pick **Claude Code** or **Codex** at the top.
 2. **Start** it. If it is not signed in yet, sign in inside the pane: type `/login` in Claude Code; Codex asks you to sign in with ChatGPT when it starts.
 3. Ask for what you want, or click an example such as **Bilateral thalamus pipeline**: it types the request into the assistant's input so you can edit it before pressing Enter.
@@ -132,6 +137,11 @@ Nothing the assistant asks for runs until you approve it. Its plan appears as a 
 - each step in order — what it does (pre-process, flex-search, simulate the flex result, ...), for which subjects, and its key settings in plain terms (goal, target region by name — for example *Left-Thalamus, Right-Thalamus* — current, electrode size, run name, currents), with the folder it will write and an estimated time;
 - which steps wait for others ("after step 1"): a later step starts by itself when the steps it waits on have succeeded — a simulation of a flex-search result picks up that run's electrodes and currents once it exists;
 - in red, **any existing result the plan would replace**.
+
+<div class="image-container" style="max-width: min(800px, 100%)">
+  <img src="{{ site.baseurl }}/assets/imgs/v3/ai-assistant-plan.png" alt="A plan card on the Jobs page from Claude Code, waiting for you: step 1 Flex-search for sub-101 with its goal, target, current, electrodes and run name; step 2 Simulate the flex-search result after step opt; Reject and Approve and run buttons" style="width: 100%;">
+  <em>A two-step plan waiting on the Jobs page: the second step starts after the first succeeds.</em>
+</div>
 
 Then:
 

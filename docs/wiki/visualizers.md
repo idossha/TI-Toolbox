@@ -8,8 +8,41 @@ TI-Toolbox does not render 3-D results itself. It hands them to
 **[TetraVox](https://github.com/idossha/tetravox)**, a separate desktop viewer.
 Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/tetravox-dti-tensors.jpg" alt="TetraVox showing diffusion tensors over a T1 in axial, coronal, sagittal and 3-D views">
+<!-- Images: TetraVox docs screenshots (MIT, same author), https://github.com/idossha/tetravox docs/screenshots/2026-08-29/brain/ -->
+<div class="carousel-container">
+  <div class="carousel-wrapper">
+    <div class="carousel-images">
+      <div class="carousel-slide active">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-ti-max-2x2.webp" alt="TI_max on the grey-matter mesh, cut by the slices in 2D and whole in 3D">
+        <p>TI_max on the grey-matter mesh, cut by the slices in 2D and whole in 3D</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-tdcs-magne-2x2.webp" alt="A head mesh's cross-section in the slice panes, filled by its field (magnE) with the tissue boundaries outlined">
+        <p>A head mesh's cross-section in the slice panes, filled by its field (magnE) with the tissue boundaries outlined</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-e-glyphs-2x2.webp" alt="Electric-field vectors drawn as arrows in the 3D pane of a 2x2">
+        <p>Electric-field vectors drawn as arrows in the 3D pane of a 2x2</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-e-glyphs-3d.webp" alt="The same arrows filling a single 3D pane">
+        <p>The same arrows filling a single 3D pane</p>
+      </div>
+      <div class="carousel-slide">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-tissues-2x2.webp" alt="A head mesh: its tissue cross-section in the slice panes and the scalp surface in 3D">
+        <p>A head mesh: its tissue cross-section in the slice panes and the scalp surface in 3D</p>
+      </div>
+    <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
+    <button class="carousel-btn next" onclick="changeSlide(this, 1)">&#10095;</button>
+    </div>
+    <div class="carousel-dots">
+      <span class="dot active" onclick="currentSlide(this, 0)"></span>
+      <span class="dot" onclick="currentSlide(this, 1)"></span>
+      <span class="dot" onclick="currentSlide(this, 2)"></span>
+      <span class="dot" onclick="currentSlide(this, 3)"></span>
+      <span class="dot" onclick="currentSlide(this, 4)"></span>
+    </div>
+  </div>
 </div>
 
 ## Setup

@@ -8,17 +8,18 @@ The Montage Visualizer (`tit/tools/montage_visualizer.py`) draws a montage's ele
 
 ## Simulation Modes
 
-Unipolar (standard TI) montages use **4 electrodes** arranged in **2 channels**. One image is written per montage:
+Unipolar (standard TI) montages use **4 electrodes** arranged in **2 channels** and write one image per montage. Multipolar (mTI) montages use **8 or more electrodes** arranged in **4 or more channels** and are drawn as a single combined image.
 
-![Unipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/unipolar.png)
-
-_Channel 1 (E1+ `E034`, E1- `E020`) and channel 2 (E2+ `E095`, E2- `E070`) on the GSN-HydroCel-185 net._
-
-Multipolar (mTI) montages use **8 or more electrodes** arranged in **4 or more channels** and are drawn as a single combined image:
-
-![Multipolar Montage Example]({{ site.baseurl }}/assets/imgs/simulator/multipolar.png)
-
-_Four channels: channels 1 and 2 (blue/red) beat together, as do channels 3 and 4 (green/purple)._
+<div class="image-row">
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/simulator/unipolar.png" alt="Unipolar montage example">
+    <em>Unipolar: channel 1 (E1+ <code>E034</code>, E1- <code>E020</code>) and channel 2 (E2+ <code>E095</code>, E2- <code>E070</code>) on the GSN-HydroCel-185 net.</em>
+  </div>
+  <div class="image-container">
+    <img src="{{ site.baseurl }}/assets/imgs/simulator/multipolar.png" alt="Multipolar montage example">
+    <em>Multipolar: four channels; channels 1 and 2 (blue/red) beat together, as do channels 3 and 4 (green/purple).</em>
+  </div>
+</div>
 
 ## Output Location
 

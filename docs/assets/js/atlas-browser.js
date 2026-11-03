@@ -151,8 +151,21 @@
       // NiiVue ignores a colormapLabel passed as a load option for volumes,
       // so the label LUT has to be attached to the loaded volume afterwards.
       // alphaThreshold is what actually makes value-0 voxels transparent;
-      // without it the template underneath is completely hidden.
+      // without it the template underneath is completely hidden. It also makes
+      // NiiVue ignore LUT alpha, so a coloured "Background" label (CHARM has
+      // one that fills the whole volume box) is erased to 0 in the voxel data.
+      var bg = {};
+      entry.rows.forEach(function (r, i) {
+        if (/^(background|unknown)$/i.test(r.name)) {
+          bg[r.index != null ? r.index : i + 1] = true;
+        }
+      });
       var vol = this.nv.volumes[this.nv.volumes.length - 1];
+      for (var k = 0; k < vol.img.length; k++) {
+        if (bg[vol.img[k]]) {
+          vol.img[k] = 0;
+        }
+      }
       vol.setColormapLabel(buildColormapLabel(entry.rows));
       vol.alphaThreshold = true;
       this.nv.updateGLVolume();

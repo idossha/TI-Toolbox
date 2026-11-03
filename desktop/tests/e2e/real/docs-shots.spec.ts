@@ -18,7 +18,7 @@
  * wide (`sips --resampleWidth 1600`) before committing. `TIT_DOCS_SHOTS_DIR` redirects the output,
  * e.g. to check selectors against the mock server without touching docs/.
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
@@ -181,6 +181,69 @@ test("Optimizer Flex row and its settings dialog", async () => {
   await page.waitForTimeout(800);
   const table = row.locator("xpath=ancestor::table[1]");
   await clip(table, table, table, "flex-search-row");
+});
+
+test("Assistant page and a plan waiting on the Jobs page", async () => {
+  test.setTimeout(120_000);
+  const cdp = await page.context().newCDPSession(page);
+  const crisp = async (el: Locator, name: string, maxHeight = Infinity) => {
+    const { x, y, width, height } = (await el.boundingBox())!;
+    const clip = { x, y, width, height: Math.min(height, maxHeight), scale: 1 };
+    const { data } = await cdp.send("Page.captureScreenshot", { clip });
+    writeFileSync(join(SHOTS, `${name}.png`), Buffer.from(data, "base64"));
+  };
+  // The start state only: starting Claude Code or Codex would open a real, signed-in session.
+  await page.setViewportSize({ width: 1300, height: 800 });
+  await page.getByRole("link", { name: "Assistant", exact: true }).click();
+  await expect(page.getByTestId("assistant-page")).toBeVisible();
+  await page.mouse.move(4, 4);
+  await page.waitForTimeout(1500);
+  // The controls and the top of the (empty) terminal, not the whole blank pane.
+  await crisp(page.getByTestId("assistant-page"), "ai-assistant-page", 180);
+
+  // A plan posted the way the agent plugin posts it; rejected and its record deleted afterwards,
+  // so nothing runs and the project is left as it was.
+  const server = process.env.TIT_E2E_SERVER_URL as string;
+  const auth = { Authorization: `Bearer ${process.env.TIT_E2E_TOKEN}` };
+  const res = await page.request.post(`${server}/api/proposals`, {
+    headers: auth,
+    data: {
+      title: "Maximise the field in the left thalamus",
+      rationale: "You asked for the strongest field in the left thalamus; this optimises the electrodes on a 10 mm sphere there, then simulates the winning montage.",
+      client: "Claude Code",
+      steps: [
+        {
+          id: "opt",
+          kind: "flex",
+          subject_ids: [SUBJECT],
+          config: {
+            goal: "mean",
+            postproc: "max_TI",
+            current_mA: 1,
+            output_folder: "thalamus_mean_docs",
+            electrode: { shape: "ellipse", dimensions: [8, 8], gel_thickness: 1 },
+            roi: { _type: "SphericalROI", x: [-10], y: [-18], z: [8], radius: [10], use_mni: true, volumetric: true },
+          },
+        },
+        { id: "sim", kind: "sim_from_flex", subject_ids: [SUBJECT], config: { flex_step: "opt", conductivity: "scalar" } },
+      ],
+    },
+  });
+  expect(res.status()).toBe(201);
+  const { id } = await res.json();
+  try {
+    await page.setViewportSize({ width: 1300, height: 1400 });
+    await open("jobs");
+    const card = page.getByTestId("proposal-card");
+    await expect(card).toBeVisible({ timeout: 20_000 });
+    await page.mouse.move(4, 4);
+    await page.waitForTimeout(1500);
+    await crisp(card, "ai-assistant-plan");
+  } finally {
+    await page.request.post(`${server}/api/proposals/${id}/reject`, { headers: auth, data: {} });
+    rmSync(join(process.env.TIT_E2E_PROJECT_HOST as string, "code", "ti-toolbox", "proposals", `${id}.json`), { force: true });
+    await page.setViewportSize({ width: 1900, height: 1000 });
+  }
 });
 
 test("Simulator with a montage drawn on the head", async () => {

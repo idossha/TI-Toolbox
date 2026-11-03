@@ -66,7 +66,7 @@ layout: home
         <p>Optimizer: search electrode configurations with your target atlas in view</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/tetravox-dti-tensors.jpg" alt="TetraVox showing diffusion tensors over a T1 in four views">
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/tetravox-dti-tensors.webp" alt="TetraVox showing diffusion tensors over a T1 in four views">
         <p>TetraVox: explore anatomy, fields and diffusion tensors in the 3D viewer</p>
       </div>
       <div class="carousel-slide">
