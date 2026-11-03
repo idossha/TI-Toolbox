@@ -35,8 +35,6 @@ wiki:
     - { title: Analyzer, url: /wiki/analyzer/ }
     - title: Notebooks
       url: /wiki/notebooks/
-      children:
-        - { title: Scripting, url: /wiki/scripting/ }
     - { title: Results, url: /wiki/results/ }
     - { title: Viewer, url: /wiki/visualizers/ }
     - { title: Jobs, url: /wiki/jobs/ }

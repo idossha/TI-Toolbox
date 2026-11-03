@@ -25,7 +25,7 @@ server fit together.
 - **[Results]({{ site.baseurl }}/wiki/results/)** - Every output a subject has, with reports rendered in place
 - **[Viewer]({{ site.baseurl }}/wiki/visualizers/)** - Opens your project's scenes in the separate TetraVox desktop app, which TI-Toolbox installs and manages
 - **[Jobs]({{ site.baseurl }}/wiki/jobs/)** - Every run: state, logs, artifacts, cancel and rerun
-- **[Scripting]({{ site.baseurl }}/wiki/scripting/)** - CLI commands, JSON config entry points, and the Python scripting API
+- **[Scripting]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code)** - CLI commands, JSON config entry points, and the Python scripting API
 - **[Example Data]({{ site.baseurl }}/wiki/example-data/)** - Public example heads (raw scans and ready-made head models) to try every page
 - **[AI Assistant]({{ site.baseurl }}/wiki/ai-assistant/)** - Plugin that teaches Claude Code, Codex, Cursor and other MCP clients how to use TI-Toolbox
 - **[Telemetry & Privacy]({{ site.baseurl }}/wiki/telemetry/)** - What opt-in usage telemetry sends, and how to control it

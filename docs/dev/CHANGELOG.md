@@ -754,7 +754,7 @@ A major release with new analysis capabilities, broader simulation support, diff
 
 #### Breaking Changes (for scripters)
 
-- The Python API has been significantly simplified. If you have scripts that import from `tit`, please refer to the updated [API documentation]({{ site.baseurl }}/wiki/scripting/) for the new import paths and configuration classes. Key changes:
+- The Python API has been significantly simplified. If you have scripts that import from `tit`, please refer to the updated [API documentation]({{ site.baseurl }}/wiki/notebooks/#the-workflow-in-code) for the new import paths and configuration classes. Key changes:
 
 #### Download Links
 
