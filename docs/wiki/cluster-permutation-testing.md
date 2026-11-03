@@ -183,6 +183,10 @@ correlation/insula_dose_response/
 └── *_analysis_TIMESTAMP.log
 ```
 
+To paint the effect map and the significant clusters on the inflated cortex as PDFs, run
+`tit.plotting.nilearn.render_surface_stats_result("…/surface_stats.msh", out_dir)` under
+`simnibs_python`; it returns the paths it wrote.
+
 **Example classification findings (illustrative):**
 
 - Significant cluster in left hippocampus (p = 0.008, 1,245 voxels)

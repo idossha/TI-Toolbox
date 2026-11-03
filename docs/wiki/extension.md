@@ -102,13 +102,17 @@ central surfaces (left hemisphere, then right) with each field as a node field, 
 SimNIBS uses for its own `fsavg_overlays`. Open it in the Viewer (an MNI-space scene lists it
 under the simulation's meshes) or in Gmsh, which picks up the `.msh.opt` view file beside it. A
 `.json` sidecar with the same name records the subject, simulation, fields and whether the run
-was a carrier-only control. To read the values in a script, run it with `simnibs_python`:
+was a carrier-only control. To read the values in a script, run it with `simnibs_python`;
+`render_fsaverage_map` paints any such per-vertex array on the inflated cortex (lateral and medial
+views of both hemispheres), its second argument being the fsaverage spacing `N`:
 
 ```python
 from simnibs.mesh_tools import mesh_io
+from tit.plotting.nilearn import render_fsaverage_map
 
 mesh = mesh_io.read_msh(path)
 ti_max = mesh.field["TI_max"].value  # one value per fsaverage vertex, lh then rh
+render_fsaverage_map(ti_max, 5, cmap="inferno", out_path="ti_max.pdf")
 ```
 
 Electrode placement is the Simulator's
