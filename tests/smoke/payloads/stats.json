@@ -21,12 +21,12 @@
       },
       {
         "subject_id": "ernie",
-        "simulation_name": "L_Insula",
+        "simulation_name": "AF3_PO10_and_AF4_Oz",
         "response": 0
       },
       {
-        "subject_id": "MNI152",
-        "simulation_name": "L_Insula",
+        "subject_id": "CHN",
+        "simulation_name": "left_insula_mean",
         "response": 1
       }
     ],
@@ -39,6 +39,6 @@
   "subject_ids": [
     "101",
     "ernie",
-    "MNI152"
+    "CHN"
   ]
 }

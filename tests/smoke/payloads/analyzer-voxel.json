@@ -4,7 +4,7 @@
     "mode": "single",
     "subject_id": "ernie",
     "subject_ids": [],
-    "simulation": "Thalamus",
+    "simulation": "AF3_PO10_and_AF4_Oz",
     "space": "voxel",
     "tissue_type": "both",
     "analysis_type": "spherical",

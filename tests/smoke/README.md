@@ -16,7 +16,8 @@ dev/smoke.sh --full              # run the long kinds to completion instead of c
 `tit.service=tit`) and reads the published port, `TIT_SERVER_TOKEN` and the host project
 directory out of `docker inspect`. **No token is ever typed, pasted or written to disk.** Its
 exit codes are `0` green, `1` a row failed, `2` could not check (no container, no token, no
-`python3`) — a `2` is never a pass.
+`.venv/bin/python` in the checkout) — a `2` is never a pass. It runs pytest with the checkout's own
+`.venv` interpreter, never the first `python3` on `PATH`: `tests/conftest.py` imports numba.
 
 Under pytest directly:
 
@@ -24,7 +25,7 @@ Under pytest directly:
 TIT_SMOKE_SERVER_URL=http://127.0.0.1:8765 \
 TIT_SMOKE_TOKEN=<token> \
 TIT_SMOKE_PROJECT_HOST=/Users/you/datasets/000 \
-python3 -m pytest -m smoke tests/smoke -p no:cacheprovider
+.venv/bin/python -m pytest -m smoke tests/smoke -p no:cacheprovider
 ```
 
 ## Why it never runs by accident
@@ -38,7 +39,7 @@ Two independent mechanisms, because they prevent different failures:
 
 `tests/smoke/test_harness_selftest.py` is deliberately **not** marked `smoke`: it is ~30 ms of
 ordinary unit tests over the matrix, the cleanup manifest and the payload loader, so a broken
-harness is red in `python3 -m pytest -q` before anyone starts a container.
+harness is red in `.venv/bin/python -m pytest -q` before anyone starts a container.
 
 ## The behaviour contract (P4)
 

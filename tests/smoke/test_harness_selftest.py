@@ -15,9 +15,9 @@ that would point cleanup at a real output directory -- each of which is only dis
 maintainer's dataset, at the moment it does damage, if this file does not exist.
 
 Deliberately **not** marked ``smoke``: these are ordinary unit tests (~30 ms) and they must run
-in ``python3 -m pytest -q`` so a broken harness is red before anyone starts a container.
+in ``.venv/bin/python -m pytest -q`` so a broken harness is red before anyone starts a container.
 
-Reproduce: ``python3 -m pytest -q tests/smoke/test_harness_selftest.py``.
+Reproduce: ``.venv/bin/python -m pytest -q tests/smoke/test_harness_selftest.py``.
 
 Written 2026-09-03 (lane S1).
 """
@@ -32,7 +32,16 @@ import pytest
 
 from tests.smoke import matrix, test_kinds
 from tests.smoke.cleanup import Manifest
-from tests.smoke.matrix import BEHAVIOURS, COMPLETED, REFUSED, ROWS, STARTED_THEN_CANCEL, Ctx
+from tests.smoke.matrix import (
+    BEHAVIOURS,
+    COMPLETED,
+    REFUSED,
+    REFUSED_AT_SUBMIT,
+    ROWS,
+    START_BUDGET_S,
+    STARTED_THEN_CANCEL,
+    Ctx,
+)
 
 
 @pytest.fixture
@@ -61,7 +70,7 @@ def test_row_is_complete(row, ctx: Ctx):
         }
     )
     assert submission.kind
-    if row.behaviour == REFUSED:
+    if row.behaviour in (REFUSED, REFUSED_AT_SUBMIT):
         assert row.refusal, f"{row.id}: a refused row must say what a readable refusal looks like"
     else:
         assert row.banner or row.no_banner_reason, (
@@ -93,8 +102,7 @@ def test_every_claimed_path_is_namespaced_or_a_new_subject(row, ctx: Ctx):
         "/mnt/000/derivatives/SimNIBS/sub-102",
         "/mnt/000/derivatives/fastsurfer/sub-102",
         "/mnt/000/derivatives/ti-toolbox/reports/sub-102",
-        "/mnt/000/derivatives/ti-toolbox/reports/sub-MNI152",
-        "/mnt/000/derivatives/ti-toolbox/tissue_analysis/sub-MNI152",
+        "/mnt/000/derivatives/ti-toolbox/tissue_analysis/sub-LA",
         "/mnt/000/derivatives/SimNIBS/sub-101/forward",
         "/mnt/000/derivatives/SimNIBS/sub-101/leadfields/101_leadfield_GSN-HydroCel-185.hdf5",
         "/mnt/000/derivatives/SimNIBS/sub-101/leadfields/101_electrodes_GSN-HydroCel-185.msh",
@@ -110,6 +118,54 @@ def test_every_claimed_path_is_namespaced_or_a_new_subject(row, ctx: Ctx):
         assert "smoke-selftest" in path or path in allowed_unnamespaced, (
             f"{row.id}: claims {path}, which is neither namespaced nor a known new output"
         )
+
+
+@pytest.mark.parametrize(
+    "row",
+    [r for r in ROWS if r.behaviour == STARTED_THEN_CANCEL],
+    ids=[r.id for r in ROWS if r.behaviour == STARTED_THEN_CANCEL],
+)
+def test_a_started_then_cancel_row_can_finish_under_smoke_full(row):
+    """``--smoke-full`` promotes the row to COMPLETED and waits ``budget_s`` for it to succeed;
+    a ceiling no longer than the start leg's failed a 16-minute simulation by design."""
+    assert row.budget_s > START_BUDGET_S, (
+        f"{row.id}: budget_s {row.budget_s:g}s is its --smoke-full completion ceiling"
+    )
+
+
+class _RecordingClient:
+    def __init__(self):
+        self.bodies: list[tuple[str, dict]] = []
+
+    def submit(self, body):
+        self.bodies.append(("/api/jobs", body))
+        return {"id": "job"}
+
+    def submit_group(self, body):
+        self.bodies.append(("/api/jobs/groups", body))
+        return {"jobs": [{"id": "job"}]}
+
+
+@pytest.mark.parametrize("row_id", ["flex", "ex", "mex", "pre_dicom"])
+def test_a_group_payload_is_posted_under_its_own_kind(row_id, ctx):
+    """The committed flex/ex/mex payloads carry ``parallel_subjects`` (the renderer posts them
+    to ``/api/jobs/groups``); the harness posted every group as ``kind: pre``, so each of those
+    rows was a 422 PreprocessConfig refusal before its job existed (2026-11-03)."""
+    submission, source, _ = test_kinds.load_submission(_row(row_id), ctx)
+    assert source == "payload" and submission.group
+    client = _RecordingClient()
+    test_kinds._submit(client, submission)
+    assert client.bodies == [
+        (
+            "/api/jobs/groups",
+            {
+                "kind": _row(row_id).kind,
+                "config": submission.config,
+                "subject_ids": submission.subject_ids,
+                "parallel_subjects": submission.parallel_subjects,
+            },
+        )
+    ]
 
 
 def test_heavy_rows_are_the_fem_class():

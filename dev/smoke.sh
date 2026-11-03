@@ -16,8 +16,11 @@
 #   dev/smoke.sh --list                # print every dev-stack container found and its exact
 #                                       # selector, run nothing (exit 0; 2 if none are running)
 #
-# Exit codes: 0 green, 1 a row failed, 2 could not check (no container / no token / no python3).
+# Exit codes: 0 green, 1 a row failed, 2 could not check (no container / no token / no .venv).
 # 2 is never a pass -- it means the harness could not tell you anything.
+#
+# Python: the checkout's own .venv/bin/python, never whichever python3 is first on PATH --
+# tests/conftest.py imports numba, which a bare Homebrew python3 lacks (pytest exits 4).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -46,7 +49,8 @@ describe_container() {
 }
 
 command -v docker >/dev/null 2>&1 || die_cannot_check "docker is not on PATH"
-command -v python3 >/dev/null 2>&1 || die_cannot_check "python3 is not on PATH"
+PYTHON="$REPO_ROOT/.venv/bin/python"
+[ -x "$PYTHON" ] || die_cannot_check "$PYTHON is missing; create the checkout's venv first (CONTRIBUTING.md)"
 
 kinds=()
 extra_args=()
@@ -158,4 +162,4 @@ cd "$REPO_ROOT"
 TIT_SMOKE_SERVER_URL="$url" \
 TIT_SMOKE_TOKEN="$token" \
 TIT_SMOKE_PROJECT_HOST="$host_project" \
-  python3 -m pytest "${pytest_args[@]}"
+  "$PYTHON" -m pytest "${pytest_args[@]}"

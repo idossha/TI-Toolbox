@@ -54,8 +54,12 @@ STARTED_THEN_CANCEL = "started_then_cancel"
 #: Accepted by validate/plan/submit, then refused by the runner for a *data* reason, as a
 #: human-readable job error -- no Python traceback in `error.message`.
 REFUSED = "refused"
+#: Accepted by validate and plan, then refused by the submission itself: HTTP 422
+#: ``{detail: "Missing inputs", missing: [...]}`` naming the input (``tit.jobs.preflight``,
+#: docs/dev/ARCHITECTURE.md "Missing inputs are refused at submission"); no job is created.
+REFUSED_AT_SUBMIT = "refused_at_submit"
 
-BEHAVIOURS = (COMPLETED, STARTED_THEN_CANCEL, REFUSED)
+BEHAVIOURS = (COMPLETED, STARTED_THEN_CANCEL, REFUSED, REFUSED_AT_SUBMIT)
 
 #: Budget for the `accepted` leg of every row (validate + plan + submit), decision P4.
 ACCEPT_BUDGET_S = 10.0
@@ -113,6 +117,9 @@ class Row:
     subject: str
     why_subject: str
     build: Callable[[Ctx], Submission]
+    #: The ceiling for a COMPLETED or REFUSED row. A STARTED_THEN_CANCEL row ignores it by
+    #: default (its start and cancel legs have their own ceilings) and finishes inside it under
+    #: ``--smoke-full``, which promotes it to COMPLETED.
     budget_s: float
     #: Any one of these regexes matching a log line or an event's stage/message proves the
     #: runner itself started. Every pattern here was read off a real run on the dev container
@@ -131,7 +138,8 @@ class Row:
     expect_files: Callable[[Ctx], list[str]] = lambda ctx: []
     #: (client, ctx) -> (ok, evidence); the catalog route that must list the new output
     catalog: Callable[..., tuple[bool, str]] | None = None
-    #: for REFUSED rows: one of these must appear in the runner's own output
+    #: for REFUSED rows: one of these must appear in the runner's own output; for
+    #: REFUSED_AT_SUBMIT rows, in one ``missing`` entry of the 422 body
     refusal: tuple[str, ...] = ()
     #: for group submissions: pick the job of the group this row is about, by tag
     group_tag: str | None = None
@@ -307,10 +315,16 @@ def _analyzer_submission(
     )
 
 
+#: ernie's one simulation in Dataset 000 (its Thalamus, L_Insula and docs_example runs are gone).
+_ERNIE_SIM = "AF3_PO10_and_AF4_Oz"
+
+#: Three subjects' TI runs. None saved an MNI NIfTI; each keeps its field mesh, run record and
+#: channel meshes, so the group job produces the MNI volume it reads (submission preflight
+#: accepts a producible NIfTI).
 _STATS_SUBJECTS = [
     {"subject_id": "101", "simulation_name": "L_Insula"},
-    {"subject_id": "ernie", "simulation_name": "L_Insula"},
-    {"subject_id": "MNI152", "simulation_name": "L_Insula"},
+    {"subject_id": "ernie", "simulation_name": _ERNIE_SIM},
+    {"subject_id": "CHN", "simulation_name": "left_insula_mean"},
 ]
 
 
@@ -465,7 +479,8 @@ ROWS: tuple[Row, ...] = (
         "head models everything else in the matrix reads.",
         build=lambda ctx: _pre_submission(ctx, "102", "G2a", create_m2m=True),
         group_tag="G2a",
-        budget_s=START_BUDGET_S,
+        # --smoke-full only. Unmeasured under emulation ("hours"); four hours is a ceiling.
+        budget_s=4 * 3600.0,
         banner=(r"Running SimNIBS charm", r"^SimNIBS charm$"),
         creates=lambda ctx: [ctx.simnibs("102")],
         notes="charm is hours under emulation; started -> cancel is the whole assertion (P4).",
@@ -479,7 +494,8 @@ ROWS: tuple[Row, ...] = (
         "FastSurfer output to create.",
         build=lambda ctx: _pre_submission(ctx, "102", "G2b", run_fastsurfer=True),
         group_tag="G2b",
-        budget_s=START_BUDGET_S,
+        # --smoke-full only. Unmeasured under emulation; four hours is a ceiling.
+        budget_s=4 * 3600.0,
         banner=(r"^FastSurfer", r"FastSurfer segmentation"),
         creates=lambda ctx: [ctx.p("derivatives", "fastsurfer", "sub-102")],
     ),
@@ -487,23 +503,24 @@ ROWS: tuple[Row, ...] = (
         id="pre_tissue",
         kind="pre",
         behaviour=COMPLETED,
-        subject="MNI152",
-        why_subject="MNI152 has m2m_MNI152/segmentation/labeling.nii.gz (the only input tissue "
-        "analysis needs) and is the one subject with no tissue_analysis output yet -- 101 and "
-        "ernie already have one and would be overwritten (P6). Read-only on m2m_MNI152.",
-        build=lambda ctx: _pre_submission(ctx, "MNI152", "G3", run_tissue_analysis=True),
+        subject="LA",
+        why_subject="sub-LA has m2m_LA/segmentation/labeling.nii.gz (the only input tissue "
+        "analysis needs) and no tissue_analysis output yet -- 101 and ernie already have one "
+        "and would be overwritten (P6); m2m_MNI152 has no segmentation/ in Dataset 000. "
+        "Read-only on m2m_LA.",
+        build=lambda ctx: _pre_submission(ctx, "LA", "G3", run_tissue_analysis=True),
         group_tag="G3",
         budget_s=600.0,
         banner=(r"^Tissue analysis$", r"Tissue analysis: Started"),
-        creates=lambda ctx: [ctx.ti_toolbox("tissue_analysis", "sub-MNI152")],
+        creates=lambda ctx: [ctx.ti_toolbox("tissue_analysis", "sub-LA")],
         expect_files=lambda ctx: [
-            ctx.ti_toolbox("tissue_analysis", "sub-MNI152", "bone_analysis", "bone_analysis.txt")
+            ctx.ti_toolbox("tissue_analysis", "sub-LA", "bone_analysis", "bone_analysis.txt")
         ],
     ),
     Row(
         id="pre_qsiprep",
         kind="pre",
-        behaviour=REFUSED,
+        behaviour=REFUSED_AT_SUBMIT,
         subject="101",
         why_subject="sub-101 has no DWI (its dwi/ folder is empty; sub-CHN is the subject with "
         "DWI) and its BIDS tree is otherwise complete, so the only thing that can fail is the "
@@ -511,8 +528,10 @@ ROWS: tuple[Row, ...] = (
         build=lambda ctx: _pre_submission(ctx, "101", "G4", run_qsiprep=True),
         group_tag="G4",
         budget_s=120.0,
-        refusal=(r"requires BIDS DWI data", r"[Nn]o DWI", r"Preprocessing failed"),
-        notes="§3 row 'accepted-then-refused readable': the QSIPrep image is never pulled.",
+        refusal=(r"requires BIDS DWI data", r"[Nn]o DWI"),
+        notes="Submission preflight (tit.pre.preflight via tit.jobs.preflight._check_pre) "
+        "refuses it with 422 Missing inputs, so no job is queued and the QSIPrep image is never "
+        "pulled; until that check it was §3's 'accepted-then-refused readable' row.",
     ),
     Row(
         id="sim_ti",
@@ -522,7 +541,8 @@ ROWS: tuple[Row, ...] = (
         why_subject="Exactly the maintainer's own succeeded run (job 35ea5755624a44ac): "
         "sub-101, BioSemi-128-A1, A1/A2 + A4/A3.",
         build=lambda ctx: _sim_submission(ctx, [["A1", "A2"], ["A4", "A3"]], "ti"),
-        budget_s=START_BUDGET_S,
+        # --smoke-full only: twice the 16 min job 35ea5755 took under emulation.
+        budget_s=2 * 16 * 60.0,
         banner=(r"TI: smoke-", r"SimNIBS simulation: Started"),
         creates=lambda ctx: [ctx.simnibs("101", "Simulations", ctx.name("ti"))],
         payload_rename=_rename_sim_payload,
@@ -538,7 +558,8 @@ ROWS: tuple[Row, ...] = (
         build=lambda ctx: _sim_submission(
             ctx, [["A1", "A2"], ["A4", "A3"], ["B1", "B2"], ["B4", "B3"]], "mti"
         ),
-        budget_s=START_BUDGET_S,
+        # --smoke-full only: four pairs solve twice sim_ti's FEMs; twice that, as for sim_ti.
+        budget_s=2 * 2 * 16 * 60.0,
         banner=(r"mTI: smoke-", r"TI: smoke-", r"SimNIBS simulation: Started"),
         creates=lambda ctx: [ctx.simnibs("101", "Simulations", ctx.name("mti"))],
         payload_rename=_rename_sim_payload,
@@ -581,7 +602,9 @@ ROWS: tuple[Row, ...] = (
             },
             subject_ids=["101"],
         ),
-        budget_s=START_BUDGET_S,
+        # --smoke-full only: twice the ~25 min a two-restart flex search took under emulation
+        # (tit/jobs/eta.py, VAL_rthal_flex_focality); this row runs one restart.
+        budget_s=2 * 25 * 60.0,
         banner=(r"^flex_search$", r"Setting up headmodel"),
         creates=lambda ctx: [ctx.simnibs("101", "flex-search", ctx.name("flex"))],
         notes="Known broken (F0): TypeError expected str ... not list in _validate_roi_input.",
@@ -602,7 +625,9 @@ ROWS: tuple[Row, ...] = (
             },
             subject_ids=["101"],
         ),
-        budget_s=START_BUDGET_S,
+        # --smoke-full only: twice the 23 min a 76-electrode leadfield took under emulation
+        # (tit/jobs/eta.py), scaled to this net's 185 electrodes (one FEM solve each).
+        budget_s=2 * 23 * 60.0 * 185 / 76,
         banner=(r"Generating leadfield for ", r"Running simulations in the directory"),
         creates=lambda ctx: [
             ctx.simnibs("101", "leadfields", "101_leadfield_GSN-HydroCel-185.hdf5"),
@@ -653,21 +678,22 @@ ROWS: tuple[Row, ...] = (
         kind="analyzer",
         behaviour=COMPLETED,
         subject="ernie",
-        why_subject="Simulation `Thalamus` is the ernie run with a full TI mesh + surfaces "
-        "tree; the sphere is the maintainer's own succeeded analyzer job (02a18de1d3d047e3).",
-        build=lambda ctx: _analyzer_submission(ctx, "Thalamus", "mesh", "mesh"),
+        why_subject="Simulation `AF3_PO10_and_AF4_Oz` is the ernie run with a full TI mesh + "
+        "surfaces tree (Dataset 000 no longer has ernie's `Thalamus`); the sphere is the "
+        "maintainer's own succeeded analyzer job (02a18de1d3d047e3).",
+        build=lambda ctx: _analyzer_submission(ctx, _ERNIE_SIM, "mesh", "mesh"),
         budget_s=600.0,
         banner=(r"Starting single analysis", r"Analyzer initialised"),
         creates=lambda ctx: [
-            ctx.simnibs("ernie", "Simulations", "Thalamus", "Analyses", "Mesh", ctx.name("mesh"))
+            ctx.simnibs("ernie", "Simulations", _ERNIE_SIM, "Analyses", "Mesh", ctx.name("mesh"))
         ],
         expect_files=lambda ctx: [
             ctx.simnibs(
-                "ernie", "Simulations", "Thalamus", "Analyses", "Mesh", ctx.name("mesh"),
+                "ernie", "Simulations", _ERNIE_SIM, "Analyses", "Mesh", ctx.name("mesh"),
                 "analysis.json",
             )
         ],
-        catalog=_catalog_analyses("Thalamus", lambda ctx: ctx.name("mesh")),
+        catalog=_catalog_analyses(_ERNIE_SIM, lambda ctx: ctx.name("mesh")),
         payload_rename=_rename_analyzer_payload,
     ),
     Row(
@@ -675,21 +701,22 @@ ROWS: tuple[Row, ...] = (
         kind="analyzer",
         behaviour=COMPLETED,
         subject="ernie",
-        why_subject="Simulation `L_Insula` is the ernie run with subject-space NIfTIs "
-        "(TI/niftis/L_Insula_TI_subject_TI_max.nii.gz), which is what voxel space reads.",
-        build=lambda ctx: _analyzer_submission(ctx, "L_Insula", "voxel", "voxel"),
+        why_subject="Simulation `AF3_PO10_and_AF4_Oz` is the ernie run with subject-space NIfTIs "
+        "(TI/niftis/AF3_PO10_and_AF4_Oz_TI_subject_TI_max.nii.gz), which is what voxel space "
+        "reads (Dataset 000 no longer has ernie's `L_Insula`).",
+        build=lambda ctx: _analyzer_submission(ctx, _ERNIE_SIM, "voxel", "voxel"),
         budget_s=600.0,
         banner=(r"Starting single analysis", r"Analyzer initialised"),
         creates=lambda ctx: [
-            ctx.simnibs("ernie", "Simulations", "L_Insula", "Analyses", "Voxel", ctx.name("voxel"))
+            ctx.simnibs("ernie", "Simulations", _ERNIE_SIM, "Analyses", "Voxel", ctx.name("voxel"))
         ],
         expect_files=lambda ctx: [
             ctx.simnibs(
-                "ernie", "Simulations", "L_Insula", "Analyses", "Voxel", ctx.name("voxel"),
+                "ernie", "Simulations", _ERNIE_SIM, "Analyses", "Voxel", ctx.name("voxel"),
                 "analysis.json",
             )
         ],
-        catalog=_catalog_analyses("L_Insula", lambda ctx: ctx.name("voxel")),
+        catalog=_catalog_analyses(_ERNIE_SIM, lambda ctx: ctx.name("voxel")),
         payload_rename=_rename_analyzer_payload,
     ),
     Row(
@@ -737,9 +764,10 @@ ROWS: tuple[Row, ...] = (
         id="nifti_average",
         kind="nifti_average",
         behaviour=COMPLETED,
-        subject="101,ernie,MNI152",
-        why_subject="All three subjects have Simulations/L_Insula/TI/niftis/"
-        "*_MNI_MNI_TI_max.nii.gz, the MNI-space input this kind averages.",
+        subject="101,ernie,CHN",
+        why_subject="Three subjects' TI runs (_STATS_SUBJECTS): the job produces each MNI-space "
+        "TI_max NIfTI it averages from the run's field mesh (none was saved; sub-MNI152 and "
+        "ernie's L_Insula, which had one, are gone from Dataset 000).",
         build=lambda ctx: Submission(
             kind="nifti_average",
             config={
@@ -764,9 +792,9 @@ ROWS: tuple[Row, ...] = (
         id="stats_group",
         kind="stats",
         behaviour=COMPLETED,
-        subject="101,ernie,MNI152",
-        why_subject="The same three MNI-space L_Insula runs; two responders vs one "
-        "non-responder is the largest unpaired design Dataset 000 can express.",
+        subject="101,ernie,CHN",
+        why_subject="The same three runs in MNI space; two responders vs one non-responder is "
+        "the largest unpaired design Dataset 000 can express.",
         build=lambda ctx: Submission(
             kind="stats",
             config={
@@ -831,16 +859,18 @@ ROWS: tuple[Row, ...] = (
         kind="blender",
         behaviour=COMPLETED,
         subject="ernie",
-        why_subject="`docs_example` is an ernie simulation with a montage the blender exporter "
-        "can read. §3 assumed bpy under emulation would need started-then-cancel; measured, the "
-        "montage export finishes in ~110 s (job d397adbe7bf24501), so cancelling it is a race "
-        "against its own success -- this row runs it to completion instead.",
+        why_subject="`AF3_PO10_and_AF4_Oz` is the ernie simulation on an EEG net "
+        "(EEG10-10_UI_Jurak_2007) with a TI mesh the montage exporter cuts the scalp from "
+        "(`docs_example` is gone from Dataset 000). §3 assumed bpy under emulation would need "
+        "started-then-cancel; measured, the montage export finishes in ~110 s (job "
+        "d397adbe7bf24501), so cancelling it is a race against its own success -- this row runs "
+        "it to completion instead.",
         build=lambda ctx: Submission(
             kind="blender",
             config={
                 "_type": "MontageConfig",
                 "subject_id": "ernie",
-                "simulation_name": "docs_example",
+                "simulation_name": _ERNIE_SIM,
                 "output_dir": ctx.ti_toolbox("visual_exports", ctx.name("blender")),
             },
             subject_ids=["ernie"],
@@ -854,8 +884,9 @@ ROWS: tuple[Row, ...] = (
         kind="tools",
         behaviour=COMPLETED,
         subject="ernie",
-        why_subject="Simulations/L_Insula/documentation/config.json is a real saved sim config "
-        "with label electrode pairs, and m2m_ernie/eeg_positions holds the net CSV it needs.",
+        why_subject="Simulations/AF3_PO10_and_AF4_Oz/documentation/config.json is a real saved "
+        "sim config with label electrode pairs, its grey-matter TI_max NIfTI is the reference "
+        "grid, and m2m_ernie/eeg_positions holds the net CSV it needs.",
         plannable=False,
         build=lambda ctx: Submission(
             kind="tools",
@@ -863,15 +894,15 @@ ROWS: tuple[Row, ...] = (
                 "module": "tit.tools.electrode_overlay",
                 "args": [
                     ctx.simnibs(
-                        "ernie", "Simulations", "L_Insula", "documentation", "config.json"
+                        "ernie", "Simulations", _ERNIE_SIM, "documentation", "config.json"
                     ),
                     ctx.simnibs(
                         "ernie",
                         "Simulations",
-                        "L_Insula",
+                        _ERNIE_SIM,
                         "TI",
                         "niftis",
-                        "grey_L_Insula_TI_subject_TI_max.nii.gz",
+                        f"grey_{_ERNIE_SIM}_TI_subject_TI_max.nii.gz",
                     ),
                     ctx.ti_toolbox("visual_exports", ctx.name("overlay"), "overlay.nii"),
                     "--eeg-positions-dir",

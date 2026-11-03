@@ -16,6 +16,9 @@ The three-legged behaviour contract of §3, for every kind:
                left in ``GET /api/system``.
 ``refused``    for a row that cannot run on this data: the job fails with a human-readable
                message and no Python traceback in ``error.message``.
+``refused_at_submit``  for a row whose input is missing: the submission itself is HTTP 422
+               ``{detail: "Missing inputs", missing: [...]}``, one entry names the input
+               readably, and no job is created.
 
 Where the numbers come from
 ---------------------------
@@ -27,7 +30,7 @@ itself.
 How to reproduce
 ----------------
 ``dev/smoke.sh``  (or ``TIT_SMOKE_SERVER_URL=… TIT_SMOKE_TOKEN=… TIT_SMOKE_PROJECT_HOST=… \\
-python3 -m pytest -m smoke tests/smoke -p no:cacheprovider``).
+.venv/bin/python -m pytest -m smoke tests/smoke -p no:cacheprovider``).
 
 Deliberately elsewhere: the configs (:mod:`tests.smoke.matrix`), HTTP (
 :mod:`tests.smoke.client`), path bookkeeping (:mod:`tests.smoke.cleanup`).
@@ -52,6 +55,7 @@ from tests.smoke.matrix import (
     CANCEL_BUDGET_S,
     COMPLETED,
     REFUSED,
+    REFUSED_AT_SUBMIT,
     ROWS,
     START_BUDGET_S,
     STARTED_THEN_CANCEL,
@@ -170,7 +174,7 @@ def _submit(client: SmokeClient, sub: Submission) -> list[dict]:
     """Submit and return every job created (one for /api/jobs, the DAG for a group)."""
     if sub.group:
         body = {
-            "kind": "pre",
+            "kind": sub.kind,
             "config": sub.config,
             "subject_ids": sub.subject_ids,
             "parallel_subjects": sub.parallel_subjects,
@@ -183,6 +187,22 @@ def _submit(client: SmokeClient, sub: Submission) -> list[dict]:
         "tags": sub.tags,
     }
     return [client.submit(body)]
+
+
+def _refused_at_submit(row: Row, error: SmokeHTTPError, wall: float) -> str:
+    """The results-table line for a submission refused with 422 "Missing inputs"; asserts it."""
+    assert error.status == 422, f"{row.id}: expected HTTP 422 Missing inputs, got {error}"
+    body = json.loads(error.body)
+    assert body.get("detail") == "Missing inputs", f"{row.id}: {error}"
+    text = "\n".join(
+        f"{m.get('what')}: {m.get('how_to_fix')}" for m in body.get("missing") or []
+    )
+    assert not any(m in text for m in _TRACEBACK_MARKERS), (
+        f"{row.id}: the refusal leaks a Python traceback: {text!r}"
+    )
+    matched = [p for p in row.refusal if re.search(p, text)]
+    assert matched, f"{row.id}: no missing input matching {row.refusal}: {text!r}"
+    return f"refused at submission in {wall:.1f}s ({matched[0]})"
 
 
 class _MissingGroupTag(AssertionError):
@@ -346,6 +366,12 @@ def test_kind(
             _wait_no_heavy_job(client)
 
         submit_t0 = time.monotonic()
+        if behaviour == REFUSED_AT_SUBMIT:
+            with pytest.raises(SmokeHTTPError) as refused:
+                jobs = _submit(client, submission)
+            accept_s += time.monotonic() - submit_t0
+            record["result"] = _refused_at_submit(row, refused.value, accept_s)
+            return
         jobs = _submit(client, submission)
         accept_s += time.monotonic() - submit_t0
         assert accept_s <= ACCEPT_BUDGET_S, (
