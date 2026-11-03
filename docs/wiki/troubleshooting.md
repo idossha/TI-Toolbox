@@ -70,7 +70,7 @@ Error response from daemon: rpc error: code = NotFound desc = blob sha256:9e0376
 **Cause:** containerd's image metadata references a layer blob that no longer exists on disk. Metadata and blobs are written separately, so an interrupted pull or an out-of-space write leaves a dangling reference; every command that lists images then aborts. Not a toolbox bug.
 **Fix:**
 1. Check disk space first: `df -h /var/lib/docker` — a full disk is the usual trigger.
-2. Try `sudo docker system prune -af && docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.2`.
+2. Try `sudo docker system prune -af && docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.3`.
 3. If prune fails with the same error, reset the store (destroys *all* local images/containers/volumes — project data is untouched, it lives outside Docker):
    ```bash
    sudo systemctl stop docker docker.socket containerd
@@ -103,7 +103,7 @@ a while on a slow connection or a nearly full disk.
 - **"This container engine is not supported yet. … Podman is not supported."** — install Docker
   Desktop or Docker Engine and make it the active engine.
 - **"The TI-Toolbox image could not be downloaded…"** — check the connection and free disk space,
-  or pull it by hand: `docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.2`.
+  or pull it by hand: `docker pull --platform linux/amd64 idossha/ti-toolbox:v3.1.3`.
 - **"The container started but its server never answered"** — read the container log
   (`--logs`, see [Where are the logs](#where-are-the-logs)); low Docker memory is a common cause
   (see the next entry).
