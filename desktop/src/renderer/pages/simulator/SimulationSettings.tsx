@@ -13,7 +13,7 @@ import { ConductivityDialog, type CustomConductivities } from "./ConductivityDia
 import { CARRIER_FIELDS, DEFAULT_CARRIER_FIELDS, CONDUCTIVITY_OPTIONS, OUTPUT_FIELDS, WRITE_NIFTIS_HELP, withMni, withNiftis, type JobSettings } from "./types";
 
 /** The wiki explains the fields once; the form links there instead of repeating it. */
-const FIELDS_DOCS = `${DOCS_SITE}wiki/analyzer/#quantities-of-interest`;
+const FIELDS_DOCS = `${DOCS_SITE}wiki/field-definitions/#quantities-of-interest`;
 const CARRIER_ONLY_DOCS = `${DOCS_SITE}wiki/simulator/#carrier-only-control`;
 
 /**

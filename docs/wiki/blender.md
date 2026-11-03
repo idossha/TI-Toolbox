@@ -106,7 +106,7 @@ This mode exports electric field vectors from each channel's simulation as arrow
 - **TI_sum** — the vector sum of all channel fields (E1 + E2 for two channels) (yellow), optional.
 - **TI_normal** — the TI envelope along the cortical normal, drawn outward (cyan), optional.
 
-For what each field means, see [Analyzer › Field quantities]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
+For what each field means, see [Field definitions]({{ site.baseurl }}/wiki/field-definitions/#quantities-of-interest).
 
 **Vector properties:**
 

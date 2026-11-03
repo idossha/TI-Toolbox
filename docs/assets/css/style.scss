@@ -28,7 +28,7 @@
   --color-surface-2: #eef1f4;
   --color-border: #d8dee4;
   --color-border-soft: #e9edf1;
-  --color-code-bg: #f6f8fa;
+  --color-code-bg: #f2f4f7;
   --color-inline-code: #c7254e;
   --color-selection: rgba(46, 134, 171, 0.18);
 
@@ -155,7 +155,7 @@ pre.mermaid {
 
 pre {
   background: var(--color-code-bg);
-  border: 1px solid var(--color-border-soft);
+  border: 1px solid #e3e7ed;
   border-radius: var(--radius);
   padding: 14px 18px;
   overflow-x: auto;
@@ -369,16 +369,6 @@ table {
   gap: 8px;
   font-weight: 600;
   color: var(--color-heading);
-}
-
-.site-footer__links {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 18px;
-  a { color: var(--color-text-muted); &:hover { color: var(--color-heading); } }
 }
 
 .site-footer__meta { margin: 0 0 0 auto; }
@@ -993,19 +983,19 @@ td .katex-display, th .katex-display {
 // -----------------------------------------------------------------------------
 
 .highlight {
-  .c, .c1, .cm, .cs { color: #6a737d; font-style: italic; }   // comments
-  .cp { color: #d73a49; }                                    // preprocessor
-  .k, .kd, .kn, .kp, .kr, .kt, .kc { color: #d73a49; }       // keywords
-  .o, .ow { color: #d73a49; }                                // operators
+  .c, .c1, .cm, .cs { color: #59626c; font-style: italic; }   // comments
+  .cp { color: #c42a3b; }                                    // preprocessor
+  .k, .kd, .kn, .kp, .kr, .kt, .kc { color: #c42a3b; }       // keywords
+  .o, .ow { color: #c42a3b; }                                // operators
   .s, .s1, .s2, .sb, .sc, .sd, .se, .sh, .si, .sx, .sr, .ss { color: #032f62; } // strings
   .m, .mf, .mh, .mi, .mo, .il { color: #005cc5; }            // numbers
   .na, .nb, .bp { color: #005cc5; }                          // attributes / builtins
   .nc, .nn { color: #6f42c1; }                               // class / namespace
   .nf, .fm { color: #6f42c1; }                               // functions
-  .nt { color: #22863a; }                                    // tags
-  .nv, .vc, .vg, .vi { color: #e36209; }                     // variables
+  .nt { color: #1a7a34; }                                    // tags
+  .nv, .vc, .vg, .vi { color: #b34700; }                     // variables
   .gd { color: #b31d28; background: #ffeef0; }               // diff deleted
-  .gi { color: #22863a; background: #f0fff4; }               // diff inserted
+  .gi { color: #1a7a34; background: #f0fff4; }               // diff inserted
   .gh, .gu { color: #005cc5; font-weight: 600; }
   .ge { font-style: italic; }
   .gs { font-weight: 600; }
@@ -1248,6 +1238,20 @@ td .katex-display, th .katex-display {
   > :last-child { margin-bottom: 0; }
 }
 .install-help { margin: 20px 0; }
+
+// Collapsible "Details" blocks in wiki pages (derivations, edge cases).
+// position + overflow keep KaTeX's absolutely positioned MathML from widening the page.
+.wiki-content details {
+  position: relative;
+  overflow-x: auto;
+  margin: 16px 0;
+  padding: 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  summary { cursor: pointer; color: var(--color-heading); font-weight: 600; }
+  summary:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 4px; }
+  &[open] > summary { margin-bottom: 12px; }
+}
 .install-project { padding-left: 24px; }
 .install-project li { padding: 6px 0 12px 8px; }
 .install-project li::marker { color: var(--color-primary-dark); font-weight: 700; }

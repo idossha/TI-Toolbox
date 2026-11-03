@@ -17,7 +17,7 @@ permalink: /wiki/flex-search/
 Flex-search places two channels (four electrodes) freely on the subject's valid scalp and uses differential evolution, solving the FEM for every candidate, to find the placement that best meets a goal in a target region. Unlike [ex-search]({{ site.baseurl }}/wiki/ex-search/) it is not restricted to an EEG net, and unlike ex-search it is stochastic: a finished run is the best placement it evaluated, not a proven global optimum.
 
 - **Goals**: Mean TImax, Max TImax (99.9th percentile), threshold-free focality, threshold-based focality.
-- **Field post-processing**: `max_TI` (the maximum TI envelope over all directions), `dir_TI_normal` (the envelope along the cortical surface normal) or `dir_TI_tangential` (the maximum envelope over the directions within the cortical surface plane). The math is under [Direction on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#direction-ti_max-ti_normal-ti_avg-tangential).
+- **Field post-processing**: `max_TI` (the maximum TI envelope over all directions), `dir_TI_normal` (the envelope along the cortical surface normal) or `dir_TI_tangential` (the maximum envelope over the directions within the cortical surface plane). The math is under [Direction on the Field definitions page]({{ site.baseurl }}/wiki/field-definitions/#direction-ti).
 - **Conductivity**: isotropic (`scalar`) or volume-normalized anisotropic (`vn`).
 - **Optional**: a joint search over the two channels' current split, several independent optimization runs, and a simulation of the winner on the free or EEG-net-mapped positions.
 

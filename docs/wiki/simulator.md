@@ -90,7 +90,7 @@ Open a job's settings with the row's settings button, or double-click the row. A
 
 ### Multipolar Mode (mTI)
 
-Multipolar temporal interference (mTI) uses 8 or more electrodes: 4 or more channels (electrode pairs), beating in pairs at a common difference frequency, and the pairs' phase-aligned beats combine into one modulation envelope (Botzanowski et al. 2025). Channels and beating pairs are explained under [Quantities of Interest on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#quantities-of-interest).
+Multipolar temporal interference (mTI) uses 8 or more electrodes: 4 or more channels (electrode pairs), beating in pairs at a common difference frequency, and the pairs' phase-aligned beats combine into one modulation envelope (Botzanowski et al. 2025). Channels and beating pairs are explained under [Quantities of Interest on the Field definitions page]({{ site.baseurl }}/wiki/field-definitions/#quantities-of-interest).
 
 <div class="image-container">
   <img src="{{ site.baseurl }}/assets/imgs/mti/uti_mti_albantakis2026.png" alt="Unipolar vs multipolar TI: montage, peak HF field, and AM field" style="width: 100%; max-width: 750px;">
@@ -102,7 +102,7 @@ Multipolar temporal interference (mTI) uses 8 or more electrodes: 4 or more chan
 - **Applications**: Distributed stimulation, field steering, and complex targeting
 - **Montage Compatibility**: Works with multipolar montage collections
 
-For the envelope field math behind these quantities see [Envelope Math and Critical Values]({{ site.baseurl }}/wiki/analyzer/#envelope-math-and-critical-values) on the Analyzer page.
+For the envelope field math behind these quantities see [Envelope Math and Critical Values]({{ site.baseurl }}/wiki/field-definitions/#envelope-math-and-critical-values) on the Field definitions page.
 
 #### How the Toolbox Detects mTI
 
@@ -123,7 +123,7 @@ Saved montages are kept per EEG net, with TI and mTI montages listed separately.
 
 The assignment is always positional: each two consecutive electrodes in the montage compose a channel, and each two consecutive channels form a beating pair. For an 8-electrode montage that means channels 1 & 2 (E1±, E2±) are the first beating pair and channels 3 & 4 (E3±, E4±) the second — there is no wiring choice to make. On disk the mTI channel files are lettered (`TDCS_A` is channel 1, `TDCS_B` channel 2, …).
 
-The carrier fields `hf_peak`/`hf_rms`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Carrier fields on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#safety-metrics).
+The carrier fields `hf_peak`/`hf_rms`/`hf_power_density` include every channel field, each on its own (no two channels share a frequency). Their math lives under [Carrier fields on the Field definitions page]({{ site.baseurl }}/wiki/field-definitions/#safety-metrics).
 
 **References:** Albantakis, L. & Tononi, G. (2026). Precision neuromodulation in psychiatry: focus on temporal interference stimulation. _American Journal of Psychiatry_. doi:10.1176/appi.ajp.20250873. Botzanowski, B. et al. (2025). Focal control of non-invasive deep brain stimulation using multipolar temporal interference. _Bioelectronic Medicine_ 11(1):7.
 
@@ -147,7 +147,7 @@ The next step finds it saved. A simulation that wrote NIfTIs (**Write NIfTI volu
 
 A carrier-only control drives the two channels of a TI montage at the **same** frequency and in phase (e.g. 15,000 / 15,000 Hz instead of 15,000 / 15,010 Hz), so there is no interference beat. Use it for carrier-only or sham-style control conditions: the tissue receives the kHz carriers without an envelope.
 
-Without a beat the two channel fields add coherently into one fixed field, so the carrier fields become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_rms} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert / \sqrt{2}$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Analyzer page]({{ site.baseurl }}/wiki/analyzer/#carrier-only-controls).
+Without a beat the two channel fields add coherently into one fixed field, so the carrier fields become $$\mathrm{hf\_peak} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert$$ and $$\mathrm{hf\_rms} = \lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert / \sqrt{2}$$ (and `hf_power_density` is computed from $$\mathbf{E}_1 + \mathbf{E}_2$$) rather than the TI worst case $$\max(\lVert \mathbf{E}_1 + \mathbf{E}_2 \rVert, \lVert \mathbf{E}_1 - \mathbf{E}_2 \rVert)$$ (Cassarà et al. 2025, _Bioelectromagnetics_: Part I 46(2), e22542; Part II 46(1), e22536). The envelope fields `TI_max`, `TI_avg` and `TI_normal` are undefined and are not computed. The derivation and a worked example are under [Carrier-only controls on the Field definitions page]({{ site.baseurl }}/wiki/field-definitions/#carrier-only-controls).
 
 - **In the application**: open a job's settings (the row's **Job settings** button) and tick **Carrier-only control (ΔF = 0, coherent carriers)** under _Output fields_. `hf_peak` and `hf_rms` are selected (`hf_power_density` may be ticked too), and `TI_max`/`TI_avg` are disabled while it is on. The checkbox is disabled for mTI (4 or more channels) montages; an mTI row seeded from a carrier-only job runs as ordinary mTI.
 - **From Python or a JSON config**:

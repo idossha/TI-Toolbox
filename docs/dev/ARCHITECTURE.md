@@ -723,7 +723,7 @@ subscript. The desktop mirrors the registry in `desktop/src/renderer/pages/analy
 (`tests/test_field_registry.py` holds name, label and units equal) and renders labels with one
 helper, `fieldLabel()` + `<Subscripted>`; a place that holds no markup (a `title`) shows the
 saved spelling. It copies no description: the Simulator's Output fields link to the wiki's
-definitions (`wiki/analyzer/#quantities-of-interest`; the carrier-only control to
+definitions (`wiki/field-definitions/#quantities-of-interest`; the carrier-only control to
 `wiki/simulator/#carrier-only-control`) instead of tooltips.
 The TetraVox scene writes `fields: {<name>: {label, units}}` on every field-mesh
 layer from the same registry. `hf_peak` is zero-to-peak; `hf_rms` = √`hf_power` is the RMS

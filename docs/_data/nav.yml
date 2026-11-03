@@ -32,7 +32,11 @@ wiki:
     - { title: Simulator, url: /wiki/simulator/ }
     - { title: Flex Search, url: /wiki/flex-search/ }
     - { title: Ex Search, url: /wiki/ex-search/ }
-    - { title: Analyzer, url: /wiki/analyzer/ }
+    - title: Analyzer
+      url: /wiki/analyzer/
+      children:
+        - { title: Reading the Results, url: /wiki/analyzer-results/ }
+        - { title: Field Definitions, url: /wiki/field-definitions/ }
     - title: Notebooks
       url: /wiki/notebooks/
     - { title: Results, url: /wiki/results/ }
