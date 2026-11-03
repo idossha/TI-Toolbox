@@ -71,50 +71,6 @@ TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
 | Cerebellum-MNIfnirt (Diedrichsen 2009)  | 28      | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
 | Schaefer 2018, 400 parcels / 7 networks | 400     | MNI152NLin6Asym, FSL 182x218x182 1mm grid        |
 
-The four FSL-grid atlases sit on exactly the grid SimNIBS's `mni2subject` warps assume (their
-headers were checked against the shipped `MNI152_T1_1mm.nii.gz`), so they need no template
-correction.
-
-Every one of them is a **label volume**, including Glasser: that is a cortical parcellation, but it
-is distributed as a NIfTI, so you target it through the ROI picker's **Subcortical** mode, not the
-**Cortical** mode. The picker knows which is which because each atlas declares it in
-`resources/atlas/manifest.json`, and it will not offer you an atlas the mode you are in cannot read.
-TI-Toolbox ships no MNI-space _surface_ parcellation; the Cortical mode's atlases are your own
-subject's, built by preprocessing.
-
-In MNI mode, the Optimizer's and Analyzer's target pane has an **Explode** button next to **Clear
-selection**. It fades the scalp and pushes every atlas region outward, mostly sideways, so deep or
-hidden structures can be seen and clicked; press it again to collapse them, and your selection is
-unaffected. Explode is available for MNI atlases only, and because the MNI atlases are split into
-left and right regions, a click selects one hemisphere.
-
-<div class="image-container">
-  <img src="{{ site.baseurl }}/assets/imgs/v3/optimizer-mni-explode.png" alt="The CIT168 subcortical atlas exploded in the Optimizer's target pane: 32 left and right regions pushed apart with the scalp faded" style="width: 100%; max-width: 600px;">
-  <em>Explode on the CIT168 atlas (32 regions) in MNI mode.</em>
-</div>
-
-### Not shipped
-
-**Bilateral CIT168 and Harvard-Oxford cortical** (`CIT168_labeling_MNI152NLin2009cAsym.nii.gz`,
-`HarvardOxford-cort-maxprob-thr25-1mm.nii.gz`) are not shipped. Each of their labels
-covered a structure in _both_ hemispheres, so choosing one region silently targeted both sides.
-They are replaced by `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` (label k became
-2k-1 left and 2k right) and FSL's own lateralized `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz`
-(same numbering). A configuration that still names an old file stops with a sentence naming its
-replacement; pick the side(s) you meant from the new atlas.
-
-**Morel thalamus atlas** (`MorelMNI152_labeling_1mm.nii.gz`, 74 nuclei) is not shipped. Its licence is **CC BY-NC-SA 4.0** ([Zenodo record
-13918589](https://doi.org/10.5281/zenodo.13918589); (C) University of Zurich and ETH Zurich, Andras
-Jakab, Remi Blanc and Gabor Szekely), which forbids commercial use — a promise TI-Toolbox's own
-GPL-3 licence cannot make for you, so a GPL-3 project cannot redistribute it. A configuration that
-still names it stops with _"The Morel atlas is no longer shipped (CC BY-NC-SA); see
-docs/wiki/atlases.md"_; pick another thalamic target (Harvard-Oxford subcortical or MASSP both label
-the thalamus; neither subdivides it into nuclei) or, if your own use is non-commercial, fetch the
-atlas from Zenodo yourself and import it as a custom NIfTI mask. The plan for bringing it back as an
-optional, user-fetched download is recorded in `resources/atlas/README.md § Not shipped`. Cite,
-if you use it: Krauth A. et al. _NeuroImage_ 49(3):2053-2062 (2010); Jakab A. et al. _AJNR_
-33(11):2110-2116 (2012).
-
 <section class="atlas-desc" data-atlas="mni:cit168" markdown="1">
 
 **CIT168 Subcortical Atlas**
@@ -143,7 +99,6 @@ Glasser MF, Coalson TS, Robinson EC, et al. A multi-modal parcellation of human 
 
 31 labels, natively at 0.5mm resolution in ICBM152 2009b nonlinear-asymmetric hi-res space — the highest native resolution of the shipped atlases. It was resampled onto the 1mm template grid for the viewer.
 
-
 ### Other shipped MNI atlases
 
 These three are not in the viewer.
@@ -165,10 +120,6 @@ These are **not shipped**. They are produced for each subject during preprocessi
 - **SimNIBS `charm`** writes the tissue segmentation `m2m_{subject}/segmentation/labeling.nii.gz`, plus the surface parcellations `lh/rh.{subject}_DK40.annot`, `_a2009s.annot` and `_HCP_MMP1.annot`.
 - **FastSurfer `--seg_only` (v3)** writes `aparc.DKTatlas+aseg.deep.mgz`. It does not produce thalamic nuclei or hippocampal/amygdala subregion atlases. See [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-reconstruction-and-subregions).
 - **Optional FreeSurfer `recon-all`** produces the volumetric parcellations `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `aparc+aseg.mgz` and `aseg.mgz`, with finer thalamic nuclei and hippocampal/amygdala subregions available as additional operations after reconstruction. Existing `ThalamicNuclei.v13.T1.mgz` and `lh/rh.hippoAmygLabels-T1.v22.mgz` outputs remain readable.
-
-The gallery includes legacy FreeSurfer atlases for reference; their presence here does not mean a new v3 FastSurfer run produces them.
-
-The viewer at the top of the page uses the **`ernie` example subject** that ships with SimNIBS, so the anatomy is a real head model rather than a template average. The surface `.annot` parcellations are not shown — they are cortical surface files, not volumes, and cannot be overlaid on a NIfTI.
 
 <div class="atlas-note" data-space="subject" markdown="1">
 
@@ -203,36 +154,6 @@ Optional FreeSurfer `recon-all` output (FastSurfer's segmentation-only run does 
 The finest of the cortical parcellations here, splitting cortex into gyral (`G_`) and sulcal (`S_`) units. Cortical ids run in the `11100+`/`12100+` range.
 
 </section>
-
-## Atlas Resampling
-
-Voxel-space ROI analysis requires the atlas and the field NIfTI to sit on the **same voxel grid**. They often do not: the field is written on the simulation's grid, while a subject-space parcellation comes off FastSurfer or FreeSurfer at whatever resolution that ran at. Before masking, `Analyzer` brings the atlas onto the field's grid so the two are compared voxel-for-voxel.
-
-<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png">
-  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_validation.png" alt="Voxel-level validation of atlas resampling" style="width: 100%; max-width: 1000px;">
-</a>
-
-_Validation on sub-ernie with the DKT parcellation. **Top:** an atlas cropped to the field's dimensions keeps its own affine, so the shapes match but the geometry does not — a shape-only check passes it straight through and the parcellation lands on the wrong anatomy, with only 13% of labelled voxels agreeing with where they belong. Comparing the affine as well forces the resample, and agreement goes to 100%. **Bottom:** on a 0.5 mm target grid, voxel centres fall between source centres. An interpolating order blends neighbouring region ids and produces 3,708 values (1.80% of voxels, magenta) that exist in neither the atlas nor `FreeSurferColorLUT.txt`; nearest-neighbour produces none. Axial slices, neurological convention._
-
-### ROI analysis on the corrected grid
-
-<a href="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_roi_analysis.png">
-  <img src="{{ site.baseurl }}/assets/imgs/atlas-resampling/atlas_resample_roi_analysis.png" alt="Left insula and left thalamus ROI analysis on the corrected grid" style="width: 100%; max-width: 1000px;">
-</a>
-
-_Two ROI analyses on sub-ernie, each shown as the region on the subject T1, the TI field it sits in, and the statistics the analyzer reports once the atlas is on the field grid. **Left insula** (`L_Insula` simulation): 6,528 voxels, mean 0.076 V/m. **Left thalamus** (`Thalamus` simulation): 8,045 voxels, mean 0.127 V/m. The cyan outline is the atlas region; the coloured area is that region intersected with the tissue._
-
-**A grid is a shape _and_ an affine.** A volume is left untouched only when it already matches the field on both. Shape alone does not identify a grid — two volumes can agree on dimensions while sampling entirely different anatomy, and that case is silent: the analysis returns an ROI mask, statistics and a CSV, all describing the wrong tissue.
-
-**Labels are discrete, so the interpolation order is nearest-neighbour, always.** Atlases carry region ids and tissue masks carry 0/1 flags. Any interpolating order averages neighbouring values, and the average of two region ids is a third id belonging to some unrelated structure — or to nothing at all. The resample uses `nibabel.processing.resample_from_to(..., order=0)`; voxels falling outside the source field of view become 0 (background). The same routine handles tissue-mask NIfTIs, and both `.nii`/`.nii.gz` and FreeSurfer `.mgz` atlases are accepted.
-
-**Caching.** The result is written next to the original atlas as `{atlas_stem}_resampled_{width}x{height}x{depth}_{grid}.nii.gz`, where `{grid}` is a short hash of the target affine — part of the key for the same reason it is part of the equality check. A later analysis on the same grid reuses that file, so the cost is paid once per (atlas, grid) pair. Original atlas files are never modified, and caching is best-effort: if the atlas directory is not writable, the analysis proceeds on the in-memory result rather than failing.
-
-Resampling is logged at INFO level, so a mismatch is visible in the analyzer's log rather than silent:
-
-```
-INFO | tit.analyzer | Resampling aparc.DKTatlas+aseg.mgz: (256, 256, 256) -> (256, 256, 208) (nearest-neighbour)
-```
 
 ## Licence, attribution and citation
 
