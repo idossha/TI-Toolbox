@@ -91,7 +91,7 @@ builds a scene from the subject's files and opens it in the native TetraVox app.
 
 - Orientation: `overview`, `desktop-app`, `jobs`, `notebooks`, `results`
 - Workflow: `pre-processing`, `diffusion-processing`, `simulator`, `flex-search`,
-  `ex-search`, `analyzer`, `reports`, `visualizers`, `scripting`
+  `ex-search`, `analyzer`, `field-definitions`, `reports`, `visualizers`
 - Tools: `atlases`, `montage_visualizer`, `electrode-mapping`, `electrode-placement`,
   `nilearn-visuals`, `cluster-permutation-testing`, `nifti-group-averaging`,
   `tissue-analyzer`, `quick-notes`, `blender`, `logging`

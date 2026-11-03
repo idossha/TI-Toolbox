@@ -2,13 +2,13 @@
 
 What this pins
     The app opens the docs at a section: the Pre-processing (i) panels link to
-    ``wiki/pre-processing/#workflow`` and friends, the FastSurfer settings card to
+    ``wiki/pre-processing/#supported-input-formats`` and friends, the FastSurfer settings card to
     ``wiki/fastsurfer/#enable-apple-gpu``, the Caps panel to ``wiki/eeg-caps/#apply-a-cap``.
     Renaming a wiki heading silently breaks such a link, and a change under
     ``desktop/src`` never triggers the docs workflow, so this host test runs on every
     CircleCI push. It collects every docs-site URL written in ``desktop/src``,
     ``agent-plugin``, ``README.md``, the release notes and the changelog (literal URLs,
-    plus TypeScript ``const`` / Python constant templates such as ``${PRE_DOCS}#workflow``
+    plus TypeScript ``const`` / Python constant templates such as ``${PRE_DOCS}#supported-input-formats``
     resolved from their declarations), maps each to its Markdown source through the
     front-matter ``permalink``, and requires each ``#fragment`` to be a heading id or an
     ``id=""`` in that source. It also checks the ``mirrors `docs/wiki/X.md` "Section"``
@@ -270,7 +270,6 @@ def test_raw_ids_are_anchors_but_code_blocks_are_not_headings():
 # Written by hand from the files that hold them (stepInfo.tsx, SurferSettingsCard.tsx,
 # caps/index.tsx, SimulationSettings.tsx, the 3.x release notes and the changelog).
 KNOWN_DEEP_LINKS = {
-    "/wiki/pre-processing/#workflow",
     "/wiki/pre-processing/#supported-input-formats",
     "/wiki/pre-processing/#head-models-and-atlas-alignment",
     "/wiki/fastsurfer/#fastsurfer-segmentation",
@@ -279,7 +278,7 @@ KNOWN_DEEP_LINKS = {
     "/wiki/eeg-caps/#apply-a-cap",
     "/wiki/eeg-caps/#inspect-a-net",
     "/wiki/simulator/#carrier-only-control",
-    "/wiki/analyzer/#quantities-of-interest",
+    "/wiki/field-definitions/#quantities-of-interest",
     "/installation/#install",
     "/wiki/ai-assistant/#approving-a-plan",
 }

@@ -8,9 +8,9 @@ What this pins
     include/exclude filter (``Jekyll::EntryFilter``, the version GitHub Pages runs),
     walks ``docs/`` with the rules from ``_config.yml`` and requires every published
     page to be one a reader can reach: a ``docs/_data/nav.yml`` entry, a release note,
-    or one of the few pages linked from elsewhere (home, search, about, the TI field
-    metrics note). The published-set check on the built site
-    (``docs/tests/check_published_set.py``) is self-tested here too.
+    or one of the few pages linked from elsewhere (home, search, about, publications,
+    the TI field metrics note, the Scripting redirect). The published-set check on the
+    built site (``docs/tests/check_published_set.py``) is self-tested here too.
 
 Where the expectations come from
     The filter's behaviour was observed on real Jekyll 3.9.5 builds of this repository
@@ -125,9 +125,17 @@ def _front_matter(path: Path) -> dict[str, str] | None:
     return meta
 
 
-# Pages linked from outside the sidebars: the home page, the header's search and
-# about links, and the TI field metrics note linked from the wiki.
-EXTRA_URLS = {"/", "/search/", "/about/", "/notes/ti-field-metrics.html"}
+# Pages linked from outside the sidebars: the home page, the header's search, about
+# and publications links, the TI field metrics note linked from the wiki, and the
+# redirect stub that keeps the old Scripting URL working (it forwards to Notebooks).
+EXTRA_URLS = {
+    "/",
+    "/search/",
+    "/about/",
+    "/publications/",
+    "/notes/ti-field-metrics.html",
+    "/wiki/scripting/",
+}
 RELEASE_NOTE = re.compile(r"^releases/v\d+\.\d+\.\d+\.md$")
 # Static HTML that is not a page: the MkDocs API reference and embedded report assets.
 STATIC_HTML_PREFIXES = ("api/", "assets/")

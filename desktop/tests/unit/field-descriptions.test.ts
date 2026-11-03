@@ -13,7 +13,7 @@
  * to that rule by tests/test_field_registry.py::TestOutputFieldDefinitions.
  *
  * Where the values come from: the URLs are the wiki headings that define the fields,
- * docs/wiki/analyzer.md "Field quantities {#quantities-of-interest}" and docs/wiki/simulator.md
+ * docs/wiki/field-definitions.md "Field quantities {#quantities-of-interest}" and docs/wiki/simulator.md
  * "Carrier-only control (ΔF = 0) {#carrier-only-control}", typed here (groundTruth: authored);
  * tests/test_docs_deeplinks.py checks that both anchors exist. The forbidden words are the
  * maintainer's request, not derived from the code.
@@ -54,7 +54,7 @@ describe("Output fields", () => {
   it("link the field definitions and the carrier-only control to the wiki", () => {
     const host = render();
     const fields = link(host, "Field definitions");
-    expect(fields?.getAttribute("href")).toBe(`${SITE}wiki/analyzer/#quantities-of-interest`);
+    expect(fields?.getAttribute("href")).toBe(`${SITE}wiki/field-definitions/#quantities-of-interest`);
     expect(fields?.closest("h4")?.textContent).toContain("Output fields");
     const carrier = link(host, "Read more");
     expect(carrier?.getAttribute("href")).toBe(`${SITE}wiki/simulator/#carrier-only-control`);

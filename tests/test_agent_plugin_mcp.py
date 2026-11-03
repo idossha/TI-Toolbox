@@ -92,16 +92,16 @@ class TestWikiTools:
             "flex-search",
             "ex-search",
             "analyzer",
-            "scripting",
+            "notebooks",
         } <= slugs
         page = next(p for p in out["pages"] if p["slug"] == "flex-search")
         assert page["url"] == "https://idossha.github.io/TI-Toolbox/wiki/flex-search/"
 
     def test_read_page_and_section(self, srv):
-        err, out = _call(srv, "read_wiki_page", page="scripting")
+        err, out = _call(srv, "read_wiki_page", page="notebooks")
         assert not err and "FlexConfig" in out["content"]
         first = out["headings"][0].lstrip("# ")
-        err, sec = _call(srv, "read_wiki_page", page="scripting", section=first)
+        err, sec = _call(srv, "read_wiki_page", page="notebooks", section=first)
         assert not err and sec["content"].lstrip("# ").startswith(first)
         assert len(sec["content"]) < len(out["content"])
 

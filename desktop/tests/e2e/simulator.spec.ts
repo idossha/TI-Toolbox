@@ -450,7 +450,7 @@ test("Output fields link to the wiki's field definitions, with no tooltip on any
   await expect
     .poll(() => app.evaluate(() => (globalThis as unknown as { opened: string[] }).opened))
     .toEqual([
-      "https://idossha.github.io/TI-Toolbox/wiki/analyzer/#quantities-of-interest",
+      "https://idossha.github.io/TI-Toolbox/wiki/field-definitions/#quantities-of-interest",
       "https://idossha.github.io/TI-Toolbox/wiki/simulator/#carrier-only-control",
     ]);
   await dialog.getByRole("button", { name: "Cancel", exact: true }).click();

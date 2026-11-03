@@ -4161,7 +4161,8 @@ it still steers them); removing `hf_rms` or `hf_peak` (the request keeps every m
 
 **Decision.** The Simulator's Output fields (Job settings and Settings ▸ Simulator, one form) carry
 no field tooltips: a **Field definitions** link beside the heading opens
-`wiki/analyzer/#quantities-of-interest`, and the carrier-only control's **Read more** opens
+`wiki/field-definitions/#quantities-of-interest` (on the Analyzer page until it was split on
+2026-11-03), and the carrier-only control's **Read more** opens
 `wiki/simulator/#carrier-only-control`, both through the app's `ReadMore` (system browser in the
 app, a new tab in a browser). `pages/analyzer/fields.ts` no longer copies the registry's
 descriptions. This replaces "the desktop tooltip" in the entry above; the rest of that entry

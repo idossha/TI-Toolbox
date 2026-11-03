@@ -103,7 +103,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "Head model", path: "derivatives/SimNIBS/sub-<id>/m2m_<id>/" },
       { label: "DKT parcellation", path: "derivatives/fastsurfer/sub-<id>/" },
     ],
-    docsHref: `${PRE_DOCS}#workflow`,
+    docsHref: PRE_DOCS,
   },
   dwi: {
     id: "dwi",

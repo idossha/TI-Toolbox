@@ -1224,7 +1224,7 @@ TOOLS: List[Dict[str, Any]] = [
         "name": "read_wiki_page",
         "description": "Read a TI-Toolbox wiki page as Markdown, optionally only one section by heading text. "
         "The wiki is the USER-facing site. Slugs: overview, desktop-app, jobs, notebooks, "
-        "results, simulator, flex-search, ex-search, analyzer, scripting, "
+        "results, simulator, flex-search, ex-search, analyzer, field-definitions, "
         "pre-processing, diffusion-processing, atlases, reports, troubleshooting, "
         "visualizers, logging, extension, agent-plugin, ai-assistant, ... "
         "There is no 'mti' page any more — mTI is a section of 'simulator'. "
