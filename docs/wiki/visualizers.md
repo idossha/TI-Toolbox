@@ -47,8 +47,6 @@ you installed yourself.
 <img src="{{ site.baseurl }}/assets/imgs/v3/viewer-compose.png" alt="The Viewer page: tick files under Compose, check the What will open list, then Open in viewer; saved scenes are listed on the right" style="width: 100%; max-width: 1000px;">
 <em>The Viewer page. Compose on the left, the launch button and saved scenes on the right.</em>
 
-<div class="split split--wide">
-<div markdown="1">
 
 Results and jobs pages also have a direct open button, so you rarely need to build a scene by hand.
 A simulation opens on its field mesh shown as grey matter only (the other tissues are hidden, one
@@ -56,13 +54,6 @@ tick away in TetraVox's tissue list), coloured by `TI_max` (`mTI_max` for mTI, `
 carrier-only control) and windowed from its grey-matter values; every other field the simulation
 saved is on the same mesh, one field switch away, under its display name (TI<sub>max</sub>,
 HF<sub>peak</sub>, …) and units. A simulation that wrote NIfTI volumes opens them too.
-
-</div>
-<div style="flex: 0 1 260px;">
-<img style="width: 100%;" src="{{ site.baseurl }}/assets/imgs/v3/viewer/layers-panel.webp" alt="TetraVox layers panel for a simulation mesh: tissue list, Field and appearance with TI_max, hf_peak and hf_rms, colormap and histogram, 2-D cross-section, clip planes and isolation">
-<em>TetraVox's layers panel for a simulation mesh: tissues, field switch, colour window, cross-section and clipping.</em>
-</div>
-</div>
 
 A few things to know:
 
