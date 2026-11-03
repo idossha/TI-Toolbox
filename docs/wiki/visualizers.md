@@ -8,29 +8,16 @@ TI-Toolbox does not render 3-D results itself. It hands them to
 **[TetraVox](https://github.com/idossha/tetravox)**, a separate desktop viewer.
 Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
 
-<!-- Images: TetraVox docs screenshots (MIT, same author), https://github.com/idossha/tetravox docs/screenshots/2026-08-29/brain/ -->
 <div class="carousel-container">
   <div class="carousel-wrapper">
     <div class="carousel-images">
       <div class="carousel-slide active">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-ti-max-2x2.webp" alt="TI_max on the grey-matter mesh, cut by the slices in 2D and whole in 3D">
-        <p>TI_max on the grey-matter mesh, cut by the slices in 2D and whole in 3D</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/ti-max-mesh-2x2.webp" alt="TetraVox, Ernie L_Insula simulation. TI_max on the head mesh: filled cross-sections in the slice panes and the brain in 3-D">
+        <p>TI_max on the head mesh: filled cross-sections in the slice panes and the brain in 3-D</p>
       </div>
       <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-tdcs-magne-2x2.webp" alt="A head mesh's cross-section in the slice panes, filled by its field (magnE) with the tissue boundaries outlined">
-        <p>A head mesh's cross-section in the slice panes, filled by its field (magnE) with the tissue boundaries outlined</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-e-glyphs-2x2.webp" alt="Electric-field vectors drawn as arrows in the 3D pane of a 2x2">
-        <p>Electric-field vectors drawn as arrows in the 3D pane of a 2x2</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-mesh-e-glyphs-3d.webp" alt="The same arrows filling a single 3D pane">
-        <p>The same arrows filling a single 3D pane</p>
-      </div>
-      <div class="carousel-slide">
-        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/brain-tissues-2x2.webp" alt="A head mesh: its tissue cross-section in the slice panes and the scalp surface in 3D">
-        <p>A head mesh: its tissue cross-section in the slice panes and the scalp surface in 3D</p>
+        <img src="{{ site.baseurl }}/assets/imgs/v3/viewer/ti-max-central-surface-2x2.webp" alt="TetraVox, Ernie L_Insula simulation. TI_max on the central cortical surface: outlines in the slice panes, the coloured surface in 3-D">
+        <p>TI_max on the central cortical surface: outlines in the slice panes, the coloured surface in 3-D</p>
       </div>
     <button class="carousel-btn prev" onclick="changeSlide(this, -1)">&#10094;</button>
     <button class="carousel-btn next" onclick="changeSlide(this, 1)">&#10095;</button>
@@ -38,9 +25,6 @@ Your job in TI-Toolbox is simple: pick what to look at. TetraVox does the rest.
     <div class="carousel-dots">
       <span class="dot active" onclick="currentSlide(this, 0)"></span>
       <span class="dot" onclick="currentSlide(this, 1)"></span>
-      <span class="dot" onclick="currentSlide(this, 2)"></span>
-      <span class="dot" onclick="currentSlide(this, 3)"></span>
-      <span class="dot" onclick="currentSlide(this, 4)"></span>
     </div>
   </div>
 </div>
@@ -63,12 +47,22 @@ you installed yourself.
 <img src="{{ site.baseurl }}/assets/imgs/v3/viewer-compose.png" alt="The Viewer page: tick files under Compose, check the What will open list, then Open in viewer; saved scenes are listed on the right" style="width: 100%; max-width: 1000px;">
 <em>The Viewer page. Compose on the left, the launch button and saved scenes on the right.</em>
 
+<div class="split split--wide">
+<div markdown="1">
+
 Results and jobs pages also have a direct open button, so you rarely need to build a scene by hand.
 A simulation opens on its field mesh shown as grey matter only (the other tissues are hidden, one
 tick away in TetraVox's tissue list), coloured by `TI_max` (`mTI_max` for mTI, `hf_peak` for a
 carrier-only control) and windowed from its grey-matter values; every other field the simulation
 saved is on the same mesh, one field switch away, under its display name (TI<sub>max</sub>,
 HF<sub>peak</sub>, …) and units. A simulation that wrote NIfTI volumes opens them too.
+
+</div>
+<div style="flex: 0 1 260px;">
+<img style="width: 100%;" src="{{ site.baseurl }}/assets/imgs/v3/viewer/layers-panel.webp" alt="TetraVox layers panel for a simulation mesh: tissue list, Field and appearance with TI_max, hf_peak and hf_rms, colormap and histogram, 2-D cross-section, clip planes and isolation">
+<em>TetraVox's layers panel for a simulation mesh: tissues, field switch, colour window, cross-section and clipping.</em>
+</div>
+</div>
 
 A few things to know:
 
