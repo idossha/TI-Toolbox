@@ -28,6 +28,7 @@ ALLOWED_PREFIXES = (
     "installation/",
     "releases/",
     "about/",
+    "publications/",
     "search/",
     "api/",
     "notes/",

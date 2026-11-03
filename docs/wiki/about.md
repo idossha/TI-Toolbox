@@ -115,7 +115,7 @@ The project is developed openly on [GitHub](https://github.com/idossha/TI-toolbo
 
 TI-Toolbox builds on the work of the open-source neuroimaging community, including [SimNIBS](https://simnibs.github.io/simnibs/build/html/index.html), [FreeSurfer](https://surfer.nmr.mgh.harvard.edu/), [FastSurfer](https://github.com/Deep-MI/FastSurfer), [FSL](https://fsl.fmrib.ox.ac.uk/fsl/), [QSIPrep](https://qsiprep.readthedocs.io/), and [QSIRecon](https://qsirecon.readthedocs.io/). We thank their developers, the [BIDS](https://bids.neuroimaging.io/) community, and the contributors to the many scientific and visualization tools that support this work.
 
-If you use TI-Toolbox in a publication, please [cite the software and its associated paper](https://github.com/idossha/TI-toolbox#how-to-cite), along with the underlying tools used in your study.
+If you use TI-Toolbox in a publication, please [cite the software and its associated paper]({{ site.baseurl }}/publications/), along with the underlying tools used in your study. The [Publications]({{ site.baseurl }}/publications/) page lists work that used TI-Toolbox.
 
 <style>
 .contributors-section {

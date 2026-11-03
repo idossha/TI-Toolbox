@@ -1300,3 +1300,36 @@ td .katex-display, th .katex-display {
   .flow-lane .flow-arrow:first-child { margin-left: -1px; }
 }
 .flow-down { line-height: 1; margin-left: 47px; }
+
+/* Publications page */
+.pub-cite {
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  pre { overflow-x: auto; }
+}
+.pub-list { display: grid; gap: 1rem; margin: 1.5rem 0; }
+.pub-card {
+  padding: 1rem 1.25rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow-wrap: anywhere;
+  h3 { margin: 0.4rem 0; font-size: 1.1rem; }
+  p { margin: 0.25rem 0; }
+}
+.pub-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-soft);
+  border-radius: 999px;
+}
+.pub-authors { color: var(--color-text-muted); font-size: 0.9rem; }
+.pub-venue, .pub-note { font-size: 0.9rem; }

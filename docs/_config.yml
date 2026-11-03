@@ -18,6 +18,7 @@ header_pages:
   - wiki/wiki.md
   - releases/releases.md
   - wiki/about.md
+  - wiki/publications.md
 
 # Markdown settings
 markdown: kramdown
