@@ -14,22 +14,7 @@ and a notebook edited in Jupyter Lab produce the same file.
 <img src="{{ site.baseurl }}/assets/imgs/v3/notebooks-example.png" alt="The example_workflow notebook, TI-Toolbox in eight cells, open in the Notebooks page: the first cell has run and listed the project's subjects, on the SimNIBS + TI-Toolbox kernel" style="width: 100%; max-width: 1000px;">
 <em>The seeded worked example, run against a real project. Each cell makes the same call as one page of the app.</em>
 
-## Editing
-
-Editing is modal, the way Jupyter is: **↵** enters a cell, **Esc** leaves it, **⇧↵** runs the cell
-and moves to the next, **⌘↵ / Ctrl+↵** runs it in place, and **⌥↵ / Alt+↵** runs it and inserts a
-new cell below. Code cells are CodeMirror 6 with Python highlighting.
-
-**Completion (⇥ or ⌃Space) and signature help (⇧⇥, or typing `(`) are answered by the kernel**, not
-by a language server — so they know what your variables actually are, and they are only available
-once a kernel is up. A keystroke never _starts_ a kernel.
-
-## The kernel
-
-`off · starting · idle · busy · dead`, and clicking it starts or restarts. The interpreter takes a few seconds to come
-up the first time.
-
-## The workflow in code
+## Example workflow
 
 Example workflow on the freely available subject `ernie`.
 
