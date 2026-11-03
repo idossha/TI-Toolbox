@@ -20,6 +20,7 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
 | Produced by              | Bundled with TI-Toolbox    | `charm`, FastSurfer, optional FreeSurfer |
 
 <div class="atlas-viewer">
+<div class="atlas-left">
   <div class="atlas-controls">
     <label for="atlas-select">Atlas:</label>
     <select id="atlas-select" class="atlas-select">
@@ -35,8 +36,10 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
       </optgroup>
     </select>
   </div>
-  <div class="atlas-canvas-wrap"><canvas id="atlas-canvas" width="640" height="480"></canvas></div>
+  <div class="atlas-canvas-wrap"><canvas id="atlas-canvas" width="640" height="640"></canvas></div>
   <p class="atlas-hint"></p>
+</div>
+<div class="atlas-right"><div class="atlas-right-inner">
   <div id="atlas-desc"></div>
   <div class="atlas-table-tools">
     <input type="text" id="atlas-filter" class="atlas-filter" placeholder="Filter regions by name or id…">
@@ -45,6 +48,7 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
   <div class="atlas-table-scroll">
     <table id="atlas-table"><thead></thead><tbody></tbody></table>
   </div>
+</div></div>
 </div>
 
 <div class="atlas-no-webgl" style="display:none;">
@@ -265,11 +269,34 @@ the left putamen only; to target both, pick both.
      silently does nothing against the new markup (it looks for ids that no
      longer exist), leaving both canvases black. Bump v whenever the markup
      contract or the script changes. -->
-<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=5"></script>
+<script src="{{ '/assets/js/atlas-browser.js' | relative_url }}?v=6"></script>
 
 <style>
+/* long inline code paths must wrap on phones */
+.wiki-content-inner :not(pre) > code { white-space: normal; word-break: break-all; }
 .atlas-viewer {
   margin: 1.5rem 0;
+  display: grid;
+  grid-template-columns: 11fr 9fr;
+  gap: 1.25rem;
+}
+.atlas-left, .atlas-right { min-width: 0; }
+/* The right column takes the viewer's height; the table scrolls inside it. */
+.atlas-right { position: relative; }
+.atlas-right-inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+.atlas-right-inner #atlas-desc { overflow-y: auto; max-height: 40%; flex: 0 1 auto; }
+.atlas-right-inner .atlas-table-tools { margin-top: 0.5rem; }
+.atlas-right-inner .atlas-table-scroll { flex: 1 1 0; min-height: 0; max-height: none; }
+@media (max-width: 900px) {
+  .atlas-viewer { grid-template-columns: minmax(0, 1fr); }
+  .atlas-right-inner { position: static; }
+  .atlas-right-inner #atlas-desc { max-height: none; }
+  .atlas-right-inner .atlas-table-scroll { max-height: 320px; }
 }
 .atlas-controls {
   display: flex;
@@ -283,7 +310,7 @@ the left putamen only; to target both, pick both.
   max-width: 100%;
 }
 .atlas-canvas-wrap {
-  height: 480px;
+  aspect-ratio: 1 / 1;
   background: #000;
   border-radius: 4px;
   overflow: hidden;

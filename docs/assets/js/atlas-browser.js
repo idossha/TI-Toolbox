@@ -188,7 +188,7 @@
     }
     var self = this;
     try {
-      this.nv = new window.niivue.Niivue({ isResizeCanvas: true, dragAndDropEnabled: false });
+      this.nv = new window.niivue.Niivue({ isResizeCanvas: true, dragAndDropEnabled: false, multiplanarLayout: 2, multiplanarForceRender: true });
       await this.nv.attachTo(this.canvas.id);
       this.ready = true;
       var load = function () {
