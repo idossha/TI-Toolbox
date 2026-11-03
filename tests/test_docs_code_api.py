@@ -622,7 +622,8 @@ def _runnable(module: str) -> bool:
 
 def test_every_cited_module_command_names_a_runnable_module() -> None:
     cited = _cited_modules()
-    assert len(cited) >= 40, f"only {len(cited)} `-m tit.X` commands found -- regex?"
+    # Vacuity guard only: the docs cite 37 today (54 before the 62e8f013 docs trim).
+    assert len(cited) >= 30,f"only {len(cited)} `-m tit.X` commands found -- regex?"
     broken = [
         f"{where}: python -m {module}"
         for where, module in cited
