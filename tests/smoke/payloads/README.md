@@ -24,7 +24,8 @@ exists and **skips the row** rather than overwrite it (decision P6). Re-record t
 
 **Re-pointed inputs.** Dataset 000 lost the runs some payloads were recorded on. On 2026-11-03
 `analyzer.json` and `analyzer-voxel.json` were moved from ernie's `Thalamus` to
-`AF3_PO10_and_AF4_Oz`, and `nifti_average.json` and `stats.json` from the `L_Insula` runs of
+`AF3_PO10_and_AF4_Oz`, `flex.json` from ernie's DK40 annotation (its `m2m_ernie` has no
+`segmentation/`) to sub-101's, and `nifti_average.json` and `stats.json` from the `L_Insula` runs of
 101, ernie and MNI152 to 101 `L_Insula`, ernie `AF3_PO10_and_AF4_Oz` and CHN
 `left_insula_mean`; only those subject and simulation names changed, every other field is as
 recorded.

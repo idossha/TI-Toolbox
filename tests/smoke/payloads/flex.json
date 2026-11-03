@@ -1,7 +1,7 @@
 {
   "kind": "flex",
   "config": {
-    "subject_id": "ernie",
+    "subject_id": "101",
     "goal": "mean",
     "postproc": "max_TI",
     "anisotropy_type": "scalar",
@@ -19,7 +19,7 @@
     "roi": {
       "_type": "AtlasROI",
       "atlas_path": [
-        "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.ernie_DK40.annot"
+        "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot"
       ],
       "label": [
         1
@@ -54,14 +54,14 @@
     "avoid_landmark_regions": true
   },
   "subject_ids": [
-    "ernie"
+    "101"
   ],
   "parallel_subjects": 1,
   "subject_configs": [
     {
-      "subject_id": "ernie",
+      "subject_id": "101",
       "config": {
-        "subject_id": "ernie",
+        "subject_id": "101",
         "goal": "mean",
         "postproc": "max_TI",
         "anisotropy_type": "scalar",
@@ -79,7 +79,7 @@
         "roi": {
           "_type": "AtlasROI",
           "atlas_path": [
-            "/mnt/000/derivatives/SimNIBS/sub-ernie/m2m_ernie/segmentation/lh.ernie_DK40.annot"
+            "/mnt/000/derivatives/SimNIBS/sub-101/m2m_101/segmentation/lh.101_DK40.annot"
           ],
           "label": [
             1
