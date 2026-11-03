@@ -2014,48 +2014,7 @@
     "GSN-HydroCel-256.csv",
     "easycap_BC_TMS64_X21.csv"
    ],
-   "flex_runs": [
-    {
-     "manifest": {
-      "current_mA": 1,
-      "current_split": [
-       0.9000000000000001,
-       1.1
-      ],
-      "goal": "focality_tf",
-      "optimize_current_ratio": true,
-      "ratio_total_mA": null
-     },
-     "mappings": [],
-     "name": "20260919_131736_879_1",
-     "optimized": [
-      [
-       [
-        72.14716339111328,
-        10.52421760559082,
-        -19.123727798461914
-       ],
-       [
-        75.5703353881836,
-        0.8795590996742249,
-        -24.328105926513672
-       ]
-      ],
-      [
-       [
-        -80.00995635986328,
-        19.23712921142578,
-        -78.59194946289062
-       ],
-       [
-        -77.30839538574219,
-        30.003864288330078,
-        -73.26348114013672
-       ]
-      ]
-     ]
-    }
-   ],
+   "flex_runs": [],
    "freehand": [
     {
      "electrode_positions": [
@@ -2448,25 +2407,14 @@
     {
      "fields": [
       "TI_max",
-      "magnE"
-     ],
-     "name": "20260919_131736_879_1"
-    },
-    {
-     "fields": [
-      "TI_max",
       "hf_peak",
-      "hf_rms",
-      "magnE"
+      "hf_rms"
      ],
      "name": "L_Insula"
     },
     {
-     "fields": [
-      "TI_max",
-      "magnE"
-     ],
-     "name": "Thalamus_example"
+     "fields": [],
+     "name": "L_Insula_old"
     }
    ]
   },
@@ -3252,15 +3200,7 @@
      ]
     }
    },
-   "simulations": [
-    {
-     "fields": [
-      "TI_max",
-      "magnE"
-     ],
-     "name": "L_Insula"
-    }
-   ]
+   "simulations": []
   },
   "MNI152": {
    "eeg_nets": [

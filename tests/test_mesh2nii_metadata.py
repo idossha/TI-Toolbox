@@ -165,6 +165,8 @@ def test_task_prefixes_match_dataset_000_niftis(tmp_path):
 
     The mesh file *names* of each Dataset 000 simulation are touched into tmp_path (the
     dataset is only listed); each subject-space NIfTI on disk is ``<prefix>_<field>.nii.gz``.
+    A ``niftis/`` folder holding no subject-space NIfTI has nothing to compare: sub-101's
+    ``L_Insula_old`` kept its two empty ones after a re-run cleared them (2026-10-22).
     """
     root = Path(_DATASET) / "derivatives" / "SimNIBS"
     sims = sorted(root.glob("sub-*/Simulations/*"))
@@ -173,8 +175,10 @@ def test_task_prefixes_match_dataset_000_niftis(tmp_path):
         for sim in sims
         for sub in ("TI", "high_Frequency")
         if (sim / sub / "niftis").is_dir()
+        and any((sim / sub / "niftis").glob("*_subject_*.nii.gz"))
     ]
-    assert len(pairs) >= 10
+    # 2026-11-03: TI/ and high_Frequency/ of CHN left_insula_mean and ernie AF3_PO10_and_AF4_Oz.
+    assert len(pairs) >= 4
     before = {p: p.stat().st_mtime_ns for d, _ in pairs for p in d.iterdir()}
     for i, (mesh_dir, nifti_dir) in enumerate(pairs):
         copy = tmp_path / str(i)

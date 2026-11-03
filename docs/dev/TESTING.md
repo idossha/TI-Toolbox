@@ -109,7 +109,10 @@ builds its scene cache in a symlinked copy under `tmp_path` and fails if a proje
 `dev/run_realdata_tests.sh --dataset /path/to/000` runs every module that reads one of those
 variables inside the image, with the dataset mounted read-only, and fails on any skip except the
 variables Dataset 000 cannot satisfy (`TIT_ERNIE_LABELING`: no `m2m_ernie/segmentation/
-labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset). Scene tests use
+labeling.nii.gz`; `TIT_DTI_PROTO`: the prototype tensor is not in the dataset) and the inputs it
+has lost with nothing equivalent left, each skip naming the missing path and listed with that
+text in `dev/check_junit.py`'s `realdata` allowlist. A test re-pinned to today's dataset states
+the date and the runs it reads beside its floor. Scene tests use
 sub-101 there, because Dataset 000's `m2m_ernie` has no `segmentation/` atlases. It compares a
 size/mtime/SHA-256 listing of the dataset before and after the run. `dev/verify_release.py` runs
 it as the `realdata` stage (`--dataset-000`, default `$TIT_DATASET_000`).

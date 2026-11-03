@@ -7,8 +7,10 @@ What this pins (2026-10-22, package p13, task template-label-coverage):
 ``GSN-256.png`` for the nets the montage image, the report cap figure and the ex-search maps
 draw. 10-10.csv lacked AFz (Jurak, Cutini, Neuroelectrics) and GSN-256.csv lacked E256, so a
 simulation on those electrodes got no montage image, and ``plot_montage_score_map`` silently
-skipped every montage that used one: Dataset 000 ``sub-101/ex-search/20260919_160209`` has AFz in
-384 of its 480 rows (all of the top five) and its strength map read "Top 96" without AFz.
+skipped every montage that used one: Dataset 000 ``sub-101/ex-search/20260919_160209`` had AFz in
+384 of its 480 rows (all of the top five) and its strength map read "Top 96" without AFz. That run
+is gone; the real-data leg reads ``sub-101/ex-search/20261101_163314``, a bucket search with AFz in
+64 of its 256 rows and in its strongest montage.
 
 Where the expected values come from (never from ``tit``):
 
@@ -411,7 +413,7 @@ def test_montages_no_layout_can_draw_are_counted_in_a_warning(tmp_path, axes):
 
 _DATASET = Path(os.environ.get("TIT_DATASET_000", "/nonexistent"))
 _RUN = (
-    _DATASET / "derivatives" / "SimNIBS" / "sub-101" / "ex-search" / "20260919_160209"
+    _DATASET / "derivatives" / "SimNIBS" / "sub-101" / "ex-search" / "20261101_163314"
 )
 _NET = (
     _DATASET
@@ -426,7 +428,7 @@ _NET = (
 
 @pytest.mark.skipif(
     not (_RUN / "final_output.csv").is_file() or not _NET.is_file(),
-    reason="skipping: TIT_DATASET_000 unset or lacks sub-101/ex-search/20260919_160209",
+    reason="skipping: TIT_DATASET_000 unset or lacks sub-101/ex-search/20261101_163314",
 )
 def test_sub101_afz_run_maps_its_best_montage(tmp_path, axes):
     from tit.opt.ex.results import MONTAGE_MAP_TOP_N, regenerate_plots
@@ -438,10 +440,12 @@ def test_sub101_afz_run_maps_its_best_montage(tmp_path, axes):
     shutil.copy(_RUN / "final_output.csv", run / "final_output.csv")
 
     # Independent reading of the CSV: row count, AFz share, the best rows by each metric.
+    # 256 = 4^4 bucket montages at one split; AFz is one of e1_plus's four electrodes (its
+    # run_config.json), so 64 of them (counted with csv, 2026-11-03).
     with (run / "final_output.csv").open(newline="") as f:
         rows = list(csv.DictReader(f))
-    assert len(rows) == 480
-    assert sum("AFz" in r["Montage"] for r in rows) == 384
+    assert len(rows) == 256
+    assert sum("AFz" in r["Montage"] for r in rows) == 64
 
     def electrodes(row) -> frozenset[str]:
         # "AF7_AFz <> CP6_P10_I1-1.6mA_I2-0.4mA": two pairs, then the channel currents.
@@ -452,7 +456,7 @@ def test_sub101_afz_run_maps_its_best_montage(tmp_path, axes):
 
     def best_montage(column: str) -> frozenset[str]:
         top = max(float(r[column]) for r in rows)
-        # This run predates one-row-per-physical-montage: ties are one montage, reordered.
+        # Rows that tie at the top must be one montage (a pre-fix run repeated it, reordered).
         (labels,) = {electrodes(r) for r in rows if float(r[column]) == top}
         return labels
 

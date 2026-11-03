@@ -2,8 +2,9 @@
 
 Pins (2026-10-22, package p25), on Dataset 000 read-only, no FEM:
 
-* **Recompute (image, SimNIBS mesh_io)**: for sub-LA ``L_Insula`` (the smallest head, two 356 MB
-  carrier meshes) the carrier meshes ``high_Frequency/mesh/LA_TDCS_{1,2}_scalar.msh`` cropped to
+* **Recompute (image, SimNIBS mesh_io)**: for sub-101 ``L_Insula`` (re-run 2026-11-01, two 432 MB
+  scalar carrier meshes; sub-LA's smaller run, which this was written on, is gone from Dataset
+  000) the carrier meshes ``high_Frequency/mesh/101_TDCS_{1,2}_scalar.msh`` cropped to
   ``BRAIN_TISSUE_TAG_RANGES`` (every head tissue below tag 100 and its surface, electrodes
   removed: 5.0 M elements) have exactly the elements and tags of the stored
   ``TI/mesh/L_Insula_TI.msh``, and ``tit.calc.envelope_max([E1, E2])`` (the Hirata 2024
@@ -11,8 +12,8 @@ Pins (2026-10-22, package p25), on Dataset 000 read-only, no FEM:
   preprocess-then-branch form) wrote, to ``rtol 1e-4``: two independent implementations of one
   formula on every one of those elements. On the same fields: ``TI_max <= 2 min(|E1|, |E2|)``,
   ``TI_max <= hf_peak`` and ``hf_rms <= hf_peak <= 2 hf_rms`` (from ``S <= hf_peak^2 <= 2 S``, ``S = sum |E_c|^2 = 2 hf_rms^2``) (derivations in
-  ``tests/test_field_physics_invariants.py``). No Dataset 000 simulation stores hf_peak/hf_rms,
-  so those are computed here from the stored carriers.
+  ``tests/test_field_physics_invariants.py``). hf_peak and hf_rms are computed here from the
+  stored carriers.
 * **What ran (host)**: every simulation's newest SimNIBS log (``documentation/simnibs_simulation_*.log``)
   prints ``Currents (A): [I, -I]`` once per pair, and ``I * 1000`` is the pair's
   ``config.json`` intensity (mA): an independent record of the dose that ran.
@@ -47,8 +48,8 @@ real_data = pytest.mark.skipif(
     "(export TIT_DATASET_000=/path/to/Dataset000, read-only)",
 )
 
-#: The smallest real head in Dataset 000 (2 x 356 MB carrier meshes).
-SUBJECT, SIMULATION = "LA", "L_Insula"
+#: A scalar TI run with its carrier and TI meshes on disk (2 x 432 MB carrier meshes).
+SUBJECT, SIMULATION = "101", "L_Insula"
 #: The two implementations differ in operation order only; float64 round-off is ~1e-12.
 RTOL = 1e-4
 #: Below this the envelope is numerically zero (V/m): relative error is meaningless there.

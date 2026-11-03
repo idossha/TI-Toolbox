@@ -369,14 +369,16 @@ def test_report_top_table_lists_each_physical_montage_once(tmp_path):
 
 
 _DATASET = os.environ.get("TIT_DATASET_000", "")
-_RUN = Path(_DATASET) / "derivatives/SimNIBS/sub-101/ex-search/20260919_160209"
+#: The one pre-fix pool run Dataset 000 had; no later run repeats a montage (its runs since are
+#: bucket searches written after the fix), so nothing else can stand in for it.
+_RUN_CSV = "derivatives/SimNIBS/sub-101/ex-search/20260919_160209/final_output.csv"
+_RUN = Path(_DATASET, _RUN_CSV).parent
 
 
-@pytest.mark.skipif(
-    not _DATASET or not (_RUN / "final_output.csv").is_file(),
-    reason="skipping: TIT_DATASET_000 unset or sub-101 ex-search run 20260919_160209 absent",
-)
+@pytest.mark.skipif(not _DATASET, reason="skipping: TIT_DATASET_000 is unset")
 def test_report_of_a_real_pre_fix_pool_run_has_distinct_top_rows():
+    if not (_RUN / "final_output.csv").is_file():
+        pytest.skip("skipping: Dataset 000 no longer has " + _RUN_CSV)
     before = {p: p.stat().st_mtime_ns for p in _RUN.rglob("*") if p.is_file()}
     rows = ex_search.read_results(_RUN / "final_output.csv")
     # Precondition from the audit: the old pool run repeats its winner (4 polarities x 2 orders).

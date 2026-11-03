@@ -12,8 +12,10 @@ What this pins
        mesh space measures both. ``lh.insula`` still resolves to one label.
     3. A label number absent from the volume is refused with the sentence the runner prints
        ("has no voxels"), through the same island filter and check the runner applies.
-    4. Dataset 000 (``TIT_DATASET_000``): on sub-ernie's real ``aparc.DKTatlas+aseg.mgz``
-       (copied to tmp_path), every DK40 region ``lh.<name>`` / ``rh.<name>`` resolves to the id
+    4. Dataset 000 (``TIT_DATASET_000``): on sub-ernie's real FastSurfer DKT volume
+       ``fastsurfer/sub-ernie/mri/aparc.DKTatlas+aseg.deep.mgz`` (copied to tmp_path; the
+       analyzer's first choice for DK40, and the recon-all ``freesurfer/`` copy this case was
+       written on is gone from Dataset 000), every DK40 region ``lh.<name>`` / ``rh.<name>`` resolves to the id
        FreeSurfer's colour table gives ``ctx-lh-<name>`` / ``ctx-rh-<name>``; the DK regions
        the volume lacks are exactly :data:`Analyzer.DKT_VOLUME_LACKS`, and preflight refuses
        each of them at submit while accepting the rest.
@@ -50,10 +52,10 @@ ERNIE_DKT = (
     Path(
         DATASET,
         "derivatives",
-        "freesurfer",
+        "fastsurfer",
         "sub-ernie",
         "mri",
-        "aparc.DKTatlas+aseg.mgz",
+        "aparc.DKTatlas+aseg.deep.mgz",
     )
     if DATASET
     else None
@@ -186,7 +188,7 @@ def _dk_names() -> list[str]:
 
 @pytest.mark.skipif(
     not (ERNIE_DKT and ERNIE_DKT.is_file()),
-    reason="skipping: TIT_DATASET_000 unset or without freesurfer/sub-ernie's DKT volume",
+    reason="skipping: TIT_DATASET_000 unset or without fastsurfer/sub-ernie's DKT volume",
 )
 def test_dk40_names_resolve_in_the_real_dkt_volume_and_missing_ones_are_refused_at_submit(
     tmp_path, cached_segstats
@@ -197,7 +199,7 @@ def test_dk40_names_resolve_in_the_real_dkt_volume_and_missing_ones_are_refused_
 
     before = (ERNIE_DKT.stat().st_size, ERNIE_DKT.stat().st_mtime_ns)
     project = tmp_path / "project"
-    mri = project / "derivatives" / "freesurfer" / "sub-ernie" / "mri"
+    mri = project / "derivatives" / "fastsurfer" / "sub-ernie" / "mri"
     mri.mkdir(parents=True)
     volume = mri / ERNIE_DKT.name
     shutil.copyfile(ERNIE_DKT, volume)

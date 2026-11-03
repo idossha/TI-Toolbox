@@ -78,11 +78,15 @@ def _source(sid: str) -> Path:
     )
 
 
+# Dataset 000 lost both inputs: sub-101's L_Insula was re-run without NIfTIs on 2026-11-01 and
+# sub-LA's simulations are gone; no other run in it saved an MNI volume.
 _SKIP = not _DATASET or not all(_source(s).is_file() for s in _SUBJECTS)
 pytestmark = pytest.mark.skipif(
     _SKIP,
-    reason="skipping: TIT_DATASET_000 unset or without the sub-101 / sub-LA L_Insula "
-    "MNI grey TI_max NIfTIs",
+    reason="skipping: TIT_DATASET_000 unset, or Dataset 000 no longer has derivatives/SimNIBS/"
+    "sub-101/Simulations/L_Insula/TI/niftis/grey_L_Insula_TI_MNI_MNI_TI_max.nii.gz and "
+    "derivatives/SimNIBS/sub-LA/Simulations/L_Insula/TI/niftis/"
+    "grey_L_Insula_TI_MNI_MNI_TI_max.nii.gz",
 )
 
 #: matplotlib's ``hot``: red reaches 1 at 0.365079, blue starts rising at 0.746032.

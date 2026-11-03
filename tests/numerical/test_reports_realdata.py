@@ -3,8 +3,11 @@
 Pins (2026-10-22, package p25), read-only on the real files; reports are written to ``tmp_path``
 with ``create_*(out_dir=tmp_path)`` and nothing is re-simulated:
 
-* **Simulation outputs** (every TI ``Simulations/*`` with a config; carrier-only runs have
-  no envelope and are left out, and the tests skip when none is left): the grey-matter subject
+* **Simulation outputs** (every TI ``Simulations/*`` with a config that saved its grey-matter
+  envelope NIfTI; carrier-only runs have no envelope and runs saved without NIfTIs, which are
+  opt-in since v3.1.3, have no file to read, so both are left out, and the tests skip when none
+  is left -- on 2026-11-03 that is CHN ``left_insula_mean`` and ernie
+  ``AF3_PO10_and_AF4_Oz``): the grey-matter subject
   ``TI_max`` NIfTI is 3-D on the m2m T1 grid (same shape and affine, which the report figure
   needs), finite, >= 0, with > 1000 non-zero voxels; ``median <= p99.9 <= max``; the envelope
   obeys TI_max <= 2 min(|E1|, |E2|) (Grossman 2017), checked as ``p99.9(TI) <= 1.05 * 2 *
@@ -100,22 +103,35 @@ def _sid(path: Path) -> str:
     return next(p for p in path.parts if p.startswith("sub-")).removeprefix("sub-")
 
 
+def _grey_niftis(sim: Path) -> list[Path]:
+    return [
+        p
+        for p in (sim / "TI" / "niftis").glob("grey_*_subject_TI_max.nii.gz")
+        if "_MNI_" not in p.name
+    ]
+
+
 def _simulations() -> list[Path]:
-    """The dataset's TI simulations; skips when it has none.
+    """The dataset's TI simulations that saved their grey-matter envelope NIfTI; skips when
+    it has none.
 
     A carrier-only run (``carrier_only: true``, the HF carriers without an envelope) writes no
-    ``TI_max``, and which runs a user's Dataset 000 holds changes whenever a simulation is
-    re-run, so those runs are left out rather than failed.
+    ``TI_max``, and a run saved without NIfTIs (opt-in since v3.1.3, as sub-101's ``L_Insula``
+    re-run of 2026-11-01) has no volume for these checks to read; which runs a user's Dataset
+    000 holds changes whenever a simulation is re-run, so those runs are left out rather than
+    failed.
     """
     sims = sorted(
         p.parent.parent
         for p in _SIMNIBS.glob("sub-*/Simulations/*/documentation/config.json")
         if not json.loads(p.read_text()).get("carrier_only")
+        and _grey_niftis(p.parent.parent)
     )
     if not sims:
         pytest.skip(
-            "skipping: TIT_DATASET_000 has no TI simulation (every Simulations/* run is "
-            "carrier-only or has no documentation/config.json)"
+            "skipping: TIT_DATASET_000 has no TI simulation that saved its grey-matter "
+            "TI_max NIfTI (every Simulations/* run is carrier-only, saved no NIfTIs or has no "
+            "documentation/config.json)"
         )
     return sims
 
@@ -146,11 +162,7 @@ def _carrier_p999(sim: Path) -> list[float]:
 
 
 def _grey(sim: Path) -> Path:
-    hits = [
-        p
-        for p in (sim / "TI" / "niftis").glob("grey_*_subject_TI_max.nii.gz")
-        if "_MNI_" not in p.name
-    ]
+    hits = _grey_niftis(sim)
     assert len(hits) == 1, (sim, hits)
     return hits[0]
 

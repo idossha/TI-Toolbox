@@ -74,10 +74,12 @@ class TestOutputSuffix:
         assert output_suffix([10, 49], True) == "labels_10_49_clean"
 
 
-#: The ``TI/niftis`` names Dataset 000 holds for two TI runs (listed from disk 2026-10-22): the
-#: whole-head volume, plus the grey- and white-matter masked copies ``mesh2nii`` also writes.
-#: Sorting them put ``grey_*`` first for a lower-case simulation name and the whole-head file
-#: first for an upper-case one, so the colour source depended on how the run was named.
+#: The ``TI/niftis`` names Dataset 000 holds or held for three TI runs, listed from disk (101
+#: ``L_Insula`` on 2026-10-22, before its re-run of 2026-11-01 saved no NIfTIs; the other two on
+#: 2026-11-03): the whole-head volume, plus the grey- and white-matter masked copies ``mesh2nii``
+#: also writes. Sorting them put ``grey_*`` first for a lower-case simulation name and the
+#: whole-head file first for an upper-case one, so the colour source depended on how the run
+#: was named.
 _DATASET_000_NIFTIS = {
     ("CHN", "left_insula_mean"): [
         "grey_left_insula_mean_TI_subject_TI_max.nii.gz",
@@ -91,7 +93,14 @@ _DATASET_000_NIFTIS = {
         "L_Insula_TI_subject_TI_max.nii.gz",
         "white_L_Insula_TI_subject_TI_max.nii.gz",
     ],
+    ("ernie", "AF3_PO10_and_AF4_Oz"): [
+        "AF3_PO10_and_AF4_Oz_TI_subject_TI_max.nii.gz",
+        "grey_AF3_PO10_and_AF4_Oz_TI_subject_TI_max.nii.gz",
+        "white_AF3_PO10_and_AF4_Oz_TI_subject_TI_max.nii.gz",
+    ],
 }
+#: The runs of that table still on disk with those files: one lower-case and one upper-case name.
+_DATASET_000_RUNS = [("CHN", "left_insula_mean"), ("ernie", "AF3_PO10_and_AF4_Oz")]
 
 
 def _sim(project, sid, sim):
@@ -234,7 +243,7 @@ class TestRunnerFieldPly:
     not os.path.isdir(os.environ.get("TIT_DATASET_000", "") or "/nonexistent"),
     reason="skipping: TIT_DATASET_000 is unset or not a directory (Dataset 000 copy)",
 )
-@pytest.mark.parametrize("sid, sim", sorted(_DATASET_000_NIFTIS))
+@pytest.mark.parametrize("sid, sim", _DATASET_000_RUNS)
 def test_dataset_000_runs_resolve_to_their_whole_head_volume(sid, sim):
     """On the real runs the resolved file exists and is not a tissue-masked copy."""
     from tit.paths import get_path_manager

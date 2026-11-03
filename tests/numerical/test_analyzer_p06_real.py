@@ -14,9 +14,10 @@ tests/test_analyzer_ti_normal.py)
        ``normal_mean``/``normal_max``.
     3. ``msh_field_names`` reads the field names of binary meshes SimNIBS wrote (SimNIBS 4.6's
        ASCII writer raises TypeError, so ASCII is pinned by the hand-written host fixture).
-    4. Dataset 000 (``TIT_DATASET_000``): sub-101's Thalamus_example is a run made before the
+    4. Dataset 000 (``TIT_DATASET_000``): sub-CHN's left_insula_mean is a run made before the
        surface carried ``TI_normal`` (its central surface carries only TI_max, its normal mesh
-       only TI_normal); analysed in a tmp project, its surface is rebuilt from its volume mesh
+       only TI_normal; sub-101's Thalamus_example, the run this case was written on, is gone);
+       analysed in a tmp project, its surface is rebuilt from its volume mesh
        with the old ``TI_normal`` (``tit.volume_fields``), and a DK40 lh.insula analysis of
        TI_normal reports roi_max <= the TI_max analysis's roi_max (TI_normal is the envelope
        along one direction, TI_max its maximum over directions; wiki analyzer.md). The dataset
@@ -281,17 +282,19 @@ def test_msh_field_names_reads_simnibs_written_meshes(tmp_path):
 # -- 4. Dataset 000 ------------------------------------------------------------------------------
 
 _DATASET = os.environ.get("TIT_DATASET_000", "")
-_THALAMUS = (
+#: A run whose surface predates TI_normal, on a subject whose m2m has the DK40 annotations.
+_RUN_SID, _RUN_SIM = "CHN", "left_insula_mean"
+_RUN = (
     Path(_DATASET)
     / "derivatives"
     / "SimNIBS"
-    / "sub-101"
+    / f"sub-{_RUN_SID}"
     / "Simulations"
-    / "Thalamus_example"
+    / _RUN_SIM
 )
 needs_dataset = pytest.mark.skipif(
-    not (_DATASET and _THALAMUS.is_dir()),
-    reason="skipping: set TIT_DATASET_000 to a Dataset 000 copy with sub-101/Thalamus_example",
+    not (_DATASET and _RUN.is_dir()),
+    reason=f"skipping: set TIT_DATASET_000 to a Dataset 000 copy with sub-{_RUN_SID}/{_RUN_SIM}",
 )
 
 _REALDATA_SCRIPT = r"""
@@ -305,7 +308,7 @@ get_path_manager(sys.argv[1])
 out = {}
 for field in ("TI_normal", "TI_max"):
     with patch("tit.analyzer.analyzer.add_file_handler"):
-        a = Analyzer("101", "Thalamus_example", space="mesh", field=field)
+        a = Analyzer(sys.argv[2], sys.argv[3], space="mesh", field=field)
     r = a.analyze_cortex("DK40", "lh.insula")
     out[field] = {k: getattr(r, k) for k in ("roi_mean", "roi_max", "normal_mean", "normal_max", "n_elements")}
 print("RESULT " + json.dumps(out))
@@ -326,9 +329,10 @@ def _tree_state(root: Path) -> dict[str, tuple[int, int]]:
 def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     from tit.tools.msh_fields import msh_field_names
 
-    central = _THALAMUS / "TI" / "mesh" / "surfaces" / "Thalamus_example_TI_central.msh"
-    normal = _THALAMUS / "TI" / "mesh" / "Thalamus_example_normal.msh"
-    head_model = Path(_DATASET) / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101"
+    central = _RUN / "TI" / "mesh" / "surfaces" / f"{_RUN_SIM}_TI_central.msh"
+    normal = _RUN / "TI" / "mesh" / f"{_RUN_SIM}_normal.msh"
+    subject = Path(_DATASET) / "derivatives" / "SimNIBS" / f"sub-{_RUN_SID}"
+    head_model = subject / f"m2m_{_RUN_SID}"
     before = _mtimes([central, normal])
     # The head model is linked, not copied, into the tmp project below: guard all of it.
     head_before = _tree_state(head_model)
@@ -340,28 +344,22 @@ def test_dataset000_surface_fields_and_ti_normal_below_ti_max(tmp_path):
     import shutil
 
     project = tmp_path / "project"
-    sim = (
-        project
-        / "derivatives"
-        / "SimNIBS"
-        / "sub-101"
-        / "Simulations"
-        / "Thalamus_example"
-    )
+    tmp_subject = project / "derivatives" / "SimNIBS" / f"sub-{_RUN_SID}"
+    sim = tmp_subject / "Simulations" / _RUN_SIM
     (sim / "TI" / "mesh" / "surfaces").mkdir(parents=True)
     (sim / "documentation").mkdir()
     shutil.copy(central, sim / "TI" / "mesh" / "surfaces" / central.name)
     shutil.copy(normal, sim / "TI" / "mesh" / normal.name)
-    shutil.copy(_THALAMUS / "documentation" / "config.json", sim / "documentation")
+    shutil.copy(_RUN / "documentation" / "config.json", sim / "documentation")
     # The volume mesh is only read (the surface is interpolated from it); its carriers cannot
     # be produced (no channel meshes here), so nothing is written to it.
-    volume = _THALAMUS / "TI" / "mesh" / "Thalamus_example_TI.msh"
+    volume = _RUN / "TI" / "mesh" / f"{_RUN_SIM}_TI.msh"
     before[str(volume)] = volume.stat().st_mtime
     (sim / "TI" / "mesh" / volume.name).symlink_to(volume)
     # The head model is only read (atlas2subject); link it rather than copy gigabytes.
-    (project / "derivatives" / "SimNIBS" / "sub-101" / "m2m_101").symlink_to(head_model)
+    (tmp_subject / f"m2m_{_RUN_SID}").symlink_to(head_model)
 
-    run = _python(_REALDATA_SCRIPT, str(project), timeout=600)
+    run = _python(_REALDATA_SCRIPT, str(project), _RUN_SID, _RUN_SIM, timeout=600)
     assert run.returncode == 0, run.stdout[-3000:] + run.stderr[-3000:]
     line = [l for l in run.stdout.splitlines() if l.startswith("RESULT ")][-1]
     out = json.loads(line[len("RESULT ") :])

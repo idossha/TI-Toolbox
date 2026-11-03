@@ -118,6 +118,37 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
             "why": "the image runs as root, which a directory mode cannot restrict; the host "
             "suite runs it as a user",
         },
+        # Inputs Dataset 000 lost (checked 2026-11-03) with no equivalent left in it; each entry
+        # carries the test's own skip text, which names what is missing.
+        {
+            "test": "tests.numerical.test_nilearn_render_realdata.*",
+            "message": "Dataset 000 no longer has derivatives/SimNIBS/sub-101/Simulations/"
+            "L_Insula/TI/niftis/grey_L_Insula_TI_MNI_MNI_TI_max.nii.gz and derivatives/SimNIBS/"
+            "sub-LA/Simulations/L_Insula/TI/niftis/grey_L_Insula_TI_MNI_MNI_TI_max.nii.gz",
+            "why": "sub-101's L_Insula was re-run without NIfTIs (2026-11-01) and sub-LA's "
+            "simulations are gone; no run in Dataset 000 saved an MNI volume",
+        },
+        {
+            "test": "tests.test_sim_rerun_outputs.test_clearing_the_real_stale_folder_*",
+            "message": "Dataset 000 no longer has derivatives/SimNIBS/sub-101/Simulations/"
+            "L_Insula/TI/niftis/*_MNI_MNI_TI_max.nii.gz",
+            "why": "the stale three-run folder was cleared by a re-run (2026-10-22) and "
+            "re-simulated (2026-11-01); the synthetic tests in the module pin the clearing",
+        },
+        {
+            "test": "tests.test_ex_enumeration_physics.test_report_of_a_real_pre_fix_pool_run_*",
+            "message": "Dataset 000 no longer has derivatives/SimNIBS/sub-101/ex-search/"
+            "20260919_160209/final_output.csv",
+            "why": "the only pre-fix pool run is gone; later runs are post-fix bucket searches "
+            "with no repeated montage, and the synthetic case in the module pins the report",
+        },
+        {
+            "test": "tests.test_ex_realdata_csv.test_the_grey_matter_mean_is_the_same_whatever_"
+            "the_roi",
+            "message": "no two ex runs share a subject and a leadfield",
+            "why": "Dataset 000 keeps one ex run per subject (sub-101's 20260919_160209 is gone, "
+            "its 20260914_112446 folder is empty)",
+        },
     ],
     # CircleCI desktop-e2e-mock: Playwright `--project=default` against the mock server
     # (measured 2026-10-22: 364 tests, these 3 skipped). Ids are `<spec file>.<title>`.

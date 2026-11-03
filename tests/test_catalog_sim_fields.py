@@ -13,7 +13,9 @@ Where the expected values come from
     field names, mesh2nii's tissue prefixes and ``<base>_subject_<field>`` /
     ``<base>_MNI_MNI_<field>`` rule, the ``<sid>_TDCS_<i>_<cond>`` carrier names with ``A..Z``
     for mTI), checked against Dataset 000 there; the registry is ``tit.constants``. Real-data
-    expectations below were read off the Dataset 000 listing (``ls .../niftis``).
+    expectations below were read off the Dataset 000 listing (``ls .../niftis``, 2026-11-03:
+    a ``vn`` and a ``scalar`` run with subject-space NIfTIs, and one run without NIfTIs, whose
+    fields are its ``documentation/config.json`` ``output_fields``).
 
 Reproduce
     .venv/bin/python -m pytest tests/test_catalog_sim_fields.py -q -p no:cacheprovider
@@ -27,6 +29,7 @@ Deliberately elsewhere
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from pathlib import Path
@@ -272,6 +275,7 @@ def test_dataset_000_fields_are_registry_names_and_vn_carriers_are_listed():
     watched = [
         sims / "sub-ernie" / "Simulations" / "AF3_PO10_and_AF4_Oz",
         sims / "sub-101" / "Simulations" / "L_Insula",
+        sims / "sub-CHN" / "Simulations" / "left_insula_mean",
     ]
     before = {w: _mtimes(w) for w in watched}
     pm = get_path_manager(str(root))
@@ -291,9 +295,25 @@ def test_dataset_000_fields_are_registry_names_and_vn_carriers_are_listed():
     )
     assert ernie["fields"] == ["TI_max", "magnE"]
 
-    # sub-101/L_Insula holds TI_max, hf_peak and hf_rms volumes plus scalar carriers.
+    # CHN ran with conductivity "scalar"; its carriers are CHN_TDCS_{1,2}_scalar_subject_magnE.
+    chn = catalog.simulation_detail(pm, "CHN", "left_insula_mean")
+    on_disk = sorted(
+        str(p)
+        for p in (watched[2] / "high_Frequency" / "niftis").glob(
+            "CHN_TDCS_*_scalar_*magnE.nii.gz"
+        )
+    )
+    assert len(on_disk) == 2
+    assert sorted(n["path"] for n in chn["niftis"] if n["field"] == "magnE") == on_disk
+    assert chn["fields"] == ["TI_max", "magnE"]
+    assert chn["space"] == ["subject"]
+
+    # sub-101/L_Insula (re-run 2026-11-01) saved no NIfTIs: it offers the fields its config
+    # asked for, which its field mesh carries, in no volume space.
     insula = catalog.simulation_detail(pm, "101", "L_Insula")
-    assert set(insula["fields"]) == {"TI_max", "hf_peak", "hf_rms", "magnE"}
-    assert insula["space"] == ["mni", "subject"]
+    config = json.loads((watched[1] / "documentation" / "config.json").read_text())
+    assert set(config["output_fields"]) == {"TI_max", "hf_peak", "hf_rms"}
+    assert set(insula["fields"]) == set(config["output_fields"])
+    assert insula["niftis"] == [] and insula["space"] == []
 
     assert {w: _mtimes(w) for w in watched} == before

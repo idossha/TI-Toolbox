@@ -1,7 +1,7 @@
 """SimNIBS placed every electrode of every Dataset 000 simulation where its config asked, with the current it asked.
 
-Pins (2026-10-22, package p25). For each ``derivatives/SimNIBS/sub-*/Simulations/*`` with a
-``documentation/config.json``, the requested electrode centres are read from what the montage names
+Pins (2026-10-22, package p25). For each finished ``derivatives/SimNIBS/sub-*/Simulations/*``
+with a ``documentation/config.json`` (see :func:`_simulations`), the requested electrode centres are read from what the montage names
 -- the subject's ``m2m_<id>/eeg_positions/<eeg_net>`` row for a cap label, the coordinate itself
 for a flex-free / free-hand (XYZ) montage -- and compared with what SimNIBS itself wrote:
 ``high_Frequency/mesh/<id>_TDCS_<k>_el_currents.geo``, whose ``electrode_currents`` view holds one
@@ -128,11 +128,17 @@ def _requested(sim: Path, config: dict) -> list[list[list[float]]]:
 
 
 def _simulations() -> list[Path]:
+    """Every finished simulation: one stopped before the simulator filed SimNIBS's output (its
+    ``simnibs_simulation_*.log`` still in ``high_Frequency/``, the ``.geo`` beside it instead of
+    in ``mesh/``; ``tit/sim/TI.py`` moves both when a run ends) has no record of a finished
+    placement. Dataset 000's sub-101 ``L_Insula_old`` is one: a re-run cancelled on 2026-10-22.
+    """
     return sorted(
         p.parent.parent
         for p in Path(ROOT, "derivatives", "SimNIBS").glob(
             "sub-*/Simulations/*/documentation/config.json"
         )
+        if not any(p.parent.parent.glob("high_Frequency/simnibs_simulation_*.log"))
     )
 
 

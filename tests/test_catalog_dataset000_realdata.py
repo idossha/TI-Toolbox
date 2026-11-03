@@ -27,7 +27,11 @@ Read-only: the mtime of every file and folder in the dataset is compared before 
 Vacuous legs on today's Dataset 000: its ``derivatives/ti-toolbox/nilearn_visuals`` and
 ``nifti_average`` folders are empty, so the real-data coverage check for those two compares
 empty sets (only the ``stats`` leg has runs). The synthetic
-``test_group_output_folders_are_listed_one_for_one`` runs on every host and covers them.
+``test_group_output_folders_are_listed_one_for_one`` runs on every host and covers them. Since
+2026-11-03 it holds no MNI-space NIfTI (sub-101's ``L_Insula`` was re-run without NIfTIs and
+ernie's and sub-LA's runs are gone), so the NIfTI field/space and viewer-layer checks see the
+subject space only: CHN ``left_insula_mean`` and ernie ``AF3_PO10_and_AF4_Oz``, three envelopes
+and two carriers each.
 
 Run: ``TIT_DATASET_000=/Users/idohaber/datasets/000 .venv/bin/python -m pytest
 tests/test_catalog_dataset000_realdata.py -q``. Skips with a reason when the variable is unset.
@@ -183,7 +187,7 @@ def test_nifti_field_and_space_are_the_ones_the_filename_says(view):
             if f"{os.sep}high_Frequency{os.sep}" not in n["path"]
         }
         assert envelope <= set(detail["fields"]), (sid, sim, detail["fields"])
-    assert checked > 20
+    assert checked >= 10  # 2026-11-03: 2 simulations x (3 envelopes + 2 carriers)
 
 
 def test_viewer_layers_are_the_envelope_and_carrier_niftis_of_their_space(view):
@@ -224,7 +228,7 @@ def test_viewer_layers_are_the_envelope_and_carrier_niftis_of_their_space(view):
             ), layer["path"]
         assert not any(layer["visible"] for layer in hf_layers)
         checked += len(ti_layers) + len(hf_layers)
-    assert checked > 20
+    assert checked >= 10  # 2026-11-03: 2 simulations x (3 envelopes + 2 carriers), subject space
 
 
 # ── analyses ────────────────────────────────────────────────────────────────

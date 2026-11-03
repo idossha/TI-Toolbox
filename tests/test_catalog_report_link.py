@@ -266,7 +266,8 @@ def test_dataset_000_links_only_reports_that_name_their_simulation():
             assert path.name.startswith("simulation_report_")
             assert _title(path) == f"{sim_dir.name} simulation"
         checked += 1
-    assert checked >= 5
+    # 2026-11-03: sub-101 L_Insula and L_Insula_old, CHN left_insula_mean, ernie AF3_PO10_and_AF4_Oz.
+    assert checked >= 4
     assert before == {p: p.stat().st_mtime_ns for p in reports_root.rglob("*.html")}
 
 

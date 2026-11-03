@@ -371,19 +371,24 @@ def test_mti_with_more_than_nine_channels_names_each_carrier_by_its_own_letter(i
 
 _DATASET = os.environ.get("TIT_DATASET_000", "")
 _REAL = Path(_DATASET, "derivatives/SimNIBS/sub-101/Simulations/L_Insula")
+#: The stale MNI volume that made the folder the bug's specimen.
+_STALE_MNI = "derivatives/SimNIBS/sub-101/Simulations/L_Insula/TI/niftis/*_MNI_MNI_TI_max.nii.gz"
 
 
-@pytest.mark.skipif(
-    not _DATASET or not _REAL.is_dir(),
-    reason="skipping: TIT_DATASET_000 is unset or has no sub-101/Simulations/L_Insula",
-)
+@pytest.mark.skipif(not _DATASET, reason="skipping: TIT_DATASET_000 is unset")
 def test_clearing_the_real_stale_folder_leaves_only_its_history_and_analyses(tmp_path):
-    """Dataset 000 sub-101/L_Insula holds outputs of three runs (2026-07-20 hf fields,
+    """Dataset 000 sub-101/L_Insula held outputs of three runs (2026-07-20 hf fields,
     2026-09-09 MNI volumes, 2026-09-23 TI_max). Its file names are mirrored as empty files
     (2.3 GB is not copied; the dataset is only listed), and clearing them must leave the
     session records, config.json and Analyses/ -- and nothing with _MNI or hf_ in its name.
+    A re-run cleared that folder on 2026-10-22 (it is now ``L_Insula_old``, with nothing stale
+    left in it) and ``L_Insula`` was simulated afresh on 2026-11-01, so on today's Dataset 000
+    this skips; the synthetic tests above pin the same clearing.
     """
     from tit.sim.utils import clear_previous_outputs, existing_result_meshes
+
+    if not any(Path(_DATASET).glob(_STALE_MNI)):
+        pytest.skip("skipping: Dataset 000 no longer has " + _STALE_MNI)
 
     real = sorted(p for p in _REAL.rglob("*") if p.is_file())
     stamps = {p: p.stat().st_mtime_ns for p in real}

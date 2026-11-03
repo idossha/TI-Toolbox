@@ -76,7 +76,8 @@ describe("Dataset 000 snapshot", () => {
     expect(montages.length).toBeGreaterThanOrEqual(20);
     expect(SUBJECTS.flatMap(([, s]) => s.flex_runs).length).toBeGreaterThanOrEqual(3);
     expect(SUBJECTS.flatMap(([, s]) => s.freehand).length).toBeGreaterThanOrEqual(1);
-    expect(SUBJECTS.flatMap(([, s]) => s.simulations).length).toBeGreaterThanOrEqual(5);
+    // 2026-11-03: sub-101 L_Insula and L_Insula_old, sub-CHN left_insula_mean, sub-ernie AF3_PO10_and_AF4_Oz.
+    expect(SUBJECTS.flatMap(([, s]) => s.simulations).length).toBeGreaterThanOrEqual(4);
     expect(SUBJECTS.flatMap(([, s]) => s.leadfields).length).toBeGreaterThanOrEqual(1);
   });
 });
@@ -178,18 +179,29 @@ describe("every free-hand placement builds the job it was saved as", () => {
   });
 });
 
+/**
+ * Simulation folders with no field mesh: sub-101's L_Insula_old is a re-run cancelled on
+ * 2026-10-22 after it cleared the old outputs, so the catalog offers no field for it. Pinned below
+ * so this list cannot outlive it.
+ */
+const NO_FIELD_MESH = new Set(["101/L_Insula_old"]);
+
 describe("analyzer field options for every real simulation", () => {
   const sims = SUBJECTS.flatMap(([sid, s]) => s.simulations.map((sim) => ({ sid, sim })));
   const analysable = new Set([...FIELD_REGISTRY.map((f) => f.name), "mTI_max"]);
 
-  it.each(sims.map((c) => [`sub-${c.sid} ${c.sim.name}`, c] as const))("%s", (where, { sim }) => {
+  it("only the runs without a field mesh offer nothing", () => {
+    expect(new Set(sims.filter((c) => c.sim.fields.length === 0).map((c) => `${c.sid}/${c.sim.name}`))).toEqual(NO_FIELD_MESH);
+  });
+
+  it.each(sims.map((c) => [`sub-${c.sid} ${c.sim.name}`, c] as const))("%s", (where, { sid, sim }) => {
     // AnalysisFieldSelect offers the catalog fields the registry knows. Every field the catalog
     // reports is one of those, or the carrier magnitude magnE — never a mangled token ("peak",
     // "sar", "avg") that would silently drop a computed field from the list.
     const offered = sim.fields.filter((f) => fieldSpecForName(f) !== undefined);
     for (const f of offered) expect(analysable.has(f), where).toBe(true);
     expect(sim.fields.filter((f) => !offered.includes(f) && f !== "magnE"), where).toEqual([]);
-    expect(offered.length, `${where}: something to analyse`).toBeGreaterThan(0);
+    if (!NO_FIELD_MESH.has(`${sid}/${sim.name}`)) expect(offered.length, `${where}: something to analyse`).toBeGreaterThan(0);
   });
 });
 

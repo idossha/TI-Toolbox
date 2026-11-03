@@ -298,7 +298,16 @@ def test_the_grey_matter_mean_is_the_same_whatever_the_roi(runs):
         by_leadfield[(cfg["subject_id"], Path(cfg["leadfield_hdf"]).name)].append(run)
     shared = [group for group in by_leadfield.values() if len(group) > 1]
     if not shared:
-        pytest.skip("skipping: no two ex runs share a subject and a leadfield")
+        # Dataset 000 since 2026-11-01: one ex run per subject (sub-101's 20260919_160209 is
+        # gone and its 20260914_112446 folder is empty).
+        runs_by_leadfield = "; ".join(
+            f"sub-{sid} {leadfield}: {', '.join(Path(r['dir']).name for r in group)}"
+            for (sid, leadfield), group in sorted(by_leadfield.items())
+        )
+        pytest.skip(
+            "skipping: no two ex runs share a subject and a leadfield "
+            f"({runs_by_leadfield})"
+        )
     compared = 0
     for group in shared:
         per_run = []
