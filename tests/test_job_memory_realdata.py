@@ -15,7 +15,10 @@ of the job's process tree (``tit.jobs.runner.ResourceSampler``), measured while 
 independent of the cost table. Claims are converted with 1e9 bytes per GB, the smaller of the
 two readings of "GB" (the scheduler's budget is read in GiB), so the check is the strict one.
 On 2026-10-22 it failed for sim 34ffcc59/b8fa6613/f56383c0 (7.57-8.30 GB against 4 GB) and
-flex ad8cf881 (n_multistart 4, 15.19 GB against 6 GB).
+flex ad8cf881 (n_multistart 4, 15.19 GB against 6 GB), and on 2026-11-03 for ex c6401588 (8
+workers, 7.30 GB against 6 GB). An ex/mEx claim depends on the CPUs it is admitted with (one
+worker each), so each claim is computed with the CPU limit set to the job's recorded
+``cost.cpus``: the claim it got on the machine it ran on.
 
 The dataset is opened read-only: the test lists the mtimes of every file it reads before and
 after, and they must be unchanged.
@@ -37,6 +40,7 @@ from pathlib import Path
 
 import pytest
 
+from tit.jobs import costs
 from tit.jobs.costs import default_cost
 
 DATASET = os.environ.get("TIT_DATASET_000", "")
@@ -64,7 +68,7 @@ def _mtimes(paths: list[Path]) -> dict[str, int]:
     return {str(p): p.stat().st_mtime_ns for p in paths}
 
 
-def test_every_succeeded_jobs_memory_claim_covers_its_measured_peak():
+def test_every_succeeded_jobs_memory_claim_covers_its_measured_peak(monkeypatch):
     files = sorted(
         p
         for job in JOBS.iterdir()
@@ -85,6 +89,9 @@ def test_every_succeeded_jobs_memory_claim_covers_its_measured_peak():
         peak = status.get("rss_peak")
         if status.get("state") != "succeeded" or not peak:
             continue
+        admitted = (spec.get("cost") or {}).get("cpus")
+        if admitted:
+            monkeypatch.setattr(costs, "cpu_limit", lambda cpus=int(admitted): cpus)
         claim = default_cost(spec["kind"], spec.get("config") or {}).mem_gb
         checked.append(f"{job.name} {spec['kind']}")
         if claim * 1e9 < peak:
@@ -93,7 +100,7 @@ def test_every_succeeded_jobs_memory_claim_covers_its_measured_peak():
             )
 
     assert _mtimes(files) == before, "the dataset's job records changed while reading"
-    # Nothing to check would make this pass vacuously; Dataset 000 has sim and flex records.
+    # Nothing to check would make this pass vacuously; Dataset 000 has sim, flex and ex records.
     kinds_checked = {entry.split()[1] for entry in checked}
-    assert {"sim", "flex"} <= kinds_checked, checked
+    assert {"sim", "flex", "ex"} <= kinds_checked, checked
     assert short == []
