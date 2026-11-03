@@ -8,20 +8,31 @@
     {%- if item.group -%}
       <li class="sidebar-nav__group">{{ item.group }}</li>
     {%- else -%}
+      {%- if item.children -%}
+      {%- assign open = false -%}
+      {%- if page.url == item.url -%}{%- assign open = true -%}{%- endif -%}
+      {%- for child in item.children -%}{%- if page.url == child.url -%}{%- assign open = true -%}{%- endif -%}{%- endfor -%}
+      {%- assign gid = "sn-" | append: forloop.index -%}
+      <li class="sidebar-nav__parent{% if open %} is-open contains-active{% endif %}">
+        <button type="button" class="sidebar-nav__toggle" aria-expanded="{{ open }}" aria-controls="{{ gid }}">
+          <span class="sidebar-nav__chev" aria-hidden="true">▸</span>{{ item.title }}
+        </button>
+        <ul class="sidebar-nav__children" id="{{ gid }}">
+          <li><a href="{{ item.url | relative_url }}"{% if page.url == item.url %} class="is-active" aria-current="page"{% endif %}>Overview</a></li>
+          {%- for child in item.children -%}
+          <li><a href="{{ child.url | relative_url }}"{% if page.url == child.url %} class="is-active" aria-current="page"{% endif %}>{{ child.title }}</a></li>
+          {%- endfor -%}
+        </ul>
+      </li>
+      {%- else -%}
       <li>
         <a href="{{ item.url | relative_url }}"
            {%- if page.url == item.url %} class="is-active" aria-current="page"{% endif -%}
            {%- if item.external %} target="_blank" rel="noopener"{% endif %}>
           {{ item.title }}{% if item.external %} <span class="sidebar-nav__ext" aria-hidden="true">↗</span>{% endif %}
         </a>
-        {%- if item.children -%}
-        <ul class="sidebar-nav__children">
-          {%- for child in item.children -%}
-          <li><a href="{{ child.url | relative_url }}"{% if page.url == child.url %} class="is-active" aria-current="page"{% endif %}>{{ child.title }}</a></li>
-          {%- endfor -%}
-        </ul>
-        {%- endif -%}
       </li>
+      {%- endif -%}
     {%- endif -%}
   {%- endfor -%}
   </ul>

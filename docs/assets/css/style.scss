@@ -495,6 +495,19 @@ table {
   font-size: 0.85rem;
 }
 
+.sidebar-nav__toggle {
+  display: flex; align-items: center; gap: 6px; width: 100%;
+  padding: 5px 10px; border: 0; border-radius: var(--radius); background: none;
+  font: inherit; line-height: 1.4; text-align: left; cursor: pointer;
+  color: var(--color-text);
+  &:hover { background: var(--color-surface); color: var(--color-heading); }
+}
+.sidebar-nav__chev { display: inline-block; width: 1em; transition: transform .15s; }
+.sidebar-nav__parent.is-open > .sidebar-nav__toggle .sidebar-nav__chev { transform: rotate(90deg); }
+.sidebar-nav__parent.contains-active > .sidebar-nav__toggle { color: var(--color-primary-dark); font-weight: 600; }
+// Collapsed only once JS is running; without JS every group renders open.
+.js .sidebar-nav__parent:not(.is-open) > .sidebar-nav__children { display: none; }
+
 .sidebar-nav__title {
   margin: 0 0 8px 10px;
   font-size: 0.75rem;
@@ -1282,28 +1295,23 @@ td .katex-display, th .katex-display {
   display: flex; flex-wrap: wrap; gap: 24px; align-items: center; margin: 1em 0;
   > div { flex: 1 1 300px; min-width: 0; }
   > div > img { width: 100%; height: auto; margin-top: 0; }
-  &.split--wide { align-items: flex-start; }
+  &.split--wide { align-items: flex-start; > div > img { max-height: none; } }
   &.split--wide > div:first-child { flex: 55 1 300px; }
   &.split--wide > div:last-child { flex: 45 1 260px; }
 }
 
-// Workflow diagram with a thumbnail of what each stage produces.
-.wiki-content .flow { display: flex; flex-direction: column; align-items: flex-start; width: fit-content; max-width: 100%; gap: 6px; margin: 1em auto; font-size: 0.78rem; line-height: 1.25; }
-.flow-lane { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+// Workflow tree with a thumbnail of what each stage produces: source on top, branches below.
+.wiki-content .flow { display: flex; flex-direction: column; align-items: center; max-width: 100%; gap: 4px; margin: 0; font-size: 0.74rem; line-height: 1.25; }
+.flow-branch { display: flex; justify-content: center; gap: 8px; padding-top: 8px; border-top: 2px solid var(--color-border); }
+.flow-lane { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .flow-node {
-  margin: 0; width: 112px; text-align: center; color: var(--color-text);
-  img { display: block; margin: 0 auto; width: 96px; height: 96px; border-radius: 6px; border: 1px solid var(--color-border); background: #000; }
+  margin: 0; width: 104px; text-align: center; color: var(--color-text);
+  img { display: block; margin: 0 auto; width: 88px; height: 88px; border-radius: 6px; border: 1px solid var(--color-border); background: #000; }
   figcaption { margin-top: 4px; }
   small { display: block; color: var(--color-text-muted); font-size: 0.9em; }
 }
-.flow-arrow { color: var(--color-text-muted); font-size: 1.2rem; }
+.flow-arrow { color: var(--color-text-muted); font-size: 1.2rem; line-height: 1; }
 .flow-arrow--opt { opacity: 0.7; }
-.flow-branch {
-  display: flex; flex-direction: column; gap: 10px; padding-left: 0;
-  margin-left: 55px; border-left: 2px solid var(--color-border);
-  .flow-lane .flow-arrow:first-child { margin-left: -1px; }
-}
-.flow-down { line-height: 1; margin-left: 47px; }
 
 /* Publications page */
 .pub-cite {

@@ -7,15 +7,20 @@ permalink: /wiki/pre-processing/
 Pre-processing prepares subject data for simulation and analysis. Select subjects and the stages
 you need; the plan shows their dependencies and existing outputs before you run them.
 
-<img src="{{ site.baseurl }}/assets/imgs/v3/preprocessing-page.png" style="width: 100%; max-width: 1000px;" alt="The Pre-processing page: a subject table showing which outputs each subject has, then the structural and DWI stages to run">
-
+<div class="split split--wide">
+<div>
+<img src="{{ site.baseurl }}/assets/imgs/v3/preprocessing-page.png" alt="The Pre-processing page: a subject table showing which outputs each subject has, then the structural and DWI stages to run">
+</div>
+<div>
 <div class="flow" role="group" aria-label="Pre-processing stages and what each produces">
-<div class="flow-source"><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/nifti.webp" alt="Sagittal slice of the converted T1-weighted NIfTI" width="96" height="96" loading="lazy"><figcaption>DICOM conversion or existing NIfTI</figcaption></figure></div>
-<span class="flow-arrow flow-down" aria-hidden="true">&darr;</span>
+<figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/nifti.webp" alt="Sagittal slice of the converted T1-weighted NIfTI" width="96" height="96" loading="lazy"><figcaption>DICOM conversion or existing NIfTI</figcaption></figure>
+<span class="flow-arrow" aria-hidden="true">&darr;</span>
 <div class="flow-branch">
-<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/charm.webp" alt="CHARM head mesh with translucent scalp and skull" width="96" height="96" loading="lazy"><figcaption>SimNIBS CHARM</figcaption></figure><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/atlas.webp" alt="Subject atlas outlined on an axial T1 slice" width="96" height="96" loading="lazy"><figcaption>Subject atlas and tissue analysis</figcaption></figure></div>
-<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/fastsurfer.webp" alt="FastSurfer DKT parcellation over a coronal T1 slice" width="96" height="96" loading="lazy"><figcaption>FastSurfer / FreeSurfer</figcaption></figure></div>
-<div class="flow-lane"><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsiprep.webp" alt="QSIPrep preprocessed DWI reference (b0) slice" width="96" height="96" loading="lazy"><figcaption>QSIPrep</figcaption></figure><span class="flow-arrow" aria-hidden="true">&rarr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/dti.webp" alt="Fractional anisotropy of the DTI tensor in T1 space" width="96" height="96" loading="lazy"><figcaption>DTI tensor<small>also uses the CHARM head model</small></figcaption></figure><span class="flow-arrow flow-arrow--opt" aria-hidden="true">&#8674;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsirecon.webp" alt="QSIRecon generalized FA map" width="96" height="96" loading="lazy"><figcaption>QSIRecon, optional<small>from QSIPrep</small></figcaption></figure></div>
+<div class="flow-lane"><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/charm.webp" alt="CHARM head mesh with translucent scalp and skull" width="96" height="96" loading="lazy"><figcaption>SimNIBS CHARM</figcaption></figure><span class="flow-arrow" aria-hidden="true">&darr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/atlas.webp" alt="Subject atlas outlined on an axial T1 slice" width="96" height="96" loading="lazy"><figcaption>Subject atlas and tissue analysis</figcaption></figure></div>
+<div class="flow-lane"><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/fastsurfer.webp" alt="FastSurfer DKT parcellation over a coronal T1 slice" width="96" height="96" loading="lazy"><figcaption>FastSurfer / FreeSurfer</figcaption></figure></div>
+<div class="flow-lane"><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsiprep.webp" alt="QSIPrep preprocessed DWI reference (b0) slice" width="96" height="96" loading="lazy"><figcaption>QSIPrep</figcaption></figure><span class="flow-arrow" aria-hidden="true">&darr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/dti.webp" alt="Fractional anisotropy of the DTI tensor in T1 space" width="96" height="96" loading="lazy"><figcaption>DTI tensor<small>also uses the CHARM head model</small></figcaption></figure><span class="flow-arrow flow-arrow--opt" aria-hidden="true">&darr;</span><figure class="flow-node"><img src="{{ site.baseurl }}/assets/imgs/v3/preprocess-workflow/qsirecon.webp" alt="QSIRecon generalized FA map" width="96" height="96" loading="lazy"><figcaption>QSIRecon, optional<small>from QSIPrep</small></figcaption></figure></div>
+</div>
+</div>
 </div>
 </div>
 
