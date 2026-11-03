@@ -51,7 +51,12 @@
 
 *, *::before, *::after { box-sizing: border-box; }
 
+// Same-origin page switches crossfade instead of flashing (ignored where unsupported).
+@view-transition { navigation: auto; }
+@media (prefers-reduced-motion: reduce) { @view-transition { navigation: none; } }
+
 html {
+  background: var(--color-bg);
   scroll-behavior: smooth;
   scroll-padding-top: calc(var(--header-height) + 16px);
   -webkit-text-size-adjust: 100%;
@@ -1306,7 +1311,7 @@ td .katex-display, th .katex-display {
 .flow-lane { display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .flow-node {
   margin: 0; width: 104px; text-align: center; color: var(--color-text);
-  img { display: block; margin: 0 auto; width: 88px; height: 88px; border-radius: 6px; border: 1px solid var(--color-border); background: #000; }
+  img { display: block; margin: 0 auto; width: 88px; height: 88px; border-radius: 6px; border: 1px solid var(--color-border); background: var(--color-surface); }
   figcaption { margin-top: 4px; }
   small { display: block; color: var(--color-text-muted); font-size: 0.9em; }
 }

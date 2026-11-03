@@ -12,6 +12,16 @@
   <aside class="docs__sidebar" id="docs-sidebar">
     {%- include sidebar.html nav=nav -%}
   </aside>
+  <script>
+    // Before first paint: keep the sidebar where it was on the previous page, and bring the
+    // current page's entry into view if it is outside it (e.g. arrived from search).
+    (function (s, key) {
+      try { var y = sessionStorage.getItem(key); if (y !== null) s.scrollTop = +y; } catch (e) {}
+      var a = s.querySelector('a.is-active'), r = a && a.getBoundingClientRect(), b = s.getBoundingClientRect();
+      if (r && (r.top < b.top || r.bottom > b.bottom)) s.scrollTop += r.top - b.top - s.clientHeight / 3;
+      addEventListener('pagehide', function () { try { sessionStorage.setItem(key, s.scrollTop); } catch (e) {} });
+    })(document.getElementById('docs-sidebar'), 'sidebar-scroll:{{ include.nav }}');
+  </script>
 
   <article class="docs__article wiki-content">
     <div class="wiki-content-inner">

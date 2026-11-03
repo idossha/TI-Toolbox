@@ -2,6 +2,14 @@
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  {%- comment -%}
+    Pre-paint state, before any stylesheet (docs/tests/check_no_flash.py guards it): the
+    light canvas from the first byte, and the "js" class that collapses sidebar groups,
+    so a page switch never paints a blank or re-flowed frame.
+  {%- endcomment %}
+  <meta name="color-scheme" content="light">
+  <style>html,body{background:#fff}</style>
+  <script>document.documentElement.classList.add("js")</script>
   {%- seo -%}
   <link rel="icon" type="image/png" href="{{ '/assets/imgs/icon.png' | relative_url }}">
   <link rel="preconnect" href="https://fonts.googleapis.com">

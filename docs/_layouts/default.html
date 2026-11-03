@@ -5,7 +5,6 @@ layout: null
 <html lang="{{ page.lang | default: site.lang | default: 'en' }}" data-baseurl="{{ site.baseurl }}">
   {%- include head.html -%}
   <body class="layout-{{ page.layout }}">
-    <script>document.documentElement.classList.add("js")</script>
     {%- include header.html -%}
     <main class="site-main" aria-label="Content">
       {{ content }}
