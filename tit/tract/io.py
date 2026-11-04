@@ -66,13 +66,11 @@ def save_tractogram(
 def load_streamlines(path: str) -> list[np.ndarray]:
     """Streamlines of a ``.trx``/``.tck``/``.trk`` file, world RAS mm, float64."""
     if path.endswith(".trx"):
-        import trx.trx_file_memmap as tmm
+        from dipy.io.streamline import load_tractogram
 
-        trx = tmm.load(path)
-        try:
-            return [np.asarray(s, np.float64) for s in trx.streamlines]
-        finally:
-            trx.close()
+        sft = load_tractogram(path, "same", bbox_valid_check=False)
+        sft.to_rasmm()
+        return [np.asarray(s, np.float64) for s in sft.streamlines]
     import nibabel as nib
 
     return [np.asarray(s, np.float64) for s in nib.streamlines.load(path).streamlines]
