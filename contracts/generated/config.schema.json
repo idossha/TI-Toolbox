@@ -2985,6 +2985,142 @@
       "type": "object",
       "additionalProperties": false
     },
+    "TractConfig": {
+      "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. Stills, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write.\nwidth, height : int\n    Still resolution in pixels (videos are 1920x1080).\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.\nseed : int\n    Subsampling seed.",
+      "properties": {
+        "subject_id": {
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "simulation_name": {
+          "title": "Simulation Name",
+          "type": "string"
+        },
+        "tractogram": {
+          "default": "",
+          "title": "Tractogram",
+          "type": "string"
+        },
+        "metric": {
+          "$ref": "#/$defs/Metric",
+          "default": "ti_along"
+        },
+        "max_streamlines": {
+          "default": 15000,
+          "title": "Max Streamlines",
+          "type": "integer"
+        },
+        "stills": {
+          "default": true,
+          "title": "Stills",
+          "type": "boolean"
+        },
+        "turntable": {
+          "default": false,
+          "title": "Turntable",
+          "type": "boolean"
+        },
+        "propagation": {
+          "default": false,
+          "title": "Propagation",
+          "type": "boolean"
+        },
+        "web": {
+          "default": true,
+          "title": "Web",
+          "type": "boolean"
+        },
+        "connectome": {
+          "default": true,
+          "title": "Connectome",
+          "type": "boolean"
+        },
+        "width": {
+          "default": 2400,
+          "title": "Width",
+          "type": "integer"
+        },
+        "height": {
+          "default": 1600,
+          "title": "Height",
+          "type": "integer"
+        },
+        "turntable_frames": {
+          "default": 120,
+          "title": "Turntable Frames",
+          "type": "integer"
+        },
+        "turntable_degrees": {
+          "default": 360.0,
+          "title": "Turntable Degrees",
+          "type": "number"
+        },
+        "front_speed_mm_per_frame": {
+          "default": 1.5,
+          "title": "Front Speed Mm Per Frame",
+          "type": "number"
+        },
+        "roi_center_mm": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Roi Center Mm"
+        },
+        "roi_radius_mm": {
+          "default": 10.0,
+          "title": "Roi Radius Mm",
+          "type": "number"
+        },
+        "output_dir": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Dir"
+        },
+        "seed": {
+          "default": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "_type": {
+          "const": "TractConfig"
+        }
+      },
+      "required": [
+        "subject_id",
+        "simulation_name",
+        "_type"
+      ],
+      "title": "TractConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Metric": {
+      "description": "Per-vertex colouring of the streamline tubes.",
+      "enum": [
+        "ti_along",
+        "ti_max",
+        "ti_ratio",
+        "direction"
+      ],
+      "title": "Metric",
+      "type": "string"
+    },
     "VectorConfig": {
       "description": "Configuration for TI/mTI vector arrow export to PLY.\n\nVectors are placed at face barycenters of the central surface mesh\nand exported as coloured PLY arrow geometry.\n\nAll paths are resolved automatically from ``subject_id`` +\n``simulation_name`` via PathManager.  mTI mode is auto-detected\nwhen TDCS meshes 3 and 4 exist.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier.\nsimulation_name : str\n    Name of the simulation directory.\nexport_ch1_ch2 : bool\n    Export individual channel arrows.\nexport_sum : bool\n    Export E-field sum arrows.\nexport_ti_normal : bool\n    Export ``TI_normal`` arrows: the envelope along the surface normal.\nexport_combined : bool\n    Export all channels merged into one PLY.\ntop_percent : float or None\n    Keep only the top *N* percent of vectors by magnitude.\ncount : int\n    Maximum number of arrows to export.\nall_nodes : bool\n    If ``True``, ignore *count* and export every node.\nseed : int\n    Random seed for reproducible sub-sampling.\nlength_mode : Length\n    ``\"linear\"`` or ``\"visual\"`` arrow-length mapping.\nlength_scale : float\n    Multiplicative length factor.\nvector_scale : float\n    Global arrow size scale.\nvector_width : float\n    Arrow shaft width multiplier.\nvector_length : float\n    Arrow shaft length multiplier.\nanchor : Anchor\n    ``\"tail\"`` or ``\"head\"`` -- which end touches the surface.\ncolor : Color\n    ``\"rgb\"`` (channel colours) or ``\"magscale\"`` (percentile ramp).\nblue_percentile : float\n    Percentile threshold for the blue end of the magscale ramp.\ngreen_percentile : float\n    Percentile threshold for green.\nred_percentile : float\n    Percentile threshold for red.\nverbose : bool\n    Enable verbose logging.\n\nSee Also\n--------\ntit.blender.vector_field_exporter.run_vectors : Entry point that\n    consumes this config.",
       "properties": {
@@ -3201,6 +3337,7 @@
     "SimulationConfig": "tit.sim.config.SimulationConfig",
     "SourceConfig": "tit.source.config.SourceConfig",
     "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
+    "TractConfig": "tit.blender.config.TractConfig",
     "VectorConfig": "tit.blender.config.VectorConfig"
   },
   "x-app-defaults": {

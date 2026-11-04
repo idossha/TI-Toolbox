@@ -9337,6 +9337,131 @@ export interface components {
             _type: "SubcorticalConfig";
         };
         /**
+         * TractConfig
+         * @description Tractography renders of one simulation's ``tract/`` outputs.
+         *
+         *     Streamlines become emissive tubes in a glass brain, coloured by a field metric along
+         *     each fibre. Stills, the web viewer and the connectome figure are on by default; the
+         *     turntable and the propagation animation are opt-in because they render many frames.
+         *
+         *     Attributes
+         *     ----------
+         *     subject_id, simulation_name : str
+         *         The simulation whose ``tract/`` directory is read.
+         *     tractogram : str
+         *         A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its
+         *         directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,
+         *         else the directory's only ``.trx``.
+         *     metric : Metric
+         *         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
+         *     max_streamlines : int
+         *         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
+         *     stills, turntable, propagation, web, connectome : bool
+         *         Which outputs to write.
+         *     width, height : int
+         *         Still resolution in pixels (videos are 1920x1080).
+         *     turntable_frames, turntable_degrees : int, float
+         *         Orbit length (24 fps) and sweep.
+         *     front_speed_mm_per_frame : float
+         *         Propagation-front speed along the arc.
+         *     roi_center_mm, roi_radius_mm : list of float or None, float
+         *         A target sphere to draw, in subject mm.
+         *     output_dir : str or None
+         *         Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.
+         *     seed : int
+         *         Subsampling seed.
+         */
+        TractConfig: {
+            /** Subject Id */
+            subject_id: string;
+            /** Simulation Name */
+            simulation_name: string;
+            /**
+             * Tractogram
+             * @default
+             */
+            tractogram: string;
+            /** @default ti_along */
+            metric: components["schemas"]["Metric"];
+            /**
+             * Max Streamlines
+             * @default 15000
+             */
+            max_streamlines: number;
+            /**
+             * Stills
+             * @default true
+             */
+            stills: boolean;
+            /**
+             * Turntable
+             * @default false
+             */
+            turntable: boolean;
+            /**
+             * Propagation
+             * @default false
+             */
+            propagation: boolean;
+            /**
+             * Web
+             * @default true
+             */
+            web: boolean;
+            /**
+             * Connectome
+             * @default true
+             */
+            connectome: boolean;
+            /**
+             * Width
+             * @default 2400
+             */
+            width: number;
+            /**
+             * Height
+             * @default 1600
+             */
+            height: number;
+            /**
+             * Turntable Frames
+             * @default 120
+             */
+            turntable_frames: number;
+            /**
+             * Turntable Degrees
+             * @default 360
+             */
+            turntable_degrees: number;
+            /**
+             * Front Speed Mm Per Frame
+             * @default 1.5
+             */
+            front_speed_mm_per_frame: number;
+            /**
+             * Roi Center Mm
+             * @default null
+             */
+            roi_center_mm: number[] | null;
+            /**
+             * Roi Radius Mm
+             * @default 10
+             */
+            roi_radius_mm: number;
+            /**
+             * Output Dir
+             * @default null
+             */
+            output_dir: string | null;
+            /**
+             * Seed
+             * @default 0
+             */
+            seed: number;
+            /** @constant */
+            _type: "TractConfig";
+        };
+        /**
          * NiftiAverageConfig
          * @description Configuration for one group NIfTI averaging run.
          *
@@ -9487,7 +9612,7 @@ export interface components {
             glass_brain_cmap: string;
         };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
-        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["TractConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
         /** ActivityDay */
         ActivityDay: {
             /** Date */
@@ -10602,6 +10727,12 @@ export interface components {
          * @enum {string}
          */
         Format: "stl" | "ply";
+        /**
+         * Metric
+         * @description Per-vertex colouring of the streamline tubes.
+         * @enum {string}
+         */
+        Metric: "ti_along" | "ti_max" | "ti_ratio" | "direction";
         /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.

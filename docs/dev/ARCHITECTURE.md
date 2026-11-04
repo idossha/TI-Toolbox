@@ -807,6 +807,20 @@ output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re
 (minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
 read on ernie; a job would add queueing and a lock for no benefit).
 
+**Tract renders are a `blender` job, `_type: TractConfig`.** [`tract_publication.py`](../../tit/blender/tract_publication.py)
+reads a simulation's `tract/` directory (`<bundle_or_all>.trx` with per-vertex `ti_along`/`ti_max`
+in m2m world mm, `edges.json`, `connectome_<metric>.npz`; the reader is
+[`tract_data.py`](../../tit/blender/tract_data.py)), subsamples to `max_streamlines` with odds rising
+with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/tract/` a
+self-contained web viewer and a connectome figure (on by default) and, through a
+`tract_scene/manifest.json` bundle rendered by [`tract_scene.py`](../../tit/blender/tract_scene.py)
+in the pinned Blender's own Python, PNG stills and opt-in turntable and propagation MP4s. The
+bundle's paths are relative to the manifest, so another Blender can re-render it. Every drawn
+quantity is labelled as a field descriptor, and the propagation video's caption says it shows where
+fibres project, not evoked activity. Excluded alternative: STREAM-4D's code and `template.blend`
+(non-commercial licence, incompatible with GPL-3); one curve object per streamline keyframed per
+frame (their design) instead of one polyline mesh whose shader reads the frame.
+
 ## 9. DWI preprocessing runs as sibling containers
 
 QSIPrep and QSIRecon run as sibling containers through the Docker socket, not inside the core image.

@@ -206,6 +206,93 @@ class MontageConfig:
             raise ValueError("electrode_height_mm must be > 0")
 
 
+# ── Tract config ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class TractConfig:
+    """Tractography renders of one simulation's ``tract/`` outputs.
+
+    Streamlines become emissive tubes in a glass brain, coloured by a field metric along
+    each fibre. Stills, the web viewer and the connectome figure are on by default; the
+    turntable and the propagation animation are opt-in because they render many frames.
+
+    Attributes
+    ----------
+    subject_id, simulation_name : str
+        The simulation whose ``tract/`` directory is read.
+    tractogram : str
+        A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its
+        directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,
+        else the directory's only ``.trx``.
+    metric : Metric
+        What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
+    max_streamlines : int
+        Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
+    stills, turntable, propagation, web, connectome : bool
+        Which outputs to write.
+    width, height : int
+        Still resolution in pixels (videos are 1920x1080).
+    turntable_frames, turntable_degrees : int, float
+        Orbit length (24 fps) and sweep.
+    front_speed_mm_per_frame : float
+        Propagation-front speed along the arc.
+    roi_center_mm, roi_radius_mm : list of float or None, float
+        A target sphere to draw, in subject mm.
+    output_dir : str or None
+        Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.
+    seed : int
+        Subsampling seed.
+    """
+
+    class Metric(StrEnum):
+        """Per-vertex colouring of the streamline tubes."""
+
+        TI_ALONG = "ti_along"
+        TI_MAX = "ti_max"
+        TI_RATIO = "ti_ratio"
+        DIRECTION = "direction"
+
+    subject_id: str
+    simulation_name: str
+    tractogram: str = ""
+    metric: Metric = Metric.TI_ALONG
+    max_streamlines: int = 15_000
+    stills: bool = True
+    turntable: bool = False
+    propagation: bool = False
+    web: bool = True
+    connectome: bool = True
+    width: int = 2400
+    height: int = 1600
+    turntable_frames: int = 120
+    turntable_degrees: float = 360.0
+    front_speed_mm_per_frame: float = 1.5
+    roi_center_mm: list[float] | None = None
+    roi_radius_mm: float = 10.0
+    output_dir: str | None = None
+    seed: int = 0
+
+    def __post_init__(self) -> None:
+        if not (self.subject_id or "").strip():
+            raise ValueError("subject_id is required")
+        if not (self.simulation_name or "").strip():
+            raise ValueError("simulation_name is required")
+        self.metric = TractConfig.Metric(self.metric)
+        if self.max_streamlines <= 0:
+            raise ValueError("max_streamlines must be > 0")
+        if self.width < 64 or self.height < 64:
+            raise ValueError("width and height must be at least 64 px")
+        if self.turntable_frames < 2:
+            raise ValueError("turntable_frames must be >= 2")
+        if self.front_speed_mm_per_frame <= 0:
+            raise ValueError("front_speed_mm_per_frame must be > 0")
+        if self.roi_center_mm is not None and len(self.roi_center_mm) != 3:
+            raise ValueError("roi_center_mm must be [x, y, z]")
+        if self.roi_radius_mm <= 0:
+            raise ValueError("roi_radius_mm must be > 0")
+
+
 # ── Vector field config ─────────────────────────────────────────────────────
 
 

@@ -14565,6 +14565,131 @@
         "type": "object",
         "additionalProperties": false
       },
+      "TractConfig": {
+        "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. Stills, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write.\nwidth, height : int\n    Still resolution in pixels (videos are 1920x1080).\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.\nseed : int\n    Subsampling seed.",
+        "properties": {
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "simulation_name": {
+            "title": "Simulation Name",
+            "type": "string"
+          },
+          "tractogram": {
+            "default": "",
+            "title": "Tractogram",
+            "type": "string"
+          },
+          "metric": {
+            "$ref": "#/components/schemas/Metric",
+            "default": "ti_along"
+          },
+          "max_streamlines": {
+            "default": 15000,
+            "title": "Max Streamlines",
+            "type": "integer"
+          },
+          "stills": {
+            "default": true,
+            "title": "Stills",
+            "type": "boolean"
+          },
+          "turntable": {
+            "default": false,
+            "title": "Turntable",
+            "type": "boolean"
+          },
+          "propagation": {
+            "default": false,
+            "title": "Propagation",
+            "type": "boolean"
+          },
+          "web": {
+            "default": true,
+            "title": "Web",
+            "type": "boolean"
+          },
+          "connectome": {
+            "default": true,
+            "title": "Connectome",
+            "type": "boolean"
+          },
+          "width": {
+            "default": 2400,
+            "title": "Width",
+            "type": "integer"
+          },
+          "height": {
+            "default": 1600,
+            "title": "Height",
+            "type": "integer"
+          },
+          "turntable_frames": {
+            "default": 120,
+            "title": "Turntable Frames",
+            "type": "integer"
+          },
+          "turntable_degrees": {
+            "default": 360.0,
+            "title": "Turntable Degrees",
+            "type": "number"
+          },
+          "front_speed_mm_per_frame": {
+            "default": 1.5,
+            "title": "Front Speed Mm Per Frame",
+            "type": "number"
+          },
+          "roi_center_mm": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Roi Center Mm"
+          },
+          "roi_radius_mm": {
+            "default": 10.0,
+            "title": "Roi Radius Mm",
+            "type": "number"
+          },
+          "output_dir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Output Dir"
+          },
+          "seed": {
+            "default": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "_type": {
+            "const": "TractConfig"
+          }
+        },
+        "required": [
+          "subject_id",
+          "simulation_name",
+          "_type"
+        ],
+        "title": "TractConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
       "NiftiAverageConfig": {
         "description": "Configuration for one group NIfTI averaging run.\n\nAttributes\n----------\noutput_name : str\n    Name of the output subdirectory under\n    ``derivatives/ti-toolbox/nifti_average/`` (the GUI's \"Analysis Name\").\nsubjects : list of NiftiAverageSubject\n    Subject/simulation/group rows -- at least 2, spanning at least 1 group.\nspace : NiftiAverageSpace, optional\n    Which per-subject NIfTI space to average in. Selects the default\n    *nifti_file_pattern* when one is not given explicitly. Default is\n    :attr:`NiftiAverageSpace.MNI`.\nnifti_file_pattern : str or None, optional\n    Filename pattern with ``{subject_id}``/``{simulation_name}``\n    placeholders. Defaults to :data:`_DEFAULT_PATTERNS`\\ [*space*] when\n    left ``None``.\ndiff_pairs : list of str, optional\n    ``\"GroupA-GroupB\"`` pairs to difference. Empty (the default) means\n    every pairwise combination of the groups present in *subjects*.\n    Labels may contain hyphens (``\"post-op-pre-op\"``): an entry is split\n    at the one hyphen that leaves a group label on both sides.\n\nRaises\n------\nValueError\n    If *output_name* is blank or not a valid folder name\n    (:func:`tit.paths.validate_name`), fewer than 2 *subjects* are given,\n    a group label is not a valid file-name part (it names\n    ``average_<group>.nii.gz``), or a *diff_pairs* entry does not name\n    two different groups exactly one way or repeats an earlier pair.\n\nNotes\n-----\nGroup labels are stripped of edge whitespace, so ``\"Group1 \"`` and\n``\"Group1\"`` are one group.\n\nSee Also\n--------\ntit.stats.nifti_average.main : Consumes this config.",
         "properties": {
@@ -14746,6 +14871,9 @@
           },
           {
             "$ref": "#/components/schemas/SubcorticalConfig"
+          },
+          {
+            "$ref": "#/components/schemas/TractConfig"
           },
           {
             "$ref": "#/components/schemas/NiftiAverageConfig"
@@ -16028,6 +16156,17 @@
           "ply"
         ],
         "title": "Format",
+        "type": "string"
+      },
+      "Metric": {
+        "description": "Per-vertex colouring of the streamline tubes.",
+        "enum": [
+          "ti_along",
+          "ti_max",
+          "ti_ratio",
+          "direction"
+        ],
+        "title": "Metric",
         "type": "string"
       },
       "NiftiAverageSpace": {

@@ -885,6 +885,7 @@ def _blender_output_dir(pm: PathManager, config: Any) -> str:
     ``VectorConfig``       ``visual_exports/sub-<id>/<sim>/vectors``    (vector_field_exporter.py)
     ``MontageConfig``      ``visual_exports/sub-<id>/montage_publication`` (montage_publication.py)
     ``SubcorticalConfig``  ``visual_exports/sub-<id>/sub-cortical``     (subcortical_exporter.py)
+    ``TractConfig``        ``visual_exports/sub-<id>/<sim>/tract``      (tract_publication.py)
 
     An ``output_dir`` already on the config always wins -- montage and sub-cortical both
     accept one, and a caller that set it means it.
@@ -912,6 +913,8 @@ def _blender_output_dir(pm: PathManager, config: Any) -> str:
         return os.path.join(base, sim, "vectors")
     if name == "RegionConfig":
         return os.path.join(base, sim, str(config.format).lower())
+    if name == "TractConfig":
+        return os.path.join(base, sim, "tract")
     return ""
 
 

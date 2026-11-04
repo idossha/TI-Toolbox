@@ -43,7 +43,7 @@ class BlockScience(importlib.abc.MetaPathFinder):
             raise AssertionError('renderer eagerly imported ' + fullname)
 sys.meta_path.insert(0, BlockScience())
 import tit.blender
-from tit.blender import montage_scene, electrode_placement, scene_setup
+from tit.blender import montage_scene, electrode_placement, scene_setup, tract_scene, tract_data
 assert 'run_montage' in tit.blender.__all__
 assert not {'simnibs','scipy','nibabel','bpy'}.intersection(sys.modules)
 """

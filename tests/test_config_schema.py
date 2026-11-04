@@ -63,6 +63,7 @@ from tit.blender.config import (  # noqa: E402
     MontageConfig,
     RegionConfig,
     SubcorticalConfig,
+    TractConfig,
     VectorConfig,
 )
 from tit.stats.nifti_average_config import (  # noqa: E402
@@ -212,6 +213,12 @@ def _sample_instances() -> dict[str, object]:
         ),
         "SubcorticalConfig": SubcorticalConfig(
             subject_id="001", simulation_name="sim1", labels=[10, 49]
+        ),
+        "TractConfig": TractConfig(
+            subject_id="001",
+            simulation_name="sim1",
+            metric="ti_ratio",
+            roi_center_mm=[1.0, 2.0, 3.0],
         ),
         "NiftiAverageConfig": NiftiAverageConfig(
             output_name="responders_vs_non",
