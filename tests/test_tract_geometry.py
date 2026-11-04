@@ -49,6 +49,23 @@ def test_uniform_field_straight_streamline_has_analytic_ti_along():
     assert np.all(m["align"] <= 1 + 1e-12) and np.all(m["ti_max"] >= m["ti_along"])
 
 
+def test_two_pair_mti_uses_every_channel():
+    # K = 2 pairs: E_AM(d) = | |S d| - |D d| |, S/D rows E_ka +/- E_kb (Grossman's form,
+    # the left-hand side of tit.calc.envelope's docstring; the code evaluates the right-hand one)
+    d = np.array([0.0, 0.6, 0.8])
+    line = np.outer(np.linspace(0, 30, 4), d)
+    pts, off, h, t = _resampled([line], 1.0)
+    rng = np.random.default_rng(1)
+    e = rng.normal(size=(4, 3))
+    fields = [np.tile(v, (len(pts), 1)) for v in e]
+    m = geometry.point_metrics(fields, t, off, h)
+    s = np.array([(e[0] + e[1]) @ d, (e[2] + e[3]) @ d])
+    dd = np.array([(e[0] - e[1]) @ d, (e[2] - e[3]) @ d])
+    expected = abs(np.linalg.norm(s) - np.linalg.norm(dd))
+    np.testing.assert_allclose(m["ti_along"], expected, rtol=1e-10)
+    assert m["e_par"].shape == (4, len(pts))
+
+
 def test_helix_tangent_and_curvature_match_closed_form():
     R, c = 10.0, 3.0
     theta = np.linspace(0, 4 * np.pi, 20001)
