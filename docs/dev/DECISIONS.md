@@ -4217,3 +4217,32 @@ one kind still accepted with a missing input: it queued, started and died with a
 that can disagree with argparse); checking every tool's positionals (inputs and outputs are not
 distinguishable without each tool's own parser); a readable error inside the tool (it would still
 queue a job that cannot run).
+
+## 2026-11-04 — White-matter networks: DIPY tractography in m2m world, fields at the containing element
+
+**Decision.** A new module `tit.tract` (ARCHITECTURE §15) adds tractography-defined white-matter
+targets: DIPY whole-brain tracking (single-shell CSD + ACT + probabilistic for QSIPrep DWI; EuDX on
+the DTI V1 when only the m2m tensor exists), endpoint-to-region association by a KD-tree of
+annotation vertices and label-volume voxel centres within 3 mm, TI fields sampled at the
+tetrahedron containing each streamline point, a TRX/JSON/NPZ output contract, and a tract-density
+mask that runs through the existing flex/ex ROI types unchanged. No new dependency: DIPY 1.12.1 and
+trx-python are already in the image. `TractConfig` gets a `_type` discriminator but stays out of
+`CONFIG_CLASS_REGISTRY` until it becomes a job kind, so the generated contract schema is unchanged.
+
+**Why.** The toolbox handled grey-matter ROIs only. The frame chain is the one the DTI extractor
+already uses (exact QSIPrep ACPC -> T1 map, verified to 5e-7 against `DTI_coregT1_qc.json` on CHN),
+and the 8-flip tangent/V1 coherence check makes a wrong gradient frame fail the run (CHN: unflipped
+0.985 median |cos| against 0.87-0.88 for the flips on the 48-voxel block; run 2026-11-04). The
+element lookup is exact for SimNIBS's piecewise-constant field; SPR/linear interpolation is kept
+as the comparison method.
+
+**Alternatives rejected.** Multi-shell CSD (DIPY's needs cvxpy, absent from the image); MRtrix3 or
+TractSeg inside the image (not installed; MRtrix stays the external reference, `tractogram_acpc.tck`
+is written for it); STREAM-4D's code (non-commercial licence, incompatible with GPL-3; its method is
+re-implemented and cited); union-of-vertices association (gives several labels per end, which a
+connectome cannot use); a default stimulation threshold or a designated metric (see the 2026-11-02
+"Field metrics are described" entry); RecoBundles/HCP842 named bundles (a 300 MB download and an
+emulated whole-brain SLR; left for later).
+
+**Revisit if.** cvxpy enters the image (multi-shell CSD), or the module becomes a job kind (register
+the config, regenerate the contract).
