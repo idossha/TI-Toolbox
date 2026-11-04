@@ -752,6 +752,14 @@ class PathManager:
         """
         return os.path.join(self.sub(sid), "forward")
 
+    def tractography(self, sid: str) -> str:
+        """Path to ``derivatives/SimNIBS/sub-{sid}/tractography/``.
+
+        Holds the whole-brain tractogram (``tractogram.trx``, m2m T1 world RAS mm),
+        its ``qc.json`` and the network files :mod:`tit.tract` writes.
+        """
+        return os.path.join(self.sub(sid), "tractography")
+
     def simulations(self, sid: str) -> str:
         """Path to ``Simulations/`` for *sid*."""
         return os.path.join(self.sub(sid), "Simulations")
@@ -857,6 +865,10 @@ class PathManager:
             self.sim_fsaverage(sid, sim),
             f"sub-{sid}_sim-{sim}_space-fsaverage{spacing}_fields.msh",
         )
+
+    def sim_tract(self, sid: str, sim: str) -> str:
+        """Path to a simulation's tract assessment, ``Simulations/{sim}/tract/``."""
+        return os.path.join(self.simulation(sid, sim), "tract")
 
     def ti_mesh(self, sid: str, sim: str) -> str:
         """Path to the TI mesh file (``{sim}_TI.msh``)."""
