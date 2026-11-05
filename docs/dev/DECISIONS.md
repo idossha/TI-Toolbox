@@ -4230,11 +4230,22 @@ trx-python are already in the image. `TractConfig` gets a `_type` discriminator 
 `CONFIG_CLASS_REGISTRY` until it becomes a job kind, so the generated contract schema is unchanged.
 
 **Why.** The toolbox handled grey-matter ROIs only. The frame chain is the one the DTI extractor
-already uses (exact QSIPrep ACPC -> T1 map, verified to 5e-7 against `DTI_coregT1_qc.json` on CHN),
-and the 8-flip tangent/V1 coherence check makes a wrong gradient frame fail the run (CHN: unflipped
-0.985 median |cos| against 0.87-0.88 for the flips on the 48-voxel block; run 2026-11-04). The
-element lookup is exact for SimNIBS's piecewise-constant field; SPR/linear interpolation is kept
-as the comparison method.
+already uses: the QSIPrep ACPC -> T1 map rebuilt here equals the one `DTI_coregT1_qc.json` records
+to 5e-7 (the same code, so only self-consistency); the independent evidence that the map is right
+is that record's own NCC of 0.984 between QSIPrep's ACPC T1 and the m2m T1 under it. The 8-flip
+check makes a wrong frame fail the run: for the csd route the tangent/V1 coherence against the
+tensor's separate b <= 1500 fit (CHN: unflipped 0.985 median |cos| against 0.87-0.88 for the
+flips on the 48-voxel block; run 2026-11-04); for the tensor route, which follows that V1 and so
+cannot be scored against it, the mean streamline length (MRtrix `dwigradcheck`'s criterion).
+Synthetic volumes with a planted direction on LPS, PSR and oblique affines pin the frame code
+(`tests/numerical/test_tract_frames.py`). The element lookup is exact for SimNIBS's
+piecewise-constant field; SPR/linear interpolation is kept as the comparison method. Because that
+field is constant per tetrahedron, the activating function is the derivative of `E . t` smoothed
+over +/- 2 mm (its value otherwise grew as the step shrank: 15, 25, 40 V/m^2 at 1, 0.5, 0.25 mm on
+an ernie bundle, against 11.6, 13.0, 13.1 now). Alignment is reported with its baseline: `ti_avg`
+(the envelope averaged over directions) gives `ti_avg / ti_max`, what `ti_along / ti_max` is for
+a random direction (0.475 on that bundle), and `ti_along / ti_avg` above 1 means more envelope along
+the fibre than along a random direction.
 
 **Alternatives rejected.** Multi-shell CSD (DIPY's needs cvxpy, absent from the image); MRtrix3 or
 TractSeg inside the image (not installed; MRtrix stays the external reference, `tractogram_acpc.tck`
