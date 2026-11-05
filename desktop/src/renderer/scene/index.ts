@@ -10,7 +10,8 @@
  *   1. two translucent triangle surfaces (skin, grey matter),
  *   2. point markers (electrodes; a sphere centre),
  *   3. a highlighted region set on a labelled surface,
- *   4. nothing else.
+ *   4. one-pixel streamlines, one flat colour per edge row, over the head,
+ *   5. nothing else.
  *
  * It exists so a user can *choose*: electrodes on the Simulator, a target on the Optimizer, a
  * verified ROI on the Analyzer. **The scene is a form control, not a viewer** (S1) — one that
@@ -87,6 +88,7 @@ export {
   type ViewAngles,
 } from "./camera";
 export { computeBounds, computeVertexNormals, unionBounds } from "./normals";
+export { parseTvsl1, type Tvsl1 } from "./tvsl";
 export {
   TVSC_FLAG_LABELS,
   TVSC_HEADER_BYTES,
@@ -103,6 +105,7 @@ export {
   PICK_KIND_MARKER,
   PICK_KIND_NONE,
   PICK_KIND_REGION,
+  PICK_KIND_EDGE,
   decodePickId,
   decodePickPixel,
   encodePickId,
@@ -142,4 +145,4 @@ export {
   type PickOptions,
   type PickResult,
 } from "./glScene";
-export type { LegendEntry, Rgb, ScenePart, SceneMarker, ScenePick, SceneStats } from "./types";
+export type { LegendEntry, Rgb, SceneLines, ScenePart, SceneMarker, ScenePick, SceneStats } from "./types";

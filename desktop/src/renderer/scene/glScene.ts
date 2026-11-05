@@ -110,11 +110,11 @@ import {
 } from "./camera";
 import { orientFacesToMajorityLabel } from "./labelFaces";
 import { computeBounds, computeVertexNormals } from "./normals";
-import { decodePickPixel, PICK_KIND_MARKER, PICK_KIND_REGION, type PickTarget } from "./pickId";
+import { decodePickPixel, PICK_KIND_EDGE, PICK_KIND_MARKER, PICK_KIND_REGION, type PickTarget } from "./pickId";
 import { ELECTRODE_MODEL } from "./electrodeModel";
 import { electrodePoses, placeOnScalp, type ElectrodePoses } from "./electrodePose";
 import { ELECTRODE_RADIUS_MM, MARKER_SIZE_PX, SCENE_PALETTE, type ScenePalette } from "./palette";
-import type { ScenePart, SceneMarker, SceneStats } from "./types";
+import type { SceneLines, ScenePart, SceneMarker, SceneStats } from "./types";
 
 /**
  * How far the depth-only pre-pass pushes the surfaces away from the eye before a marker is tested
@@ -370,6 +370,43 @@ void main() {
   if (gl_FragCoord.z <= first + ${SHEET_EPS}) discard;
 }`;
 
+/** The server's budget (`tit/server/routes/tract.py`): one group per requested edge. */
+export const MAX_LINE_GROUPS = 64;
+
+const LINE_VS = `#version 300 es
+in vec3 aPosition;
+in highp uint aGroup;
+uniform mat4 uViewProj;
+flat out highp uint vGroup;
+void main() {
+  vGroup = aGroup;
+  gl_Position = uViewProj * vec4(aPosition, 1.0);
+}`;
+
+const LINE_FS = `#version 300 es
+precision highp float;
+precision highp int;
+flat in highp uint vGroup;
+uniform vec3 uColors[${MAX_LINE_GROUPS}];
+out vec4 outColor;
+void main() {
+  outColor = vec4(uColors[vGroup], 1.0);
+}`;
+
+const LINE_PICK_FS = `#version 300 es
+precision highp float;
+precision highp int;
+flat in highp uint vGroup;
+uniform uint uKind;
+out vec4 outColor;
+void main() {
+  uint id = (uKind << 20) | (vGroup & 1048575u);
+  outColor = vec4(float(id & 255u), float((id >> 8u) & 255u), float((id >> 16u) & 255u), 255.0) / 255.0;
+}`;
+
+/** How far from the cursor a one-pixel line still counts as hit, in CSS pixels. */
+export const LINE_PICK_RADIUS_PX = 4;
+
 const SURFACE_PICK_FS = `#version 300 es
 precision highp float;
 precision highp int;
@@ -624,6 +661,9 @@ export function decodePackedDepth(pixel: Uint8Array | Uint8ClampedArray | number
 export interface PickOptions {
   markers: boolean;
   regions: boolean;
+  /** Lines win over everything under them, within `LINE_PICK_RADIUS_PX` of the cursor: they are
+   *  drawn on top and one pixel wide, so an exact-pixel pick could hardly ever land on one. */
+  lines?: boolean;
   /** Also read back the depth of the winning fragment, so the caller can say *where* on the
    *  surface the click landed. Off for hover (it doubles the readback stall for feedback nobody
    *  acts on); on for a click. */
@@ -661,6 +701,8 @@ export interface GlScene {
   /** Uploads (or re-uploads) the surfaces. Normals are computed here when the part has none. */
   setParts(parts: ScenePart[]): void;
   setMarkers(markers: SceneMarker[]): void;
+  /** Uploads (or, with `null`, removes) the line set, drawn over the surfaces. */
+  setLines(lines: SceneLines | null): void;
   /** Multiplies `MARKER_SIZE_PX` for this scene. 1 is the EEG-net dot; the Simulator's free-hand
    *  placements ask for a little more, because there are eight of them and they carry a name. */
   setMarkerScale(scale: number): void;
@@ -878,6 +920,10 @@ export function createGlScene(
 function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palette: ScenePalette): GlScene {
   let parts: UploadedPart[] = [];
   let markers: SceneMarker[] = [];
+  let lines: SceneLines | null = null;
+  let lineVao: WebGLVertexArrayObject | null = null;
+  let lineBuffers: WebGLBuffer[] = [];
+  let lineIndexCount = 0;
   let markerStates: Uint32Array = new Uint32Array(0);
   let labelStates: Uint8Array = new Uint8Array(LABEL_STATE_SIZE);
   let labelColors: Uint8Array = new Uint8Array(LABEL_STATE_SIZE * 3);
@@ -905,6 +951,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
   let surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
   let markerPrograms = linkMarkerPrograms(gl);
+  let lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uColors"]);
+  let linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uKind"]);
 
   let labelTexture = createLabelTexture(gl);
   let labelColorTexture = createLabelColorTexture(gl);
@@ -1350,6 +1398,59 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     stats.drawCalls += 1;
   }
 
+  /** LINE_STRIP with primitive restart: WebGL2 always restarts on 0xffffffff in a uint index. */
+  function uploadLines(next: SceneLines | null): void {
+    if (lineVao) gl.deleteVertexArray(lineVao);
+    for (const buffer of lineBuffers) gl.deleteBuffer(buffer);
+    lineVao = null;
+    lineBuffers = [];
+    lineIndexCount = 0;
+    if (!next || next.groups.length === 0) return;
+    const points = next.positions.length / 3;
+    const count = next.groups.length;
+    const perVertex = new Uint32Array(points);
+    const indices = new Uint32Array(points + count);
+    let at = 0;
+    for (let s = 0; s < count; s += 1) {
+      const from = next.offsets[s] as number;
+      const to = next.offsets[s + 1] as number;
+      for (let p = from; p < to; p += 1) {
+        perVertex[p] = next.groups[s] as number;
+        indices[at] = p;
+        at += 1;
+      }
+      indices[at] = 0xffffffff;
+      at += 1;
+    }
+    lineVao = gl.createVertexArray();
+    gl.bindVertexArray(lineVao);
+    const position = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, position);
+    gl.bufferData(gl.ARRAY_BUFFER, asBufferSource(next.positions), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    const group = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, group);
+    gl.bufferData(gl.ARRAY_BUFFER, asBufferSource(perVertex), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribIPointer(1, 1, gl.UNSIGNED_INT, 0, 0);
+    const element = gl.createBuffer();
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, element);
+    gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, asBufferSource(indices), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+    lineBuffers = [position, group, element];
+    lineIndexCount = indices.length;
+  }
+
+  /** Drawn over the anatomy: a streamline runs inside the opaque cortex, so a depth-tested line
+   *  would hide exactly what the pane is showing. Only the draw; the caller set the program. */
+  function drawLines(): void {
+    gl.bindVertexArray(lineVao);
+    gl.drawElements(gl.LINE_STRIP, lineIndexCount, gl.UNSIGNED_INT, 0);
+    stats.drawCalls += 1;
+  }
+
   /** Texture units, fixed so no pass has to remember what another one bound. */
   const UNIT_LABEL_STATE = 0;
   const UNIT_LABEL_COLOR = 1;
@@ -1523,6 +1624,11 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
     gl,
     loseContextExtension,
     stats,
+
+    setLines(next) {
+      lines = next;
+      uploadLines(next);
+    },
 
     setParts(next) {
       for (const uploaded of parts) {
@@ -1727,6 +1833,20 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, drawWidth, drawHeight);
 
+      // Lines go over the head, before anything decides what the markers may cover.
+      if (lineVao && lines) {
+        gl.disable(gl.BLEND);
+        gl.disable(gl.DEPTH_TEST);
+        gl.useProgram(lineProgram.program);
+        setUniformMatrix(lineProgram, "uViewProj", vp);
+        const colors = new Float32Array(MAX_LINE_GROUPS * 3);
+        lines.colors.slice(0, MAX_LINE_GROUPS).forEach((color, i) => colors.set(color, i * 3));
+        gl.uniform3fv(lineProgram.uniforms.uColors as WebGLUniformLocation, colors);
+        drawLines();
+        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+      }
+
       // 3. depth-only pre-pass: no colour, depth on, both faces, pushed away from the eye. The head
       //    is already composited, so this only decides what the markers are allowed to cover. It is
       //    skipped for markers that are not meant to be occluded (`setMarkerOcclusion`), which
@@ -1799,6 +1919,45 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       // left in the same texels. That would resolve as "you clicked the electrode you clicked last
       // time it was in front of the head".
       gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (options.lines && lineVao) {
+        const radius = Math.ceil(LINE_PICK_RADIUS_PX * devicePixelRatioValue);
+        const x0 = Math.max(0, devX - radius);
+        const y0 = Math.max(0, readY - radius);
+        const width = Math.min(drawWidth - x0, devX + radius + 1 - x0);
+        const height = Math.min(drawHeight - y0, readY + radius + 1 - y0);
+        gl.scissor(x0, y0, width, height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.disable(gl.DEPTH_TEST);
+        gl.useProgram(linePickProgram.program);
+        setUniformMatrix(linePickProgram, "uViewProj", matrices.vp);
+        gl.uniform1ui(linePickProgram.uniforms.uKind as WebGLUniformLocation, PICK_KIND_EDGE);
+        drawLines();
+        gl.enable(gl.DEPTH_TEST);
+        const box = new Uint8Array(width * height * 4);
+        gl.readPixels(x0, y0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, box);
+        let best: PickTarget | null = null;
+        let bestDistance = Infinity;
+        for (let j = 0; j < height; j += 1) {
+          for (let i = 0; i < width; i += 1) {
+            const at = (j * width + i) * 4;
+            const distance = (x0 + i - devX) ** 2 + (y0 + j - readY) ** 2;
+            if (distance >= bestDistance) continue;
+            const target = decodePickPixel(box.subarray(at, at + 3));
+            if (target) {
+              best = target;
+              bestDistance = distance;
+            }
+          }
+        }
+        if (best) {
+          gl.bindVertexArray(null);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.disable(gl.SCISSOR_TEST);
+          return { target: best, ndcDepth: null };
+        }
+        gl.scissor(Math.max(0, devX - 1), Math.max(0, readY - 1), 3, 3);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      }
       drawPickSequence(matrices, options, surfacePickProgram, markerPrograms.pick);
       gl.readPixels(devX, readY, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
       const target = decodePickPixel(pixel);
@@ -1872,6 +2031,10 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
       surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
       markerPrograms = linkMarkerPrograms(gl);
+      lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uColors"]);
+      linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uKind"]);
+      lineVao = null;
+      lineBuffers = [];
       labelTexture = createLabelTexture(gl);
       labelColorTexture = createLabelColorTexture(gl);
       sheets = createSheetTargets(gl, drawWidth, drawHeight);
@@ -1886,6 +2049,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       posedFor = null;
       markerBuffers = [];
       scene.setParts(sourceParts);
+      uploadLines(lines);
       const savedStates = markerStates;
       scene.setMarkers(markers);
       if (savedStates.length === markers.length) scene.setMarkerStates(savedStates);
@@ -2014,4 +2178,4 @@ export function buildLabelStates(
   return states;
 }
 
-export { PICK_KIND_MARKER, PICK_KIND_REGION };
+export { PICK_KIND_EDGE, PICK_KIND_MARKER, PICK_KIND_REGION };

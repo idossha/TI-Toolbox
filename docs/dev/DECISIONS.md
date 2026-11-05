@@ -4406,3 +4406,20 @@ cold build per network, not one per selection.
 projects); edge ids on the wire (they renumber on rebuild); a cache per edge list (each new selection
 would rebuild); field-weighted subsampling for the pane (it would favour a metric); a streaming POST
 for masks (a held request is fine for one explicit, sub-minute action).
+
+## 2026-11-05 — The run-page pane draws streamlines as flat-coloured lines over the head
+
+**Decision.** `renderer/scene` gains one line pass (`setLines`, `TVSL1`, pick kind 3): one device
+pixel, no depth test, one colour per edge row. A pick within 4 CSS px of a line wins. Pinned by
+`desktop/tests/e2e/scene-lines.spec.ts` (midpoint pixels equal the swatches, picks return each group),
+`desktop/tests/unit/tvsl.test.ts` and `desktop/tests/unit/network-target.test.ts`.
+
+**Why.** Choosing edges needs to see them, and the pane is already where targets are chosen. Colour
+by row keeps decision S1 (no colormaps and no field overlays on the panes): the swatch names a table
+row, not a value.
+
+**Alternatives rejected.** A depth-tested line (the cortex is opaque and hides almost all of them);
+ribbons or tubes (TetraVox and Blender own display quality; this is a form control); an exact-pixel
+line pick (a one-pixel target is not clickable); per-streamline colour from a metric (a viewer's job,
+and it would favour that metric while a target is being chosen).
+

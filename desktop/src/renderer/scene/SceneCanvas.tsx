@@ -62,7 +62,7 @@ import {
   type SceneMode,
   type SceneSelection,
 } from "./selection";
-import type { LegendEntry, ScenePart, SceneMarker, ScenePick, SceneStats } from "./types";
+import type { LegendEntry, SceneLines, ScenePart, SceneMarker, ScenePick, SceneStats } from "./types";
 import "./scene.css";
 
 /**
@@ -117,6 +117,10 @@ export interface SceneDebugHandle {
    * colour model of the shader. `null` when there is no renderer or no camera yet.
    */
   samplePixels(points: Array<[number, number]>, withMarkers?: boolean): number[][] | null;
+  /** What a click at each canvas CSS point would hit — a region, a marker or an edge. */
+  samplePicks(points: Array<[number, number]>): Array<PickTarget | null>;
+  /** The line set this canvas was given, by count. */
+  lines: { streamlines: number; points: number; groups: number } | null;
   /**
    * The region id under each canvas CSS point, `null` where no labelled surface was hit.
    *
@@ -154,6 +158,8 @@ export interface SceneCanvasProps {
   parts: ScenePart[];
   /** Memoise this too. */
   markers?: SceneMarker[];
+  /** Memoise this too. Lines over the head, one colour per group; a click on one reports its group. */
+  lines?: SceneLines | null;
   /** Subject-space displacement annotations, projected with the same orbit camera. */
   connections?: { from: Vec3; to: Vec3; label: string }[];
   /**
@@ -285,6 +291,7 @@ export function SceneCanvas({
   mode,
   parts,
   markers: markersProp,
+  lines = null,
   connections,
   markersOccluded = true,
   markerScale,
@@ -753,6 +760,11 @@ export function SceneCanvas({
     requestFrame();
   }, [parts, requestFrame, webgl2]);
 
+  useEffect(() => {
+    sceneRef.current?.setLines(lines);
+    requestFrame();
+  }, [lines, requestFrame, webgl2]);
+
   // Before the markers effect: a marker set that is not occluded (placement dots, sphere centres)
   // is never posed on the skin, so the first upload must already know which kind it is.
   useEffect(() => {
@@ -865,11 +877,12 @@ export function SceneCanvas({
       return scene.pick(x, y, camera, {
         markers: isPickable(rules, "marker"),
         regions: isPickable(rules, "region"),
+        lines: lines !== null,
         depth,
         allSurfaces: pickAnySurface,
       });
     },
-    [rules, pickAnySurface],
+    [rules, pickAnySurface, lines],
   );
 
   const applyPick = useCallback(
@@ -1111,6 +1124,12 @@ export function SceneCanvas({
         // Plain arrays, not typed ones: this crosses Playwright's structured clone, which turns a
         // `Uint8Array` into `{"0":…}` and makes every assertion read like a puzzle.
         return read ? read.map((rgba) => Array.from(rgba)) : null;
+      },
+      samplePicks(points) {
+        return points.map(([x, y]) => pickAt(x, y)?.target ?? null);
+      },
+      get lines() {
+        return lines ? { streamlines: lines.groups.length, points: lines.positions.length / 3, groups: lines.colors.length } : null;
       },
       sampleRegions(points) {
         return points.map(([x, y]) => {

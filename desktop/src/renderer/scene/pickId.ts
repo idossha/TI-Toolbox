@@ -14,8 +14,9 @@
  *
  * ## Layout of the 24 bits
  * ```
- *  bits 23..20  kind   1 = marker, 2 = region   (0 = background, i.e. "nothing")
- *  bits 19..0   index  the marker's position in the markers array, or the region's label id
+ *  bits 23..20  kind   1 = marker, 2 = region, 3 = edge   (0 = background, i.e. "nothing")
+ *  bits 19..0   index  the marker's position in the markers array, the region's label id, or the
+ *                      line group's position in the page's edge list
  * ```
  * Background is exactly zero, which is what `gl.clearColor(0, 0, 0, 0)` writes, so "the user
  * clicked empty space" needs no sentinel of its own. Region label 0 (`unknown` in every FreeSurfer
@@ -26,20 +27,21 @@
 export const PICK_KIND_NONE = 0;
 export const PICK_KIND_MARKER = 1;
 export const PICK_KIND_REGION = 2;
+export const PICK_KIND_EDGE = 3;
 
 /** 2^20 - 1. More markers than any EEG net (256) and more regions than any atlas (HCP_MMP1 has
  *  360 per hemisphere) by three orders of magnitude. */
 export const PICK_INDEX_MAX = 0xfffff;
 
-export type PickKind = "marker" | "region";
+export type PickKind = "marker" | "region" | "edge";
 
 export interface PickTarget {
   kind: PickKind;
-  /** Marker: its index in the markers array. Region: the atlas label id. */
+  /** Marker: its index in the markers array. Region: the atlas label id. Edge: its line group. */
   index: number;
 }
 
-const KIND_TO_CODE: Record<PickKind, number> = { marker: PICK_KIND_MARKER, region: PICK_KIND_REGION };
+const KIND_TO_CODE: Record<PickKind, number> = { marker: PICK_KIND_MARKER, region: PICK_KIND_REGION, edge: PICK_KIND_EDGE };
 
 /** Packs a target into the 24-bit id the shaders write. Throws rather than truncating: a silently
  *  wrapped index picks a *different, existing* marker, which is a bug that looks like a UI mistake
@@ -58,6 +60,7 @@ export function decodePickId(id: number): PickTarget | null {
   const index = id & PICK_INDEX_MAX;
   if (kind === PICK_KIND_MARKER) return { kind: "marker", index };
   if (kind === PICK_KIND_REGION) return { kind: "region", index };
+  if (kind === PICK_KIND_EDGE) return { kind: "edge", index };
   return null;
 }
 

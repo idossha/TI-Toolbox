@@ -85,6 +85,8 @@ export function selectionReducer(
         // already empty.
         return state.markers.length === 0 && state.regions.length === 0 ? state : { markers: [], regions: [] };
       }
+      // An edge belongs to the page's own list: the pane reports it and holds nothing.
+      if (action.target.kind === "edge") return state;
       if (action.target.kind === "marker") {
         const markers = toggle(state.markers, action.target.index, rules.markers, rules.maxMarkers);
         return markers === state.markers ? state : { ...state, markers };
@@ -93,6 +95,7 @@ export function selectionReducer(
       return regions === state.regions ? state : { ...state, regions };
     }
     case "set": {
+      if (action.kind === "edge") return state;
       if (action.kind === "marker") {
         const markers = capped(action.ids, rules.markers, rules.maxMarkers);
         return sameList(markers, state.markers) ? state : { ...state, markers };
@@ -102,6 +105,7 @@ export function selectionReducer(
     }
     case "clear": {
       if (action.kind === "marker") return state.markers.length === 0 ? state : { ...state, markers: [] };
+      if (action.kind === "edge") return state;
       if (action.kind === "region") return state.regions.length === 0 ? state : { ...state, regions: [] };
       return state.markers.length === 0 && state.regions.length === 0 ? state : { markers: [], regions: [] };
     }
@@ -116,7 +120,7 @@ function sameList(a: number[], b: number[]): boolean {
 
 /** True when `target` is currently selected — the shading and the legend both ask this. */
 export function isSelected(state: SceneSelection, target: PickTarget | null): boolean {
-  if (!target) return false;
+  if (!target || target.kind === "edge") return false;
   const list = target.kind === "marker" ? state.markers : state.regions;
   return list.includes(target.index);
 }
@@ -124,6 +128,7 @@ export function isSelected(state: SceneSelection, target: PickTarget | null): bo
 /** Whether a mode lets a kind be picked at all. The GL pick pass skips a kind that is not
  *  pickable, so a read-only `inspect` pane cannot even report a region under the cursor. */
 export function isPickable(rules: SelectionRules, kind: PickKind): boolean {
+  if (kind === "edge") return false; // the page's line list decides, not the mode (`SceneLines`)
   return (kind === "marker" ? rules.markers : rules.regions) !== "none";
 }
 
