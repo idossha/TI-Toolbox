@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -119,13 +119,16 @@ test("the thalamocortical sequence exports both bundles and starts rendering fro
   test.setTimeout(60 * 60_000);
   await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
   await shot("06-networks-sequence-options");
+  const started = Date.now();
   const id = await submit();
   const scene = join(PROJECT_HOST!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, SIMULATION!, "tract", "tract_scene");
+  // This job's files, not those of an earlier run in the same folder (2 s for filesystem mtime grain).
+  const written = (path: string) => statSync(path, { throwIfNoEntry: false }) !== undefined && statSync(path).mtimeMs >= started - 2_000;
   try {
-    await expect.poll(() => existsSync(join(scene, "posterior", "manifest.json")) && existsSync(join(scene, "frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
+    await expect.poll(() => written(join(scene, "posterior", "manifest.json")) && written(join(scene, "frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
     // The scene is built and the first frames are on their way once the dot-prefixed movie is open.
     const tract = join(scene, "..");
-    await expect.poll(() => readdirSync(tract).some((name) => name.startsWith(".") && name.includes("thalamocortical_sequence")), { timeout: 15 * 60_000, intervals: [5_000] }).toBe(true);
+    await expect.poll(() => readdirSync(tract).some((name) => name.startsWith(".") && name.includes("thalamocortical_sequence") && written(join(tract, name))), { timeout: 15 * 60_000, intervals: [5_000] }).toBe(true);
     await page.getByRole("radio", { name: "Terminal" }).or(page.getByRole("tab", { name: "Terminal" })).first().click();
     await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toContainText("running");
     await shot("07-networks-sequence-rendering");
