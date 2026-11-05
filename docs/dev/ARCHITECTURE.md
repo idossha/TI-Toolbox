@@ -1347,7 +1347,12 @@ the whole tractogram), on a central 48-voxel block per flip; for the tensor rout
 that eigenvector, the mean streamline length per flip (`dwigradcheck`'s criterion). The csd
 route's ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
 pallidum, hippocampus, amygdala, accumbens) as grey matter, since charm's tissue map calls the
-pallidum WM. No home-grown tracking, no MRtrix3/FSL/ANTs.
+pallidum WM, and treats brain-stem, cerebellar-WM and spinal-cord voxels that have no fitted
+fibre orientation (below the DWI brain mask) as a valid end: MRtrix ACT's convention for the
+inferior exit, without which DIPY drops corticospinal streamlines that run out of the mask while
+still tracking. A streamline that ends in CSF is still rejected. The csd tracker is DIPY's
+probabilistic one (`algorithm: "ptt"` selects parallel transport tractography); `max_angle` and
+`pmf_threshold` are config fields. No home-grown tracking, no MRtrix3/FSL/ANTs.
 
 **Endpoints are matched to the nearest labelled point within a radius.** A KD-tree holds the
 subject's annotation labels on an m2m surface (`segmentation/{lh,rh}.*_<atlas>.annot`, default
@@ -1384,9 +1389,11 @@ simulation's `Simulations/<sim>/tract/` holds, per selection, `<name>.trx` (resa
 space) with data_per_vertex `ti_along`, `ti_max`, `ti_avg`, `e1_par`, `e2_par` (`e<2K>_par` for
 mTI; float32, V/m) and data_per_streamline `length_mm`, `ti_along_max`, `ti_along_mean`, `edge_id`
 (int, -1 = unassigned); `edges.json` (every edge: `region_a`, `region_b`, `n_streamlines`,
-median/p5/p95 summaries); `connectome_<metric>.npz` (`matrix`, `labels`, `definition`) for `count`,
+`share`, median/IQR/p5/p95 summaries); `connectome_<metric>.npz` (`matrix`, `labels`, `definition`) for `count`,
 `ti_along_mean`, `ti_along_max`; `summary.json` (bundles, and `top_edges` among edges with at least
-`min_streamlines`, default 5, each with its count); `streamline_metrics.npz` (every per-streamline
+`min_streamlines`, default 5, each with its count, its share of the assigned streamlines and the
+IQR of its streamlines' mean `ti_along`, because edge rankings depend on the tractography tool while
+bundle-level values agree across tools); `streamline_metrics.npz` (every per-streamline
 metric, keyed by `tractogram_index`); and `profiles.npz` (per-edge node medians, node 0 at
 `region_a`). Edges, connectomes and per-streamline metrics cover every streamline whatever the
 selections. Edges are unordered region pairs numbered by descending streamline count; counts are

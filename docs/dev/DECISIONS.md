@@ -4257,3 +4257,28 @@ emulated whole-brain SLR; left for later).
 
 **Revisit if.** cvxpy enters the image (multi-shell CSD), or the module becomes a job kind (register
 the config, regenerate the contract).
+
+## 2026-11-05 — DIPY ACT accepts the inferior brain-stem exit
+
+**Decision.** `tit.tract`'s csd route marks brain-stem, cerebellar-WM and spinal-cord voxels
+(label volume 16, 7, 46, charm 512) that have no fitted fibre orientation as a valid ACT end
+(`tracking.inferior_exit`, ARCHITECTURE §15). Ending in CSF stays invalid. Pinned by
+`tests/numerical/test_tract_frames.py::test_act_keeps_a_tract_leaving_the_mask_through_the_brain_stem_only`.
+
+**Why.** The DIPY-vs-MRtrix3 comparison found almost no corticospinal streamlines in CHN's DIPY
+tractogram. Read back with `return_all` (2026-11-05): the DWI brain mask, and so the FOD, stops at
+z -62 mm ACPC inside charm's spinal cord, which charm calls WM; descending streamlines stopped
+there with no direction, and DIPY's ACT dropped them (no kept streamline reached below -55 mm).
+MRtrix ACT accepts streamlines that leave this way. With the exit, on the comparison agent's own
+measures (`validation/v1_compare/scripts/12_brainstem_check.py`, re-typed): cortex to lower brain
+stem 0.005 % to 0.46 % of streamlines, entering the brain stem 3.1 % to 5.0 %, and 37 % of those
+end within 5 mm of its bottom (0 % before); MRtrix iFOD2 with ACT on a 5TT from the same charm
+tissues gives 0.54 %, 10.2 % and 24 %.
+
+**Alternatives rejected.** Treating every WM voxel outside the DWI mask as a valid end (accepts
+streamlines cut off at susceptibility drop-outs anywhere); `return_all=True` for the tractogram
+(keeps streamlines ending in CSF); particle-filtering tractography (backtracking; heavier, and the
+missing streamlines were not CSF endings). Changing the tracker defaults for tortuosity: on CHN,
+probabilistic max_angle 20 / pmf 0.2 raises mean |t . V1| from 0.878 to 0.905 but keeps 32 % fewer
+streamlines, and PTT (now `algorithm: "ptt"`) gives 0.890 at 4.4x the run time; not enough to
+change the default.
