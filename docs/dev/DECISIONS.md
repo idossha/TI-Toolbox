@@ -4409,3 +4409,6 @@ stay `web: false, connectome: false` there because the tab shows PNG and MP4 fil
 samples, `docker run` of `idossha/ti-toolbox:v3.1.3` against the bundles in
 `tract_network_dev/renders/CHN_thalamus_TC`): 76 s including the scene build in Blender 4.4.3 under
 amd64 emulation, against about 2.3 s per frame in a host Blender 5.1, with the same picture by eye.
+Through the app in the same emulated image: a 960x640 oblique still of `cst_lh` (103 streamlines) in
+53 s and its 48-frame preview turntable in 8.9 min. The app's sequence bundles re-rendered as a preview
+(216 frames, 36 s at 6 fps) in 87 s in the host Blender.

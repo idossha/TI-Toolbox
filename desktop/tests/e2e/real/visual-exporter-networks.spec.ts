@@ -1,8 +1,8 @@
-import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, setServerPanels } from "../_helpers";
+import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, setServerPanels, waitForJobTerminal } from "../_helpers";
 
 /**
  * The Visual exporter's Networks tab against a real server: from the tab, a low-resolution still and
@@ -15,7 +15,7 @@ import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, 
  * minutes for the turntable. What the pictures show is judged by eye from the screenshots.
  *
  * With TIT_E2E_PROJECT_HOST set, a third test submits the thalamocortical sequence, waits for its two
- * bundles and for Blender's first frame, and cancels: its whole render takes many hours emulated.
+ * bundles and for Blender to open its movie, and cancels: its whole render takes hours emulated.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -36,12 +36,6 @@ async function shot(name: string): Promise<void> {
   await page.screenshot({ path: join(SHOTS, `${name}.png`) });
 }
 
-async function apiGet(path: string): Promise<unknown> {
-  const res = await fetch(`${SERVER_URL}${path}`, { headers: { authorization: `Bearer ${TOKEN}` } });
-  expect(res.status, path).toBe(200);
-  return res.json();
-}
-
 /** Run, confirming the replace dialog if earlier renders exist; returns the accepted job's id. */
 async function submit(): Promise<string> {
   const request = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
@@ -59,15 +53,9 @@ async function submit(): Promise<string> {
 
 /** Run and wait for the job to succeed. */
 async function runAndWait(minutes: number): Promise<void> {
-  const job = { id: await submit() };
-  const deadline = Date.now() + minutes * 60_000;
-  for (;;) {
-    const status = (await apiGet(`/api/jobs/${job.id}`)) as { state: string; error?: string };
-    if (status.state === "succeeded") return;
-    expect(["queued", "running", "pending"], `job ${job.id}: ${status.error ?? ""}`).toContain(status.state);
-    expect(Date.now(), `job ${job.id} still ${status.state}`).toBeLessThan(deadline);
-    await page.waitForTimeout(10_000);
-  }
+  const jobId = await submit();
+  const job = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId, timeoutMs: minutes * 60_000, pollMs: 10_000 });
+  expect(job.state, `job ${jobId}`).toBe("succeeded");
 }
 
 test.beforeAll(async () => {
@@ -78,6 +66,9 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1600, height: 1000 });
   await connectReal(page, { url: SERVER_URL, token: TOKEN });
+  // A project without the example subjects is offered them on opening.
+  const offer = page.getByRole("dialog", { name: "Add example data?" });
+  await offer.waitFor({ timeout: 10_000 }).then(() => offer.getByRole("button", { name: "Close dialog" }).click(), () => undefined);
   await gotoPage(page, "panel-visual-exporter", "3D visual exporter");
   await expectPage(page, "panel-visual-exporter");
   await page.locator("#ve-subject").click();
@@ -132,8 +123,11 @@ test("the thalamocortical sequence exports both bundles and starts rendering fro
   const scene = join(PROJECT_HOST!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, SIMULATION!, "tract", "tract_scene");
   try {
     await expect.poll(() => existsSync(join(scene, "posterior", "manifest.json")) && existsSync(join(scene, "frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
+    // The scene is built and the first frames are on their way once the dot-prefixed movie is open.
+    const tract = join(scene, "..");
+    await expect.poll(() => readdirSync(tract).some((name) => name.startsWith(".") && name.includes("thalamocortical_sequence")), { timeout: 15 * 60_000, intervals: [5_000] }).toBe(true);
     await page.getByRole("radio", { name: "Terminal" }).or(page.getByRole("tab", { name: "Terminal" })).first().click();
-    await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toContainText(/Fra:\s*\d+/, { timeout: 15 * 60_000 });
+    await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toContainText("running");
     await shot("07-networks-sequence-rendering");
   } finally {
     await fetch(`${SERVER_URL}/api/jobs/${id}/cancel`, { method: "POST", headers: { authorization: `Bearer ${TOKEN}` } });
