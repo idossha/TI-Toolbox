@@ -438,6 +438,13 @@ def _context_material():
     return mat
 
 
+def labels_for_view(labels, view: str, side: float) -> list[dict]:
+    """The labels a view may name: a side view faces one hemisphere, and midline regions."""
+    if view in ("superior", "posterior"):
+        return list(labels)
+    return [label for label in labels if label.get("hemi", 0) in (0, side)]
+
+
 def place_labels(
     scene, camera, overlay, labels, hh: float, material, *, edge: float = 0.45
 ) -> None:
@@ -1113,6 +1120,7 @@ def render_stills(manifest, base, out_dir) -> list[str]:
         "lateral": ((side, 0.0, 0.0), (0, 0, 1)),
         "superior": ((0.0, 0.0, 1.0), (0, 1, 0)),
         "oblique": ((side * 0.78, 0.5, 0.38), (0, 0, 1)),
+        "posterior": ((0.0, -1.0, 0.0), (0, 0, 1)),
     }
     if manifest.get("views"):  # a subset, e.g. one quick check view
         views = {k: views[k] for k in manifest["views"]}
@@ -1127,11 +1135,15 @@ def render_stills(manifest, base, out_dir) -> list[str]:
             bar=not manifest.get("bare"),  # the direction key needs the column too
         )
         fit_overlay(overlay, camera, 10.0)
+        labels = manifest.get("labels") or []
+        named = labels_for_view(labels, view, side)
+        for i, label in enumerate(labels):
+            bpy.data.objects[f"RegionPoint{i}"].hide_render = label not in named
         place_labels(
             scene,
             camera,
             overlay,
-            manifest.get("labels") or [],
+            named,
             size[1] / size[0],
             label_material,
             edge=0.62 if manifest.get("bare") else 0.45,

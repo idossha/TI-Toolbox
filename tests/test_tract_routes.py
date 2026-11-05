@@ -808,3 +808,232 @@ def test_a_preprocess_group_runs_tractography_over_existing_output_under_its_pol
     detail = client.get(f"/api/jobs/{job['id']}").json()
     assert detail["spec"]["config"]["track"]["overwrite"] is replaces
     client.post(f"/api/jobs/{job['id']}/cancel")
+
+
+# ---- presets, connections, what a network's outputs replace (2026-11-05) ------------------------
+
+
+def test_presets_answer_for_every_set_and_say_why_one_cannot_be_chosen(
+    client: TestClient,
+) -> None:
+    presets = {
+        p["id"]: p
+        for p in client.get("/api/tract/presets", params={"subject": "S1"}).json()[
+            "presets"
+        ]
+    }
+    # NAMES above: only lh.precentral of the posterior or frontal parcels; 2 + 6 streamlines.
+    frontal = presets["frontal_thalamocortical"]
+    assert frontal["pairs"] == [["lh.precentral", "Left-Thalamus-Proper"]]
+    assert frontal["n_streamlines"] == 2
+    assert frontal["same_side"] is True
+    assert presets["precentral_brainstem"]["n_streamlines"] == 6
+    assert presets["posterior_thalamocortical"]["reason"].startswith(
+        "These labels are not in this network"
+    )
+    insular = presets["insular_cortical"]
+    assert insular["same_side"] is False
+    assert insular["pairs"] == []
+    assert insular["reason"] == "0 streamlines join these regions in this network."
+
+
+def test_presets_of_a_subject_with_no_network_say_what_to_run(
+    client: TestClient, project: Path
+) -> None:
+    (tract_dir(project) / "network.npz").unlink()
+    response = client.get("/api/tract/presets", params={"subject": "S1"})
+    assert response.status_code == 404
+    assert "Run Tractography" in response.json()["detail"]
+
+
+def _assessed_edges(project: Path) -> Path:
+    out = project / "derivatives/SimNIBS/sub-S1/Simulations/sim1/tract"
+    out.mkdir(parents=True)
+    median = lambda value: {"median": value}  # noqa: E731
+    (out / "edges.json").write_text(
+        json.dumps(
+            {
+                "0": {
+                    "region_a": "lh.precentral",
+                    "region_b": "Brain-Stem",
+                    "n_streamlines": 6,
+                    "ti_along_mean": median(0.1),
+                    "ti_max_mean": median(0.2),
+                    "ti_avg_mean": median(0.15),
+                    "align_index": median(0.66),
+                }
+            }
+        )
+    )
+    return out
+
+
+def test_connections_give_the_medians_of_an_assessed_simulation(
+    client: TestClient, project: Path
+) -> None:
+    query = {"subject": "S1", "simulation": "sim1"}
+    assert client.get("/api/tract/connections", params=query).status_code == 404
+    _assessed_edges(project)
+    rows = client.get("/api/tract/connections", params=query).json()["connections"]
+    assert rows == [
+        {
+            "region_a": "lh.precentral",
+            "region_b": "Brain-Stem",
+            "n": 6,
+            "ti_along_mean": 0.1,
+            "ti_max_mean": 0.2,
+            "ti_avg_mean": 0.15,
+            "align_index": 0.66,
+        }
+    ]
+
+
+@pytest.mark.parametrize("simulation", ["../sim1", "nothing"])
+def test_connections_refuse_a_simulation_this_subject_does_not_have(
+    client: TestClient, simulation: str
+) -> None:
+    response = client.get(
+        "/api/tract/connections", params={"subject": "S1", "simulation": simulation}
+    )
+    assert response.status_code == 404
+
+
+def _assess(selections) -> dict:
+    return {
+        "_type": "TractConfig",
+        "subject_id": "S1",
+        "stages": ["assess"],
+        "assess": {"simulations": ["sim1"], "selections": selections},
+    }
+
+
+def _plan_replaces(client: TestClient, kind: str, config: dict) -> list[bool]:
+    body = client.post(
+        f"/api/plan/{kind}", json={"config": config, "subject_ids": ["S1"]}
+    ).json()
+    return [job["will_overwrite"] for job in body["jobs"]]
+
+
+def test_assessing_another_network_replaces_nothing_and_the_same_name_does(
+    client: TestClient, project: Path
+) -> None:
+    out = _assessed_edges(project)
+    pair = {"name": "a", "kind": "edges", "pairs": [["lh.precentral", "Brain-Stem"]]}
+    assert _plan_replaces(client, "tract", _assess([pair])) == [False]
+    (out / "a.trx").write_bytes(b"trx")
+    assert _plan_replaces(client, "tract", _assess([pair])) == [True]
+    other = {**pair, "name": "b"}
+    assert _plan_replaces(client, "tract", _assess([other])) == [False]
+    # With no selection the edge table is the job's whole output.
+    assert _plan_replaces(client, "tract", _assess([])) == [True]
+
+
+def _render(name: str, metric: str = "ti_max") -> dict:
+    return {
+        "_type": "TractVisualConfig",
+        "subject_id": "S1",
+        "simulation_name": "sim1",
+        "metric": metric,
+        "web": False,
+        "connectome": False,
+        "selection": {
+            "name": name,
+            "kind": "edges",
+            "regions": ["Brain-Stem"],
+            "pairs": [["lh.precentral", "Brain-Stem"]],
+        },
+    }
+
+
+def test_the_plan_of_a_render_says_only_its_own_files_are_replaced(
+    client: TestClient, project: Path
+) -> None:
+    out = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/tract"
+    out.mkdir(parents=True)
+    (
+        out / "S1_sim1_tract_ti_max_lateral.png"
+    ).touch()  # a render from before names held a network
+    (out / "S1_sim1_other_tract_ti_max_lateral.png").touch()
+    assert _plan_replaces(client, "blender", _render("mine")) == [False]
+    (out / "S1_sim1_mine_tract_ti_max_lateral.png").touch()
+    assert _plan_replaces(client, "blender", _render("mine")) == [True]
+    assert _plan_replaces(client, "blender", _render("mine", "direction")) == [False]
+
+
+def test_the_plan_of_a_render_states_its_automatic_setup_from_the_network(
+    client: TestClient,
+) -> None:
+    body = client.post(
+        "/api/plan/blender",
+        json={"config": _render("mine"), "subject_ids": ["S1"]},
+    ).json()
+    setup = body["resolved"]["network_setup"]
+    assert setup["n_streamlines"] == 6  # COUNTS above
+    assert setup["values"]["highlight_regions"] == ["Brain-Stem"]
+    assert (
+        setup["values"]["lateral_side"] == -1
+    )  # 6 ends in lh.precentral, none on the right
+    assert setup["opposite_removed"] is None
+
+
+def test_catalog_records_what_a_bundle_holds_and_that_edges_exist(
+    client: TestClient, project: Path
+) -> None:
+    out = _assessed_edges(project)
+    (out / "a.trx").write_bytes(b"trx")
+    (out / "old.trx").write_bytes(b"trx")
+    (out / "summary.json").write_text(
+        json.dumps(
+            {
+                "bundles": {
+                    "a": {"pairs": [["x", "y"]], "n_selected": 3},
+                    "old": {"selection": "edges", "regions": []},
+                    "gone": {"pairs": [["x", "y"]], "n_selected": 3},
+                }
+            }
+        )
+    )
+    # The route needs its simulation listed, which takes more than this synthetic folder.
+    import unittest.mock as mock
+
+    from tit import catalog
+
+    pm = get_path_manager()
+
+    with (
+        mock.patch.object(catalog, "_simulation_names", return_value=["sim1"]),
+        mock.patch.object(catalog, "subject_ids", return_value=["S1"]),
+    ):
+        answer = catalog.simulation_networks(pm, "S1", "sim1")
+    assert answer["networks"] == ["a", "old"]
+    assert answer["assessed"] == [
+        {"name": "a", "pairs": [["x", "y"]], "n_streamlines": 3}
+    ]
+    assert answer["has_edges"] is True
+
+
+def test_two_jobs_claim_a_network_each_in_one_folder() -> None:
+    from tit.server.overwrite_policy import _named_folders
+
+    class Job:
+        output_dir = "/p/sim/tract"
+
+    render = lambda name: {  # noqa: E731
+        "_type": "TractVisualConfig",
+        "metric": "ti_max",
+        "selection": {"name": name},
+    }
+    assert _named_folders("blender", render("a"), [Job()]) != _named_folders(
+        "blender", render("b"), [Job()]
+    )
+    assess = lambda name: {"assess": {"selections": [{"name": name}]}}  # noqa: E731
+    assert _named_folders("tract", assess("a"), [Job()]) != _named_folders(
+        "tract", assess("b"), [Job()]
+    )
+    assert _named_folders("tract", assess("a"), [Job()]) == _named_folders(
+        "tract", assess("a"), [Job()]
+    )
+    # Anything else claims the folder.
+    assert _named_folders("blender", {"_type": "VectorConfig"}, [Job()]) == {
+        "/p/sim/tract"
+    }

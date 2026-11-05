@@ -189,6 +189,8 @@ EXEMPT: dict[str, str] = {
     "/api/tract/manifest": "needs a network; tests/test_tract_routes.py validates it",
     "/api/tract/edges": "needs a network; tests/test_tract_routes.py validates it",
     "/api/tract/masks": "needs a network; tests/test_tract_routes.py validates it",
+    "/api/tract/presets": "needs a network; tests/test_tract_routes.py validates it",
+    "/api/tract/connections": "needs an assessed simulation; tests/test_tract_routes.py validates it",
     "/api/tract/rankings": "needs a ranking; tests/test_tract_routes.py validates it",
     "/api/scene/manifest": "needs published surfaces; tests/test_scene_routes.py validates it",
     "/api/scene/regions": "needs published labels; tests/test_scene_routes.py validates it",

@@ -66,7 +66,31 @@ def _named_folders(kind: str, config: dict[str, Any], jobs: list[Any]) -> set[st
     field = RUN_FOLDER_FIELD.get(kind)
     if field and not config.get(field):
         return set()
-    return {job.output_dir for job in jobs if job.output_dir}
+    folders = {job.output_dir for job in jobs if job.output_dir}
+    return _network_claims(kind, config, folders)
+
+
+def _network_claims(kind: str, config: dict[str, Any], folders: set[str]) -> set[str]:
+    """One tract folder holds many networks, so a job claims only its own network's files there."""
+    if kind == "blender" and config.get("_type") == "TractVisualConfig":
+        name = (config.get("selection") or {}).get("name") or config.get(
+            "network_bundle"
+        )
+        if name:
+            metric = config.get("metric", "ti_along")
+            return {f"{folder}/{name}_tract_{metric}*" for folder in folders}
+    if kind == "tract" and isinstance(config.get("assess"), dict):
+        names = [s.get("name") for s in config["assess"].get("selections", [{}])]
+        return {
+            claim
+            for folder in folders
+            for claim in (
+                [f"{folder}/{name or 'all'}.trx" for name in names] or [folder]
+                if folder.endswith("/tract")
+                else [folder]
+            )
+        }
+    return folders
 
 
 def refuse_outputs_of_active_jobs(

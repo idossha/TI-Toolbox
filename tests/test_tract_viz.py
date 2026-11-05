@@ -650,8 +650,7 @@ def test_network_statement_reports_streamline_medians(three):
 
     three.dpv["ti_avg"] = (three.dpv["ti_max"] * 0.5).astype(np.float32)
     text = network_statement("Frontal TC", three)
-    sid = three.streamline_id()
-    per = np.bincount(sid, three.dpv["ti_max"], three.n) / three.lengths
+    per = td.arc_length_mean(three, three.dpv["ti_max"])
     assert text.startswith("Frontal TC · n=3 streamlines (all drawn)\n")
     assert f"median TI_max {np.median(per):.3f} V/m" in text
     assert (

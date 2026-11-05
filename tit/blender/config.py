@@ -34,6 +34,10 @@ import os
 import string
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
+
+from tit.blender.network_setup import ALL_VIEWS, validate_overrides
+from tit.tract.config import Selection
 
 # ── Simulation inputs (shared by the runners and tit.jobs.preflight) ─────────
 
@@ -245,6 +249,19 @@ class TractVisualConfig:
         A network by its regions: every streamline whose edge joins a region of
         ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,
         none subsampled. Overrides ``network_bundle`` and the top edges.
+    selection : Selection or None
+        A named network, kind ``"edges"``: the one definition the optimizer's mask and the ranking
+        also use. Its ``<name>.trx`` is read when it exists, else ``all.trx``; ``regions`` holds its
+        seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and
+        outputs carry its name, so networks of one simulation coexist. Replaces every other network
+        field, and the fields ``overrides`` can set.
+    preset : str
+        The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is
+        drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated
+        in the caption and the manifest from it, with their count.
+    overrides : dict
+        With ``selection`` (or one bundle, ``network_top_edges`` 0), the keys of :data:`tit.blender.network_setup.OVERRIDABLE` replacing the
+        automatic value (``iso_shell_percentile: null`` draws no shell).
     highlight_regions : list of str
         Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.
     region_labels : bool
@@ -269,7 +286,8 @@ class TractVisualConfig:
     stills, turntable, propagation, web, connectome : bool
         Which outputs to write.
     views : list of str
-        The stills to render: ``lateral``, ``superior``, ``oblique``. Empty renders all three.
+        The stills to render: ``lateral``, ``superior``, ``oblique``, ``posterior``. Empty renders
+        the first three (with ``selection``, the views :mod:`tit.blender.network_setup` chooses).
     quality : Quality
         ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per
         still; videos 960x540 at 6), for checking a choice before a long render.
@@ -322,6 +340,9 @@ class TractVisualConfig:
     network_from: list[str] = field(default_factory=list)
     network_to: list[str] = field(default_factory=list)
     network_name: str = ""
+    selection: Selection | None = None
+    preset: str = ""
+    overrides: dict[str, Any] = field(default_factory=dict)
     highlight_regions: list[str] = field(default_factory=list)
     region_labels: bool = True
     lateral_side: int = 0
@@ -354,9 +375,26 @@ class TractVisualConfig:
             raise ValueError("simulation_name is required")
         self.metric = TractVisualConfig.Metric(self.metric)
         self.quality = TractVisualConfig.Quality(self.quality)
-        unknown = set(self.views) - {"lateral", "superior", "oblique"}
+        unknown = set(self.views) - set(ALL_VIEWS)
         if unknown:
             raise ValueError(f"unknown views: {sorted(unknown)}")
+        if self.selection is not None:
+            if self.selection.kind != "edges":
+                raise ValueError("selection draws region pairs: kind must be 'edges'")
+            if (
+                self.thalamocortical_sequence
+                or self.network_from
+                or (self.network_bundle or "").strip()
+            ):
+                raise ValueError(
+                    "selection is the network: leave network_from, network_bundle and "
+                    "thalamocortical_sequence empty"
+                )
+        elif self.overrides and not (
+            (self.network_bundle or "").strip() and not self.network_top_edges
+        ):
+            raise ValueError("overrides adjust a selection's automatic setup")
+        validate_overrides(self.overrides)
         if self.thalamocortical_sequence and (
             self.stills
             or self.turntable

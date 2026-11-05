@@ -295,7 +295,13 @@ def assess_simulation(
             summary["profile_median"] = {
                 k: np.median(v, axis=0).round(5).tolist() for k, v in prof.items()
             }
-        bundles[sel.name] = {"selection": sel.kind, "regions": sel.regions, **summary}
+        bundles[sel.name] = {
+            "selection": sel.kind,
+            "regions": sel.regions,
+            "pairs": sel.pairs,
+            "n_selected": int(len(pick)),
+            **summary,
+        }
 
     edges = _edge_records(table, edge_id, pairs, names, cfg.thresholds)
     Path(out_dir, "edges.json").write_text(json.dumps(edges, indent=1) + "\n")
@@ -303,6 +309,18 @@ def assess_simulation(
     _write_edge_profiles(out_dir, off, m, edge_id, cfg.profile_points)
     np.savez_compressed(os.path.join(out_dir, "streamline_metrics.npz"), **table)
 
+    # Assessing one network must not forget another's: its .trx stays, and this is its record.
+    summary_path = Path(out_dir, "summary.json")
+    if summary_path.is_file():
+        earlier = json.loads(summary_path.read_text()).get("bundles") or {}
+        bundles = {
+            **{
+                name: record
+                for name, record in earlier.items()
+                if Path(out_dir, f"{name}.trx").is_file()
+            },
+            **bundles,
+        }
     summary = {
         "subject_id": subject_id,
         "simulation": simulation,
@@ -337,7 +355,7 @@ def assess_simulation(
         "top_edges": top_edges(edges, cfg.min_streamlines),
         "bundles": bundles,
     }
-    Path(out_dir, "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
+    summary_path.write_text(json.dumps(summary, indent=1) + "\n")
     return summary
 
 

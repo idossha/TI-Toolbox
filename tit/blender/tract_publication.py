@@ -27,6 +27,15 @@ from pathlib import Path
 import numpy as np
 
 from tit.blender import tract_data as td
+from tit.blender.network_setup import (
+    ALL_VIEWS,
+    LABEL_MAX_REGIONS,
+    region_hemi,
+    region_words,
+    resolve_network_setup,
+)
+from tit.tract.config import Selection
+from tit.tract.presets import FRONTAL, POSTERIOR, THALAMI, removed_sentence
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +52,8 @@ NETWORK_RADIUS = 0.09
 N_LABELS, N_LIT = 3, 6
 #: Glow of highlighted regions (e.g. both thalami in a named network): soft, not white.
 HIGHLIGHT_LEVEL = 0.4
+#: How far past the midline a same-side streamline must reach to count as crossing it twice.
+MIDLINE_MARGIN_MM = 5.0
 #: Frames of electrode pulse before the fronts leave their peaks.
 FRONT_START_FRAME = 18
 #: Frames the last state is held after the slowest front lands.
@@ -53,38 +64,9 @@ FRONT_MAX_FRAMES = 240
 GLASS_TRIANGLES = 200_000
 SCALP_TRIANGLES = 60_000
 #: The thalamocortical sequence's networks: thalami to DK40 parcels (frontal, then posterior).
-THALAMI = ["Left-Thalamus-Proper", "Right-Thalamus-Proper"]
 THALAMOCORTICAL = {
-    "frontal": (
-        "Frontal thalamocortical network",
-        [
-            "superiorfrontal",
-            "rostralmiddlefrontal",
-            "caudalmiddlefrontal",
-            "parsopercularis",
-            "parstriangularis",
-            "parsorbitalis",
-            "lateralorbitofrontal",
-            "medialorbitofrontal",
-            "frontalpole",
-            "precentral",
-            "paracentral",
-        ],
-    ),
-    "posterior": (
-        "Posterior thalamocortical network",
-        [
-            "superiorparietal",
-            "inferiorparietal",
-            "supramarginal",
-            "postcentral",
-            "precuneus",
-            "lateraloccipital",
-            "lingual",
-            "cuneus",
-            "pericalcarine",
-        ],
-    ),
+    "frontal": ("Frontal thalamocortical network", FRONTAL),
+    "posterior": ("Posterior thalamocortical network", POSTERIOR),
 }
 
 
@@ -268,48 +250,14 @@ def bundle_statement(name: str, n: int, summary: dict) -> str:
     return text
 
 
-#: DK40 parcel names as words, for on-screen labels.
-DK40_WORDS = {
-    "superiorfrontal": "superior frontal",
-    "rostralmiddlefrontal": "rostral middle frontal",
-    "caudalmiddlefrontal": "caudal middle frontal",
-    "parsopercularis": "pars opercularis",
-    "parstriangularis": "pars triangularis",
-    "parsorbitalis": "pars orbitalis",
-    "lateralorbitofrontal": "lateral orbitofrontal",
-    "medialorbitofrontal": "medial orbitofrontal",
-    "frontalpole": "frontal pole",
-    "precentral": "precentral",
-    "paracentral": "paracentral",
-    "superiorparietal": "superior parietal",
-    "inferiorparietal": "inferior parietal",
-    "supramarginal": "supramarginal",
-    "postcentral": "postcentral",
-    "precuneus": "precuneus",
-    "lateraloccipital": "lateral occipital",
-    "lingual": "lingual",
-    "cuneus": "cuneus",
-    "pericalcarine": "pericalcarine",
-}
-
-
-def region_words(name: str) -> str:
-    """``"lh.superiorfrontal"`` -> ``"L superior frontal"``; other names unchanged."""
-    hemi, _, parcel = name.partition(".")
-    if hemi in ("lh", "rh") and parcel:
-        return f"{hemi[0].upper()} {DK40_WORDS.get(parcel, parcel)}"
-    return name
-
-
 def prune_by_ti_max(tracts: td.Tracts, keep: float):
     """Rank a network's streamlines by mean TI_max along each one; keep the top *keep*.
 
     Returns ``(rank per streamline in [0, 1], kept mask, cut-off V/m, rank of the weakest
-    kept)``. The score is the plain mean of the per-vertex ``ti_max`` over the streamline's
-    points (evenly spaced, so the arc-length mean), with no display smoothing.
+    kept)``. The score is the arc-length mean of the per-vertex ``ti_max``, with no display
+    smoothing.
     """
-    sid = tracts.streamline_id()
-    score = np.bincount(sid, tracts.dpv["ti_max"], tracts.n) / tracts.lengths
+    score = td.arc_length_mean(tracts, tracts.dpv["ti_max"])
     order = np.argsort(score, kind="stable")
     rank = np.empty(tracts.n)
     rank[order] = np.arange(tracts.n) / max(tracts.n - 1, 1)
@@ -331,21 +279,25 @@ def edges_between(edges: dict[int, dict], side_a, side_b) -> set[int]:
     }
 
 
-def network_statement(name: str, tracts: td.Tracts) -> str:
-    """Two caption lines: the network's name and n, then neutral streamline medians.
+def network_statement(name: str, tracts: td.Tracts, n_drawn: int | None = None) -> str:
+    """Two caption lines: the network's name, n and how many are drawn, then neutral medians.
 
-    Per streamline: the mean of TI_max and of ti_along over its points (tract points are
-    evenly spaced, so a point mean is the arc-length mean), and align_index = mean ti_along /
-    mean ti_avg, the tract pipeline's definition. The caption gives their medians.
+    Per streamline: the arc-length mean of TI_max and of ti_along (the mean the assess stage
+    reports), and align_index = mean ti_along / mean ti_avg, its definition. The caption gives
+    their medians over the whole network, whatever share of it is drawn.
     """
-    sid = tracts.streamline_id()
 
     def mean(key):
-        return np.bincount(sid, tracts.dpv[key], tracts.n) / tracts.lengths
+        return td.arc_length_mean(tracts, tracts.dpv[key])
 
     along, peak = mean("ti_along"), mean("ti_max")
+    drawn = (
+        "all drawn"
+        if n_drawn is None or n_drawn >= tracts.n
+        else f"{n_drawn:,} drawn, evenly sampled"
+    )
     text = (
-        f"{name} · n={tracts.n:,} streamlines (all drawn)\n"
+        f"{name} · n={tracts.n:,} streamlines ({drawn})\n"
         f"median TI_max {np.median(peak):.3f} V/m · median ti_along {np.median(along):.3f} V/m"
     )
     if "ti_avg" in tracts.dpv:
@@ -426,6 +378,61 @@ def select_network(
     return network, " + ".join(words), top
 
 
+def network_slug(cfg) -> str:
+    """The network's name in file names, ``""`` for a render of a whole tractogram."""
+    if cfg.selection is not None:
+        return cfg.selection.name
+    named = (cfg.network_bundle or cfg.network_name or "").strip()
+    return "".join(c if c.isalnum() or c in "_-" else "_" for c in named)
+
+
+def output_stem(cfg) -> str:
+    """``<sid>_<sim>[_<network>]_tract_<metric>``: networks and metrics never share a file."""
+    slug = network_slug(cfg)
+    parts = [cfg.subject_id.strip(), cfg.simulation_name.strip()] + (
+        [slug] if slug else []
+    )
+    return "_".join(parts) + f"_tract_{cfg.metric}"
+
+
+def scene_folder(cfg) -> str:
+    """A network's bundle has a folder of its own, under ``tract_scene/``."""
+    slug = network_slug(cfg)
+    return (
+        os.path.join("tract_scene", f"{slug}_{cfg.metric}") if slug else "tract_scene"
+    )
+
+
+def replaced_outputs(cfg, out_dir: str) -> list[str]:
+    """The files in *out_dir* this config's run would replace; the Plan's "will overwrite".
+
+    A selection's automatic views depend on the network, and its stem on nothing else, so all
+    four are looked for: a render of this network in this metric made any of them.
+    """
+    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
+    if cfg.thalamocortical_sequence:
+        names = [f"{sid}_{sim}_thalamocortical_sequence.mp4"]
+    else:
+        stem = output_stem(cfg)
+        names = []
+        if cfg.stills:
+            views = cfg.views or (
+                ALL_VIEWS if cfg.selection else ("lateral", "superior", "oblique")
+            )
+            names += [f"{stem}_{view}.png" for view in views]
+        names += [
+            f"{stem}_{video}.mp4"
+            for video, wanted in (
+                ("turntable", cfg.turntable),
+                ("propagation", cfg.propagation),
+            )
+            if wanted
+        ]
+        if cfg.web:
+            names.append(f"{sid}_{sim}_tract_viewer.html")
+    return [n for n in names if os.path.isfile(os.path.join(out_dir, n))]
+
+
 def _simplified(vertices: np.ndarray, triangles: np.ndarray, budget: int):
     from tit.scene.simplify import simplify_to_budget
 
@@ -450,6 +457,7 @@ def export_scene(
     caption: str = "",
     highlight: list[str] | None = None,
     shell: tuple[np.ndarray, np.ndarray, float] | None = None,
+    setup: dict | None = None,
 ) -> str:
     """Write the Blender bundle; return the manifest path.
 
@@ -457,9 +465,11 @@ def export_scene(
     length; *context* (optional) as faint thin lines. *regions* is :func:`region_geometry`'s
     result for the foreground's endpoint regions, which are lit by how much field their
     fibres carry, or, with *highlight*, exactly those regions, evenly. *shell* is
-    :func:`ti_iso_shell`'s result, drawn as one faint translucent surface.
+    :func:`ti_iso_shell`'s result, drawn as one faint translucent surface. *setup* is
+    :func:`~tit.blender.network_setup.resolve_network_setup`'s result, recorded in the manifest.
     """
     os.makedirs(bundle_dir, exist_ok=True)
+    named = bool(cfg.network_from or cfg.selection)
     edges = edges or {}
     metric = str(cfg.metric)
     along = td.smooth_along(tracts, tracts.dpv["ti_along"])
@@ -484,8 +494,11 @@ def export_scene(
     tracts.dpv["v"] = td.colour_position(shown, metric, vmax)
     # A named network draws every fibre at one width: width must not encode the field there.
     radius = (
-        np.full(tracts.n, NETWORK_RADIUS)
-        if cfg.network_from
+        np.full(
+            tracts.n,
+            setup["values"]["tube_radius_mm"] if setup else NETWORK_RADIUS,
+        )
+        if named
         else TUBE_R0 + TUBE_R1 * gain
     )
     tracts.dpv["r"] = radius[sid].astype(np.float32)
@@ -499,7 +512,7 @@ def export_scene(
         1,
     )
     prune = kept = None
-    if cfg.network_from and cfg.prune_keep_fraction:
+    if named and cfg.prune_keep_fraction:
         rank, kept, cut, rank_cut = prune_by_ti_max(tracts, cfg.prune_keep_fraction)
         tracts.dpv["rank"] = rank[sid].astype(np.float32)
         prune = {
@@ -625,11 +638,17 @@ def export_scene(
                 sub_lit.append(np.full(len(v), level, np.float32))
                 sub_frame.append(np.full(len(v), when[name], np.float32))
                 centre = v.mean(0)
-            if centre is not None and cfg.region_labels and len(labels) < N_LABELS:
+            if (
+                centre is not None
+                and cfg.region_labels
+                and len(labels) < (LABEL_MAX_REGIONS if cfg.selection else N_LABELS)
+            ):
+                shown_name = region_words(name) if cfg.selection else name
                 labels.append(
                     {
-                        "name": f"{name} (n={count.get(name, 0)})",
+                        "name": f"{shown_name} (n={count.get(name, 0)})",
                         "xyz": [float(c) for c in centre],
+                        "hemi": region_hemi(name),
                     }
                 )
     np.savez(
@@ -667,10 +686,10 @@ def export_scene(
         ticks = [[f, f"{f * vmax:.2f}"] for f in (0.0, 0.5, 1.0)]
     travel = float(np.percentile(arrive.max(1), 98))
     frames = int(min(FRONT_MAX_FRAMES, np.ceil(travel) + FRONT_HOLD_FRAMES))
-    stem = f"{cfg.subject_id}_{cfg.simulation_name}_tract_{metric}"
+    stem = output_stem(cfg)
     shown_text = (caption or f"{tracts.n:,} of {n_total:,} streamlines") + (
         ""
-        if cfg.network_from
+        if named
         else f" · colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm"
     )
     if context is not None and context.n:
@@ -698,7 +717,8 @@ def export_scene(
         "shell_level": float(shell[2]) if shell is not None else None,
         "shell_percentile": float(cfg.iso_shell_percentile or 0),
         "crossfade": bool(cfg.turntable_crossfade),
-        "network": bool(cfg.network_from),
+        "network": named,
+        "setup": setup,
         "prune": prune,
         "keep_labels": keep_labels,
         "smoothing_note": f"colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm",
@@ -710,7 +730,8 @@ def export_scene(
             if cfg.roi_center_mm is not None
             else None
         ),
-        "output_dir": "..",
+        # A network's bundle lies one folder deeper (scene_folder), beside no other's.
+        "output_dir": "../.." if network_slug(cfg) else "..",
         "stem": stem,
         "stills": bool(cfg.stills),
         "views": list(cfg.views),
@@ -759,36 +780,174 @@ def render(*scene_args: str) -> None:
     )
 
 
-def _named_network(cfg, pm, everything, edges, electrodes, glass, shell, log):
-    """Every streamline of ``network_from`` <-> ``network_to``, and :func:`export_scene`'s kwargs."""
+def _edge_ids(edges: dict[int, dict], pairs) -> set[int]:
+    """Edge ids of the region *pairs*, in either orientation."""
+    wanted = {frozenset(pair) for pair in pairs}
+    return {
+        e
+        for e, r in edges.items()
+        if frozenset((r["region_a"], r["region_b"])) in wanted
+    }
+
+
+def _picked(everything: td.Tracts, ids: set[int]) -> np.ndarray:
+    return np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids)))
+
+
+def _edge_counts(
+    tracts: td.Tracts, edges: dict[int, dict]
+) -> dict[tuple[str, str], int]:
+    ids, counts = np.unique(tracts.dps["edge_id"], return_counts=True)
+    return {
+        (edges[int(e)]["region_a"], edges[int(e)]["region_b"]): int(n)
+        for e, n in zip(ids, counts)
+        if int(e) in edges
+    }
+
+
+def _bundle_as_selection(cfg, everything: td.Tracts, edges: dict[int, dict]):
+    """An existing bundle file, as the one kind of network the automatic setup reads."""
+    pairs = [list(pair) for pair in _edge_counts(everything, edges)]
+    if not pairs:
+        raise ValueError(f"{cfg.network_bundle}.trx has no labelled streamline")
+    return replace(
+        cfg,
+        network_bundle="",
+        selection=Selection(name=cfg.network_bundle.strip(), kind="edges", pairs=pairs),
+    )
+
+
+def crossing_twice(tracts: td.Tracts, edges: dict[int, dict], midline_x: float) -> int:
+    """Same-side streamlines reaching past the midline and back, which labels cannot catch.
+
+    Both ends of such a streamline lie on one side, so any point more than
+    :data:`MIDLINE_MARGIN_MM` past the plane ``x = midline_x`` on the far side is the double
+    crossing. A QC count over the kept fibres, not a filter.
+    """
+    side = np.zeros(tracts.n)
+    for i, e in enumerate(tracts.dps["edge_id"].tolist()):
+        record = edges.get(int(e))
+        if record:
+            hemis = {
+                region_hemi(record["region_a"]),
+                region_hemi(record["region_b"]),
+            } - {0}
+            side[i] = hemis.pop() if len(hemis) == 1 else 0
+    x = tracts.points[:, 0].astype(np.float64) - midline_x
+    deepest = np.minimum.reduceat(x * side[tracts.streamline_id()], tracts.offsets[:-1])
+    return int(np.count_nonzero((side != 0) & (deepest < -MIDLINE_MARGIN_MM)))
+
+
+def _opposite_record(pm, cfg) -> dict | None:
+    """What this selection's preset left out, read from the subject's own network."""
+    from tit.tract.presets import PRESETS, opposite_removed, resolve_preset
+
+    preset = next((p for p in PRESETS if p.id == cfg.preset), None)
+    path = os.path.join(pm.tractography(cfg.subject_id.strip()), "network.npz")
+    if preset is None or not os.path.isfile(path):
+        return None
+    with np.load(path, allow_pickle=False) as data:
+        resolved = resolve_preset(
+            preset, [str(n) for n in data["names"]], data["pairs"], data["counts"]
+        )
+    return opposite_removed(resolved, cfg.selection.pairs)
+
+
+def _apply_setup(cfg, pm, everything: td.Tracts, edges: dict[int, dict]):
+    """The config with its network's automatic setup applied, and the setup itself."""
+    pick = _picked(everything, _edge_ids(edges, cfg.selection.pairs))
+    if not len(pick):
+        raise ValueError(f"selection {cfg.selection.name!r} picks no streamline here")
+    setup = resolve_network_setup(
+        cfg.selection, _edge_counts(td.select(everything, pick), edges), cfg.overrides
+    )
+    setup["opposite_removed"] = _opposite_record(pm, cfg)
+    values = setup["values"]
+    return (
+        replace(
+            cfg,
+            network_name=values["title"],
+            views=list(values["views"]),
+            lateral_side=int(values["lateral_side"]),
+            highlight_regions=list(values["highlight_regions"]),
+            region_labels=bool(values["region_labels"]),
+            max_streamlines=int(values["max_streamlines"]),
+            vmax_v_per_m=values["vmax_v_per_m"],
+            iso_shell_percentile=values["iso_shell_percentile"],
+        ),
+        setup,
+    )
+
+
+def _named_network(
+    cfg, pm, everything, edges, electrodes, glass, shell, log, setup=None
+):
+    """A named network's streamlines to draw, and :func:`export_scene`'s kwargs.
+
+    ``network_from`` <-> ``network_to`` draws every streamline; a selection an even sample of at
+    most ``max_streamlines``, never by field, with the caption saying how many.
+    """
     sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
-    ids = edges_between(edges, cfg.network_from, cfg.network_to)
-    pick = np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids)))
+    selection = cfg.selection
+    ids = (
+        _edge_ids(edges, selection.pairs)
+        if selection
+        else edges_between(edges, cfg.network_from, cfg.network_to)
+    )
+    pick = _picked(everything, ids)
     if not len(pick):
         raise ValueError(
             f"network_from / network_to join no streamline ({cfg.network_name})"
         )
-    tracts = td.select(everything, pick)  # every streamline: no subsampling
+    network = td.select(everything, pick)
+    tracts = network
+    if selection and network.n > cfg.max_streamlines:
+        rng = np.random.default_rng(cfg.seed)
+        tracts = td.select(
+            network, np.sort(rng.choice(network.n, cfg.max_streamlines, replace=False))
+        )
     pairs = " + ".join(
         "–".join(e["name"] for e in electrodes if e["channel"] == c)
         for c in sorted({e["channel"] for e in electrodes})
     )
-    caption = network_statement(f"sub-{sid} · {sim} montage ({pairs})", tracts)
+    caption = network_statement(
+        f"sub-{sid} · {sim} montage ({pairs})", network, tracts.n
+    )
+    removed = setup.get("opposite_removed") if setup else None
+    if removed:
+        caption += f"\n{removed_sentence(removed)}"
+        # Both surfaces' mean x sit either side of the plane the hemispheres share.
+        midline = float(
+            (glass[0][: glass[2]][:, 0].mean() + glass[0][glass[2] :][:, 0].mean()) / 2
+        )
+        removed["qc_crossing_midline_twice"] = {
+            "n": crossing_twice(network, edges, midline),
+            "midline_x_mm": midline,
+            "margin_mm": MIDLINE_MARGIN_MM,
+            "space": "m2m T1 world",
+        }
     if shell is not None:
         caption += (
             f"\ntranslucent shell: TI_max = {shell[2]:.3f} V/m "
             f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
         )
-    names = sorted(set(cfg.highlight_regions) | set(cfg.network_to))
+    if setup and setup["values"]["caption"]:
+        caption = setup["values"]["caption"]
+    ends = {r for p in selection.pairs for r in p} if selection else set(cfg.network_to)
+    names = sorted(set(cfg.highlight_regions) | ends)
     regions = region_geometry(
         pm.m2m(sid), label_volume(pm, sid), names, glass[0], glass[2]
     )
-    log.info(f"network {cfg.network_name}: {len(ids)} edges, {tracts.n} streamlines")
+    log.info(
+        f"network {cfg.network_name}: {len(ids)} edges, {network.n} streamlines, "
+        f"{tracts.n} drawn"
+    )
     return tracts, {
         "edges": edges,
         "regions": regions,
         "caption": caption,
         "highlight": list(cfg.highlight_regions),
+        "setup": setup,
     }
 
 
@@ -871,6 +1030,27 @@ def _render_sequence(
     render("sequence", *manifests, out, f"{sid}_{sim}_thalamocortical_sequence", *extra)
 
 
+def _tractogram_name(cfg, sim_dir: str) -> str:
+    """What a named network reads: its own bundle when assessed, else ``all.trx``."""
+    named = cfg.tractogram.strip()
+    if named:
+        return named
+    bundle = cfg.selection.name if cfg.selection else ""
+    if not cfg.selection and not cfg.network_top_edges:
+        bundle = (cfg.network_bundle or "").strip()
+    if not bundle:
+        return ""
+    tract_dir = os.path.join(sim_dir, "tract")
+    if os.path.isfile(os.path.join(tract_dir, f"{bundle}.trx")):
+        return f"{bundle}.trx"
+    if cfg.selection and os.path.isfile(os.path.join(tract_dir, "all.trx")):
+        return "all.trx"
+    raise FileNotFoundError(
+        f"{tract_dir} has neither {bundle}.trx nor all.trx: assess this network first "
+        "(the tract job's assess stage, with this selection)."
+    )
+
+
 def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
     """Write every output *cfg* asks for; return the output directory."""
     from tit import constants as const
@@ -880,7 +1060,9 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
     pm = get_path_manager()
     sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
     sim_dir = pm.simulation(sid, sim)
-    path = resolve_tractogram(os.path.join(sim_dir, "tract"), cfg.tractogram.strip())
+    path = resolve_tractogram(
+        os.path.join(sim_dir, "tract"), _tractogram_name(cfg, sim_dir)
+    )
     tract_dir = os.path.dirname(path)
     out = (cfg.output_dir or "").strip() or os.path.join(
         pm.ti_toolbox(), "visual_exports", f"{const.PREFIX_SUBJECT}{sid}", sim, "tract"
@@ -951,6 +1133,11 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             )
             return out
         kwargs = {}
+        setup = None
+        if (cfg.network_bundle or "").strip() and not cfg.network_top_edges:
+            cfg = _bundle_as_selection(cfg, everything, edges)
+        if cfg.selection:
+            cfg, setup = _apply_setup(cfg, pm, everything, edges)
         if cfg.iso_shell_percentile:
             kwargs["shell"] = ti_iso_shell(
                 pm.ti_mesh(sid, sim), cfg.iso_shell_percentile
@@ -959,12 +1146,23 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 f"TI_max iso-shell at {kwargs['shell'][2]:.3f} V/m "
                 f"(brain p{cfg.iso_shell_percentile:g})"
             )
-        if cfg.network_from:
+        if cfg.network_from or cfg.selection:
             tracts, network_kwargs = _named_network(
-                cfg, pm, everything, edges, electrodes, glass, kwargs.get("shell"), log
+                cfg,
+                pm,
+                everything,
+                edges,
+                electrodes,
+                glass,
+                kwargs.get("shell"),
+                log,
+                setup,
             )
             kwargs.update(network_kwargs)
-            title = cfg.network_name or title
+            title = (cfg.network_name or title) + (
+                " · synthetic tracts" if cfg.selection and synthetic else ""
+            )
+            n_total = setup["n_streamlines"] if setup else n_total
         elif cfg.focus:
             network, words, top = select_network(
                 cfg, tract_dir, everything, edges, summary
@@ -997,7 +1195,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             glass,
             scalp,
             electrodes,
-            os.path.join(out, "tract_scene"),
+            os.path.join(out, scene_folder(cfg)),
             title=title,
             synthetic=synthetic,
             **kwargs,

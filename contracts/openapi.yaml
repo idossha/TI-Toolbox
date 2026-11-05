@@ -2687,6 +2687,41 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: The project has no such subject.
+  /api/tract/presets:
+    get:
+      tags: [tract]
+      summary: The named region sets on this subject's network, and why any cannot be chosen
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Every preset; `reason` says why one cannot be chosen on this network.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractPresets" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such subject, or it has no network yet.
+  /api/tract/connections:
+    get:
+      tags: [tract]
+      summary: Every edge of an assessed simulation with its medians along the fibres
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+        - { in: query, name: simulation, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: One row per edge. No metric is designated over another.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractConnections" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such subject or simulation, or it is not assessed yet.
   /api/scene/target-preview:
     post:
       tags:
@@ -4734,7 +4769,7 @@ components:
         kind: { type: string }
     SimulationNetworks:
       type: object
-      required: [networks, renders]
+      required: [networks, assessed, has_edges, renders]
       properties:
         networks:
           type: array
@@ -4742,6 +4777,23 @@ components:
           description: >-
             Stems of Simulations/<sim>/tract/*.trx, sorted; empty until the tract job's assess
             stage has run.
+        assessed:
+          type: array
+          description: >-
+            The networks recorded as made from region pairs, for telling a network already
+            assessed from one that only shares its name.
+          items:
+            type: object
+            required: [name, pairs, n_streamlines]
+            properties:
+              name: { type: string }
+              pairs:
+                type: array
+                items: { type: array, items: { type: string }, minItems: 2, maxItems: 2 }
+              n_streamlines: { type: integer }
+        has_edges:
+          type: boolean
+          description: Whether the assess stage has written this simulation's edges.json.
         renders:
           type: array
           description: PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first.
@@ -6399,6 +6451,64 @@ components:
         align_index: { type: number }
         rank_by_ti_along: { type: integer }
         rank_by_ti_max: { type: integer }
+    TractPreset:
+      type: object
+      required: [id, label, seeds, same_side, pairs, n_edges, n_streamlines, opposite_pairs, n_opposite, right_thalamus_to_left_cortex, left_thalamus_to_right_cortex, missing]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        seeds:
+          type: array
+          items: { type: string }
+          description: The regions it is chosen by, which a render lights.
+        same_side:
+          type: boolean
+          description: Its opposite-hemisphere edges are left out of `pairs` by default (thalamocortical sets).
+        pairs:
+          type: array
+          items: { type: array, items: { type: string }, minItems: 2, maxItems: 2 }
+          description: This network's edges joining the two sets, by region name.
+        n_edges: { type: integer }
+        n_streamlines: { type: integer }
+        opposite_pairs:
+          type: array
+          items: { type: array, items: { type: string }, minItems: 2, maxItems: 2 }
+          description: The opposite-hemisphere edges left out of `pairs`, to add back on request.
+        n_opposite: { type: integer }
+        right_thalamus_to_left_cortex: { type: integer }
+        left_thalamus_to_right_cortex: { type: integer }
+        missing:
+          type: array
+          items: { type: string }
+          description: Labels of the set this network does not name.
+        reason:
+          type: [string, "null"]
+          description: Why it cannot be chosen; absent or null when it can.
+    TractPresets:
+      type: object
+      required: [presets]
+      properties:
+        presets:
+          type: array
+          items: { $ref: "#/components/schemas/TractPreset" }
+    TractConnection:
+      type: object
+      required: [region_a, region_b, n, ti_along_mean, ti_max_mean, ti_avg_mean, align_index]
+      properties:
+        region_a: { type: string }
+        region_b: { type: string }
+        n: { type: integer }
+        ti_along_mean: { type: number, description: "Median over its streamlines of the arc-length mean, V/m" }
+        ti_max_mean: { type: number, description: "Median over its streamlines of the arc-length mean, V/m" }
+        ti_avg_mean: { type: number, description: "Median over its streamlines of the arc-length mean, V/m" }
+        align_index: { type: number, description: "Median over its streamlines of mean ti_along / mean ti_avg" }
+    TractConnections:
+      type: object
+      required: [connections]
+      properties:
+        connections:
+          type: array
+          items: { $ref: "#/components/schemas/TractConnection" }
     TractRanking:
       type: object
       required: [name, ex_run, n_streamlines, current_mA, n_points, n_points_in_leadfield_mesh, montages]

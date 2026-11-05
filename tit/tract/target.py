@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -34,6 +35,9 @@ from .io import load_streamlines, save_nifti
 from .network import network_fingerprint, select
 
 logger = logging.getLogger(__name__)
+
+#: Seconds between progress lines of a long ranking (about 0.12 s per montage emulated).
+RANK_REPORT_S = 30.0
 
 
 def density_mask(streamlines, ref_path: str, out_path: str, min_count: int = 1) -> dict:
@@ -149,8 +153,11 @@ def pool_montages(pool) -> list[list[str]]:
     return out
 
 
-def ex_run_montages(csv_path: str, top_n: int) -> list[list[str]]:
-    """The *top_n* distinct electrode sets of an ex-search ``final_output.csv`` by composite."""
+def ex_run_montages(csv_path: str, top_n: int | None) -> list[list[str]]:
+    """The *top_n* distinct electrode sets of an ex-search ``final_output.csv`` by composite.
+
+    ``None`` is every one of them.
+    """
     from tit.opt.ex.results import montage_score_records_from_csv
 
     records = sorted(
@@ -166,7 +173,7 @@ def ex_run_montages(csv_path: str, top_n: int) -> list[list[str]]:
         if key not in seen:
             seen.add(key)
             out.append(list(key))
-        if len(out) >= top_n:
+        if top_n is not None and len(out) >= top_n:
             break
     return out
 
@@ -213,7 +220,15 @@ def rank_montages(
     elm = np.where(inside, th - 1, 0)
     i1, i2 = (c / 1000.0 for c in current_mA)
     rows = []
-    for e1p, e1m, e2p, e2m in montages:
+    started = last_report = time.monotonic()
+    for done, (e1p, e1m, e2p, e2m) in enumerate(montages):
+        now = time.monotonic()
+        if now - last_report >= RANK_REPORT_S:
+            last_report = now
+            left = (now - started) / done * (len(montages) - done)
+            logger.info(
+                f"ranked {done}/{len(montages)} montages, about {left:.0f} s left"
+            )
         E1 = TI.get_field([e1p, e1m, i1], engine.leadfield, engine.idx_lf)[elm]
         E2 = TI.get_field([e2p, e2m, i2], engine.leadfield, engine.idx_lf)[elm]
         q = {

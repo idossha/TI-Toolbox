@@ -203,7 +203,7 @@ class TargetConfig:
         ex_run: ex-search run whose ``final_output.csv`` montages are ranked.
         montages: Explicit montages ``[e1+, e1-, e2+, e2-]`` to rank.
         pool: Electrodes whose every two-pair montage is ranked.
-        top_n: Montages read from ``ex_run`` (its top rows by composite index).
+        top_n: Montages read from ``ex_run`` (its top rows by composite index); ``None``: all.
         current_mA: Channel currents for the ranking.
     """
 
@@ -213,12 +213,14 @@ class TargetConfig:
     ex_run: str | None = None
     montages: list[list[str]] = field(default_factory=list)
     pool: list[str] = field(default_factory=list)
-    top_n: int = 20
+    top_n: int | None = 20
     current_mA: list[float] = field(default_factory=lambda: [1.0, 1.0])
 
     def __post_init__(self) -> None:
         if self.min_count < 1:
             raise ValueError("min_count must be >= 1")
+        if self.top_n is not None and self.top_n < 1:
+            raise ValueError("top_n must be >= 1, or None for every montage")
         if any(len(m) != 4 for m in self.montages):
             raise ValueError("each montage is [e1+, e1-, e2+, e2-]")
 

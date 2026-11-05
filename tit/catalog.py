@@ -931,9 +931,11 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     """A simulation's white-matter network outputs and the renders made of them.
 
     ``networks`` are the stems of ``Simulations/<sim>/tract/*.trx`` (written by the tract job's
-    ``assess`` stage); ``renders`` the PNG and MP4 files in
-    ``visual_exports/sub-<id>/<sim>/tract/``, newest first. ``None`` if subject or simulation is
-    unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
+    ``assess`` stage); ``assessed`` what ``summary.json`` recorded of those made from region
+    pairs, for telling a network already assessed from one that only shares its name;
+    ``has_edges`` whether the assess stage has run here at all, which is what gives ``edges.json``;
+    ``renders`` the PNG and MP4 files in ``visual_exports/sub-<id>/<sim>/tract/``, newest first.
+    ``None`` if subject or simulation is unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
     ``GET /api/catalog/simulations`` is a :func:`simulation_detail`.
     """
     if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
@@ -967,7 +969,29 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
                     }
                 )
     renders.sort(key=lambda r: (r["modified_at"], r["name"]), reverse=True)
-    return {"networks": networks, "renders": renders}
+    assessed = []
+    if tract_dir and os.path.isfile(os.path.join(tract_dir, "summary.json")):
+        try:
+            with open(os.path.join(tract_dir, "summary.json"), encoding="utf-8") as f:
+                bundles = json.load(f).get("bundles") or {}
+        except (OSError, ValueError):
+            bundles = {}
+        assessed = [
+            {
+                "name": name,
+                "pairs": record["pairs"],
+                "n_streamlines": record.get("n_selected", 0),
+            }
+            for name, record in sorted(bundles.items())
+            if name in networks and record.get("pairs")
+        ]
+    return {
+        "networks": networks,
+        "assessed": assessed,
+        "has_edges": bool(tract_dir)
+        and os.path.isfile(os.path.join(tract_dir, "edges.json")),
+        "renders": renders,
+    }
 
 
 def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None:

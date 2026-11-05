@@ -4427,6 +4427,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tract/presets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The named region sets on this subject's network, and why any cannot be chosen */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every preset; `reason` says why one cannot be chosen on this network. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractPresets"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description No such subject, or it has no network yet. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every edge of an assessed simulation with its medians along the fibres */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    simulation: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description One row per edge. No metric is designated over another. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractConnections"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description No such subject or simulation, or it is not assessed yet. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scene/target-preview": {
         parameters: {
             query?: never;
@@ -6498,6 +6591,14 @@ export interface components {
         SimulationNetworks: {
             /** @description Stems of Simulations/<sim>/tract/*.trx, sorted; empty until the tract job's assess stage has run. */
             networks: string[];
+            /** @description The networks recorded as made from region pairs, for telling a network already assessed from one that only shares its name. */
+            assessed: {
+                name: string;
+                pairs: string[][];
+                n_streamlines: number;
+            }[];
+            /** @description Whether the assess stage has written this simulation's edges.json. */
+            has_edges: boolean;
             /** @description PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first. */
             renders: {
                 path: string;
@@ -9777,6 +9878,19 @@ export interface components {
          *         A network by its regions: every streamline whose edge joins a region of
          *         ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,
          *         none subsampled. Overrides ``network_bundle`` and the top edges.
+         *     selection : Selection or None
+         *         A named network, kind ``"edges"``: the one definition the optimizer's mask and the ranking
+         *         also use. Its ``<name>.trx`` is read when it exists, else ``all.trx``; ``regions`` holds its
+         *         seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and
+         *         outputs carry its name, so networks of one simulation coexist. Replaces every other network
+         *         field, and the fields ``overrides`` can set.
+         *     preset : str
+         *         The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is
+         *         drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated
+         *         in the caption and the manifest from it, with their count.
+         *     overrides : dict
+         *         With ``selection`` (or one bundle, ``network_top_edges`` 0), the keys of :data:`tit.blender.network_setup.OVERRIDABLE` replacing the
+         *         automatic value (``iso_shell_percentile: null`` draws no shell).
          *     highlight_regions : list of str
          *         Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.
          *     region_labels : bool
@@ -9801,7 +9915,8 @@ export interface components {
          *     stills, turntable, propagation, web, connectome : bool
          *         Which outputs to write.
          *     views : list of str
-         *         The stills to render: ``lateral``, ``superior``, ``oblique``. Empty renders all three.
+         *         The stills to render: ``lateral``, ``superior``, ``oblique``, ``posterior``. Empty renders
+         *         the first three (with ``selection``, the views :mod:`tit.blender.network_setup` chooses).
          *     quality : Quality
          *         ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per
          *         still; videos 960x540 at 6), for checking a choice before a long render.
@@ -9880,6 +9995,17 @@ export interface components {
              * @default
              */
             network_name: string;
+            /** @default null */
+            selection: components["schemas"]["Selection"] | null;
+            /**
+             * Preset
+             * @default
+             */
+            preset: string;
+            /** Overrides */
+            overrides?: {
+                [key: string]: unknown;
+            };
             /** Highlight Regions */
             highlight_regions?: string[];
             /**
@@ -10234,6 +10360,46 @@ export interface components {
             align_index: number;
             rank_by_ti_along: number;
             rank_by_ti_max: number;
+        };
+        TractPreset: {
+            id: string;
+            label: string;
+            /** @description The regions it is chosen by, which a render lights. */
+            seeds: string[];
+            /** @description Its opposite-hemisphere edges are left out of `pairs` by default (thalamocortical sets). */
+            same_side: boolean;
+            /** @description This network's edges joining the two sets, by region name. */
+            pairs: string[][];
+            n_edges: number;
+            n_streamlines: number;
+            /** @description The opposite-hemisphere edges left out of `pairs`, to add back on request. */
+            opposite_pairs: string[][];
+            n_opposite: number;
+            right_thalamus_to_left_cortex: number;
+            left_thalamus_to_right_cortex: number;
+            /** @description Labels of the set this network does not name. */
+            missing: string[];
+            /** @description Why it cannot be chosen; absent or null when it can. */
+            reason?: string | null;
+        };
+        TractPresets: {
+            presets: components["schemas"]["TractPreset"][];
+        };
+        TractConnection: {
+            region_a: string;
+            region_b: string;
+            n: number;
+            /** @description Median over its streamlines of the arc-length mean, V/m */
+            ti_along_mean: number;
+            /** @description Median over its streamlines of the arc-length mean, V/m */
+            ti_max_mean: number;
+            /** @description Median over its streamlines of the arc-length mean, V/m */
+            ti_avg_mean: number;
+            /** @description Median over its streamlines of mean ti_along / mean ti_avg */
+            align_index: number;
+        };
+        TractConnections: {
+            connections: components["schemas"]["TractConnection"][];
         };
         TractRanking: {
             name: string;
@@ -11376,6 +11542,60 @@ export interface components {
          */
         Quality: "final" | "preview";
         /**
+         * Selection
+         * @description A named subset of the whole-brain tractogram.
+         *
+         *     Attributes:
+         *         name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.
+         *         kind: ``"all"``; ``"between"`` (one end in ``regions[0]``, the other in
+         *             ``regions[1]``); ``"edges"`` (the union of the region pairs in ``pairs``);
+         *             ``"from"`` (either end in any of ``regions``); ``"through"``
+         *             (any point inside ``mask_path``, or inside label ``label`` of it);
+         *             ``"to_cortex"`` (one end in any of ``regions``, the other in a cortical label:
+         *             ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);
+         *             ``"top_edges"`` (the ``k`` edges of ``regions[0]`` with most streamlines).
+         *         regions: Region names as the network stage names them (``"lh.insula"`` for a
+         *             cortical annotation label, the label table name such as ``"Left-Thalamus-Proper"``
+         *             for a volume label).
+         *         mask_path: NIfTI in m2m T1 space, for ``"through"``.
+         *         label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.
+         *         k: Edge count for ``"top_edges"``.
+         *         pairs: Region-name pairs ``[[a, b], ...]`` for ``"edges"``; order inside a pair does
+         *             not matter. Names, not edge ids: ids renumber when the network is rebuilt.
+         */
+        Selection: {
+            /**
+             * Name
+             * @default all
+             */
+            name: string;
+            /**
+             * Kind
+             * @default all
+             * @enum {string}
+             */
+            kind: "all" | "between" | "edges" | "from" | "through" | "to_cortex" | "top_edges";
+            /** Regions */
+            regions?: string[];
+            /**
+             * Mask Path
+             * @default null
+             */
+            mask_path: string | null;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
+            /**
+             * K
+             * @default 5
+             */
+            k: number;
+            /** Pairs */
+            pairs?: string[][];
+        };
+        /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.
          * @enum {string}
@@ -11463,60 +11683,6 @@ export interface components {
             min_streamlines: number;
         };
         /**
-         * Selection
-         * @description A named subset of the whole-brain tractogram.
-         *
-         *     Attributes:
-         *         name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.
-         *         kind: ``"all"``; ``"between"`` (one end in ``regions[0]``, the other in
-         *             ``regions[1]``); ``"edges"`` (the union of the region pairs in ``pairs``);
-         *             ``"from"`` (either end in any of ``regions``); ``"through"``
-         *             (any point inside ``mask_path``, or inside label ``label`` of it);
-         *             ``"to_cortex"`` (one end in any of ``regions``, the other in a cortical label:
-         *             ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);
-         *             ``"top_edges"`` (the ``k`` edges of ``regions[0]`` with most streamlines).
-         *         regions: Region names as the network stage names them (``"lh.insula"`` for a
-         *             cortical annotation label, the label table name such as ``"Left-Thalamus-Proper"``
-         *             for a volume label).
-         *         mask_path: NIfTI in m2m T1 space, for ``"through"``.
-         *         label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.
-         *         k: Edge count for ``"top_edges"``.
-         *         pairs: Region-name pairs ``[[a, b], ...]`` for ``"edges"``; order inside a pair does
-         *             not matter. Names, not edge ids: ids renumber when the network is rebuilt.
-         */
-        Selection: {
-            /**
-             * Name
-             * @default all
-             */
-            name: string;
-            /**
-             * Kind
-             * @default all
-             * @enum {string}
-             */
-            kind: "all" | "between" | "edges" | "from" | "through" | "to_cortex" | "top_edges";
-            /** Regions */
-            regions?: string[];
-            /**
-             * Mask Path
-             * @default null
-             */
-            mask_path: string | null;
-            /**
-             * Label
-             * @default null
-             */
-            label: number | null;
-            /**
-             * K
-             * @default 5
-             */
-            k: number;
-            /** Pairs */
-            pairs?: string[][];
-        };
-        /**
          * NetworkConfig
          * @description Endpoint-to-region association (the ``network`` stage).
          *
@@ -11565,7 +11731,7 @@ export interface components {
          *         ex_run: ex-search run whose ``final_output.csv`` montages are ranked.
          *         montages: Explicit montages ``[e1+, e1-, e2+, e2-]`` to rank.
          *         pool: Electrodes whose every two-pair montage is ranked.
-         *         top_n: Montages read from ``ex_run`` (its top rows by composite index).
+         *         top_n: Montages read from ``ex_run`` (its top rows by composite index); ``None``: all.
          *         current_mA: Channel currents for the ranking.
          */
         TargetConfig: {
@@ -11593,7 +11759,7 @@ export interface components {
              * Top N
              * @default 20
              */
-            top_n: number;
+            top_n: number | null;
             /** Current Ma */
             current_mA?: number[];
         };

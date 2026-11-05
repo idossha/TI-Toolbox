@@ -835,14 +835,22 @@ def _plan_tract(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob],
     if "assess" in config.stages:
         for sim in config.assess.simulations:
             output_dir = os.path.join(pm.simulation(sid, sim), "tract")
-            exists = _dir_exists(output_dir)
+            # A bundle is replaced, and adding one to the folder replaces nothing: the rest of
+            # the folder covers every streamline whichever selections asked. With no selection
+            # that rest is the job's whole output.
+            written = [f"{s.name}.trx" for s in config.assess.selections] or [
+                "edges.json"
+            ]
             jobs.append(
                 PlanJob(
                     kind=kind,
                     subject=sid,
                     output_dir=output_dir,
-                    exists=exists,
-                    will_overwrite=exists,
+                    exists=_dir_exists(output_dir),
+                    will_overwrite=any(
+                        os.path.isfile(os.path.join(output_dir, name))
+                        for name in written
+                    ),
                 )
             )
     return jobs, None
@@ -973,15 +981,51 @@ def _plan_blender(
             "This export's output directory cannot be resolved from the configuration yet."
         )
     exists = _dir_exists(output_dir)
+    will_overwrite = exists
+    resolved = None
+    if type(config).__name__ == "TractVisualConfig":
+        from tit.blender.tract_publication import replaced_outputs
+
+        # Tract renders share a folder, and the names say which network: only these are replaced.
+        will_overwrite = exists and bool(replaced_outputs(config, output_dir))
+        resolved = _network_setup(pm, config)
     return [
         PlanJob(
             kind=kind,
             subject=config.subject_id,
             output_dir=output_dir,
             exists=exists,
-            will_overwrite=exists,
+            will_overwrite=will_overwrite,
         )
-    ], None
+    ], resolved
+
+
+def _network_setup(pm: PathManager, config: Any) -> dict[str, Any] | None:
+    """A selection's automatic setup, from the same counts the render will read."""
+    selection = config.selection
+    path = os.path.join(pm.tractography(config.subject_id), "network.npz")
+    if selection is None or not os.path.isfile(path):
+        return None
+    import numpy as np
+
+    from tit.blender.network_setup import resolve_network_setup
+    from tit.tract.presets import PRESETS, opposite_removed, resolve_preset
+
+    with np.load(path, allow_pickle=False) as data:
+        names = [str(n) for n in data["names"]]
+        pairs, values = data["pairs"], data["counts"]
+    counts = {
+        (names[a], names[b]): int(n)
+        for (a, b), n in zip(pairs.tolist(), values.tolist())
+    }
+    setup = resolve_network_setup(selection, counts, config.overrides)
+    setup["opposite_removed"] = None
+    preset = next((p for p in PRESETS if p.id == config.preset), None)
+    if preset:
+        setup["opposite_removed"] = opposite_removed(
+            resolve_preset(preset, names, pairs, values), selection.pairs
+        )
+    return {"network_setup": setup}
 
 
 def _require_outputs_inside_project(pm: PathManager, jobs: list[PlanJob]) -> None:

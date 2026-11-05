@@ -130,6 +130,40 @@ class TractRankings(BaseModel):
     rankings: list[TractRanking]
 
 
+class TractPreset(BaseModel):
+    id: str
+    label: str
+    seeds: list[str]
+    same_side: bool
+    pairs: list[RegionPair]
+    n_edges: int
+    n_streamlines: int
+    opposite_pairs: list[RegionPair]
+    n_opposite: int
+    right_thalamus_to_left_cortex: int
+    left_thalamus_to_right_cortex: int
+    missing: list[str]
+    reason: str | None = None
+
+
+class TractPresets(BaseModel):
+    presets: list[TractPreset]
+
+
+class TractConnection(BaseModel):
+    region_a: str
+    region_b: str
+    n: int
+    ti_along_mean: float
+    ti_max_mean: float
+    ti_avg_mean: float
+    align_index: float
+
+
+class TractConnections(BaseModel):
+    connections: list[TractConnection]
+
+
 def _subject(pm, subject: str) -> str:
     if not catalog.is_safe_name(subject) or subject not in catalog.subject_ids(pm):
         raise _no_such_subject(pm, subject)
@@ -253,6 +287,77 @@ def edges(
             )
             for e, (a, b) in enumerate(network["pairs"].tolist())
             if a in ids or b in ids
+        ]
+    )
+
+
+@router.get(
+    "/api/tract/presets",
+    response_model=TractPresets,
+    summary="The named region sets on this subject's network, and why any cannot be chosen",
+)
+def presets(subject: Annotated[SubjectId, Query()]) -> TractPresets:
+    from tit.tract.presets import PRESETS, resolve_preset
+
+    pm = _pm()
+    _subject(pm, subject)
+    network = _network(pm, subject)
+    return TractPresets(
+        presets=[
+            resolve_preset(p, network["names"], network["pairs"], network["counts"])
+            for p in PRESETS
+        ]
+    )
+
+
+@router.get(
+    "/api/tract/connections",
+    response_model=TractConnections,
+    summary="Every edge of an assessed simulation with its medians along the fibres",
+    responses={404: {"description": "No such simulation, or it is not assessed yet"}},
+)
+def connections(
+    subject: Annotated[SubjectId, Query()],
+    simulation: Annotated[str, Query(min_length=1)],
+) -> TractConnections:
+    pm = _pm()
+    _subject(pm, subject)
+    if (
+        not catalog.is_safe_name(simulation)
+        or not Path(pm.simulation(subject, simulation)).is_dir()
+    ):
+        raise HTTPException(404, f"sub-{subject} has no simulation {simulation!r}.")
+    path = _source(
+        pm, Path(pm.simulation(subject, simulation)) / "tract" / "edges.json"
+    )
+    if not path.is_file():
+        raise HTTPException(
+            404,
+            f"{simulation} is not assessed yet: it has no {path.name}. "
+            "Run the tract job's assess stage on it.",
+        )
+
+    def median(record: dict[str, Any], key: str) -> float:
+        value = record[key]
+        return float(value["median"] if isinstance(value, dict) else value)
+
+    return TractConnections(
+        connections=[
+            TractConnection(
+                region_a=record["region_a"],
+                region_b=record["region_b"],
+                n=int(record["n_streamlines"]),
+                **{
+                    key: median(record, key)
+                    for key in (
+                        "ti_along_mean",
+                        "ti_max_mean",
+                        "ti_avg_mean",
+                        "align_index",
+                    )
+                },
+            )
+            for record in _read_json(path).values()
         ]
     )
 

@@ -221,6 +221,18 @@ def arc_length(tracts: Tracts) -> np.ndarray:
     return total - np.repeat(total[tracts.offsets[:-1]], tracts.lengths)
 
 
+def arc_length_mean(tracts: Tracts, values: np.ndarray) -> np.ndarray:
+    """Per-streamline trapezoid mean of *values*: the ``mean`` the assess stage reports.
+
+    Assessed streamlines are evenly spaced, so inner points weigh 1 and the two ends 1/2; a plain
+    point mean weighs the ends in full and differs from assess in the third decimal.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    first, last = tracts.offsets[:-1], tracts.offsets[1:] - 1
+    total = np.add.reduceat(values, first) - 0.5 * (values[first] + values[last])
+    return total / (tracts.lengths - 1)
+
+
 def decimate(tracts: Tracts, step_mm: float) -> Tracts:
     """Keep about one point per *step_mm* of arc (and both ends of every streamline)."""
     s = arc_length(tracts)

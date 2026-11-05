@@ -318,8 +318,16 @@ class NetworkRender(BaseModel):
     modified_at: str
 
 
+class AssessedNetwork(BaseModel):
+    name: str
+    pairs: list[list[str]]
+    n_streamlines: int
+
+
 class SimulationNetworks(BaseModel):
     networks: list[str]
+    assessed: list[AssessedNetwork]
+    has_edges: bool
     renders: list[NetworkRender]
 
 
