@@ -781,3 +781,30 @@ def test_skip_existing_keeps_the_tractogram_and_rebuilds_only_for_a_new_atlas(
     assert _already_done(config, "network", folder)  # network.json says DK40
     config.network = NetworkConfig(atlas="HCP_MMP1")
     assert not _already_done(config, "network", folder)
+
+
+@pytest.mark.parametrize(
+    ("policy", "replaces"),
+    [("skip_existing_outputs", False), ("replace_existing_outputs", True)],
+)
+def test_a_preprocess_group_runs_tractography_over_existing_output_under_its_policy(
+    client: TestClient, monkeypatch, policy: str, replaces: bool
+) -> None:
+    """The real app's 409: the G7 job met the per-kind overwrite check the page already answered."""
+    monkeypatch.setattr(
+        "tit.pre.preflight.find_missing_preprocessing_inputs", lambda *_a, **_k: []
+    )
+    r = client.post(
+        "/api/jobs/groups",
+        json={
+            "kind": "pre",
+            "subject_ids": ["S1"],
+            "config": {"subject_ids": ["S1"], "run_tractography": True, policy: True},
+        },
+    )
+    assert r.status_code == 201, r.text
+    (job,) = r.json()["jobs"]
+    assert job["kind"] == "tract"
+    detail = client.get(f"/api/jobs/{job['id']}").json()
+    assert detail["spec"]["config"]["track"]["overwrite"] is replaces
+    client.post(f"/api/jobs/{job['id']}/cancel")

@@ -335,6 +335,8 @@ def plan_preprocessing(
                     subject_ids=[subject_id],
                     after_labels=[j.label for j in (g4, g2a) if j is not None],
                     tags=["G7", "tractography"],
+                    # The page's own question already chose replace; `pre` stages carry it too.
+                    overwrite=config.replace_existing_outputs,
                 )
             )
 

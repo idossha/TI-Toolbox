@@ -161,8 +161,9 @@ async function openFirstExRun(target: Page): Promise<Locator> {
 
 test("Pre-processing: Diffusion lists QSIPrep, DTI, Tractography, QSIRecon, and Tractography joins the run after QSIPrep", async () => {
   await gotoPage(page, "preprocess");
-  const section = page.locator("section, .form-section").filter({ hasText: "Diffusion" }).first();
+  const section = page.locator('[data-tier="1"]').filter({ hasText: "Diffusion" });
   await expect(page.getByText("DWI (docker)")).toHaveCount(0);
+  await expect(section.getByRole("checkbox")).toHaveCount(4);
   const labels = await section.getByRole("checkbox").evaluateAll((boxes) => boxes.map((box) => box.closest("label")?.textContent?.trim() ?? box.getAttribute("aria-label")));
   expect(labels).toEqual(["QSIPrep", "Extract DTI tensor", "Tractography", "QSIRecon"]);
 
