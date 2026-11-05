@@ -40,6 +40,8 @@ NETWORK_RADIUS = 0.09
 #: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
 #: lighting them all washed the cortex (sub-CHN insula_lh: 41).
 N_LABELS, N_LIT = 3, 6
+#: Glow of highlighted regions (e.g. both thalami in a named network): soft, not white.
+HIGHLIGHT_LEVEL = 0.4
 #: Frames of electrode pulse before the fronts leave their peaks.
 FRONT_START_FRAME = 18
 #: Frames the last state is held after the slowest front lands.
@@ -525,14 +527,14 @@ def export_scene(
             key=lambda n: -weight[n],
         )[:N_LIT]
         if highlight:
-            # Highlighted regions (the thalami) at full level; the network's cortical parcels
-            # by how many of its streamlines end in them, so the busiest terminals glow most.
+            # Highlighted regions (the thalami) at HIGHLIGHT_LEVEL; the network's cortical
+            # parcels by how many of its streamlines end in them, so the busiest glow most.
             parcels = [n for n in count if n in cortical and n not in highlight]
             busiest = max((count[n] for n in parcels), default=1)
             drawn = [
                 n for n in highlight if n in cortical or n in subcortical
             ] + parcels
-            weight.update({n: 1.0 for n in highlight})
+            weight.update({n: HIGHLIGHT_LEVEL**2 for n in highlight})
             # Squared: the level below is its square root, so a parcel glows linearly in n.
             weight.update({n: max(count[n] / busiest, 0.15) ** 2 for n in parcels})
             top = 1.0

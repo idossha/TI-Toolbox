@@ -4,7 +4,8 @@ What this pins (2026-11-04)
     - :mod:`tit.blender.tract_data` slices, measures, thins and samples concatenated
       streamlines correctly; its colour map is monotone in lightness (CIE L*).
     - :func:`tit.blender.tract_publication.export_scene` passes world coordinates through
-      unchanged and writes per-vertex attributes of the right shape and range.
+      unchanged and writes per-vertex attributes of the right shape and range; a highlighted
+      deep region (the thalami) is lit at 0.4, the approved turntable's level (2026-11-05).
     - :func:`tit.plotting.tract_web.viewer_payload` round-trips positions to 0.005 mm and field
       values to one uint16 step, and a 15 000-streamline page stays under 12 MB.
     - The connectome helpers order hemispheres and pick the top edges.
@@ -286,6 +287,57 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     assert manifest["vmax"] == pytest.approx(
         np.percentile(td.smooth_along(three, three.dpv["ti_along"]), 99.5), rel=1e-5
     )
+
+
+def test_highlighted_deep_regions_glow_softly_and_parcels_by_count(
+    tmp_path, three, monkeypatch
+):
+    """A highlighted thalamus is exported at 0.4, the level of the sub-CHN turntable the user
+    approved (HIGHLIGHT_LEVEL at c5312a3c); previews v1-v3 had 1.0."""
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+
+    class NearestTree:  # scipy is mocked on the host; the fibre-to-thalamus distance is unused
+        def __init__(self, reference):
+            self.reference = np.asarray(reference)
+
+        def query(self, points):
+            d = np.linalg.norm(points[:, None] - self.reference[None], axis=-1)
+            return d.min(1), d.argmin(1)
+
+    monkeypatch.setattr("scipy.spatial.cKDTree", NearestTree)
+    sphere = _sphere()
+    edges = {
+        -1: {"region_a": "lh.c", "region_b": "lh.c"},
+        0: {"region_a": "lh.a", "region_b": "Left-B"},
+        1: {"region_a": "lh.a", "region_b": "lh.c"},
+    }
+    blob = (
+        np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], np.float32),
+        np.array([[0, 1, 2]]),
+    )
+    tp.export_scene(
+        TractVisualConfig(subject_id="x", simulation_name="s"),
+        three,
+        3,
+        (*sphere, len(sphere[0])),
+        None,
+        [],
+        str(tmp_path / "b"),
+        title="t",
+        synthetic=True,
+        edges=edges,
+        regions=(
+            {"lh.a": np.arange(0, 20), "lh.c": np.arange(40, 50)},
+            {"Left-B": blob},
+        ),
+        highlight=["Left-B"],
+    )
+    with np.load(tmp_path / "b" / "regions.npz") as r:
+        np.testing.assert_allclose(r["lit"], 0.4)
+    with np.load(tmp_path / "b" / "glass.npz") as g:
+        # lh.a and lh.c each hold 2 streamlines, the most of any parcel: both at full level
+        assert g["lit"].max() == pytest.approx(1.0)
 
 
 def test_align_index_colours_diverge_about_one():
