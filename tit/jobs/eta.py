@@ -221,6 +221,8 @@ PRE_STAGE_MIN: dict[str, float] = {
     "G4": 120.0 / EMULATION_FACTOR,
     "G5": 60.0 / EMULATION_FACTOR,
     "G6": 6.0 / EMULATION_FACTOR,
+    # CHN's qc.json: 228.5 s of tracking at 8 workers, emulated, plus the network and the writes.
+    "G7": 5.0 / EMULATION_FACTOR,
 }
 #: A pre-processing plan whose stages could not be resolved.
 PRE_DEFAULT_MIN = sum(PRE_STAGE_MIN[k] for k in ("G2a", "G2b", "G3"))

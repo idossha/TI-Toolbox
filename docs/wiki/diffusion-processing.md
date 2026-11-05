@@ -152,19 +152,22 @@ QSIPrep and QSIRecon run as sibling Docker containers spawned from the TI-Toolbo
 - [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)
 - [Simulator]({{ site.baseurl }}/wiki/simulator/) — anisotropic conductivity
 
-## White-matter networks
+## Tractography
 
-From QSIPrep output, TI-Toolbox can build a white-matter network for a subject and target it in the
-optimizers. On the **Pre-processing** page, under **DWI (docker)**, **White-matter network** opens
-the job for the selected subjects; the Optimizer's **Network** target offers the same job when a
-subject has none.
+From QSIPrep output, TI-Toolbox can track a subject's whole brain and build its connectome, and the
+optimizers can then target it as a network. On the **Pre-processing** page, tick **Tractography** in
+the **Diffusion** section, under QSIPrep. It runs in the same Run, after QSIPrep and charm when those
+are ticked too, and needs output from both otherwise; it does not need QSIRecon. **Configure…** sets
+the atlas (DK40 by default) and the number of seeds. The Optimizer's **Network** target offers the
+same step when a subject has no network.
 
-The job tracks the whole brain (constrained spherical deconvolution, probabilistic tracking, with
-charm's tissues constraining where a streamline may go), labels each streamline's two ends with an
-atlas you choose (DK40 by default, plus the subject's subcortical labels) and counts the streamlines
-between each pair of regions. Each such pair is an **edge**. The outputs are in
-`derivatives/SimNIBS/sub-<id>/tractography/`. A count depends on the tractography and is not a
-connection strength.
+The step tracks the whole brain (constrained spherical deconvolution, probabilistic tracking, with
+charm's tissues constraining where a streamline may go), labels each streamline's two ends with the
+atlas plus the subject's subcortical labels and counts the streamlines between each pair of regions.
+Each such pair is an **edge**. The outputs are in `derivatives/SimNIBS/sub-<id>/tractography/`. A count
+depends on the tractography and is not a connection strength. When output exists and you choose to
+skip existing outputs, the tractogram is kept and the connectome is rebuilt only if you changed the
+atlas; replacing tracks again. A new connectome makes the masks built from the old one stale.
 
 ### Targeting a network
 

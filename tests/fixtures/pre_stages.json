@@ -8,7 +8,8 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": []
  },
@@ -21,7 +22,24 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G6"
@@ -35,8 +53,26 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G5"
@@ -51,7 +87,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G5",
@@ -65,9 +119,28 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G4"
@@ -82,7 +155,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G4",
@@ -97,8 +188,27 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G4",
@@ -114,7 +224,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G4",
@@ -128,10 +257,30 @@
    "create_m2m": false,
    "run_fastsurfer": false,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G3"
@@ -146,7 +295,25 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -161,8 +328,27 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -178,7 +364,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -193,9 +398,29 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -211,7 +436,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -227,8 +471,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -245,7 +509,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G3",
@@ -259,11 +543,32 @@
    "convert_dicom": false,
    "create_m2m": false,
    "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c"
@@ -278,7 +583,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -293,8 +616,27 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -310,7 +652,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -325,9 +686,29 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -343,7 +724,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -359,8 +759,28 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -377,7 +797,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -392,10 +832,31 @@
    "create_m2m": false,
    "run_fastsurfer": false,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -411,7 +872,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -427,8 +907,28 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -445,7 +945,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -461,9 +981,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -480,7 +1021,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -497,8 +1058,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -516,7 +1098,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2c",
@@ -530,12 +1133,34 @@
   "flags": {
    "convert_dicom": false,
    "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b"
@@ -550,7 +1175,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -565,8 +1208,27 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -582,7 +1244,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -597,9 +1278,29 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -615,7 +1316,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -631,8 +1351,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -649,7 +1389,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -664,10 +1424,31 @@
    "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -683,7 +1464,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -699,8 +1499,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -717,7 +1537,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -733,9 +1573,30 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -752,7 +1613,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -769,8 +1650,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -788,7 +1690,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -803,11 +1726,33 @@
    "convert_dicom": false,
    "create_m2m": false,
    "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -823,7 +1768,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -839,8 +1803,28 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -857,7 +1841,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -873,9 +1877,30 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -892,7 +1917,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -909,8 +1954,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -928,7 +1994,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -944,10 +2031,32 @@
    "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -964,7 +2073,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -981,8 +2110,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1000,7 +2150,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1017,9 +2188,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1037,7 +2230,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1055,8 +2269,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1075,7 +2311,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2b",
@@ -1089,13 +2347,36 @@
  {
   "flags": {
    "convert_dicom": false,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a"
@@ -1110,7 +2391,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1125,8 +2424,27 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1142,7 +2460,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1157,9 +2494,29 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1175,7 +2532,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1191,8 +2567,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1209,7 +2605,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1224,10 +2640,31 @@
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1243,7 +2680,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1259,8 +2715,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1277,7 +2753,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1293,9 +2789,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1312,7 +2829,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1329,8 +2866,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1348,7 +2906,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1363,11 +2942,33 @@
    "convert_dicom": false,
    "create_m2m": true,
    "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1383,7 +2984,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1399,8 +3019,28 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1417,7 +3057,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1433,9 +3093,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1452,7 +3133,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1469,8 +3170,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1488,7 +3210,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1504,10 +3247,32 @@
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1524,7 +3289,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1541,8 +3326,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1560,7 +3366,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1577,9 +3404,31 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1597,7 +3446,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1615,8 +3485,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1635,7 +3527,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1650,12 +3564,35 @@
   "flags": {
    "convert_dicom": false,
    "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1671,7 +3608,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1687,8 +3643,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1705,7 +3681,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1721,9 +3717,30 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1740,7 +3757,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1757,8 +3794,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1776,7 +3834,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1792,10 +3871,32 @@
    "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1812,7 +3913,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1829,8 +3950,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1848,7 +3990,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1865,9 +4028,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1885,7 +4070,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1903,8 +4109,30 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1923,7 +4151,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1939,11 +4189,34 @@
    "convert_dicom": false,
    "create_m2m": true,
    "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1960,7 +4233,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1977,8 +4270,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -1996,7 +4310,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2013,9 +4348,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2033,7 +4390,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2051,8 +4429,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2071,7 +4471,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2088,10 +4510,33 @@
    "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2109,7 +4554,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2127,8 +4593,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2147,7 +4635,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2165,9 +4675,32 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2186,7 +4719,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2205,8 +4760,31 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2226,7 +4804,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G2a",
@@ -2240,6 +4841,29 @@
  },
  {
   "flags": {
+   "convert_dicom": false,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
    "convert_dicom": true,
    "create_m2m": false,
    "run_fastsurfer": false,
@@ -2247,7 +4871,8 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1"
@@ -2262,7 +4887,25 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2277,8 +4920,27 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2294,7 +4956,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2309,9 +4990,29 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2327,7 +5028,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2343,8 +5063,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2361,7 +5101,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2376,10 +5136,31 @@
    "create_m2m": false,
    "run_fastsurfer": false,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2395,7 +5176,26 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2411,8 +5211,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2429,7 +5249,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2445,9 +5285,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2464,7 +5325,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2481,8 +5362,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2500,7 +5402,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2515,11 +5438,33 @@
    "convert_dicom": true,
    "create_m2m": false,
    "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2535,7 +5480,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2551,8 +5515,28 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2569,7 +5553,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2585,9 +5589,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2604,7 +5629,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2621,8 +5666,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2640,7 +5706,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2656,10 +5743,32 @@
    "create_m2m": false,
    "run_fastsurfer": false,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2676,7 +5785,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2693,8 +5822,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2712,7 +5862,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2729,9 +5900,31 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2749,7 +5942,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2767,8 +5981,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2787,7 +6023,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2802,12 +6060,35 @@
   "flags": {
    "convert_dicom": true,
    "create_m2m": false,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2823,7 +6104,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2839,8 +6139,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2857,7 +6177,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2873,9 +6213,30 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2892,7 +6253,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2909,8 +6290,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2928,7 +6330,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2944,10 +6367,32 @@
    "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2964,7 +6409,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -2981,8 +6446,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3000,7 +6486,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3017,9 +6524,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3037,7 +6566,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3055,8 +6605,30 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3075,7 +6647,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3091,11 +6685,34 @@
    "convert_dicom": true,
    "create_m2m": false,
    "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3112,7 +6729,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3129,8 +6766,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3148,7 +6806,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3165,9 +6844,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3185,7 +6886,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3203,8 +6925,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3223,7 +6967,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3240,10 +7006,33 @@
    "create_m2m": false,
    "run_fastsurfer": true,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3261,7 +7050,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3279,8 +7089,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3299,7 +7131,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3317,9 +7171,32 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3338,7 +7215,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3357,8 +7256,31 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3378,7 +7300,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3393,13 +7338,37 @@
  {
   "flags": {
    "convert_dicom": true,
+   "create_m2m": false,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3415,7 +7384,26 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3431,8 +7419,28 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3449,7 +7457,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3465,9 +7493,30 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3484,7 +7533,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3501,8 +7570,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3520,7 +7610,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3536,10 +7647,32 @@
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3556,7 +7689,27 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3573,8 +7726,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3592,7 +7766,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3609,9 +7804,31 @@
    "run_fastsurfer": false,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3629,7 +7846,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3647,8 +7885,30 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3667,7 +7927,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3683,11 +7965,34 @@
    "convert_dicom": true,
    "create_m2m": true,
    "run_fastsurfer": false,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3704,7 +8009,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3721,8 +8046,29 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3740,7 +8086,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3757,9 +8124,31 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3777,7 +8166,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3795,8 +8205,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3815,7 +8247,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3832,10 +8286,33 @@
    "create_m2m": true,
    "run_fastsurfer": false,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3853,7 +8330,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3871,8 +8369,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3891,7 +8411,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3909,9 +8451,32 @@
    "run_fastsurfer": false,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3930,7 +8495,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3949,8 +8536,31 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3970,7 +8580,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -3986,12 +8619,36 @@
   "flags": {
    "convert_dicom": true,
    "create_m2m": true,
+   "run_fastsurfer": false,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4008,7 +8665,27 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4025,8 +8702,29 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4044,7 +8742,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4061,9 +8780,31 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4081,7 +8822,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4099,8 +8861,30 @@
    "run_freesurfer": false,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4119,7 +8903,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4136,10 +8942,33 @@
    "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": false,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4157,7 +8986,28 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4175,8 +9025,30 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4195,7 +9067,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4213,9 +9107,32 @@
    "run_fastsurfer": true,
    "run_freesurfer": false,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4234,7 +9151,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4253,8 +9192,31 @@
    "run_freesurfer": false,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4274,7 +9236,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4291,11 +9276,35 @@
    "convert_dicom": true,
    "create_m2m": true,
    "run_fastsurfer": true,
+   "run_freesurfer": false,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4313,7 +9322,28 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4331,8 +9361,30 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4351,7 +9403,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4369,9 +9443,32 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": false,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4390,7 +9487,29 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4409,8 +9528,31 @@
    "run_freesurfer": true,
    "run_tissue_analysis": false,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4430,7 +9572,30 @@
    "run_tissue_analysis": false,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4448,10 +9613,34 @@
    "create_m2m": true,
    "run_fastsurfer": true,
    "run_freesurfer": true,
+   "run_tissue_analysis": false,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4470,7 +9659,29 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4489,8 +9700,31 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": false,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4510,7 +9744,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": false,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4529,9 +9786,33 @@
    "run_fastsurfer": true,
    "run_freesurfer": true,
    "run_tissue_analysis": true,
+   "run_qsiprep": false,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G5",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4551,7 +9832,30 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": false,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4571,8 +9875,32 @@
    "run_freesurfer": true,
    "run_tissue_analysis": true,
    "run_qsiprep": true,
+   "run_qsirecon": false,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G6",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": false
+   "extract_dti": false,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4593,7 +9921,31 @@
    "run_tissue_analysis": true,
    "run_qsiprep": true,
    "run_qsirecon": true,
-   "extract_dti": true
+   "extract_dti": false,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G7"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": false
   },
   "stages": [
    "G1",
@@ -4604,6 +9956,30 @@
    "G4",
    "G5",
    "G6"
+  ]
+ },
+ {
+  "flags": {
+   "convert_dicom": true,
+   "create_m2m": true,
+   "run_fastsurfer": true,
+   "run_freesurfer": true,
+   "run_tissue_analysis": true,
+   "run_qsiprep": true,
+   "run_qsirecon": true,
+   "extract_dti": true,
+   "run_tractography": true
+  },
+  "stages": [
+   "G1",
+   "G2a",
+   "G2b",
+   "G2c",
+   "G3",
+   "G4",
+   "G5",
+   "G6",
+   "G7"
   ]
  }
 ]

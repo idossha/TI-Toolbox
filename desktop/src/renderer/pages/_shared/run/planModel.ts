@@ -106,6 +106,7 @@ const PRE_STAGE_LABELS: Record<string, string> = {
   G4: "qsiprep",
   G5: "qsirecon",
   G6: "dti",
+  G7: "tractography",
   // No `report` row: a report is an attachment of the job that produced it, never a stage,
   // a plan column or a job of its own (maintainer, 2026-09-07).
 };

@@ -1,6 +1,6 @@
 /**
  * The Pre-processing plan matrix's stage columns (`plannedStageIds`) equal the server planner's
- * stage tags for all 256 combinations of the eight step flags.
+ * stage tags for all 512 combinations of the nine step flags.
  *
  * The table is `tests/fixtures/pre_stages.json`, written by `dev/gen_pre_stages.py` from
  * `tit.jobs.plans.plan_preprocessing` (the source of truth); `tests/test_preprocess_stage_parity.py`
@@ -14,7 +14,7 @@ import { defaultConfig, plannedStageIds } from "../../src/renderer/pages/preproc
 
 describe("plannedStageIds follows plan_preprocessing", () => {
   it("has every flag combination to check", () => {
-    expect(table).toHaveLength(256);
+    expect(table).toHaveLength(512);
   });
 
   it.each(table.map((entry, i) => [i, entry] as const))("combination %i", (_i, { flags, stages }) => {

@@ -230,6 +230,8 @@ class TractConfig:
     Attributes:
         subject_id: Subject (without ``sub-``).
         stages: Any of :data:`STAGES`; run in that order.
+        skip_existing: A track or network stage whose output exists is skipped (a network only
+            when it was built with this atlas), the Pre-processing page's "skip" policy.
     """
 
     subject_id: str
@@ -238,6 +240,7 @@ class TractConfig:
     network: NetworkConfig = field(default_factory=NetworkConfig)
     assess: AssessConfig = field(default_factory=AssessConfig)
     target: TargetConfig = field(default_factory=TargetConfig)
+    skip_existing: bool = False
 
     def __post_init__(self) -> None:
         bad = [s for s in self.stages if s not in STAGES]

@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { connectReal, expectPage, gotoPage, launchElectronApp, selectSubject, waitForJobTerminal } from "../_helpers";
+import { answerExistingOutputs, connectReal, expectPage, gotoPage, launchElectronApp, selectSubject, waitForJobTerminal } from "../_helpers";
 import { addOptRow, clearOptRows, closeOptEditor, openOptEditor, setOptCell, setOptSubject } from "../_jobs";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
@@ -67,19 +67,28 @@ async function expectSucceeded(id: string, timeoutMs = JOB_TIMEOUT): Promise<voi
   expect(status.state, `job ${id}`).toBe("succeeded");
 }
 
-test("Pre-processing offers the job for a subject with QSIPrep; the network rebuilds", async () => {
+test("Pre-processing runs Tractography as a row of its own run, without QSIRecon", async () => {
   test.setTimeout(900_000);
   await selectSubject(page, "CHN");
   await gotoPage(page, "preprocess", "Pre-processing");
   await expectPage(page, "preprocess");
   const row = page.getByRole("option", { name: /CHN/ }).first();
   if ((await row.getAttribute("aria-selected")) !== "true") await row.click();
-  await page.getByTestId("open-tract-job").click();
-  const form = page.getByTestId("tract-job-form");
-  await expect(form.getByRole("combobox", { name: "Network atlas" })).toContainText("DK40");
-  await expect(form).toContainText("only its network is rebuilt");
-  await shot("preprocess_job");
-  const id = await groupJobId(() => page.getByTestId("tract-job-run").click());
+  for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
+    await page.getByRole("checkbox", { name: label }).uncheck();
+  }
+  await page.getByRole("checkbox", { name: "Tractography" }).check();
+  await page.getByTestId("open-tractography-config").click();
+  const form = page.getByTestId("tractography-form");
+  await expect(form.getByRole("combobox", { name: "Tractography atlas" })).toContainText("DK40");
+  await shot("preprocess_tractography_config");
+  await page.getByTestId("tractography-save").click();
+  await shot("preprocess_diffusion");
+  // CHN has a tractogram: the page's one existing-outputs question, answered skip, keeps it.
+  const id = await groupJobId(async () => {
+    await page.getByRole("button", { name: "Run preprocessing", exact: true }).click();
+    await answerExistingOutputs(page, "skip");
+  });
   await expectSucceeded(id, 800_000);
 });
 

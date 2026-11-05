@@ -1351,3 +1351,10 @@ binary format (`tit/scene/tvsl.py`). Additive: every other kind and route is unc
 ignores `tract` sees nothing new. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-05 — `PreprocessConfig` plans tractography
+
+`PreprocessConfig` gains `run_tractography`, `tractography_atlas` and `tractography_seeds`;
+`TractConfig` gains `skip_existing`. A `pre` group with the flag gains a `tract` job tagged `G7`.
+Additive: absent means no such stage. Regenerated `contracts/generated/config.schema.json`,
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+

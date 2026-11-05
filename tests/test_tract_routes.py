@@ -697,3 +697,87 @@ def test_tvsl_refuses_arrays_that_disagree() -> None:
     bad[0, 0] = np.nan
     with pytest.raises(ValueError, match="non-finite"):
         tvsl.encode(bad, np.array([0, 4]), np.array([0]))
+
+
+# ---- the Pre-processing stage -------------------------------------------------------------------
+
+
+def _plan_pre(client: TestClient, **flags) -> dict:
+    r = client.post(
+        "/api/plan/pre",
+        json={"config": {"subject_ids": ["S1"], **flags}, "subject_ids": ["S1"]},
+    )
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_tractography_is_a_tract_job_after_its_prerequisites_and_not_qsirecon(
+    client: TestClient,
+) -> None:
+    resolved = _plan_pre(
+        client,
+        run_qsiprep=True,
+        create_m2m=True,
+        run_tractography=True,
+        tractography_atlas="HCP_MMP1",
+    )
+    stage = {s["tags"][0]: s for s in resolved["resolved"]["stages"]}["G7"]
+    assert stage["kind"] == "tract"
+    assert set(stage["after"]) == {"S1:G4", "S1:G2a"}
+    jobs = [j for j in resolved["jobs"] if j["kind"] == "tract"]
+    assert jobs[0]["output_dir"].endswith("sub-S1/tractography")
+
+
+def test_tractography_stage_config_carries_the_page_s_choices() -> None:
+    from tit.jobs.plans import plan_preprocessing
+    from tit.pre.config import PreprocessConfig
+
+    config = PreprocessConfig(
+        subject_ids=["S1"],
+        run_tractography=True,
+        tractography_atlas="HCP_MMP1",
+        tractography_seeds=5000,
+        skip_existing_outputs=True,
+    )
+    (job,) = plan_preprocessing(config, ["S1"])
+    assert job.config["stages"] == ["track", "network"]
+    assert job.config["network"]["atlas"] == "HCP_MMP1"
+    assert job.config["track"]["n_seeds"] == 5000
+    assert job.config["track"]["overwrite"] is False
+    assert job.config["skip_existing"] is True
+    replaced = PreprocessConfig(
+        subject_ids=["S1"], run_tractography=True, replace_existing_outputs=True
+    )
+    assert plan_preprocessing(replaced, ["S1"])[0].config["track"]["overwrite"] is True
+
+
+def test_preprocess_preflight_needs_qsiprep_unless_this_run_makes_it(
+    project: Path,
+) -> None:
+    flags = {"subject_ids": ["S1"], "run_tractography": True}
+    found = preflight("pre", flags, str(project))
+    assert any("Run QSIPrep for sub-S1 first" in m.how_to_fix for m in found)
+    assert any("Run charm for sub-S1 first" in m.how_to_fix for m in found)
+    relieved = [
+        m.how_to_fix
+        for m in preflight(
+            "pre", {**flags, "run_qsiprep": True, "create_m2m": True}, str(project)
+        )
+    ]
+    assert not [m for m in relieved if "Tractography" in m]
+
+
+def test_skip_existing_keeps_the_tractogram_and_rebuilds_only_for_a_new_atlas(
+    project: Path,
+) -> None:
+    from tit.tract.__main__ import _already_done
+    from tit.tract.config import NetworkConfig
+
+    folder = str(tract_dir(project))
+    config = TractConfig(subject_id="S1", stages=["track", "network"])
+    assert not _already_done(config, "track", folder)  # the policy is opt-in
+    config.skip_existing = True
+    assert _already_done(config, "track", folder)
+    assert _already_done(config, "network", folder)  # network.json says DK40
+    config.network = NetworkConfig(atlas="HCP_MMP1")
+    assert not _already_done(config, "network", folder)

@@ -4390,7 +4390,7 @@ which the image lacks).
 `/api/tract/{manifest,edges,streamlines,mask,masks,rankings}`, and a network mask gets a sidecar whose
 fingerprint flex and ex preflight compare with the current tractogram and network (ARCHITECTURE §15).
 Requests name edges by region pairs. Answers the design's open questions as the maintainer did: the
-job is offered from Pre-processing and from the optimizer's empty state, ranking is an explicit
+job is a Pre-processing step (see the entry below) and is offered from the optimizer's empty state, ranking is an explicit
 action, targets are WM only in subject space, and the atlas is chosen in the job form. Pinned by
 `tests/test_tract_routes.py` and `tests/numerical/test_tract_mask.py`.
 
@@ -4422,4 +4422,22 @@ row, not a value.
 ribbons or tubes (TetraVox and Blender own display quality; this is a form control); an exact-pixel
 line pick (a one-pixel target is not clickable); per-streamline colour from a metric (a viewer's job,
 and it would favour that metric while a target is being chosen).
+
+## 2026-11-05 — Tractography is a Pre-processing step, stage G7 of the page's one run
+
+**Decision.** `PreprocessConfig` gains `run_tractography`, `tractography_atlas` and
+`tractography_seeds`; `plan_preprocessing` plans stage `G7`, a `tract` job (track + network) after `G4`
+and `G2a`. The section is **Diffusion**, ordered QSIPrep, Extract DTI tensor, Tractography, QSIRecon.
+Preflight treats it like DTI extraction: QSIPrep and charm output must exist or be in the same run.
+`TractConfig.skip_existing` carries the page's existing-output policy; a network is skipped only when
+built with the chosen atlas. Pinned by `tests/test_preprocess_stage_parity.py`,
+`tests/test_tract_routes.py` and `tests/test_runner_dispatch_replay.py`.
+
+**Why.** The maintainer asked (2026-11-05) that it read like its neighbours, under QSIPrep because
+QSIPrep is the mandatory first step. A row with its own submit path was a second way to run one page.
+
+**Alternatives rejected.** A `tit.pre` stage running tracking inside the `pre` runner (it would need
+the kind's locks and cost, which the `tract` kind already has); the separate "Build…" job button (the
+maintainer's reason above). The optimizer's empty state keeps a direct `tract` job, because no
+Pre-processing Run is in progress there.
 

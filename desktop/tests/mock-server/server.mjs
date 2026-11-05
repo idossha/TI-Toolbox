@@ -977,6 +977,8 @@ function preStageOutputDir(tag, subject) {
       return `${derivs}/qsirecon/sub-${subject}`;
     case "G6":
       return `${derivs}/SimNIBS/sub-${subject}/dti`;
+    case "G7":
+      return `${derivs}/SimNIBS/sub-${subject}/tractography`;
     default:
       return `${derivs}/ti-toolbox/reports/sub-${subject}`;
   }
@@ -3814,7 +3816,7 @@ function recordBody(req, kind, config, subjectIds) {
 // Mirrors tit.jobs.plans.plan_preprocessing's G1..G6 stage DAG (own dependency comments there):
 // each stage is only planned when its PreprocessConfig flag is set, every stage job's config is
 // the group's config with every step flag but its own forced False. A report is never a job.
-const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_freesurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti"];
+const PRE_STAGE_FLAGS = ["convert_dicom", "create_m2m", "run_fastsurfer", "run_freesurfer", "run_tissue_analysis", "run_qsiprep", "run_qsirecon", "extract_dti", "run_tractography"];
 function planPreprocessingStages(config) {
   const cfg = config && typeof config === "object" ? config : {};
   const stages = [];
@@ -3831,6 +3833,7 @@ function planPreprocessingStages(config) {
   if (cfg.run_qsiprep) stages.push({ tag: "G4", flags: { run_qsiprep: true }, after: has("G1") ? ["G1"] : [] });
   if (cfg.run_qsirecon) stages.push({ tag: "G5", flags: { run_qsirecon: true }, after: has("G4") ? ["G4"] : [] });
   if (cfg.extract_dti) stages.push({ tag: "G6", flags: { extract_dti: true }, after: [...(has("G5") ? ["G5"] : []), ...(has("G2a") ? ["G2a"] : [])] });
+  if (cfg.run_tractography) stages.push({ tag: "G7", flags: { run_tractography: true }, after: [...(has("G4") ? ["G4"] : []), ...(has("G2a") ? ["G2a"] : [])] });
   return stages;
 }
 // Every kind `JobGroupRequest.kind` accepts (contracts/openapi.yaml, R3). `pre` expands into

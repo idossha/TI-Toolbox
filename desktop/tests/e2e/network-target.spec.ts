@@ -158,3 +158,26 @@ async function openFirstExRun(target: Page): Promise<Locator> {
   await expect(ranking).toBeVisible();
   return ranking;
 }
+
+test("Pre-processing: Diffusion lists QSIPrep, DTI, Tractography, QSIRecon, and Tractography joins the run after QSIPrep", async () => {
+  await gotoPage(page, "preprocess");
+  const section = page.locator("section, .form-section").filter({ hasText: "Diffusion" }).first();
+  await expect(page.getByText("DWI (docker)")).toHaveCount(0);
+  const labels = await section.getByRole("checkbox").evaluateAll((boxes) => boxes.map((box) => box.closest("label")?.textContent?.trim() ?? box.getAttribute("aria-label")));
+  expect(labels).toEqual(["QSIPrep", "Extract DTI tensor", "Tractography", "QSIRecon"]);
+
+  await page.getByRole("checkbox", { name: "QSIPrep" }).check();
+  await page.getByRole("checkbox", { name: "Tractography" }).check();
+  await page.getByTestId("open-tractography-config").click();
+  await expect(page.getByTestId("tractography-form").getByRole("combobox", { name: "Tractography atlas" })).toContainText("DK40");
+  await page.getByTestId("tractography-save").click();
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
+  const response = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups"));
+  await page.getByRole("button", { name: /Run preprocessing|Queue/ }).click();
+  await page.getByTestId("existing-outputs-skip").click({ timeout: 3000 }).catch(() => undefined);
+  const body = (await request).postDataJSON();
+  expect(body.kind).toBe("pre");
+  expect(body.config).toMatchObject({ run_qsiprep: true, run_tractography: true, tractography_atlas: "DK40" });
+  const jobs = (await (await response).json()).jobs as { tags?: string[]; id: string; depends_on?: string[] }[];
+  expect(jobs.some((job) => job.tags?.includes("G7"))).toBe(true);
+});

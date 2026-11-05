@@ -6,10 +6,26 @@ track -> network -> assess -> target.
 """
 
 import json
+import os
 import sys
 import time
 
 from tit.tract.config import STAGES, TractConfig
+
+
+def _already_done(config: TractConfig, stage: str, tract_dir: str) -> bool:
+    """Under ``skip_existing``: the track or network stage has nothing left to do."""
+    if not config.skip_existing:
+        return False
+    if stage == "track":
+        return os.path.isfile(os.path.join(tract_dir, "tractogram.trx"))
+    if stage == "network" and os.path.isfile(os.path.join(tract_dir, "network.npz")):
+        try:
+            with open(os.path.join(tract_dir, "network.json")) as f:
+                return json.load(f).get("atlas") == config.network.atlas
+        except (OSError, ValueError):
+            return False
+    return False
 
 
 def main() -> None:
@@ -24,7 +40,7 @@ def main() -> None:
 
     with open(sys.argv[1]) as f:
         data = json.load(f)
-    get_path_manager(data.pop("project_dir"))
+    pm = get_path_manager(data.pop("project_dir"))
     try:
         config = deserialize_config(TractConfig, data)
     except (TypeError, ValueError, KeyError) as exc:
@@ -47,6 +63,9 @@ def main() -> None:
         with lock_cm:
             for stage in (s for s in STAGES if s in config.stages):
                 events.emit_stage(stage)
+                if _already_done(config, stage, pm.tractography(sid)):
+                    print(f"tract {stage}: sub-{sid} exists, skipped", flush=True)
+                    continue
                 t0 = time.time()
                 print(f"tract {stage}: sub-{sid}", flush=True)
                 runners[stage]()

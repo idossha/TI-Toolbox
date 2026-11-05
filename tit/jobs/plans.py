@@ -27,7 +27,7 @@ from tit.pre.config import PreprocessConfig
 __all__ = ["GROUP_KINDS", "plan_per_subject", "plan_preprocessing"]
 
 #: Job kinds ``POST /api/jobs/groups`` can submit as a per-subject group (R3). ``pre`` expands
-#: into the G1-G6 DAG below; every other kind is one independent job per subject (per
+#: into the G1-G7 DAG below; every other kind is one independent job per subject (per
 #: ``(subject, config)`` entry, for a page like the Simulator that runs several montages for the
 #: same subject), built by :func:`plan_per_subject`.
 GROUP_KINDS: tuple[str, ...] = (
@@ -140,7 +140,26 @@ _STAGE_FLAGS = (
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti",
+    "run_tractography",
 )
+
+
+def _tractography_config(config: PreprocessConfig, subject_id: str) -> dict:
+    """Stage ``G7``'s ``tract`` job: track and network, under the group's existing-output policy."""
+    from tit.tract.config import NetworkConfig, TrackConfig, TractConfig
+
+    return serialize_config(
+        TractConfig(
+            subject_id=subject_id,
+            stages=["track", "network"],
+            track=TrackConfig(
+                n_seeds=config.tractography_seeds,
+                overwrite=config.replace_existing_outputs,
+            ),
+            network=NetworkConfig(atlas=config.tractography_atlas),
+            skip_existing=config.skip_existing_outputs,
+        )
+    )
 
 
 def _stage_config(config: PreprocessConfig, subject_id: str, **flags: bool) -> dict:
@@ -172,6 +191,8 @@ def plan_preprocessing(
     - ``G5`` = optional QSIRecon (``run_qsirecon``), after ``G4``
     - ``G6`` = DTI tensor fit (``extract_dti``, DIPY on QSIPrep output), after ``G4``
       and ``G2a`` -- it needs no QSIRecon, so it runs in parallel with ``G5``
+    - ``G7`` = tractography (``run_tractography``, a ``tract`` job: track + network), after
+      ``G4`` and ``G2a`` -- it needs no QSIRecon either
     A report is **not** a stage and never a job of its own: ``G2a`` copies SimNIBS's
     ``charm_report.html`` into the subject's report folder and ``G6`` writes the DTI QC
     report, each as part of its own step.
@@ -304,6 +325,18 @@ def plan_preprocessing(
                 tags=["G6", "dti"],
             )
             subject_jobs.append(g6)
+
+        if config.run_tractography:
+            subject_jobs.append(
+                PlannedJob(
+                    label=f"{subject_id}:G7",
+                    kind="tract",
+                    config=_tractography_config(config, subject_id),
+                    subject_ids=[subject_id],
+                    after_labels=[j.label for j in (g4, g2a) if j is not None],
+                    tags=["G7", "tractography"],
+                )
+            )
 
         jobs.extend(subject_jobs)
 

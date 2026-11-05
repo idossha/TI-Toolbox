@@ -39,6 +39,9 @@ describe("run-page defaults come from the server's table unchanged", () => {
       qsiprep_config: null,
       qsi_recon_config: null,
       extract_dti: false,
+      run_tractography: false,
+      tractography_atlas: "DK40",
+      tractography_seeds: 200000,
       skip_existing_outputs: true,
       replace_existing_outputs: false,
     });
