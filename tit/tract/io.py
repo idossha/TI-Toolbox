@@ -66,11 +66,17 @@ def save_tractogram(
 def load_streamlines(path: str) -> list[np.ndarray]:
     """Streamlines of a ``.trx``/``.tck``/``.trk`` file, world RAS mm, float64."""
     if path.endswith(".trx"):
+        import shutil
+
         from dipy.io.streamline import load_tractogram
 
-        sft = load_tractogram(path, "same", bbox_valid_check=False)
-        sft.to_rasmm()
-        return [np.asarray(s, np.float64) for s in sft.streamlines]
+        # trx-python memory-maps the archive read-write, which fails on a read-only
+        # mount; a private copy keeps the source untouched.
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = shutil.copy(path, os.path.join(tmp, "t.trx"))
+            sft = load_tractogram(copy, "same", bbox_valid_check=False)
+            sft.to_rasmm()
+            return [np.array(s, np.float64) for s in sft.streamlines]
     import nibabel as nib
 
     return [np.asarray(s, np.float64) for s in nib.streamlines.load(path).streamlines]
