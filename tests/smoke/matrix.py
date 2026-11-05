@@ -761,6 +761,24 @@ ROWS: tuple[Row, ...] = (
         ],
     ),
     Row(
+        id="tract_track",
+        kind="tract",
+        behaviour=REFUSED_AT_SUBMIT,
+        subject="101",
+        why_subject="sub-101 has a head model and no QSIPrep output, so the only thing that can "
+        "fail is the tract job's own preflight, and nothing tracks.",
+        build=lambda ctx: Submission(
+            kind="tract",
+            config={"subject_id": "101", "stages": ["track", "network"]},
+            subject_ids=["101"],
+        ),
+        budget_s=120.0,
+        refusal=(r"QSIPrep-preprocessed DWI for sub-101",),
+        notes="A completed run takes hours: tracking CHN (200 000 seeds, 8 workers) is the "
+        "measured case in tract_network_dev/logs/tract. The target and ranking stages are "
+        "exercised by the real-app run recorded in docs/dev/TESTING.md.",
+    ),
+    Row(
         id="nifti_average",
         kind="nifti_average",
         behaviour=COMPLETED,

@@ -58,6 +58,11 @@ from tit.pre.config import (  # noqa: E402
 from tit.pre.qsi.config import QSIPrepConfig, QSIReconConfig  # noqa: E402
 from tit.stats.config import CorrelationConfig, GroupComparisonConfig  # noqa: E402
 from tit.source.config import SourceConfig, SourcePair  # noqa: E402
+from tit.tract.config import (  # noqa: E402
+    Selection,
+    TargetConfig,
+    TractConfig,
+)
 from tit.opt.leadfield_config import LeadfieldConfig  # noqa: E402
 from tit.blender.config import (  # noqa: E402
     MontageConfig,
@@ -202,6 +207,14 @@ def _sample_instances() -> dict[str, object]:
         "SourceConfig": SourceConfig(
             mode="fsavg_map",
             pairs=[SourcePair(subject_id="001", simulation="sim1")],
+        ),
+        "TractConfig": TractConfig(
+            subject_id="001",
+            stages=["target"],
+            target=TargetConfig(
+                selection=Selection(name="net", kind="edges", pairs=[["a", "b"]]),
+                min_count=2,
+            ),
         ),
         "LeadfieldConfig": LeadfieldConfig(subject_id="001", tissues=[1, 2]),
         "MontageConfig": MontageConfig(subject_id="001", simulation_name="sim1"),

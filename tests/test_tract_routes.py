@@ -527,6 +527,42 @@ def test_rankings_are_filtered_by_the_run_that_made_them(
     assert get("run2") == []
 
 
+# ---- the contract -------------------------------------------------------------------------------
+
+
+def test_every_tract_json_response_matches_the_contract(
+    client: TestClient, project: Path
+) -> None:
+    import jsonschema
+    import yaml
+    from referencing import Registry, Resource
+    from referencing.jsonschema import DRAFT202012
+
+    root = Path(__file__).resolve().parent.parent
+    contract = yaml.safe_load((root / "contracts" / "openapi.yaml").read_text())
+    uri = "urn:tit-contract"
+    registry = Registry().with_resource(
+        uri, Resource.from_contents(contract, default_specification=DRAFT202012)
+    )
+
+    def check(schema: str, body: dict) -> None:
+        jsonschema.Draft202012Validator(
+            {"$ref": f"{uri}#/components/schemas/{schema}"}, registry=registry
+        ).validate(body)
+
+    mask = client.post("/api/tract/mask", json=mask_body())
+    params = {"subject": "S1"}
+    check("TractMask", mask.json())
+    check("TractManifest", client.get("/api/tract/manifest", params=params).json())
+    edges = client.get("/api/tract/edges", params={**params, "seed": ["lh.insula"]})
+    check("TractEdges", edges.json())
+    masks = client.get("/api/tract/masks", params=params).json()
+    assert masks["masks"]
+    check("TractMasks", masks)
+    rankings = client.get("/api/tract/rankings", params={**params, "ex_run": "r"})
+    check("TractRankings", rankings.json())
+
+
 # ---- streamlines --------------------------------------------------------------------------------
 
 

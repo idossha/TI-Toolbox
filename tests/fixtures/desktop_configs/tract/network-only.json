@@ -1,0 +1,35 @@
+{
+  "id": "tract/network-only",
+  "page": "tract",
+  "title": "A subject with a tractogram: another atlas",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "network": {
+          "atlas": "HCP_MMP1"
+        },
+        "stages": [
+          "network"
+        ],
+        "subject_id": "001",
+        "track": {
+          "overwrite": false
+        }
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "network"
+    ]
+  }
+}

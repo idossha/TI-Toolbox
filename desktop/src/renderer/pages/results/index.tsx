@@ -64,6 +64,7 @@ import {
 } from "./api";
 import { exRunConfigPath, parseExRunConfig, type ExTable } from "./preview/ex";
 import { CandidateBrowser } from "./candidates/CandidateBrowser";
+import { NetworkRanking } from "./NetworkRanking";
 import { flexManifestSummary, flexPositionsPath, flexSummaryPath, parseFlexPositions, parseFlexSummaryText } from "./preview/flex";
 import { parseSimulationConfig, simulationConfigPath, type SummaryRow } from "./preview/simulation";
 import { analysisView, type TableLike } from "./preview/analysis";
@@ -485,6 +486,13 @@ function Preview({
         content: <BucketList buckets={exSummary?.buckets ?? []} />,
       },
       { kind: "custom", title: "Evaluated candidates", testid: "results-candidates", content: <CandidateBrowser key={`${subject}:${preview.type === "exRun" ? preview.kind : "ex"}:${node.label}`} subject={subject} kind={preview.type === "exRun" ? preview.kind : "ex"} run={preview.type === "exRun" ? preview.run : node.label} /> },
+      // Two-pair runs only: the ranking scores two-pair montages (`tit.tract.target`).
+      preview.type === "exRun" && preview.kind === "ex" && {
+        kind: "custom" as const,
+        title: "Rank on a network",
+        testid: "results-network-ranking",
+        content: <NetworkRanking key={`${subject}:${preview.run}`} subject={subject} run={preview.run} runConfig={exConfig.data} />,
+      },
       { kind: "figures", figures },
       filesSection(),
     ];

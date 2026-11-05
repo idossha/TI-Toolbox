@@ -33,6 +33,7 @@ import { Dialog, AlertDialog, Popover } from "../../../ui/Overlay";
 import { CoordinateInput, type Coordinate } from "../../../ui/CoordinateInput";
 import { notify } from "../../../ui/Toast";
 import { getAtlases, getAtlasRegions, getRois, saveRoi, deleteRoi, type Roi } from "./api";
+import { NetworkPanel } from "./NetworkPanel";
 import "./roi.css";
 import {
   emptyRoi,
@@ -94,9 +95,10 @@ export function RoiSpaceControl({ value, onChange, label = "Space", disabled, id
 /** Canonical ROI-type order across every picker on the site (DESIGN QA vocabulary pass).
  *  `saved` leads because it is the ex/mEx default; it is absent from flex's `modes`, so flex's
  *  own order (cortical, subcortical, spherical) is unchanged. */
-const MODE_ORDER: RoiMode[] = ["saved", "cortical", "subcortical", "spherical", "mask"];
+const MODE_ORDER: RoiMode[] = ["saved", "cortical", "subcortical", "spherical", "mask", "network"];
 const MODE_LABEL: Record<RoiMode, string> = {
   mask: "NIfTI mask",
+  network: "Network",
   saved: "Saved",
   cortical: "Cortical",
   subcortical: "Subcortical",
@@ -163,6 +165,7 @@ export function RoiPicker({ value, onChange, modes, subject, space = "subject", 
           ExConfig/MExConfig carry no tissue, so a Tissue type select there would be dropped. */}
       {value.mode === "subcortical" && <SubcorticalPanel value={value} onChange={onChange} subject={subject} disabled={disabled} analyzer={analyzer} showTissues={!analyzer && !modes.includes("saved")} />}
       {value.mode === "mask" && <MaskPanel value={value} onChange={onChange} disabled={disabled} subject={subject} showTissues={!analyzer && modes.includes("spherical")} />}
+      {value.mode === "network" && <NetworkPanel value={value} onChange={onChange} subject={subject} disabled={disabled} />}
       {value.mode === "saved" && <SavedPanel value={value} onChange={onChange} subject={subject} disabled={disabled} allowCombine={allowCombine} />}
     </div>
   );

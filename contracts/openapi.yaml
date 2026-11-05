@@ -5514,7 +5514,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex]
+          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex, tract]
           description: >-
             Every kind that runs one independent job per subject. The whole group is created queued
             and runs one job at a time: the scheduler runs one job per product (Preprocess,

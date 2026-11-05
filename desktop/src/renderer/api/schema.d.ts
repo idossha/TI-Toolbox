@@ -6897,7 +6897,7 @@ export interface components {
              * @description Every kind that runs one independent job per subject. The whole group is created queued and runs one job at a time: the scheduler runs one job per product (Preprocess, Simulator, Optimizer, Analyzer) whatever was submitted. A `parallel_subjects` field sent by an older client is ignored. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the charm and DTI reports are written by their own stage jobs, never a job of their own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead.
              * @enum {string}
              */
-            kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex";
+            kind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "tract";
             config: components["schemas"]["PipelineConfig"];
             subject_ids: string[];
             /** @description Optional per-subject configs, for a workflow whose config depends on the subject (an ROI resolved against that subject's own atlas, a subject-specific leadfield path) or that runs several jobs for one subject (the Simulator's one job per (subject, montage)). Entries are matched to subject_ids by subject_id; a subject with no entry uses `config`. Whatever is sent, the server forces each generated config's subject_id to its own subject, so a config can never carry another subject's id. */

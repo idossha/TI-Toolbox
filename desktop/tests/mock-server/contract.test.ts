@@ -394,6 +394,13 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/kernels/{kernel_id}/restart", "POST", `/api/kernels/${kernelId}/restart`);
     await call("/api/kernels/{kernel_id}", "DELETE", `/api/kernels/${kernelId}`);
 
+    await call("/api/tract/manifest", "GET", "/api/tract/manifest?subject=ernie");
+    await call("/api/tract/edges", "GET", "/api/tract/edges?subject=ernie&seed=lh.insula");
+    await call("/api/tract/streamlines", "GET", "/api/tract/streamlines?subject=ernie&pair=lh.insula%7CLeft-Thalamus-Proper");
+    await call("/api/tract/mask", "POST", "/api/tract/mask", { body: { subject: "ernie", name: "contract", pairs: [["lh.insula", "Left-Thalamus-Proper"]] } });
+    await call("/api/tract/masks", "GET", "/api/tract/masks?subject=ernie");
+    await call("/api/tract/rankings", "GET", "/api/tract/rankings?subject=ernie&ex_run=none");
+
     await call("/api/scene/target-preview", "POST", "/api/scene/target-preview", {
       body: { subject: "ernie", roi: { kind: "spherical", space: "subject", spheres: [{ center: [0, 0, 0], radius: 10 }] } },
     });

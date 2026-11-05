@@ -18,7 +18,7 @@
  * one picker rather than a second picker, because U7's merged Optimizer must not carry two ROI
  * widgets that disagree about what an ROI is.
  */
-export type RoiMode = "spherical" | "cortical" | "subcortical" | "saved" | "mask";
+export type RoiMode = "spherical" | "cortical" | "subcortical" | "saved" | "mask" | "network";
 export type RoiSpace = "subject" | "mni";
 export type TissueKind = "GM" | "WM" | "both";
 
@@ -96,7 +96,37 @@ export interface MaskRoiValue {
   tissues: TissueKind;
 }
 
-export type RoiValue = MaskRoiValue | SphericalRoiValue | CorticalRoiValue | SubcorticalRoiValue | SavedRoiValue;
+/**
+ * A white-matter network as the target: seed regions, the edges chosen among them (region-name
+ * pairs, never edge ids, which renumber on rebuild), and the mask written from them. Subject space
+ * only, and evaluated on white matter. `mask` exists only while it matches the selection: every edit
+ * goes through `withNetworkEdit`, which drops it and sets `stale`, which is what disables Run.
+ */
+export interface NetworkRoiValue {
+  mode: "network";
+  space: "subject";
+  seeds: string[];
+  pairs: [string, string][];
+  minN: number;
+  minCount: number;
+  name: string;
+  mask?: { path: string; fingerprint: string; nEdges: number; nStreamlines: number; nVoxels: number; volumeMm3: number };
+  /** A mask was made and the selection has changed since. */
+  stale?: boolean;
+}
+
+export type RoiValue = MaskRoiValue | SphericalRoiValue | CorticalRoiValue | SubcorticalRoiValue | SavedRoiValue | NetworkRoiValue;
+
+/** `tit.tract.config.Selection`'s name rule. */
+export const NETWORK_NAME_RE = /^[A-Za-z0-9_-]+$/;
+
+/** The same target with its selection changed: whatever mask it had no longer describes it. */
+export function withNetworkEdit(value: NetworkRoiValue, patch: Partial<Pick<NetworkRoiValue, "seeds" | "pairs" | "minN" | "minCount" | "name">>): NetworkRoiValue {
+  const { mask: _mask, stale: _stale, ...rest } = value;
+  void _mask;
+  void _stale;
+  return { ...rest, ...patch, ...(value.mask || value.stale ? { stale: true } : {}) };
+}
 
 export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
   switch (mode) {
@@ -110,6 +140,8 @@ export function emptyRoi(mode: RoiMode, space: RoiSpace = "subject"): RoiValue {
       return { mode, path: "", space, tissues: "GM" };
     case "saved":
       return { mode, selected: [], combine: false, radius: 3.0, space };
+    case "network":
+      return { mode, space: "subject", seeds: [], pairs: [], minN: 5, minCount: 1, name: "" };
   }
 }
 
@@ -132,7 +164,7 @@ export function roiSpace(value: RoiValue): RoiSpace {
  * `spaceChangeNote` is the sentence the UI says about what was dropped.
  */
 export function withRoiSpace(value: RoiValue, space: RoiSpace): RoiValue {
-  if (value.space === space) return value;
+  if (value.space === space || value.mode === "network") return value;
   if (value.mode === "cortical" || value.mode === "subcortical") {
     return { ...value, space, atlas: undefined, regions: [] } as RoiValue;
   }
@@ -159,6 +191,7 @@ function isSphereComplete(s: SphereRow): boolean {
 
 /** True once the value has enough to build a valid ROI config (see `roiToConfig`). */
 export function isRoiComplete(value: RoiValue): boolean {
+  if (value.mode === "network") return value.mask !== undefined;
   if (value.mode === "mask") return /\.nii(\.gz)?$/i.test(value.path.trim());
   if (value.mode === "saved") return value.selected.length > 0;
   if (value.mode === "spherical") return value.spheres.length > 0 && value.spheres.every(isSphereComplete);
@@ -194,6 +227,8 @@ export function roiToConfig(value: RoiValue, atlasLookup: (atlas: string) => Atl
   if (!isRoiComplete(value)) return undefined;
   // `saved` is not a FlexConfig ROI shape — ex/mEx read it through `exTargets()` instead.
   if (value.mode === "saved") return undefined;
+  // Tissues fixed to WM: a tract mask filtered to GM would keep only its cortical ends.
+  if (value.mode === "network") return { _type: "SubcorticalROI", atlas_path: value.mask!.path, label: null, tissues: "WM", atlas_space: "subject" };
   if (value.mode === "mask") return { _type: "SubcorticalROI", atlas_path: value.path.trim(), label: null, tissues: value.tissues, atlas_space: value.space };
   if (value.mode === "spherical") {
     return {

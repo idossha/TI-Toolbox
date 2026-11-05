@@ -37,6 +37,13 @@ export function roiForSubject(roi: RoiValue, from: string, to: string): SubjectC
       note: `The subject-space mask was cleared: it is drawn in ${head}'s head, not sub-${to}'s. Choose a mask for sub-${to}, or an MNI-space mask.`,
     };
   }
+  if (roi.mode === "network") {
+    if (roi.seeds.length === 0 && !roi.mask) return { roi, note: null };
+    return {
+      roi: emptyRoi("network"),
+      note: `The network target was cleared: it is ${head}'s tractography. Choose sub-${to}'s own seeds and edges.`,
+    };
+  }
   if (roi.mode === "saved") {
     if (roi.selected.length === 0) return { roi, note: null };
     return {

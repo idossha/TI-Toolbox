@@ -1,0 +1,15 @@
+{
+  "id": "optimizer-flex/mean-network-stale",
+  "page": "optimizer-flex",
+  "title": "Goal mean, a network whose selection changed after its mask",
+  "jobs": [],
+  "desktop": {
+    "accepts": false,
+    "reason": "isRunnableOptimizerRow is false"
+  },
+  "expect": {
+    "flex_mode": "flex",
+    "goal": "mean",
+    "roi_type": "network"
+  }
+}

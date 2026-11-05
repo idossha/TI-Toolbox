@@ -579,7 +579,7 @@ function regionsFor(atlasId, hemi) {
 }
 
 // -------------------------------------------------------------------------- validate / plan
-const PER_SUBJECT_KINDS = new Set(["pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "leadfield", "analyzer", "source", "blender"]);
+const PER_SUBJECT_KINDS = new Set(["pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "leadfield", "analyzer", "source", "blender", "tract"]);
 function validateConfig(kind, config) {
   const cfg = config && typeof config === "object" ? config : {};
   const errors = [];
@@ -713,6 +713,8 @@ function outputDirFor(kind, subject, config) {
       return `${PROJECT_ROOT}/derivatives/ti-toolbox/stats/${statsTypeDir(cfg)}/${cfg.analysis_name}`;
     case "source":
       return `${base}/forward`;
+    case "tract":
+      return `${base}/tractography`;
     // The 3D visual exporter's four modes are all kind="blender", discriminated by the config's
     // own `_type` -- and each writes somewhere different under visual_exports
     // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
@@ -788,6 +790,7 @@ const COST_TABLE = {
   analyzer: { cpus: 2, mem_gb: 4 },
   stats: { cpus: 4, mem_gb: 8 },
   source: { cpus: 2, mem_gb: 6 },
+  tract: { cpus: 8, mem_gb: 16 },
   blender: { cpus: 1, mem_gb: 4 },
   nifti_average: { cpus: 2, mem_gb: 6 },
   nilearn: { cpus: 2, mem_gb: 6 },
@@ -1423,6 +1426,8 @@ function stagesFor(kind) {
       return ["permute", "cluster", "report"];
     case "source":
       return ["forward", "project"];
+    case "tract":
+      return ["track", "network"];
     case "blender":
       return ["render"];
     case "nifti_average":
@@ -1449,6 +1454,7 @@ const LOGGER_FOR = {
   analyzer: "tit.analyzer.analyzer",
   stats: "tit.stats",
   source: "tit.source",
+  tract: "tit.tract",
   blender: "tit.blender",
   // The loggers those runners stream (tit/stats/nifti_average.py, tit/plotting/nilearn/__main__.py).
   nifti_average: "tit.stats.nifti_average",
@@ -2779,6 +2785,132 @@ route("POST", "/api/scene/target-preview", async (ctx) => {
   json(ctx.res, 200, { scene, note: "Target extent in subject space; analysis/search applies its tissue and mesh settings." });
 });
 
+// ---------------------------------------------------------------------------------- tract (v1)
+// `tit/server/routes/tract.py`, on one authored network for `ernie`. `101` has QSIPrep and no
+// network (the empty state's action); every other subject has neither.
+const TRACT_REGIONS = [
+  { name: "lh.insula", cortical: true },
+  { name: "lh.precentral", cortical: true },
+  { name: "Left-Thalamus-Proper", cortical: false },
+  { name: "Brain-Stem", cortical: false },
+];
+const TRACT_EDGES = [
+  { region_a: "lh.precentral", region_b: "Brain-Stem", n: 600 },
+  { region_a: "lh.insula", region_b: "Left-Thalamus-Proper", n: 300 },
+  { region_a: "lh.precentral", region_b: "Left-Thalamus-Proper", n: 95 },
+  { region_a: "lh.insula", region_b: "lh.precentral", n: 3 },
+].map((edge, edge_id) => ({ edge_id, ...edge, share: edge.n / 998 }));
+const tractMasks = new Map(); // `${subject}/${name}` -> TractMask
+const TRACT_FINGERPRINT = "mock-tract-fingerprint";
+function tractSubjectProblem(res, subject) {
+  if (subjectDetail(subject)) return false;
+  json(res, 404, { detail: `This project has no subject '${subject}'.` });
+  return true;
+}
+const tractEdge = (a, b) => TRACT_EDGES.find((e) => (e.region_a === a && e.region_b === b) || (e.region_a === b && e.region_b === a));
+route("GET", "/api/tract/manifest", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  if (subject !== "ernie") return json(ctx.res, 200, { available: false, qsiprep_available: subject === "101", tractogram_available: false, regions: [] });
+  json(ctx.res, 200, { available: true, qsiprep_available: true, tractogram_available: true, atlas: "DK40", n_streamlines: 1000, n_edges: TRACT_EDGES.length, frac_both_ends_assigned: 0.998, qc_passed: true, fingerprint: TRACT_FINGERPRINT, regions: TRACT_REGIONS });
+});
+route("GET", "/api/tract/edges", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  if (subject !== "ernie") return json(ctx.res, 404, { detail: `sub-${subject} has no network yet.` });
+  const seeds = ctx.url.searchParams.getAll("seed");
+  const unknown = seeds.filter((s) => !TRACT_REGIONS.some((r) => r.name === s));
+  if (unknown.length || seeds.length === 0) return json(ctx.res, 422, { detail: `Unknown region(s): ${unknown.join(", ")}` });
+  json(ctx.res, 200, { edges: TRACT_EDGES.filter((e) => seeds.includes(e.region_a) || seeds.includes(e.region_b)) });
+});
+route("GET", "/api/tract/streamlines", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  if (subject !== "ernie") return json(ctx.res, 404, { detail: `sub-${subject} has no network yet.` });
+  const pairs = ctx.url.searchParams.getAll("pair").map((p) => p.split("|"));
+  if (pairs.length === 0 || pairs.length > 64 || pairs.some((p) => p.length !== 2 || !tractEdge(p[0], p[1]))) {
+    return json(ctx.res, 422, { detail: "Ask for 1 to 64 known region_a|region_b edges." });
+  }
+  // One straight line per edge, each at its own height, across the fixture head.
+  const S = pairs.length;
+  const P = 2 * S;
+  const buffer = Buffer.alloc(32 + 12 * P + 4 * (S + 1) + 8 * S);
+  buffer.write("TVSL", 0, "latin1");
+  buffer.writeUInt32LE(1, 4);
+  buffer.writeUInt32LE(S, 8);
+  buffer.writeUInt32LE(P, 12);
+  buffer.writeUInt32LE(1, 16);
+  let at = 32;
+  for (let s = 0; s < S; s += 1) {
+    for (const x of [-40, 40]) {
+      for (const value of [x, 0, 10 + 10 * s]) {
+        buffer.writeFloatLE(value, at);
+        at += 4;
+      }
+    }
+  }
+  for (let s = 0; s <= S; s += 1, at += 4) buffer.writeUInt32LE(2 * s, at);
+  for (let s = 0; s < S; s += 1, at += 4) buffer.writeUInt32LE(s, at);
+  for (let s = 0; s < S; s += 1, at += 4) buffer.writeUInt32LE(s, at);
+  ctx.res.writeHead(200, { "content-type": "application/octet-stream", "content-length": buffer.byteLength });
+  ctx.res.end(buffer);
+});
+route("POST", "/api/tract/mask", async (ctx) => {
+  const { subject, name, pairs, min_count = 1, min_n = 5, overwrite = false } = (await ctx.body()) ?? {};
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  if (!/^[A-Za-z0-9_-]+$/.test(name ?? "")) return json(ctx.res, 422, { detail: "Selection name: use letters, digits, _ -" });
+  if (!Array.isArray(pairs) || pairs.length === 0) return json(ctx.res, 422, { detail: "pairs is required" });
+  const edges = pairs.map(([a, b]) => tractEdge(a, b));
+  if (edges.some((e) => !e)) return json(ctx.res, 422, { detail: "No streamline connects a requested pair." });
+  if (edges.some((e) => e.n < min_n)) return json(ctx.res, 422, { detail: `These edges have fewer than ${min_n} streamlines.` });
+  const key = `${subject}/${name}`;
+  if (tractMasks.has(key) && !overwrite) return json(ctx.res, 409, { detail: `A mask named '${name}' already exists; replace it or rename.` });
+  const n_streamlines = edges.reduce((sum, e) => sum + e.n, 0);
+  const mask = {
+    name,
+    path: `/mnt/example/derivatives/SimNIBS/sub-${subject}/m2m_${subject}/masks/tract-${name}.nii.gz`,
+    fingerprint: TRACT_FINGERPRINT,
+    stale: false,
+    pairs,
+    min_count,
+    n_edges: pairs.length,
+    n_streamlines,
+    n_voxels: 4 * n_streamlines,
+    volume_mm3: 4 * n_streamlines,
+  };
+  tractMasks.set(key, mask);
+  json(ctx.res, 201, mask);
+});
+route("GET", "/api/tract/masks", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  json(ctx.res, 200, { masks: [...tractMasks.entries()].filter(([key]) => key.startsWith(`${subject}/`)).map(([, mask]) => mask) });
+});
+route("GET", "/api/tract/rankings", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  const exRun = ctx.url.searchParams.get("ex_run");
+  // A succeeded ranking job of this run is what writes this result.
+  const job = [...jobRegistry.values()].find((j) => j.spec.kind === "tract" && j.spec.config?.target?.ex_run === exRun && j.status.state === "succeeded");
+  if (!job || !subject) return json(ctx.res, 200, { rankings: [] });
+  json(ctx.res, 200, {
+    rankings: [
+      {
+        name: job.spec.config.target.selection.name,
+        ex_run: exRun,
+        n_streamlines: 900,
+        current_mA: [1, 1],
+        n_points: 2800,
+        n_points_in_leadfield_mesh: 2790,
+        montages: [
+          { montage: ["C3", "TP7", "FC3", "FT7"], median_sl_mean_ti_along: 0.085, pooled_mean_ti_along: 0.084, median_sl_mean_ti_max: 0.147, pooled_mean_ti_max: 0.15, median_sl_mean_ti_avg: 0.064, pooled_mean_ti_avg: 0.066, align_index: 1.29, rank_by_ti_along: 1, rank_by_ti_max: 2 },
+          { montage: ["AF3", "F3", "C1", "Cz"], median_sl_mean_ti_along: 0.07, pooled_mean_ti_along: 0.071, median_sl_mean_ti_max: 0.16, pooled_mean_ti_max: 0.161, median_sl_mean_ti_avg: 0.072, pooled_mean_ti_avg: 0.073, align_index: 0.97, rank_by_ti_along: 2, rank_by_ti_max: 1 },
+        ],
+      },
+    ],
+  });
+});
+
 // ----------------------------------------------------------------------------------- caps (v1)
 // `tit/server/routes/caps.py`. The subject's nets are its fixture `eeg_nets` plus whatever a warp
 // added here (`subjectDetail` lists them too, as the real catalog does); every launch's
@@ -3703,7 +3835,7 @@ function planPreprocessingStages(config) {
 }
 // Every kind `JobGroupRequest.kind` accepts (contracts/openapi.yaml, R3). `pre` expands into
 // the per-subject stage DAG above; the rest are one job per (subject, config) entry.
-const GROUP_KINDS = ["pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex"];
+const GROUP_KINDS = ["pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex", "tract"];
 
 route("POST", "/api/jobs/groups", async (ctx) => {
   const body = await ctx.body();

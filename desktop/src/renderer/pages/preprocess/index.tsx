@@ -39,6 +39,7 @@ import {
 } from "./api";
 import { defaultQsiPrepConfig, defaultQsiReconConfig, qsiPrepPreferences, qsiReconPreferences } from "./qsi";
 import { QsiPrepDialog } from "./QsiPrepDialog";
+import { TractJobDialog } from "../_shared/roi/TractJobDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
 import { PreprocessSteps } from "./PreprocessSteps";
 import { defaultConfig } from "./config";
@@ -195,6 +196,7 @@ function PreprocessPage() {
   const policy: ExistingOutputPolicy = "skip";
   const [qsiPrepOpen, setQsiPrepOpen] = useState(false);
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
+  const [tractOpen, setTractOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
@@ -382,10 +384,11 @@ function PreprocessPage() {
           )}
         </div>
 
-        <PreprocessSteps values={values} onChange={(patch) => Object.entries(patch).forEach(([key,value]) => form.setValue(key as keyof PreprocessConfig, value))} onQsiPrep={() => setQsiPrepOpen(true)} onQsiRecon={() => setQsiReconOpen(true)} />
+        <PreprocessSteps values={values} onChange={(patch) => Object.entries(patch).forEach(([key,value]) => form.setValue(key as keyof PreprocessConfig, value))} onQsiPrep={() => setQsiPrepOpen(true)} onQsiRecon={() => setQsiReconOpen(true)} onTract={selected.length > 0 ? () => setTractOpen(true) : undefined} />
 
       </RunWork>
 
+      <TractJobDialog open={tractOpen} onOpenChange={setTractOpen} subjects={selected} />
       <QsiPrepDialog
         open={qsiPrepOpen}
         onOpenChange={setQsiPrepOpen}

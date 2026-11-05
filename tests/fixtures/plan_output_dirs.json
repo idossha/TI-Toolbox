@@ -335,7 +335,8 @@
   "project_init": "tit.project_init",
   "sim": "tit.sim",
   "source": "tit.source",
-  "stats": "tit.stats"
+  "stats": "tit.stats",
+  "tract": "tit.tract"
  },
  "runner_package_for_kind": {
   "analyzer": "tit.analyzer",
@@ -352,6 +353,7 @@
   "project_init": "tit.project_init",
   "sim": "tit.sim",
   "source": "tit.source",
-  "stats": "tit.stats"
+  "stats": "tit.stats",
+  "tract": "tit.tract"
  }
 }

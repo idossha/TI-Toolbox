@@ -612,6 +612,18 @@ registration and a deep structure in mesh space fails with "does not overlap the
 surface". Output folders are `subcortical_<region>_<atlas>`;
 `tests/numerical/test_analyzer_subcortical.py` pins label membership.
 
+**A network target adds lines, not a viewer.** The Optimizer's `network` ROI mode draws the subject's
+grey matter in the network's own atlas (locked in the pane) and the listed edges' streamlines over it
+(`GlScene.setLines`, `SceneLines`). Lines are `LINE_STRIP` with primitive restart, one device pixel, no
+depth test, because a streamline runs inside the opaque cortex; each is one flat colour, its edge
+row's swatch (`scene/palette.ts`, dimmed when other rows are selected), so decision S1 still holds: no
+colormap and no field. A click within 4 CSS px of a line wins over the surface and reports pick kind
+3 with the line's group, its position in the page's edge list; the pane holds no selection, and the
+page toggles that pair. At most 64 edges are drawn, selected ones first. The value, table and mask
+form are `pages/_shared/roi/NetworkPanel.tsx`, the pane is `pages/_shared/scene/NetworkPane.tsx`.
+Editing seeds, edges, thresholds or name drops the mask and sets `stale`, which is what disables Run
+("Create the mask again").
+
 ### 7.3 Pipeline canvas (removed)
 
 The graphical pipeline feature was removed on 2026-09-13. Dedicated processing pages submit

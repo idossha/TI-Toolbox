@@ -8,6 +8,7 @@ export type TargetPreviewRoi =
 
 /** Only complete form values can request geometry; preview events never write back to the ROI. */
 export function targetPreviewRoi(roi: RoiValue | undefined): TargetPreviewRoi | null {
+  if (roi?.mode === "network") return roi.mask ? { kind: "mask", path: roi.mask.path, space: "subject" } : null;
   if (roi?.mode === "saved")
     return roi.selected.length && roi.selected.every((name) => name.trim()) && Number.isFinite(roi.radius) && roi.radius > 0
       ? { kind: "saved", names: [...roi.selected], radius: roi.radius, space: roi.space } : null;

@@ -230,6 +230,11 @@ def _science_patches(kind: str, rec: Recorder) -> list:
         return [
             patch("tit.opt.mex.__main__.run_m_ex_search", opt_result("run_m_ex_search"))
         ]
+    if kind == "tract":
+        return [
+            patch(f"tit.tract.{name}", target(name))
+            for name in ("run_track", "run_network", "run_assess", "run_target")
+        ]
     if kind == "analyzer":
         instance = MagicMock(name="analyzer")
 
@@ -403,6 +408,7 @@ EXPECTED_TARGET = {
         "_run_forward" if c.get("mode") == "forward" else "_run_fsavg_map"
     ),
     "pre": lambda c: "run_pipeline",
+    "tract": lambda c: f"run_{c['stages'][0]}",
     "blender": lambda c: {
         "MontageConfig": "run_montage",
         "VectorConfig": "run_vectors",

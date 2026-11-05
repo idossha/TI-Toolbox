@@ -33,7 +33,7 @@ const STAGE_IDS = [
 ] as const;
 
 /** The two `FormSection` headers on the page. */
-const SECTION_IDS = ["structural", "dwi"] as const;
+const SECTION_IDS = ["tract", "structural", "dwi"] as const;
 
 /**
  * A path this project really writes. Roots come from `tit/paths.py`:

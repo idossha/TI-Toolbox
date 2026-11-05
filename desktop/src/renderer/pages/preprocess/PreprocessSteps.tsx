@@ -8,7 +8,7 @@ import { FreeSurferLicenseNotice } from "../settings/FreeSurferLicense";
 import type { PreprocessConfig } from "./api";
 import "./preprocess.css";
 
-export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon}: {values: PreprocessConfig; onChange: (patch: Partial<PreprocessConfig>)=>void; onQsiPrep:()=>void; onQsiRecon:()=>void}) {
+export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon, onTract}: {values: PreprocessConfig; onChange: (patch: Partial<PreprocessConfig>)=>void; onQsiPrep:()=>void; onQsiRecon:()=>void; onTract?:()=>void}) {
   const setValue = <K extends keyof PreprocessConfig>(key: K, value: PreprocessConfig[K]) => onChange({[key]:value});
   return <>
         <div data-tier="1">
@@ -54,6 +54,14 @@ export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon}: {valu
                 label="Extract DTI tensor"
               />
               <StepHelpIcon id="extract_dti" />
+            </div>
+            {/* Its own job, not a stage of this page's Run: it runs once QSIPrep output exists. */}
+            <div className="run-checkbox-row preprocess-step-row">
+              <span>White-matter network</span>
+              <Button size="sm" variant="secondary" disabled={!onTract} onClick={() => onTract?.()} data-testid="open-tract-job">
+                Build…
+              </Button>
+              <StepHelpIcon id="tract" />
             </div>
           </FormSection>
         </div>

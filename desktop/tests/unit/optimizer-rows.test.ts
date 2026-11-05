@@ -38,9 +38,9 @@ describe("the method vocabulary", () => {
   });
 
   it("offers each family only the ROI modes it can express", () => {
-    expect(roiModesFor("flex")).toEqual(["cortical", "subcortical", "spherical", "mask"]);
+    expect(roiModesFor("flex")).toEqual(["cortical", "subcortical", "spherical", "mask", "network"]);
     // There is no cortical ex-search target: the leadfield is volumetric.
-    expect(roiModesFor("ex")).toEqual(["subcortical", "saved", "mask"]);
+    expect(roiModesFor("ex")).toEqual(["subcortical", "saved", "mask", "network"]);
   });
 
   it("clears the target when the family changes, and is a no-op otherwise", () => {
