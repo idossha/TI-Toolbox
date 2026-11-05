@@ -40,8 +40,6 @@ NETWORK_RADIUS = 0.09
 #: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
 #: lighting them all washed the cortex (sub-CHN insula_lh: 41).
 N_LABELS, N_LIT = 3, 6
-#: Glow of highlighted regions (e.g. both thalami in a named network): soft, not white.
-HIGHLIGHT_LEVEL = 0.4
 #: Frames of electrode pulse before the fronts leave their peaks.
 FRONT_START_FRAME = 18
 #: Frames the last state is held after the slowest front lands.
@@ -452,9 +450,17 @@ def export_scene(
             key=lambda n: -weight[n],
         )[:N_LIT]
         if highlight:
-            drawn = [n for n in highlight if n in cortical or n in subcortical]
-            weight.update({n: 1.0 for n in drawn})
-            top = 1.0 / HIGHLIGHT_LEVEL**2  # sqrt(weight/top) below: an even, soft glow
+            # Highlighted regions (the thalami) at full level; the network's cortical parcels
+            # by how many of its streamlines end in them, so the busiest terminals glow most.
+            parcels = [n for n in count if n in cortical and n not in highlight]
+            busiest = max((count[n] for n in parcels), default=1)
+            drawn = [
+                n for n in highlight if n in cortical or n in subcortical
+            ] + parcels
+            weight.update({n: 1.0 for n in highlight})
+            # Squared: the level below is its square root, so a parcel glows linearly in n.
+            weight.update({n: max(count[n] / busiest, 0.15) ** 2 for n in parcels})
+            top = 1.0
             when.update({n: float(FRONT_START_FRAME) for n in drawn})
         if not highlight:
             top = max((weight[n] for n in drawn), default=1.0)
@@ -475,7 +481,7 @@ def export_scene(
             if centre is not None and cfg.region_labels and len(labels) < N_LABELS:
                 labels.append(
                     {
-                        "name": f"{name} (n={count[name]})",
+                        "name": f"{name} (n={count.get(name, 0)})",
                         "xyz": [float(c) for c in centre],
                     }
                 )
@@ -689,7 +695,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                     f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
                 )
             title = cfg.network_name or title
-            names = sorted(set(cfg.highlight_regions))
+            names = sorted(set(cfg.highlight_regions) | set(cfg.network_to))
             regions = region_geometry(
                 m2m, label_volume(pm, sid), names, glass[0], glass[2]
             )

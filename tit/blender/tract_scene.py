@@ -38,6 +38,12 @@ DIVERGING_STRENGTH = 0.95
 CONTEXT_RADIUS, CONTEXT_COLOUR, CONTEXT_STRENGTH = 0.05, (0.6, 0.64, 0.72), 0.006
 #: The TI_max iso-shell: a faint warm rim, so the hotspot reads behind the fibres.
 SHELL_COLOUR, SHELL_STRENGTH = (1.0, 0.66, 0.36), 0.05
+#: Network videos push the context back: glass, scalp and electrodes at these fractions.
+NETWORK_RECEDE = {"glass": 0.55, "scalp": 0.5, "electrode": 0.45}
+#: Solid, softly glowing deep regions (the thalami) in network renders.
+DEEP_COLOUR, DEEP_CORE, DEEP_EDGE = (1.0, 0.55, 0.22), 0.7, 0.18
+#: Cortical patch glow in network renders: lit * (PATCH_BASE + PATCH_RIM * rim).
+PATCH_BASE, PATCH_RIM = 0.05, 0.16
 #: Frames a turntable crossfade from direction colours to the scalar metric takes.
 CROSSFADE_FRAMES = 48
 #: Glass brain rim emission (lighter than the scalp's ghost would make it).
@@ -249,8 +255,11 @@ def fibre_material(
     metric: str | None = None,
     crossfade=None,
     fade=None,
+    visible=None,
 ):
     """Fibre (or colour-bar) emission.
+
+    *visible* keys the fibres in and out (dithered transparency, two networks taking turns).
 
     *crossfade* keys a mix from direction colours (0) to the manifest's metric (1); *fade*
     keys the whole material's strength over transparency (a colour bar that fades out).
@@ -279,6 +288,13 @@ def fibre_material(
                 m.transparent(),
                 m.emission(colour, m.math("MULTIPLY", strength, _fade(m, fade))),
             )
+        if visible:
+            mat.surface_render_method = "DITHERED"
+            mix = m.new("ShaderNodeMixShader")
+            m.feed(mix.inputs[0], _fade(m, visible))
+            m.feed(mix.inputs[1], m.transparent())
+            m.feed(mix.inputs[2], shader)
+            shader = mix.outputs[0]
         finish(shader)
         return mat
     front = manifest["front"]
@@ -319,11 +335,15 @@ def glass_material(
     *,
     region_frames: int | None = None,
     regions: bool = False,
+    region_keys=None,
+    patch=(0.1, 0.45),
 ):
     """Facing-ratio emission over transparency, with lit region patches when *regions*.
 
     The ``lit`` attribute sets each patch's brightness; with *region_frames* a patch lights
     when the frame passes its ``frame`` attribute, otherwise it is lit throughout.
+    *region_keys* = ``[(attribute, keys), ...]`` sums several lit attributes, each faded by
+    its keys (two networks taking turns). *patch* = (base, rim) gains of the patch glow.
     """
     import bpy
 
@@ -337,7 +357,14 @@ def glass_material(
     shader = m.add(
         m.transparent(), m.emission(colour, m.math("MULTIPLY", rim, strength))
     )
-    if regions or region_frames:
+    if region_keys:
+        lit = None
+        for attribute, keys in region_keys:
+            term = m.math("MULTIPLY", m.attr(attribute), _fade(m, keys))
+            lit = term if lit is None else m.math("ADD", lit, term)
+        glow = m.math("MULTIPLY", lit, m.math("MULTIPLY_ADD", rim, patch[1], patch[0]))
+        shader = m.add(shader, m.emission(REGION_COLOUR, glow))
+    elif regions or region_frames:
         lit = m.attr("lit")
         if region_frames:
             frame = _keyed_frame(m, region_frames)
@@ -346,9 +373,24 @@ def glass_material(
             )
             lit = m.math("MULTIPLY", on, lit)
         # Brightest where the surface faces away (rim), so a patch reads as cortex, not a decal.
-        glow = m.math("MULTIPLY", lit, m.math("MULTIPLY_ADD", rim, 0.45, 0.1))
+        glow = m.math("MULTIPLY", lit, m.math("MULTIPLY_ADD", rim, patch[1], patch[0]))
         shader = m.add(shader, m.emission(REGION_COLOUR, glow))
     m.finish(shader)
+    return mat
+
+
+def deep_material(name):
+    """Opaque, softly glowing solid: brightest where it faces the camera, dimmer at the rim."""
+    import bpy
+
+    mat = bpy.data.materials.new(name)
+    m = _Nodes(mat)
+    facing = m.new("ShaderNodeLayerWeight")
+    facing.inputs["Blend"].default_value = 0.5
+    core = m.math("SUBTRACT", 1.0, facing.outputs["Facing"])
+    m.finish(
+        m.emission(DEEP_COLOUR, m.math("MULTIPLY_ADD", core, DEEP_CORE, DEEP_EDGE))
+    )
     return mat
 
 
@@ -817,7 +859,33 @@ def _render_movie(scene, out_dir: str, name: str) -> str:
 # ── scene ────────────────────────────────────────────────────────────────────
 
 
-def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
+def _fibres(name, path, material):
+    """One tube object of every streamline in a ``tracts.npz``."""
+    with np.load(path) as t:
+        points, offsets = t["points"], t["offsets"]
+        mask = np.ones(len(points) - 1, dtype=bool)
+        mask[offsets[1:-1] - 1] = False  # no edge from one streamline's end to the next
+        edges = np.stack([np.arange(len(points) - 1), np.arange(1, len(points))], 1)[
+            mask
+        ]
+        v = t["v"]
+        obj = _mesh_object(
+            name,
+            points,
+            edges=edges,
+            attributes={
+                "v": v,
+                "r": t["r"] if "r" in t.files else np.full(len(v), 0.2, np.float32),
+                "d": t["d"],
+                "gain": t["gain"],
+                "tangent": t["tangent"],
+            },
+        )
+    _tube_modifier(obj, material)
+    return obj
+
+
+def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=None):
     """Fibres, glass brain, scalp, electrodes, ROI.
 
     Returns the brain's vertices (what a video orbits) and those plus the cranium (what a
@@ -862,8 +930,12 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
             },
         )
     _tube_modifier(
-        fibres, fibre_material(manifest, animated=animated, crossfade=crossfade)
+        fibres,
+        fibre_material(
+            manifest, animated=animated, crossfade=crossfade, visible=visible
+        ),
     )
+    recede = NETWORK_RECEDE if manifest.get("network") else {}
     if manifest.get("context"):
         with np.load(os.path.join(base, manifest["context"])) as c:
             cp, co = c["points"], c["offsets"]
@@ -891,10 +963,11 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
         glass_material(
             "Glass",
             GLASS_COLOUR,
-            GLASS_STRENGTH,
+            GLASS_STRENGTH * recede.get("glass", 1.0),
             2.6,
             region_frames=region_frames,
             regions=True,
+            patch=(PATCH_BASE, PATCH_RIM) if recede else (0.1, 0.45),
         )
     )
     if manifest.get("regions"):
@@ -905,8 +978,11 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
                 faces=r["triangles"],
                 attributes={"frame": r["frame"], "lit": r["lit"]},
             )
+        deep.data.polygons.foreach_set("use_smooth", [True] * len(deep.data.polygons))
         deep.data.materials.append(
-            glass_material(
+            deep_material("DeepRegion")
+            if recede
+            else glass_material(
                 "DeepRegion",
                 REGION_COLOUR,
                 0.12,
@@ -931,7 +1007,9 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
                 s["vertices"][:, 2] > glass_v[:, 2].min() - 10.0
             ]
         scalp.data.materials.append(
-            glass_material("ScalpGhost", (0.8, 0.72, 0.65), 0.035, 4.0)
+            glass_material(
+                "ScalpGhost", (0.8, 0.72, 0.65), 0.035 * recede.get("scalp", 1.0), 4.0
+            )
         )
     else:
         centre, frame_cloud = glass_v.mean(0), glass_v[:0]
@@ -945,7 +1023,7 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
         disc.name = f"Electrode_{electrode['name']}"
         disc.rotation_euler = Vector((0, 0, 1)).rotation_difference(normal).to_euler()
         colour = CHANNEL_COLOURS[electrode["channel"] % len(CHANNEL_COLOURS)]
-        mat = flat_material(f"Electrode{i}", colour, 0.9)
+        mat = flat_material(f"Electrode{i}", colour, 0.9 * recede.get("electrode", 1.0))
         disc.data.materials.append(mat)
         if animated:  # a carrier pulse before the fronts leave
             socket = mat.node_tree.nodes["Emission"].inputs["Strength"]
@@ -1065,6 +1143,114 @@ def render_turntable(manifest, base, out_dir) -> str:
     return _render_movie(scene, out_dir, f"{manifest['stem']}_turntable")
 
 
+def render_sequence(
+    manifest, base, second, base_b, out_dir, name, *, preview: bool
+) -> str:
+    """One turntable: network A (direction -> metric), a crossfade to network B, then B.
+
+    Each network holds ``SEGMENT`` frames: direction colours, a 2 s mix to the metric, the
+    metric; the networks overlap for ``SWAP`` frames, A's fibres and patches fading out as
+    B's fade in, while the camera orbits at one constant speed throughout.
+    """
+    import bpy
+
+    scene = bpy.context.scene
+    size = (960, 540) if preview else VIDEO_SIZE
+    configure(scene, size, samples=6 if preview else 16)
+    seg, swap, mix = 288, 48, CROSSFADE_FRAMES
+    t0 = 120  # frames of direction colour before each network's crossfade
+    b = seg  # B starts arriving here, fully in at seg + swap
+    end = seg + swap + seg - swap
+    show_a, show_b = [(b, 1.0), (b + swap, 0.0)], [(b, 0.0), (b + swap, 1.0)]
+    cross_a = [(t0, 0.0), (t0 + mix, 1.0)]
+    cross_b = [(b + swap + t0 - mix, 0.0), (b + swap + t0, 1.0)]
+    cloud, _head = build_scene(
+        manifest, base, animated=False, crossfade=cross_a, visible=show_a
+    )
+    _fibres(
+        "FibresB",
+        os.path.join(base_b, second["tracts"]),
+        fibre_material(second, name="FibresB", crossfade=cross_b, visible=show_b),
+    )
+    brain = bpy.data.objects["GlassBrain"]
+    with np.load(os.path.join(base_b, second["glass"])) as g:
+        if len(g["lit"]) != len(brain.data.vertices):
+            raise ValueError(
+                "the two networks' glass brains differ; export both together"
+            )
+        brain.data.attributes.new("lit_b", "FLOAT", "POINT").data.foreach_set(
+            "value", g["lit"].astype(np.float32)
+        )
+    brain.data.materials.clear()
+    brain.data.materials.append(
+        glass_material(
+            "GlassAB",
+            GLASS_COLOUR,
+            GLASS_STRENGTH * NETWORK_RECEDE["glass"],
+            2.6,
+            region_keys=[("lit", show_a), ("lit_b", show_b)],
+            patch=(PATCH_BASE, PATCH_RIM),
+        )
+    )
+    side = manifest["lateral_side"]
+    pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
+    scene.camera = camera
+
+    root = bpy.data.objects.new("Overlay", None)
+    scene.collection.objects.link(root)
+    root.parent = camera
+    root.location = (0.0, 0.0, -60.0)
+    hh, tsize = size[1] / size[0], 0.034 * size[1] / size[0] * 2
+    direction_keys = [
+        (t0, 1.0),
+        (t0 + mix // 2, 0.0),
+        (b + swap // 2, 0.0),
+        (b + swap, 1.0),
+        (cross_b[0][0], 1.0),
+        (cross_b[0][0] + mix // 2, 0.0),
+    ]
+    bar_keys = [
+        (t0 + mix // 2, 0.0),
+        (t0 + mix, 1.0),
+        (b, 1.0),
+        (b + swap // 2, 0.0),
+        (cross_b[0][0] + mix // 2, 0.0),
+        (cross_b[1][0], 1.0),
+    ]
+    _legend(root, manifest, "direction", hh, tsize, direction_keys, tag="Dir")
+    _legend(root, manifest, manifest["metric"], hh, tsize, bar_keys, tag="Bar")
+    for tag, net, keys in (
+        ("A", manifest, [(b, 1.0), (b + swap // 2, 0.0)]),
+        ("B", second, [(b + swap // 2, 0.0), (b + swap, 1.0)]),
+    ):
+        heading = net["caption"].split("\n")[0].split(" · n=")[-1]
+        _text(
+            f"Title{tag}",
+            f"{net['title']} · n={heading}",
+            tsize,
+            (-0.96, hh - 1.6 * tsize, 0),
+            root,
+            material=fading_material(f"Title{tag}", (TEXT_GREY,) * 3, 1.0, keys),
+        )
+    sub_line = manifest["caption"].split("\n")[0].split(" · n=")[0]
+    _text(
+        "Subject",
+        sub_line,
+        tsize * 0.62,
+        (-0.96, -hh + 0.04, 0),
+        root,
+        material=flat_material("SubjectText", (0.6,) * 3, 1.0),
+    )
+    fit_overlay(root, camera, 60.0)
+
+    scene.frame_start, scene.frame_end = 1, end
+    turn = math.radians(360.0) / seg  # one turn per network segment, constant speed
+    for frame in (1, end):
+        pivot.rotation_euler = (0.0, 0.0, turn * (frame - 1))
+        pivot.keyframe_insert("rotation_euler", frame=frame)
+    return _render_movie(scene, out_dir, name)
+
+
 def render_propagation(manifest, base, out_dir) -> str:
     import bpy
 
@@ -1094,6 +1280,27 @@ def main(argv: list[str]) -> None:
         raise RuntimeError("tract_scene.py renders with blender --background")
     # New keys interpolate linearly: the front and the orbit move at constant speed.
     bpy.context.preferences.edit.keyframe_new_interpolation_type = "LINEAR"
+    if argv and argv[0] == "sequence":  # sequence A.json B.json out_dir name [preview]
+        loaded = []
+        for path in argv[1:3]:
+            with open(path, encoding="utf-8") as stream:
+                loaded.append(
+                    (json.load(stream), os.path.dirname(os.path.abspath(path)))
+                )
+        os.makedirs(argv[3], exist_ok=True)
+        print(
+            render_sequence(
+                loaded[0][0],
+                loaded[0][1],
+                loaded[1][0],
+                loaded[1][1],
+                argv[3],
+                argv[4],
+                preview="preview" in argv[5:],
+            ),
+            flush=True,
+        )
+        return
     manifest_path = os.path.abspath(argv[0])
     base = os.path.dirname(manifest_path)
     with open(manifest_path, encoding="utf-8") as stream:
