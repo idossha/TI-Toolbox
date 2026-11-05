@@ -34,6 +34,24 @@ def test_only_montage_reserves_full_blender_memory(config_type, memory_gb):
     assert default_cost("blender", {**config, "memory_gb": 24}).mem_gb == 24
 
 
+@pytest.mark.parametrize(
+    ("config", "memory_gb"),
+    [
+        ({"selection": {"name": "x"}}, 6),
+        ({"network_bundle": "x", "network_top_edges": 0}, 6),
+        # The config's default foregrounds top edges from the whole tractogram too.
+        ({"network_bundle": "x"}, 16),
+        ({"thalamocortical_sequence": True}, 16),
+        ({}, 16),
+    ],
+)
+def test_one_networks_render_claims_what_it_was_measured_to_use(config, memory_gb):
+    from tit.jobs.costs import default_cost
+
+    claim = default_cost("blender", {"_type": "TractVisualConfig", **config}).mem_gb
+    assert claim == memory_gb
+
+
 def test_renderer_modules_do_not_import_scientific_packages():
     source = """
 import importlib.abc, sys

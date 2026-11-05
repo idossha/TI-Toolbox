@@ -313,7 +313,8 @@ two networks. It writes `chain-results.json` beside its screenshots; comparing t
 with a reference is the operator's step. `tests/test_network_setup.py` pins each automatic-setup rule,
 preset resolution and the same-side counts, the file names, and the caption's mean against
 `streamline_stats`; `desktop/tests/unit/network-target.test.ts` and
-`visual-exporter-network-run.test.tsx` pin the picker's pure functions and Run's assess-then-render.
+`visual-exporter-network-run.test.tsx` pin the picker's pure functions and Run's assess-then-render;
+`tests/test_network_presets_realdata.py` (`TIT_DATASET_000`) checks the presets on sub-CHN's real labels.
 
 ### Documentation screenshots
 

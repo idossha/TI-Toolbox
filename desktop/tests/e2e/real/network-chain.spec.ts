@@ -194,10 +194,9 @@ test("3. Results ranks every montage of the run on the same-side network", async
   await expect(ranking).toBeVisible();
   await expect(() => ranking.scrollIntoViewIfNeeded({ timeout: 5_000 })).toPass({ timeout: 30_000 });
   await expect(ranking.getByRole("combobox", { name: "Network mask" })).toContainText("posterior_thalamocortical");
-  const all = ranking.getByRole("radio", { name: /All montages in the run/ });
-  await expect(all).toBeChecked();
-  await expect(all).toHaveAccessibleName(/\(\d[\d,]*, (about \d+ min|under a minute)\)/);
-  const allLabel = await all.getAttribute("aria-label").catch(() => null);
+  const scope = ranking.getByRole("combobox", { name: "Montages to rank" });
+  await expect(scope).toHaveText(/All montages in the run \(\d[\d,]*, (about \d+ min|under a minute)\)/);
+  const allLabel = await scope.textContent();
   await ranking.getByRole("combobox", { name: "Network mask" }).click();
   await page.getByRole("option", { name: /^posterior_thalamocortical · / }).click();
   await shot("05_ranking_options");
@@ -312,6 +311,7 @@ test("6. another network renders beside the first, and each way of choosing is o
   await page.locator("#network-metric").click();
   await page.getByRole("option", { name: "Median TI_max (V/m)" }).click();
   await expect(page.getByTestId("network-mask-name")).toHaveValue("top_10_by_ti_max_mean");
+  await page.waitForFunction(() => (window.__scene?.lines?.streamlines ?? 0) > 0, null, { timeout: 60_000 });
   await shot("15_strongest_here");
   await page.getByRole("radio", { name: "Existing file" }).click();
   await expect(page.locator("#ve-network")).toBeVisible();

@@ -37,6 +37,8 @@ import { NETWORK_NAME_RE, withNetworkEdit, type NetworkHow, type NetworkRoiValue
 const percent = (share: number): string => `${(share * 100).toFixed(share < 0.001 ? 2 : 1)} %`;
 const count = (n: number): string => n.toLocaleString("en-US");
 const DEFAULT_TOP_N = 10;
+/** `tit.server.routes.tract.DEFAULT_MIN_N`. */
+const DEFAULT_MIN_N = 5;
 
 export function NetworkChooser({ value, onChange, subject, simulation, disabled, defaultHow = "connection", nameLabel, nameHelp, strongestEmpty, extra }: {
   value: NetworkRoiValue;
@@ -173,6 +175,8 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
     // Another way of choosing starts empty: what the last one chose is not what this one says.
     const fresh: Partial<NetworkRoiValue> = { how: next as NetworkHow, preset: undefined, seeds: [], to: [], pairs: [], metric: undefined };
     if (next === "strongest") fresh.topN = value.topN ?? DEFAULT_TOP_N;
+    // A preset takes every edge of its set; anything else starts from the same floor as a target.
+    if (value.how === "preset") fresh.minN = DEFAULT_MIN_N;
     if (extra?.active) extra.onSelect();
     edit(fresh);
   };

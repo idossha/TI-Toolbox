@@ -11,7 +11,6 @@ import { DataTable, type DataTableColumn } from "../../ui/DataTable";
 import { Callout } from "../../ui/Feedback";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
-import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select } from "../../ui/Select";
 import { notify } from "../../ui/Toast";
 import { getTractMasks, getTractRankings, type TractMask, type TractRanking } from "../_shared/roi";
@@ -148,7 +147,7 @@ export function NetworkRanking({ subject, run, runConfig }: { subject: string; r
             <Select aria-label="Network mask" value={mask?.name ?? ""} onValueChange={setChosen} options={usable.map((m) => ({ value: m.name, label: `${m.name} · ${m.n_edges} edge${m.n_edges === 1 ? "" : "s"}` }))} />
           </Field>
           <Field label="Montages" help="A montage strong on the composite index need not be strong along the fibres, so a top-N can leave out what this ranking would put first.">
-            <SegmentedControl aria-label="Montages to rank" value={scope} onValueChange={setScope} options={[{ value: "all", label: allLabel }, { value: "top", label: "Top N by composite index" }]} />
+            <Select aria-label="Montages to rank" value={scope} onValueChange={(v) => setScope(v === "top" ? "top" : "all")} options={[{ value: "all", label: allLabel }, { value: "top", label: "Top N by composite index" }]} />
           </Field>
           {scope === "top" && (
             <Field label="N" help={rankingEstimate(topN)}>

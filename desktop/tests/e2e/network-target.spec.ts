@@ -139,8 +139,7 @@ test("Results: ranking is an action, and every statistic is a column with none p
   const ranking = await openFirstExRun(page);
   await expect(ranking.getByTestId("network-ranking-table")).toHaveCount(0);
   // All is the default, its size and time stated, and a top-N the other choice.
-  await expect(ranking.getByRole("radio", { name: /All montages in the run/ })).toBeChecked();
-  await expect(ranking.getByRole("radio", { name: "Top N by composite index" })).not.toBeChecked();
+  await expect(ranking.getByRole("combobox", { name: "Montages to rank" })).toContainText("All montages in the run");
   const queued = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await ranking.getByTestId("network-rank").click();
   const body = (await queued).postDataJSON();

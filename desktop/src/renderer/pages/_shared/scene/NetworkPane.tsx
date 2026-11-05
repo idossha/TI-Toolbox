@@ -62,10 +62,13 @@ export function NetworkPane({ subject, value, onChange, openMask }: {
     [drawn],
   );
 
+  const onlyPicked = !!value.how && value.how !== "connection";
   const note = !manifest.data?.available
     ? "No network yet: this subject's head is shown for orientation."
     : building
       ? "Preparing this network's streamlines…"
+      : onlyPicked && value.pairs.length > 0
+        ? `Showing ${drawn.length} of this network's ${value.pairs.length} edges, up to 100 streamlines each. The render draws them all.`
       : listed > drawn.length
         ? `Showing the ${drawn.length} largest of ${listed} edges. A selected edge is always shown.`
         : lines

@@ -65,6 +65,10 @@ MEX_FORKED_MEM_GB = 13
 # fields. Measure on a track + assess run before tightening.
 TRACT_MEM_GB = 8
 TRACT_TRACK_MEM_GB = 16
+#: A named network's render: 3.93 GB (1,407 streamlines, own bundle, job 354f8ee9) and 4.13 GB (8,000
+#: of 19,035 drawn, read from all.trx, job 44fbbe53), export and Blender, preview stills, 2026-11-05.
+# shortcut: final-size stills and videos not measured; 6 GB leaves about 2 GB for their larger film.
+TRACT_RENDER_MEM_GB = 6
 
 _FLEX_ONE_RESTART = Cost(cpus=2, mem_gb=FLEX_BASE_MEM_GB + FLEX_MEM_PER_RESTART_GB)
 
@@ -168,6 +172,16 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     ):
         # These geometry exports do not launch Blender or evaluate montage subdivision.
         base = Cost(cpus=1, mem_gb=2)
+    if (
+        kind == "blender"
+        and config.get("_type") == "TractVisualConfig"
+        and (
+            config.get("selection")
+            or (config.get("network_bundle") and config.get("network_top_edges") == 0)
+        )
+    ):
+        # One network. The sequence and a whole tractogram's render stay at the full claim, unmeasured.
+        base = Cost(cpus=1, mem_gb=TRACT_RENDER_MEM_GB)
     if kind in FLEX_KINDS:
         restarts = _count(config.get("n_multistart")) or 1
         base = Cost(

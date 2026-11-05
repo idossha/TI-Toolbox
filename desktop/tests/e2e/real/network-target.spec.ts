@@ -272,7 +272,7 @@ test("Results: rank the ex run on the network; every statistic side by side", as
   // The preview re-renders as the run's files load, which can detach the panel mid-scroll.
   await expect(() => ranking.scrollIntoViewIfNeeded({ timeout: 5_000 })).toPass({ timeout: 30_000 });
   await expect(ranking.getByRole("combobox", { name: "Network mask" })).toContainText(MASK);
-  await expect(ranking.getByRole("radio", { name: /All montages in the run/ })).toBeChecked();
+  await expect(ranking.getByRole("combobox", { name: "Montages to rank" })).toContainText("All montages in the run");
   const id = await groupJobId(() => ranking.getByTestId("network-rank").click());
   await expectSucceeded(id);
   const table = ranking.getByTestId("network-ranking-table");
