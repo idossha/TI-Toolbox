@@ -4220,6 +4220,9 @@ queue a job that cannot run).
 
 ## 2026-11-04 — White-matter networks: DIPY tractography in m2m world, fields at the containing element
 
+**Superseded in part 2026-11-04** (one tractography route: the tensor route, PTT and the linear
+sampler are removed).
+
 **Decision.** A new module `tit.tract` (ARCHITECTURE §15) adds tractography-defined white-matter
 targets: DIPY whole-brain tracking (single-shell CSD + ACT + probabilistic for QSIPrep DWI; EuDX on
 the DTI V1 when only the m2m tensor exists), endpoint-to-region association by a KD-tree of
@@ -4260,6 +4263,9 @@ the config, regenerate the contract).
 
 ## 2026-11-05 — DIPY ACT accepts the inferior brain-stem exit
 
+**Superseded in part 2026-11-04** (one tractography route: the tensor route, PTT and the linear
+sampler are removed).
+
 **Decision.** `tit.tract`'s csd route marks brain-stem, cerebellar-WM and spinal-cord voxels
 (label volume 16, 7, 46, charm 512) that have no fitted fibre orientation as a valid ACT end
 (`tracking.inferior_exit`, ARCHITECTURE §15). Ending in CSF stays invalid. Pinned by
@@ -4282,6 +4288,36 @@ missing streamlines were not CSF endings). Changing the tracker defaults for tor
 probabilistic max_angle 20 / pmf 0.2 raises mean |t . V1| from 0.878 to 0.905 but keeps 32 % fewer
 streamlines, and PTT (now `algorithm: "ptt"`) gives 0.890 at 4.4x the run time; not enough to
 change the default.
+
+## 2026-11-04 — One tractography route; tensor-only and PTT removed per user
+
+**Decision.** `tit.tract` offers one route: QSIPrep-preprocessed DWI -> single-shell CSD -> ACT
+(charm tissues, with the deep-grey and inferior-exit rules) -> DIPY probabilistic tracking, and one
+field sampler, the element containing each point (ARCHITECTURE §15). Removed:
+`TrackConfig.route` and the tensor-only EuDX route with its `fa_threshold` and streamline-length
+flip check (`eudx_on_tensor`, `tensor_flip_test`, `track_tensor`, `resolve_route`);
+`TrackConfig.algorithm` and the PTT direction getter; `AssessConfig.method` and the `"linear"`
+sampler. A subject without QSIPrep output, or without the m2m DTI tensor the frame check reads,
+is refused in `tracking.csd_inputs` naming the path and the `tit.pre` step that makes it.
+`tensor_peaks`/`m2m_tensor` stay: the CSD frame check's coherence reads the tensor's V1 through
+them; `tit/pre/qsi` (the anisotropic-conductivity pipeline) is untouched. Pinned by
+`tests/numerical/test_tract_frames.py` (CSD on LPS, PSR and oblique affines; `tensor_peaks`
+against the FA closed form) and `tests/numerical/test_tract_fields.py` (the V2 comparison now
+calls SimNIBS's `interpolate_scattered` directly).
+
+**Why.** The user's rule (2026-11-04): "we do not need multiple approaches. if using the raw
+diffusion data is better, this is what we offer. no need to offer secondary lesser approaches."
+The tensor route cannot resolve crossing fibres; PTT was kept off by default (the 2026-11-05
+entry above: 0.890 mean |t . V1| against the probabilistic tracker's 0.878 at 4.4x the run time,
+CHN); the linear sampler is a smoothed reading of a field that is constant per element.
+
+**Alternatives rejected.** Keeping them as hidden or deprecated options (still a second approach
+to document and test); deleting the V2 comparison with the option (its evidence that the element
+lookup agrees with SimNIBS's interpolation is kept as a test). Subjects with only an m2m tensor
+(ernie) cannot be tracked; that is the intended cost.
+
+**Supersedes** the tensor-route, `algorithm: "ptt"` and `linear`-method parts of the 2026-11-04
+"White-matter networks" and 2026-11-05 "inferior brain-stem exit" entries.
 
 ## 2026-11-04 — Tract renders join the `blender` job kind as `TractVisualConfig`
 

@@ -1357,27 +1357,26 @@ in `CONFIG_CLASS_REGISTRY` (that would change the generated contract schema). En
 track -> network -> assess -> target; each stage is also a public function (`run_track`,
 `run_network`, `run_assess`, `run_target`).
 
-**Tractography is DIPY, written in m2m T1 world.** The `csd` route (QSIPrep ACPC DWI) fits
-single-shell CSD on b0 + the highest shell (`MultiShellDeconvModel` needs cvxpy, which the image
-lacks), constrains tracking with charm's WM/GM/CSF labels mapped into the DWI grid through the
-exact QSIPrep chain (`tensor_math.acpc_to_t1_world`) and tracks probabilistically; streamlines are
-then mapped through the same 4x4 to m2m T1 world, and also written in ACPC world as
-`tractogram_acpc.tck` for comparison with MRtrix3. The `tensor` route (m2m DTI tensor only) runs
-EuDX on the principal eigenvector with FA stopping inside charm WM; it cannot resolve crossing fibres.
-DIPY tracks in voxel index space, so gradient and peak directions are converted with
-`d_vox = M^-1 d_world`, `M = A[:3, :3] / column norms`. `qc.json` holds an 8-axis-flip frame
-check and the run fails when a flipped frame wins: for the csd route the median `|t . e1|` between
+**Tractography is DIPY, one route, written in m2m T1 world.** QSIPrep-preprocessed ACPC DWI is
+required: a subject without it (or without the m2m DTI tensor the frame check reads) is refused
+before any work, with the missing path and the `tit.pre` step that makes it (`run_qsiprep`,
+`extract_dti`). The tracker fits single-shell CSD on b0 + the highest shell
+(`MultiShellDeconvModel` needs cvxpy, which the image lacks), constrains tracking with charm's
+WM/GM/CSF labels mapped into the DWI grid through the exact QSIPrep chain
+(`tensor_math.acpc_to_t1_world`) and tracks with DIPY's probabilistic direction getter;
+streamlines are then mapped through the same 4x4 to m2m T1 world, and also written in ACPC world
+as `tractogram_acpc.tck` for comparison with MRtrix3. There is no tensor-only route and no choice
+of direction getter. DIPY tracks in voxel index space, so gradient and peak directions are
+converted with `d_vox = M^-1 d_world`, `M = A[:3, :3] / column norms`. `qc.json` holds an
+8-axis-flip frame check and the run fails when a flipped frame wins: the median `|t . e1|` between
 streamline tangents and the m2m tensor's principal eigenvector where FA > 0.4 (also reported for
-the whole tractogram), on a central 48-voxel block per flip; for the tensor route, which follows
-that eigenvector, the mean streamline length per flip (`dwigradcheck`'s criterion). The csd
-route's ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
+the whole tractogram), on a central 48-voxel block per flip. ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
 pallidum, hippocampus, amygdala, accumbens) as grey matter, since charm's tissue map calls the
 pallidum WM, and treats brain-stem, cerebellar-WM and spinal-cord voxels that have no fitted
 fibre orientation (below the DWI brain mask) as a valid end: MRtrix ACT's convention for the
 inferior exit, without which DIPY drops corticospinal streamlines that run out of the mask while
-still tracking. A streamline that ends in CSF is still rejected. The csd tracker is DIPY's
-probabilistic one (`algorithm: "ptt"` selects parallel transport tractography); `max_angle` and
-`pmf_threshold` are config fields. No home-grown tracking, no MRtrix3/FSL/ANTs.
+still tracking. A streamline that ends in CSF is still rejected. `max_angle`, `pmf_threshold`,
+`step_mm` and `n_seeds` are config fields. No home-grown tracking, no MRtrix3/FSL/ANTs.
 
 **Endpoints are matched to the nearest labelled point within a radius.** A KD-tree holds the
 subject's annotation labels on an m2m surface (`segmentation/{lh,rh}.*_<atlas>.annot`, default
@@ -1390,9 +1389,10 @@ GPL-compatible; it differs in taking the nearest point (one label per end) rathe
 all vertices within the radius.
 
 **Fields are sampled at the element containing each point.** A SimNIBS carrier field is constant per
-tetrahedron, so the default `tet` method (`Msh.find_tetrahedron_with_points` on the brain tissues of
-each `high_Frequency/mesh/<sid>_TDCS_<k>_<cond>.msh`) is exact; `linear`
-(`ElementData.interpolate_scattered`) is the comparison method. Every streamline is assessed and
+tetrahedron, so the element lookup (`Msh.find_tetrahedron_with_points` on the brain tissues of
+each `high_Frequency/mesh/<sid>_TDCS_<k>_<cond>.msh`) is exact and is the only sampler; SimNIBS's
+`ElementData.interpolate_scattered` is the comparison in `tests/numerical/test_tract_fields.py`,
+not an option. Every streamline is assessed and
 first oriented: `region_a` -> `region_b` (lower region index first) when its ends differ, else from
 the end with the lower x, y, z, so `E_c . t`, the activating function and the profiles have one sign
 convention per edge. Streamlines are resampled to a uniform arc step (`step_mm`, default 0.5)
