@@ -17,7 +17,7 @@ from typing import Literal
 
 #: Stages, in the order the runner executes them.
 STAGES = ("track", "network", "assess", "target")
-SELECTION_KINDS = ("all", "between", "from", "through", "top_edges")
+SELECTION_KINDS = ("all", "between", "from", "through", "to_cortex", "top_edges")
 
 
 def _positive(value: float, name: str) -> None:
@@ -34,6 +34,8 @@ class Selection:
         kind: ``"all"``; ``"between"`` (one end in ``regions[0]``, the other in
             ``regions[1]``); ``"from"`` (either end in any of ``regions``); ``"through"``
             (any point inside ``mask_path``, or inside label ``label`` of it);
+            ``"to_cortex"`` (one end in any of ``regions``, the other in a cortical label:
+            ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);
             ``"top_edges"`` (the ``k`` edges of ``regions[0]`` with most streamlines).
         regions: Region names as the network stage names them (``"lh.insula"`` for a
             cortical annotation label, the label table name such as ``"Left-Thalamus-Proper"``
@@ -44,7 +46,7 @@ class Selection:
     """
 
     name: str = "all"
-    kind: Literal["all", "between", "from", "through", "top_edges"] = "all"
+    kind: Literal["all", "between", "from", "through", "to_cortex", "top_edges"] = "all"
     regions: list[str] = field(default_factory=list)
     mask_path: str | None = None
     label: int | None = None
@@ -55,7 +57,9 @@ class Selection:
             raise ValueError(f"Selection kind must be one of {SELECTION_KINDS}")
         if not self.name or not all(c.isalnum() or c in "_-" for c in self.name):
             raise ValueError(f"Selection name {self.name!r}: use letters, digits, _ -")
-        need = {"between": 2, "from": 1, "top_edges": 1}.get(self.kind, 0)
+        need = {"between": 2, "from": 1, "to_cortex": 1, "top_edges": 1}.get(
+            self.kind, 0
+        )
         if len(self.regions) < need:
             raise ValueError(f"{self.kind!r} needs {need} region(s)")
         if self.kind == "through" and not self.mask_path:
@@ -79,7 +83,7 @@ class TrackConfig:
         sh_order: CSD spherical-harmonic order.
         random_seed: Tracking and seeding RNG seed (> 0 is reproducible).
         n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.
-        flip_test: Run the 8 gradient-axis-flip coherence check (csd route).
+        flip_test: Run the 8 axis-flip frame check (csd: coherence; tensor: mean length).
         export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world (csd).
         overwrite: Replace an existing tractogram.
     """
@@ -139,23 +143,34 @@ class AssessConfig:
     Attributes:
         simulations: Simulation folder names under ``Simulations/``.
         selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.
+            Edges, connectomes and per-streamline metrics always cover every streamline.
         step_mm: Uniform arc-length step the streamlines are resampled to before sampling.
+            The activating function converges once the step is at most a quarter of
+            ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).
+        af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is
+            smoothed over before differentiating (a piecewise-constant field has no
+            pointwise derivative at a finite scale otherwise).
         method: ``"tet"`` (the element containing each point: exact for SimNIBS's
             piecewise-constant element field) or ``"linear"`` (SimNIBS
             ``ElementData.interpolate_scattered``, node-averaged then barycentric).
         thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.
         profile_points: Nodes of the along-tract profiles.
+        min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``
+            ranking in ``summary.json`` (they stay in every raw output).
     """
 
     simulations: list[str] = field(default_factory=list)
     selections: list[Selection] = field(default_factory=lambda: [Selection()])
-    step_mm: float = 1.0
+    step_mm: float = 0.5
+    af_scale_mm: float = 2.0
     method: Literal["tet", "linear"] = "tet"
     thresholds: list[float] = field(default_factory=list)
     profile_points: int = 100
+    min_streamlines: int = 5
 
     def __post_init__(self) -> None:
         _positive(self.step_mm, "step_mm")
+        _positive(self.af_scale_mm, "af_scale_mm")
         if self.method not in ("tet", "linear"):
             raise ValueError("method must be 'tet' or 'linear'")
         if self.profile_points < 2:

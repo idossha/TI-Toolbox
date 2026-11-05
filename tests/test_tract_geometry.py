@@ -9,10 +9,18 @@ Pins (2026-11-04):
 * a helix's resampled tangents and curvature match the analytic ``(-R sin, R cos, c)/sqrt(R^2+c^2)``
   and ``R/(R^2+c^2)``;
 * on a circle in a uniform field the activating function equals ``-kappa E.n_hat``
-  (``E0 cos(theta) / R`` per mm; the bend term of d(E.t)/ds), in V/m^2;
+  (``E0 cos(theta) / R`` per mm; the bend term of d(E.t)/ds) times the smoothing triangle's
+  gain ``(sin x / x)^2``, in V/m^2; on a piecewise-constant mesh-like field it is
+  step-independent (max within 5 %, mean within 1 % across 1 / 0.5 / 0.25 mm) where the
+  pointwise derivative more than doubles;
+* ``ti_avg`` equals a Monte Carlo average of the envelope over random directions, and the
+  ratios are what they are named; world -> voxel directions step along the planted world
+  direction for LPS, PSR and oblique anisotropic affines (DIPY's stepping rule);
 * ``derivative`` equals ``numpy.gradient`` streamline by streamline; arc-length means and
-  fractions follow the trapezoid rule on a ramp; profiles of reversed streamlines line up;
-* edge numbering, connectome symmetry and the region selectors on hand-made labels.
+  fractions follow the trapezoid rule on a ramp; ``orient`` runs region_a -> region_b (else
+  lower x first) whatever the input direction, and oriented profiles line up;
+* edge numbering, connectome symmetry and the region selectors (including ``to_cortex``)
+  on hand-made labels.
 
 Every expected value is a closed form or numpy's own routine. The KD-tree endpoint
 association (real scipy) is in ``tests/numerical/test_tract_association.py``; the
@@ -88,12 +96,88 @@ def test_activating_function_on_circle_is_bend_term():
     )
     pts, off, h, t = _resampled([circle], 0.2)
     E = np.tile([E0, 0.0, 0.0], (len(pts), 1))
-    m = geometry.point_metrics([E, 0.5 * E], t, off, h)
+    a = 2.0  # smoothing half-width, mm
+    m = geometry.point_metrics([E, 0.5 * E], t, off, h, scale_mm=a)
     th = np.arctan2(pts[:, 1], pts[:, 0])
-    expected = E0 * np.cos(th) / R * 1e3  # -kappa E.n_hat, per mm -> per m
+    # -kappa E.n_hat (per mm -> per m), times the triangle kernel's gain at wavenumber 1/R:
+    # (sin(x)/x)^2 with x = a / (2R)
+    x = a / (2 * R)
+    expected = E0 * np.cos(th) / R * 1e3 * (np.sin(x) / x) ** 2
+    inner = slice(11, -11)  # the window is clamped within a = 2 mm of the ends
     np.testing.assert_allclose(
-        m["f"][0][2:-2], expected[2:-2], atol=2e-3 * E0 / R * 1e3
+        m["f"][0][inner], expected[inner], atol=2e-3 * E0 / R * 1e3
     )
+
+
+def test_smoothed_activating_function_does_not_depend_on_the_step():
+    # a piecewise-constant field like a mesh's: cells 0.6-1.4 mm, value = a smooth
+    # function at the cell centre. The pointwise derivative grows as the step shrinks
+    # (jumps / h); the smoothed one must not.
+    rng = np.random.default_rng(0)
+    edges = np.r_[0, np.cumsum(rng.uniform(0.6, 1.4, 200))]
+    edges = edges[edges < 80.0]
+    centres = 0.5 * (edges[:-1] + edges[1:])
+    g = lambda s: 0.2 * np.sin(2 * np.pi * s / 25.0) + 0.05 * np.cos(
+        2 * np.pi * s / 9.0
+    )
+    vals = g(centres)
+    line = np.column_stack([np.linspace(0, 80.0, 3), np.zeros(3), np.zeros(3)])
+    smooth, pointwise = {}, {}
+    for step in (1.0, 0.5, 0.25):
+        pts, off, h = geometry.resample([line], step)
+        cell = np.clip(
+            np.searchsorted(edges, pts[:, 0], side="right") - 1, 0, len(vals) - 1
+        )
+        smooth[step] = np.abs(geometry.smoothed_derivative(vals[cell], off, h, 2.0))
+        pointwise[step] = np.abs(geometry.derivative(vals[cell], off, h)).max()
+    for step in (0.5, 0.25):
+        assert smooth[step].max() == pytest.approx(smooth[1.0].max(), rel=0.05)
+        assert smooth[step].mean() == pytest.approx(smooth[1.0].mean(), rel=0.01)
+    assert pointwise[0.25] > 2 * pointwise[1.0]
+    # and it approximates the derivative of the field it discretises (|g'| <= 0.085 / mm)
+    assert smooth[0.25].max() == pytest.approx(0.085, rel=0.1)
+
+
+def test_random_directions_average_to_ti_avg_and_alignment_index():
+    rng = np.random.default_rng(3)
+    e1, e2 = np.array([0.3, -0.1, 0.2]), np.array([-0.05, 0.25, 0.1])
+    n = rng.normal(size=(200_000, 3))
+    n /= np.linalg.norm(n, axis=1, keepdims=True)
+    # Monte Carlo over the sphere of the scalar envelope written out here
+    mc = np.mean(np.abs(np.abs(n @ (e1 + e2)) - np.abs(n @ (e1 - e2))))
+    line = np.outer(np.linspace(0, 10, 3), [1.0, 0, 0])
+    pts, off, h, t = _resampled([line], 1.0)
+    E1, E2 = np.tile(e1, (len(pts), 1)), np.tile(e2, (len(pts), 1))
+    m = geometry.point_metrics([E1, E2], t, off, h)
+    assert m["ti_avg"][0] == pytest.approx(mc, rel=0.01)
+    np.testing.assert_allclose(m["align_index"], m["ti_along"] / m["ti_avg"])
+    np.testing.assert_allclose(m["avg_ratio"], m["ti_avg"] / m["ti_max"])
+
+
+def test_world_to_voxel_dirs_steps_along_the_planted_world_direction():
+    from tit.tract.tracking import world_to_voxel_dirs
+
+    rot = np.linalg.qr(np.random.default_rng(5).normal(size=(3, 3)))[0]
+    affines = {
+        "LPS": np.diag([-1.0, -1.0, 1.0, 1.0]),
+        "PSR": np.array(
+            [[0, 0, 1.0, 0], [-1.0, 0, 0, 0], [0, 1.0, 0, 0], [0, 0, 0, 1]]
+        ),
+        "oblique anisotropic": np.block(
+            [
+                [rot @ np.diag([0.9, 1.2, 2.0]), np.zeros((3, 1))],
+                [np.zeros((1, 3)), 1.0],
+            ]
+        ),
+    }
+    d_world = np.array([[0.48, -0.6, 0.64], [1.0, 0, 0], [0, 0, 1.0]])
+    for name, aff in affines.items():
+        d_vox = world_to_voxel_dirs(d_world, aff)
+        zooms = np.linalg.norm(aff[:3, :3], axis=0)
+        # DIPY's step in voxel index space is d_vox / voxel size; the affine takes it to world
+        step = (aff[:3, :3] @ (d_vox / zooms).T).T
+        step /= np.linalg.norm(step, axis=1, keepdims=True)
+        np.testing.assert_allclose(step, d_world, atol=1e-12, err_msg=name)
 
 
 def test_derivative_is_numpy_gradient_per_streamline():
@@ -128,13 +212,30 @@ def test_streamline_stats_trapezoid_on_a_ramp():
     assert stats["frac_ge_10"][0] == pytest.approx(30.0 / 40.0, abs=h[0] / 40.0)
 
 
-def test_profiles_of_reversed_streamlines_line_up():
+def test_orient_runs_region_a_to_b_else_from_lower_x():
+    from tit.tract.network import orient
+
     a = np.column_stack([np.linspace(0, 30, 31), np.zeros(31), np.zeros(31)])
-    b = a[::-1] + [0.0, 1.0, 0.0]
-    pts, off, h = geometry.resample([a, b], 1.0)
-    flips = geometry.orientation_flips(pts, off)
-    assert flips.tolist() == [False, True]
-    prof = geometry.profiles(pts[:, 0], off, 11, flips)
+    sls = [a, a[::-1], a[::-1], a[::-1] + [0, 5.0, 0]]
+    labels = np.array([[2, 7], [2, 7], [-1, 4], [3, 3]])
+    out, lab, rev = orient(sls, labels)
+    assert rev.tolist() == [False, False, True, True]
+    assert lab.tolist() == [[2, 7], [2, 7], [4, -1], [3, 3]]
+    assert [s[0, 0] for s in out] == [0.0, 30.0, 0.0, 0.0]
+    # reversing the input does not change the result
+    out2, lab2, _ = orient([s[::-1] for s in sls], labels[:, ::-1])
+    for s, s2 in zip(out, out2):
+        np.testing.assert_array_equal(s, s2)
+    assert lab2.tolist() == lab.tolist()
+
+
+def test_profiles_of_oriented_streamlines_line_up():
+    from tit.tract.network import orient
+
+    a = np.column_stack([np.linspace(0, 30, 31), np.zeros(31), np.zeros(31)])
+    sls, _, _ = orient([a, a[::-1] + [0.0, 1.0, 0.0]], np.array([[0, 1], [1, 0]]))
+    pts, off, h = geometry.resample(sls, 1.0)
+    prof = geometry.profiles(pts[:, 0], off, 11)
     np.testing.assert_allclose(prof[0], np.linspace(0, 30, 11))
     np.testing.assert_allclose(prof[1], prof[0])
 
@@ -171,6 +272,17 @@ def test_selectors_on_hand_made_labels():
     )
     top1 = pick(kind="top_edges", regions=["Left-Thalamus"], k=1)
     assert top1 == [False, False, True, False, False, True, True]
+    tc = pick(kind="to_cortex", regions=["Left-Thalamus"])
+    assert tc == [True, True, True, False, False, True, True]
+    assert pick(kind="to_cortex", regions=["lh.precentral"]) == [
+        False,
+        False,
+        False,
+        True,
+        False,
+        False,
+        False,  # rh.insula only; thalamus is not cortex
+    ]
     assert sum(pick(kind="all")) == 7
     with pytest.raises(ValueError, match="Unknown region"):
         pick(kind="from", regions=["nope"])

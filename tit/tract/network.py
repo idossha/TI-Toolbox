@@ -171,6 +171,34 @@ def _region_ids(regions, names: list[str]) -> np.ndarray:
     return np.array([names.index(r) for r in regions], dtype=np.int64)
 
 
+def is_cortical(name: str) -> bool:
+    """A cortical region: an annotation label (``lh.``/``rh.``) or a volume ``ctx-`` label."""
+    return name.startswith(("lh.", "rh.", "ctx-", "ctx_"))
+
+
+def orient(streamlines, labels: np.ndarray):
+    """Run every streamline in a fixed direction, so signed quantities are comparable.
+
+    A streamline whose two ends have different regions runs from the lower region index
+    to the higher (``region_a`` -> ``region_b`` of its edge); any other runs from the end
+    with the lower x (then y, then z) world coordinate. Returns
+    ``(streamlines, labels (S, 2) swapped to match, reversed (S,) bool)``.
+    """
+    labels = np.asarray(labels)
+    starts = np.array([s[0] for s in streamlines]).reshape(-1, 3)
+    ends = np.array([s[-1] for s in streamlines]).reshape(-1, 3)
+    by_label = (
+        (labels[:, 0] >= 0) & (labels[:, 1] >= 0) & (labels[:, 0] != labels[:, 1])
+    )
+    # lexicographic "end before start" in (x, y, z)
+    diff = ends - starts
+    first = np.argmax(diff != 0, axis=1)
+    by_coord = diff[np.arange(len(diff)), first] < 0
+    rev = np.where(by_label, labels[:, 0] > labels[:, 1], by_coord)
+    out = [s[::-1] if r else s for s, r in zip(streamlines, rev)]
+    return out, np.where(rev[:, None], labels[:, ::-1], labels), rev
+
+
 def points_in_mask(
     points: np.ndarray, mask_path: str, label: int | None = None
 ) -> np.ndarray:
@@ -217,6 +245,14 @@ def select(
         )
     if kind == "from":
         return np.isin(labels, ids).any(axis=1)
+    if kind == "to_cortex":
+        cortical = np.array(
+            [is_cortical(n) for n in names] + [False]
+        )  # [-1] = unassigned
+        seed = np.isin(labels, ids)
+        return (seed[:, 0] & cortical[labels[:, 1]]) | (
+            seed[:, 1] & cortical[labels[:, 0]]
+        )
     # top_edges: the k most-populated edges with one end in regions[0]
     touches = (labels == ids[0]).any(axis=1) & (edge_id >= 0)
     edges, counts = np.unique(edge_id[touches], return_counts=True)

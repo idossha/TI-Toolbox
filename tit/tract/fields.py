@@ -18,13 +18,18 @@ and is counted in ``summary.json`` (``points_outside_brain_mesh``).
 Output, per simulation, in ``Simulations/<sim>/tract/`` (the data contract):
 
 * ``<selection>.trx`` -- the resampled streamlines (m2m T1 world RAS mm) with
-  data_per_vertex ``ti_along``, ``ti_max``, ``e1_par``, ``e2_par`` (... ``e<2K>_par`` for
-  mTI; float32, V/m) and data_per_streamline ``length_mm``, ``ti_along_max``,
-  ``ti_along_mean``, ``edge_id`` (int, -1 = unassigned);
+  data_per_vertex ``ti_along``, ``ti_max``, ``ti_avg``, ``e1_par``, ``e2_par`` (...
+  ``e<2K>_par`` for mTI; float32, V/m) and data_per_streamline ``length_mm``,
+  ``ti_along_max``, ``ti_along_mean``, ``edge_id`` (int, -1 = unassigned);
 * ``edges.json`` -- edge_id -> region_a, region_b, n_streamlines, summary statistics;
 * ``connectome_<metric>.npz`` -- ``matrix``, ``labels``, ``definition``;
 * ``summary.json``; plus ``streamline_metrics.npz`` (every per-streamline metric, keyed by
   tractogram index) and ``profiles.npz`` (per-edge along-tract node medians).
+
+Every streamline is assessed (edges, connectomes and per-streamline metrics never depend on
+the selections) and oriented first (:func:`tit.tract.network.orient`): ``region_a`` ->
+``region_b`` when its ends have different regions, so ``e<c>_par``, the activating function
+and the profiles have one sign convention per edge.
 """
 
 from __future__ import annotations
@@ -39,22 +44,35 @@ import numpy as np
 
 from . import geometry
 from .io import load_streamlines, save_tractogram
-from .network import select
+from .network import orient, select
 
 logger = logging.getLogger(__name__)
 
 #: Brain tissue tags (SimNIBS ElementTags WM, GM, CSF) the point search is limited to.
 BRAIN_TAGS = (1, 2, 3)
 #: Metrics summarised per streamline (each with geometry.streamline_stats).
-STREAMLINE_METRICS = ("ti_along", "ti_max", "align", "e_par_pk", "p_par", "f_am")
-#: Per-streamline keys summarised per edge in edges.json.
+STREAMLINE_METRICS = (
+    "ti_along",
+    "ti_max",
+    "ti_avg",
+    "align",
+    "avg_ratio",
+    "e_par_pk",
+    "p_par",
+    "f_am",
+)
+#: Per-streamline keys summarised per edge in edges.json and per bundle in summary.json.
 EDGE_KEYS = (
     "length_mm",
     "ti_along_mean",
     "ti_along_max",
     "ti_max_mean",
+    "ti_avg_mean",
     "align_mean",
+    "avg_ratio_mean",
+    "align_index",
     "f_am_max",
+    "f_am_mean",
 )
 
 
@@ -86,17 +104,22 @@ def sample_carriers(paths, points: np.ndarray, method: str = "tet", cache=None):
     """Each carrier's ``E`` (P, 3) at *points*; returns ``(fields, outside (P,) bool)``.
 
     *cache* (a dict, ``"tet"`` only) keeps the point -> element lookup for the next call
-    on the same points and the same mesh (several simulations of one head model).
+    on the same points (hashed) and the same mesh (several simulations of one head model).
     """
+    import hashlib
+
     from simnibs.mesh_tools import mesh_io
 
     fields, th, outside = [], None, None
     cache = {} if cache is None else cache
+    points = np.ascontiguousarray(points, dtype=np.float64)
+    digest = hashlib.sha1(points.tobytes()).hexdigest()
     for path in paths:
         mesh = mesh_io.read_msh(str(path)).crop_mesh(tags=list(BRAIN_TAGS))
         field = mesh.field["E"]
         if method == "tet":
-            key = (len(points), mesh.elm.nr, float(mesh.nodes.node_coord.sum()))
+            nodes = np.ascontiguousarray(mesh.nodes.node_coord)
+            key = (digest, mesh.elm.nr, hashlib.sha1(nodes.tobytes()).hexdigest())
             if cache.get("key") != key:
                 if th is not None:
                     raise ValueError(f"{path.name} is not on the first carrier's mesh")
@@ -144,6 +167,14 @@ def streamline_table(metrics, offsets, h, kappa, thresholds) -> dict[str, np.nda
             metrics[name], offsets, h, taus
         ).items():
             table[f"{name}_{stat}"] = v
+    # ratio of arc-length means: above 1, more envelope along the streamline than along a
+    # direction drawn at random (ti_avg); robust where ti_avg is small at single points
+    table["align_index"] = np.divide(
+        table["ti_along_mean"],
+        table["ti_avg_mean"],
+        out=np.zeros_like(table["ti_avg_mean"]),
+        where=table["ti_avg_mean"] > 0,
+    )
     return table
 
 
@@ -164,12 +195,39 @@ def _edge_records(table, edge_id, pairs, names, thresholds) -> dict:
     return records
 
 
-def _profiles(values, offsets, n_nodes):
-    flips = geometry.orientation_flips(values["points"], offsets)
+def _profiles(m, idx, offsets, n_nodes):
+    """Node values of ``ti_along``/``ti_max``/``ti_avg`` for oriented streamlines."""
     return {
-        k: geometry.profiles(values[k], offsets, n_nodes, flips)
-        for k in ("ti_along", "ti_max")
+        k: geometry.profiles(m[k][idx], offsets, n_nodes)
+        for k in ("ti_along", "ti_max", "ti_avg")
     }
+
+
+def top_edges(edges: dict, min_streamlines: int, n: int = 10) -> list[dict]:
+    """The *n* edges with the highest median streamline-mean ``ti_along`` among edges of at
+    least *min_streamlines* streamlines, each with its streamline count."""
+    big = [(k, v) for k, v in edges.items() if v["n_streamlines"] >= min_streamlines]
+    big.sort(key=lambda kv: -kv[1]["ti_along_mean"]["median"])
+    return [
+        {
+            "edge_id": int(k),
+            "region_a": v["region_a"],
+            "region_b": v["region_b"],
+            "n_streamlines": v["n_streamlines"],
+            **{
+                key: v[key]["median"]
+                for key in (
+                    "ti_along_mean",
+                    "ti_max_mean",
+                    "ti_avg_mean",
+                    "align_mean",
+                    "avg_ratio_mean",
+                    "align_index",
+                )
+            },
+        }
+        for k, v in big[:n]
+    ]
 
 
 def assess_simulation(
@@ -181,36 +239,37 @@ def assess_simulation(
     resampled,
     cache: dict | None = None,
 ) -> dict:
-    """Assess one simulation on the union of the selected streamlines; write its outputs.
+    """Assess one simulation on every (oriented) streamline; write its outputs.
 
-    *resampled* is ``(union_idx, (points, offsets, h, tangents, curvature))`` from
-    :func:`run_assess`; *cache* is passed on to :func:`sample_carriers`.
+    *network* holds the oriented ``labels`` (:func:`run_assess`); *resampled* is
+    ``(points, offsets, h, tangents, curvature)``; *cache* goes to :func:`sample_carriers`.
     """
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
-    union_idx, (pts, off, h, t, kappa) = resampled
+    pts, off, h, t, kappa = resampled
     out_dir = pm.ensure(pm.sim_tract(subject_id, simulation))
     t0 = time.time()
     paths = carrier_meshes(pm, subject_id, simulation)
     fields, outside = sample_carriers(paths, pts, cfg.method, cache)
     sample_s = time.time() - t0
-    m = geometry.point_metrics(fields, t, off, h)
+    m = geometry.point_metrics(fields, t, off, h, cfg.af_scale_mm)
+    del fields
     table = streamline_table(m, off, h, kappa, cfg.thresholds)
     names = [str(n) for n in network["names"]]
-    edge_id = network["edge_id"][union_idx]
+    edge_id = network["edge_id"]
     pairs = network["pairs"]
     table["edge_id"] = edge_id
-    table["label_a"], table["label_b"] = network["labels"][union_idx].T
-    table["tractogram_index"] = union_idx
+    table["label_a"], table["label_b"] = network["labels"].T
+    table["reversed"] = network["reversed"]
+    table["tractogram_index"] = np.arange(len(edge_id))
 
     ref = pm.t1(subject_id)
-    pos = {i: k for k, i in enumerate(union_idx)}
     bundles = {}
     for sel in cfg.selections:
-        pick = np.array([pos[i] for i in np.flatnonzero(masks[sel.name])], np.intp)
+        pick = np.flatnonzero(masks[sel.name])
         idx, sub_off = subset(off, pick)
-        dpv = {"ti_along": m["ti_along"][idx], "ti_max": m["ti_max"][idx]}
+        dpv = {k: m[k][idx] for k in ("ti_along", "ti_max", "ti_avg")}
         for c, e_par in enumerate(m["e_par"], start=1):
             dpv[f"e{c}_par"] = e_par[idx]
         sub_pts = pts[idx]
@@ -232,15 +291,7 @@ def assess_simulation(
                 np.mean(table["ti_along_max"][pick] >= tau)
             )
         if len(pick):
-            prof = _profiles(
-                {
-                    "points": sub_pts,
-                    "ti_along": dpv["ti_along"],
-                    "ti_max": dpv["ti_max"],
-                },
-                sub_off,
-                cfg.profile_points,
-            )
+            prof = _profiles(m, idx, sub_off, cfg.profile_points)
             summary["profile_median"] = {
                 k: np.median(v, axis=0).round(5).tolist() for k, v in prof.items()
             }
@@ -249,7 +300,7 @@ def assess_simulation(
     edges = _edge_records(table, edge_id, pairs, names, cfg.thresholds)
     Path(out_dir, "edges.json").write_text(json.dumps(edges, indent=1) + "\n")
     _write_connectomes(out_dir, table, edge_id, pairs, names)
-    _write_edge_profiles(out_dir, pts, off, m, edge_id, cfg.profile_points)
+    _write_edge_profiles(out_dir, off, m, edge_id, cfg.profile_points)
     np.savez_compressed(os.path.join(out_dir, "streamline_metrics.npz"), **table)
 
     summary = {
@@ -260,8 +311,11 @@ def assess_simulation(
         "n_pairs": len(paths) // 2,
         "method": cfg.method,
         "step_mm": cfg.step_mm,
+        "af_scale_mm": cfg.af_scale_mm,
+        "orientation": "region_a -> region_b (lower region index first) when the ends "
+        "differ, else from the end with the lower x, y, z",
         "thresholds_v_per_m": list(cfg.thresholds),
-        "n_streamlines": int(len(union_idx)),
+        "n_streamlines": int(len(edge_id)),
         "n_points": int(len(pts)),
         "points_outside_brain_mesh": int(outside.sum()),
         "seconds": {
@@ -269,13 +323,18 @@ def assess_simulation(
             "total": round(time.time() - t0, 1),
         },
         "units": {
-            "ti_along, ti_max, e_par, e_par_pk": "V/m",
+            "ti_along, ti_max, ti_avg, e_par, e_par_pk": "V/m",
             "p_par": "V^2/m^2",
-            "f_am, f": "V/m^2",
+            "f_am, f": "V/m^2 (d/ds of E.t smoothed over +/- af_scale_mm)",
             "align": "1 (ti_along / ti_max)",
+            "avg_ratio": "1 (ti_avg / ti_max: align for a uniformly random direction)",
+            "align_index": "1 (streamline mean ti_along / mean ti_avg; above 1 = more "
+            "envelope along the streamline than along a random direction)",
             "length_mm": "mm",
             "kappa_max": "1/mm",
         },
+        "min_streamlines": cfg.min_streamlines,
+        "top_edges": top_edges(edges, cfg.min_streamlines),
         "bundles": bundles,
     }
     Path(out_dir, "summary.json").write_text(json.dumps(summary, indent=1) + "\n")
@@ -328,28 +387,18 @@ def _matrix(pairs, values, n):
     return connectome(pairs, values, n)
 
 
-def _write_edge_profiles(out_dir, pts, off, m, edge_id, n_nodes) -> None:
-    ids, rows_ti, rows_max = [], [], []
+def _write_edge_profiles(out_dir, off, m, edge_id, n_nodes) -> None:
+    """Node-wise medians per edge, node 0 at ``region_a`` (streamlines are oriented)."""
+    ids, rows = [], {"ti_along": [], "ti_max": [], "ti_avg": []}
     for e in np.unique(edge_id[edge_id >= 0]):
-        pick = np.flatnonzero(edge_id == e)
-        idx, sub = subset(off, pick)
-        prof = _profiles(
-            {
-                "points": pts[idx],
-                "ti_along": m["ti_along"][idx],
-                "ti_max": m["ti_max"][idx],
-            },
-            sub,
-            n_nodes,
-        )
+        idx, sub = subset(off, np.flatnonzero(edge_id == e))
+        for k, v in _profiles(m, idx, sub, n_nodes).items():
+            rows[k].append(np.median(v, axis=0))
         ids.append(e)
-        rows_ti.append(np.median(prof["ti_along"], axis=0))
-        rows_max.append(np.median(prof["ti_max"], axis=0))
     np.savez_compressed(
         os.path.join(out_dir, "profiles.npz"),
         edge_id=np.array(ids, dtype=np.int64),
-        ti_along_median=np.array(rows_ti).reshape(-1, n_nodes),
-        ti_max_median=np.array(rows_max).reshape(-1, n_nodes),
+        **{f"{k}_median": np.array(v).reshape(-1, n_nodes) for k, v in rows.items()},
     )
 
 
@@ -381,13 +430,18 @@ def run_assess(subject_id: str, cfg) -> list[dict]:
         s.name: select(s, network["labels"], names, network["edge_id"], streamlines)
         for s in cfg.selections
     }
-    union_idx = np.flatnonzero(np.logical_or.reduce(list(masks.values())))
-    logger.info(f"assess: {len(union_idx)} streamlines in {list(masks)}")
-    pts, off, h = geometry.resample([streamlines[i] for i in union_idx], cfg.step_mm)
+    streamlines, network["labels"], network["reversed"] = orient(
+        streamlines, network["labels"]
+    )
+    logger.info(
+        f"assess: {len(streamlines)} streamlines; selections "
+        + ", ".join(f"{k} {int(v.sum())}" for k, v in masks.items())
+    )
+    pts, off, h = geometry.resample(streamlines, cfg.step_mm)
     del streamlines
     t = geometry.tangents(pts, off, h)
     kappa = geometry.curvature(t, off, h)
-    resampled = (union_idx, (pts, off, h, t, kappa))
+    resampled = (pts, off, h, t, kappa)
     cache: dict = {}
     return [
         assess_simulation(subject_id, sim, cfg, network, masks, resampled, cache)

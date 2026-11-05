@@ -11,11 +11,20 @@ prediction of activation):
 
 * ``E_c . t`` per channel (V/m), ``t`` the unit tangent;
 * ``ti_along`` = :func:`tit.calc.envelope` of the channel fields along ``t`` (V/m);
-* ``ti_max`` = :func:`tit.calc.envelope_max` (V/m) and ``align`` = ti_along / ti_max;
+* ``ti_max`` = :func:`tit.calc.envelope_max` and ``ti_avg`` = :func:`tit.calc.envelope_mean`
+  (the envelope averaged over all directions), both V/m;
+* ``align`` = ti_along / ti_max and ``avg_ratio`` = ti_avg / ti_max (what ``align`` is for a
+  direction drawn uniformly at random), and ``align_index`` = ti_along / ti_avg (above 1:
+  more envelope along the streamline than along a random direction);
 * ``e_par_pk`` = sum_c |E_c . t| (V/m) and ``p_par`` = 1/2 sum_c (E_c . t)^2 (V^2/m^2);
-* ``f_c`` = -d(E_c . t)/ds (V/m^2, Rattay's activating function of each carrier) and
-  ``f_am`` = the envelope of the ``f_c`` (for one pair 2 min(|f_a|, |f_b|)), derived
-  from the linearity of d/ds, not taken from a paper.
+* ``f_c`` = -d(E_c . t)/ds at a fixed physical scale (V/m^2, Rattay's activating function of
+  each carrier, :func:`smoothed_derivative`) and ``f_am`` = the envelope of the ``f_c`` (for
+  one pair 2 min(|f_a|, |f_b|)), derived from the linearity of d/ds, not taken from a paper.
+  A SimNIBS field is constant per tetrahedron, so a pointwise derivative grows without
+  bound as the sampling step shrinks; the scale makes ``f`` a property of the field.
+
+Signed quantities (``E_c . t``, ``f_c``) depend on which way a streamline runs; callers
+orient streamlines first (:func:`tit.tract.network.orient`).
 """
 
 from __future__ import annotations
@@ -24,7 +33,7 @@ from collections.abc import Sequence
 
 import numpy as np
 
-from tit.calc import envelope, envelope_max
+from tit.calc import envelope, envelope_max, envelope_mean
 
 #: mm -> m, for derivatives taken along arc length in mm.
 _PER_MM_TO_PER_M = 1e3
@@ -95,27 +104,77 @@ def curvature(t: np.ndarray, offsets: np.ndarray, h: np.ndarray) -> np.ndarray:
     return np.linalg.norm(derivative(t, offsets, h), axis=1)
 
 
+def _ratio(num: np.ndarray, den: np.ndarray) -> np.ndarray:
+    return np.divide(num, den, out=np.zeros_like(den), where=den > 0)
+
+
+def _along(values, offsets, h, q):
+    """Each streamline's *values* (P,) linearly interpolated at arc positions *q* (P,)."""
+    n = per_point(np.diff(offsets), offsets)
+    u = q / per_point(h, offsets)
+    lo = np.clip(np.floor(u).astype(np.intp), 0, n - 2)
+    frac = u - lo
+    base = per_point(offsets[:-1], offsets)
+    return (1 - frac) * values[base + lo] + frac * values[base + lo + 1]
+
+
+def smoothed_derivative(
+    values: np.ndarray, offsets: np.ndarray, h: np.ndarray, scale: float
+) -> np.ndarray:
+    """d(values)/ds per mm of *values* smoothed by a triangle of half-width *scale* mm.
+
+    With ``C`` the running arc-length integral of *values* along its streamline,
+    ``(C(s + a) - 2 C(s) + C(s - a)) / a^2`` is the derivative of the triangle-weighted
+    mean, ``a = min(scale, L / 2)``. Integrating first keeps the result converging as the
+    step shrinks on a piecewise-constant field. Within ``a`` of an end, the value at ``a``
+    from that end is used, so the window never leaves the streamline.
+    """
+    v = np.asarray(values, dtype=np.float64)
+    hp = per_point(h, offsets)
+    inc = np.zeros_like(v)
+    inc[1:] = 0.5 * (v[1:] + v[:-1]) * hp[1:]
+    inc[offsets[:-1]] = 0.0
+    c = np.cumsum(inc)
+    c -= per_point(c[offsets[:-1]], offsets)
+    length = per_point(lengths(offsets, h), offsets)
+    s = (np.arange(len(v)) - per_point(offsets[:-1], offsets)) * hp
+    a = np.minimum(scale, 0.5 * length)
+    s = np.clip(s, a, length - a)
+    up = _along(c, offsets, h, s + a)
+    down = _along(c, offsets, h, s - a)
+    return (up - 2.0 * _along(c, offsets, h, s) + down) / a**2
+
+
 def point_metrics(
-    fields: Sequence[np.ndarray], t: np.ndarray, offsets: np.ndarray, h: np.ndarray
+    fields: Sequence[np.ndarray],
+    t: np.ndarray,
+    offsets: np.ndarray,
+    h: np.ndarray,
+    scale_mm: float = 2.0,
 ) -> dict[str, np.ndarray]:
     """Per-point field descriptors (module docstring) for channel fields ``[E1, ..., E2K]``.
 
+    *scale_mm* is the half-width of the activating function's smoothing.
     Returns a dict of (P,) arrays plus ``e_par`` (C, P) and ``f`` (C, P).
     """
     E = [np.asarray(e, dtype=np.float64) for e in fields]
     e_par = np.stack([np.einsum("pk,pk->p", e, t) for e in E])
     ti_along = envelope(E, t)
     ti_max = envelope_max(E)
-    f = -np.stack([derivative(p, offsets, h) for p in e_par]) * _PER_MM_TO_PER_M
+    ti_avg = envelope_mean(E)
+    f = -_PER_MM_TO_PER_M * np.stack(
+        [smoothed_derivative(p, offsets, h, scale_mm) for p in e_par]
+    )
     x = np.array([1.0, 0.0, 0.0])
     f_am = envelope([fc[:, None] * x for fc in f], x)
     return {
         "e_par": e_par,
         "ti_along": ti_along,
         "ti_max": ti_max,
-        "align": np.divide(
-            ti_along, ti_max, out=np.zeros_like(ti_max), where=ti_max > 0
-        ),
+        "ti_avg": ti_avg,
+        "align": _ratio(ti_along, ti_max),
+        "avg_ratio": _ratio(ti_avg, ti_max),
+        "align_index": _ratio(ti_along, ti_avg),
         "e_par_pk": np.abs(e_par).sum(axis=0),
         "p_par": 0.5 * (e_par**2).sum(axis=0),
         "f": f,
@@ -160,29 +219,14 @@ def lengths(offsets: np.ndarray, h: np.ndarray) -> np.ndarray:
     return h * (np.diff(offsets) - 1)
 
 
-def orientation_flips(points: np.ndarray, offsets: np.ndarray) -> np.ndarray:
-    """Which streamlines to reverse so all run the way the first one does (S,) bool.
-
-    A streamline is reversed when its end points are closer to the reference's end
-    points swapped than in order (the end-point form of DIPY's ``orient_by_streamline``).
-    """
-    a, b = points[offsets[:-1]], points[offsets[1:] - 1]
-    keep = np.linalg.norm(a - a[0], axis=1) + np.linalg.norm(b - b[0], axis=1)
-    swap = np.linalg.norm(a - b[0], axis=1) + np.linalg.norm(b - a[0], axis=1)
-    return swap < keep
-
-
-def profiles(
-    values: np.ndarray, offsets: np.ndarray, n_nodes: int, flips: np.ndarray
-) -> np.ndarray:
+def profiles(values: np.ndarray, offsets: np.ndarray, n_nodes: int) -> np.ndarray:
     """Each streamline's values at *n_nodes* equally spaced arc-length nodes (S, n_nodes).
 
-    Linear interpolation on the uniform resampling; reversed streamlines (*flips*) are
-    read end to start, so node 0 sits at the same end of the bundle for all.
+    Linear interpolation on the uniform resampling, start to end: orient the streamlines
+    first (:func:`tit.tract.network.orient`) so node 0 is the same end for all.
     """
     n = np.diff(offsets).astype(np.float64)
     u = np.linspace(0.0, 1.0, n_nodes)[None, :] * (n - 1)[:, None]
-    u = np.where(flips[:, None], (n - 1)[:, None] - u, u)
     lo = np.floor(u).astype(np.intp)
     lo = np.minimum(lo, (n - 2).astype(np.intp)[:, None])
     frac = u - lo

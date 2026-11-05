@@ -6,9 +6,11 @@ masks. It runs through the existing optimizers unchanged, as
 ``FlexConfig.SubcorticalROI(atlas_path=mask, label=None, tissues="WM")`` or
 ``ExConfig.AtlasROI(atlas_path=mask, label=None)`` (:func:`roi_specs`).
 
-(b) :func:`rank_montages` scores candidate two-pair montages by the mean ``ti_along``
-(the envelope along each streamline's tangent, :func:`tit.calc.envelope`) over the bundle's
-points, with fields built from the ex-search leadfield; mean ``ti_max`` is reported beside it.
+(b) :func:`rank_montages` scores candidate two-pair montages on a bundle with fields built
+from the ex-search leadfield. The ranking statistic is the one ``assess`` reports: the
+median over streamlines of each streamline's arc-length mean ``ti_along`` (the envelope along
+its tangent, :func:`tit.calc.envelope`). The pooled point mean (length-weighted), the same
+statistics of ``ti_max`` and ``ti_avg``, and the alignment index are reported beside it.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from pathlib import Path
 
 import numpy as np
 
-from tit.calc import envelope, envelope_max
+from tit.calc import envelope, envelope_max, envelope_mean
 
 from . import geometry
 from .io import load_streamlines, save_nifti
@@ -94,19 +96,33 @@ def ex_run_montages(csv_path: str, top_n: int) -> list[list[str]]:
     return out
 
 
+def streamline_means(values, weights, offsets):
+    """Weighted arc-length mean per streamline; NaN for a streamline with no weight."""
+    first = offsets[:-1]
+    den = np.add.reduceat(weights, first)
+    num = np.add.reduceat(weights * values, first)
+    return np.divide(num, den, out=np.full(len(den), np.nan), where=den > 0)
+
+
 def rank_montages(
     leadfield_hdf: str,
     points: np.ndarray,
+    offsets: np.ndarray,
+    h: np.ndarray,
     tangents: np.ndarray,
     montages,
     current_mA=(1.0, 1.0),
 ) -> tuple[list[dict], dict]:
-    """Score each montage on a bundle's points: mean ``ti_along``, ``ti_max``, ``align``.
+    """Score each montage on a resampled bundle (``points``, ``offsets``, ``h``).
 
     The leadfield is loaded the way exhaustive search loads it
     (:class:`tit.opt.ex.engine.ExSearchEngine`); each point takes the leadfield-mesh
-    element containing it (points outside that mesh are left out and counted). Sorted by
-    mean ``ti_along``, highest first. Returns ``(rows, point counts)``.
+    element containing it, and points outside that mesh get no weight. Per montage:
+    ``median_sl_mean_<q>`` (median over streamlines of the arc-length mean, the statistic
+    ``assess`` reports) and ``pooled_mean_<q>`` (mean over all points, length-weighted) for
+    ``q`` in ``ti_along``, ``ti_max``, ``ti_avg``; ``align_index`` = median over streamlines
+    of mean ti_along / mean ti_avg. Sorted by ``median_sl_mean_ti_along``, highest first.
+    Returns ``(rows, point counts)``.
     """
     from simnibs.utils import TI_utils as TI
 
@@ -118,28 +134,28 @@ def rank_montages(
         np.asarray(points, np.float64), compute_baricentric=False
     )
     inside = th > 0
-    elm, t = th[inside] - 1, np.asarray(tangents)[inside]
+    weights = geometry._trapezoid_weights(offsets, h) * inside
+    elm = np.where(inside, th - 1, 0)
     i1, i2 = (c / 1000.0 for c in current_mA)
     rows = []
     for e1p, e1m, e2p, e2m in montages:
         E1 = TI.get_field([e1p, e1m, i1], engine.leadfield, engine.idx_lf)[elm]
         E2 = TI.get_field([e2p, e2m, i2], engine.leadfield, engine.idx_lf)[elm]
-        along = envelope([E1, E2], t)
-        tmax = envelope_max([E1, E2])
-        rows.append(
-            {
-                "montage": [e1p, e1m, e2p, e2m],
-                "mean_ti_along": float(along.mean()),
-                "mean_ti_max": float(tmax.mean()),
-                "mean_align": float(
-                    np.mean(
-                        np.divide(along, tmax, out=np.zeros_like(tmax), where=tmax > 0)
-                    )
-                ),
-            }
-        )
-    rows.sort(key=lambda r: -r["mean_ti_along"])
-    for rank, r in enumerate(sorted(rows, key=lambda r: -r["mean_ti_max"]), start=1):
+        q = {
+            "ti_along": envelope([E1, E2], tangents),
+            "ti_max": envelope_max([E1, E2]),
+            "ti_avg": envelope_mean([E1, E2]),
+        }
+        row = {"montage": [e1p, e1m, e2p, e2m]}
+        sl = {k: streamline_means(v, weights, offsets) for k, v in q.items()}
+        for k, v in q.items():
+            row[f"median_sl_mean_{k}"] = float(np.nanmedian(sl[k]))
+            row[f"pooled_mean_{k}"] = float(np.sum(weights * v) / np.sum(weights))
+        row["align_index"] = float(np.nanmedian(sl["ti_along"] / sl["ti_avg"]))
+        rows.append(row)
+    rows.sort(key=lambda r: -r["median_sl_mean_ti_along"])
+    by_max = sorted(rows, key=lambda r: -r["median_sl_mean_ti_max"])
+    for rank, r in enumerate(by_max, start=1):
         r["rank_by_ti_max"] = rank
     for rank, r in enumerate(rows, start=1):
         r["rank_by_ti_along"] = rank
@@ -152,7 +168,7 @@ def rank_montages(
     }
 
 
-def run_target(subject_id: str, cfg, step_mm: float = 1.0) -> dict:
+def run_target(subject_id: str, cfg, step_mm: float = 0.5) -> dict:
     """The ``target`` stage: the bundle's density mask, and the ranking when a leadfield is set."""
     from tit.paths import get_path_manager
 
@@ -194,11 +210,12 @@ def run_target(subject_id: str, cfg, step_mm: float = 1.0) -> dict:
             lf = os.path.join(pm.leadfields(subject_id), lf)
         pts, off, h = geometry.resample(bundle, step_mm)
         rows, info = rank_montages(
-            lf, pts, geometry.tangents(pts, off, h), montages, cfg.current_mA
+            lf, pts, off, h, geometry.tangents(pts, off, h), montages, cfg.current_mA
         )
         result["ranking"] = {
             "leadfield": lf,
             "current_mA": cfg.current_mA,
+            "sorted_by": "median_sl_mean_ti_along",
             **info,
             "montages": rows,
         }
@@ -206,27 +223,10 @@ def run_target(subject_id: str, cfg, step_mm: float = 1.0) -> dict:
             os.path.join(tract_dir, f"ranking_{sel.name}.csv"), "w", newline=""
         ) as f:
             w = csv.writer(f)
-            w.writerow(
-                [
-                    "montage",
-                    "mean_ti_along",
-                    "mean_ti_max",
-                    "mean_align",
-                    "rank_by_ti_along",
-                    "rank_by_ti_max",
-                ]
-            )
+            keys = [k for k in rows[0] if k != "montage"]
+            w.writerow(["montage", *keys])
             for r in rows:
-                w.writerow(
-                    [
-                        " ".join(r["montage"]),
-                        r["mean_ti_along"],
-                        r["mean_ti_max"],
-                        r["mean_align"],
-                        r["rank_by_ti_along"],
-                        r["rank_by_ti_max"],
-                    ]
-                )
+                w.writerow([" ".join(r["montage"]), *(r[k] for k in keys)])
     Path(tract_dir, f"target_{sel.name}.json").write_text(
         json.dumps(result, indent=1) + "\n"
     )
