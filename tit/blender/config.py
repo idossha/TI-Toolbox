@@ -253,6 +253,11 @@ class TractVisualConfig:
         -1 left, 1 right, 0 the side of the strongest field.
     iso_shell_percentile : float or None
         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
+    prune_keep_fraction : float or None
+        In a named-network turntable sequence, sweep away all but this fraction of the
+        streamlines, the strongest by mean TI_max along each, then name where they end.
+    label_regions : int
+        How many cortical regions the pruned network names.
     turntable_crossfade : bool
         The turntable shows direction colours for its first half, crossfades over 2 s, then
         shows ``metric`` (a scalar metric) for the second half.
@@ -305,6 +310,8 @@ class TractVisualConfig:
     lateral_side: int = 0
     iso_shell_percentile: float | None = None
     turntable_crossfade: bool = False
+    prune_keep_fraction: float | None = None
+    label_regions: int = 5
     stills: bool = True
     turntable: bool = False
     propagation: bool = False
@@ -350,6 +357,13 @@ class TractVisualConfig:
             and self.metric == TractVisualConfig.Metric.DIRECTION
         ):
             raise ValueError("turntable_crossfade fades direction into a scalar metric")
+        if (
+            self.prune_keep_fraction is not None
+            and not 0 < self.prune_keep_fraction < 1
+        ):
+            raise ValueError("prune_keep_fraction must be in (0, 1)")
+        if self.label_regions < 0:
+            raise ValueError("label_regions must be >= 0")
         name = (self.network_bundle or "").strip()
         if name and (os.sep in name or name.startswith(".")):
             raise ValueError("network_bundle is a bundle name in the tract directory")

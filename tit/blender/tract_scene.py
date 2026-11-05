@@ -44,6 +44,11 @@ NETWORK_RECEDE = {"glass": 0.55, "scalp": 0.5, "electrode": 0.45}
 DEEP_COLOUR, DEEP_CORE, DEEP_EDGE = (1.0, 0.55, 0.22), 0.7, 0.18
 #: Cortical patch glow in network renders: lit * (PATCH_BASE + PATCH_RIM * rim).
 PATCH_BASE, PATCH_RIM = 0.05, 0.16
+#: Fibres fade to NEAR_MIN opacity within NEAR_MM of the thalami.
+NEAR_MM, NEAR_MIN = 6.0, 0.3
+#: Patch glow (base, rim): every fibre's terminals, and the kept fibres' at labelling.
+PATCH_ALL, PATCH_KEPT = (0.04, 0.12), (0.1, 0.24)
+LABEL_COLOUR = (1.0, 0.9, 0.78)
 #: Frames a turntable crossfade from direction colours to the scalar metric takes.
 CROSSFADE_FRAMES = 48
 #: Glass brain rim emission (lighter than the scalp's ghost would make it).
@@ -256,6 +261,8 @@ def fibre_material(
     crossfade=None,
     fade=None,
     visible=None,
+    prune=None,
+    near: bool = False,
 ):
     """Fibre (or colour-bar) emission.
 
@@ -288,10 +295,19 @@ def fibre_material(
                 m.transparent(),
                 m.emission(colour, m.math("MULTIPLY", strength, _fade(m, fade))),
             )
-        if visible:
+        if visible or prune or near:
             mat.surface_render_method = "DITHERED"
+            alpha = _fade(m, visible)
+            if prune:  # fibres below the swept rank threshold fade, weakest first
+                threshold, band = prune
+                over = m.math("SUBTRACT", m.attr("rank"), _fade(m, threshold))
+                keep = m.math("DIVIDE", over, _fade(m, band), clamp=True)
+                alpha = m.math("MULTIPLY", alpha, keep)
+            if near:  # see-through within a few mm of the thalami, which stay visible
+                clear = m.math("DIVIDE", m.attr("thal"), NEAR_MM, clamp=True)
+                alpha = m.math("MULTIPLY", alpha, m.math("MAXIMUM", clear, NEAR_MIN))
             mix = m.new("ShaderNodeMixShader")
-            m.feed(mix.inputs[0], _fade(m, visible))
+            m.feed(mix.inputs[0], alpha)
             m.feed(mix.inputs[1], m.transparent())
             m.feed(mix.inputs[2], shader)
             shader = mix.outputs[0]
@@ -359,10 +375,15 @@ def glass_material(
     )
     if region_keys:
         lit = None
-        for attribute, keys in region_keys:
-            term = m.math("MULTIPLY", m.attr(attribute), _fade(m, keys))
+        for entry in region_keys:
+            attribute, keys = entry[:2]
+            base, edge = entry[2] if len(entry) > 2 else patch
+            gain = m.math("MULTIPLY_ADD", rim, edge, base)
+            term = m.math(
+                "MULTIPLY", m.math("MULTIPLY", m.attr(attribute), _fade(m, keys)), gain
+            )
             lit = term if lit is None else m.math("ADD", lit, term)
-        glow = m.math("MULTIPLY", lit, m.math("MULTIPLY_ADD", rim, patch[1], patch[0]))
+        glow = lit
         shader = m.add(shader, m.emission(REGION_COLOUR, glow))
     elif regions or region_frames:
         lit = m.attr("lit")
@@ -879,6 +900,8 @@ def _fibres(name, path, material):
                 "d": t["d"],
                 "gain": t["gain"],
                 "tangent": t["tangent"],
+                # per-point extras the sequence shades with (prune rank, thalamus distance)
+                **{k: t[k] for k in ("rank", "thal") if k in t.files},
             },
         )
     _tube_modifier(obj, material)
@@ -1143,44 +1166,149 @@ def render_turntable(manifest, base, out_dir) -> str:
     return _render_movie(scene, out_dir, f"{manifest['stem']}_turntable")
 
 
-def render_sequence(
-    manifest, base, second, base_b, out_dir, name, *, preview: bool
-) -> str:
-    """One turntable: network A (direction -> metric), a crossfade to network B, then B.
+def _project(camera, point):
+    """Overlay coordinates (half-width 1) of a world point seen by a perspective *camera*."""
+    from mathutils import Vector
 
-    Each network holds ``SEGMENT`` frames: direction colours, a 2 s mix to the metric, the
-    metric; the networks overlap for ``SWAP`` frames, A's fibres and patches fading out as
-    B's fade in, while the camera orbits at one constant speed throughout.
+    local = camera.matrix_world.inverted() @ Vector(point)
+    scale = camera.data.lens / (camera.data.sensor_width / 2) / max(-local.z, 1e-6)
+    return local.x * scale, local.y * scale
+
+
+def _segment(name, a, b, width, parent, material):
+    """A flat line from *a* to *b* in overlay space."""
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    d = b - a
+    n = np.array([-d[1], d[0]]) / max(np.linalg.norm(d), 1e-9) * width / 2
+    quad = [(*(a + n), 0.0), (*(b + n), 0.0), (*(b - n), 0.0), (*(a - n), 0.0)]
+    obj = _mesh_object(name, quad, faces=[(0, 1, 2, 3)])
+    obj.parent = parent
+    obj.data.materials.append(material)
+
+
+def _callouts(root, camera, labels, hh, size, keys, tag):
+    """Labels in two side columns, joined to their regions by short leader lines."""
+    material = fading_material(f"Callout{tag}", LABEL_COLOUR, 1.0, keys)
+    line = fading_material(f"Leader{tag}", (0.85, 0.8, 0.72), 0.8, keys)
+    spots = [(*_project(camera, l["xyz"]), l["name"]) for l in labels]
+    columns = {
+        "left": sorted([s for s in spots if s[0] < 0], key=lambda s: -s[1]),
+        "right": sorted([s for s in spots if s[0] >= 0], key=lambda s: -s[1]),
+    }
+    gap = 1.7 * size
+    for side, rows in columns.items():
+        ys = []
+        for (
+            _x,
+            y,
+            _n,
+        ) in rows:  # keep each row near its region, never closer than one line
+            y = min(max(y, -0.62 * hh), 0.62 * hh)
+            ys.append(min(y, ys[-1] - gap) if ys else y)
+        for i, ((x, y, name), ty) in enumerate(zip(rows, ys)):
+            width = 0.5 * size * len(name)
+            if side == "left":
+                tx, anchor = -0.93, -0.93 + width + 0.015
+            else:
+                tx, anchor = 0.80, 0.80 - width - 0.015
+            _text(
+                f"Callout{tag}{side}{i}",
+                name,
+                size,
+                (tx, ty - 0.35 * size, 0),
+                root,
+                align="LEFT" if side == "left" else "RIGHT",
+                material=material,
+            )
+            _segment(f"Leader{tag}{side}{i}", (anchor, ty), (x, y), 0.0025, root, line)
+            _segment(
+                f"Dot{tag}{side}{i}", (x - 0.006, y), (x + 0.006, y), 0.012, root, line
+            )
+
+
+def render_sequence(
+    manifest, base, second, base_b, out_dir, name, *, preview: bool, frames=None
+) -> str:
+    """One turntable: each network shows direction colours, mixes to TI_max, is pruned to its
+    strongest fibres by mean TI_max, and names where they end; then the next network.
+
+    Per network (``SEG`` frames): direction for 5 s, a 2 s mix to the metric, 2 s held, a
+    2.5 s sweep that fades fibres out from the weakest up, the regions the kept fibres reach
+    lit and named for 5 s with the camera still at the hero view, then a 1 s fade out; the
+    next network fades in after it (no frame shows both). The camera turns at one speed.
     """
     import bpy
 
     scene = bpy.context.scene
     size = (960, 540) if preview else VIDEO_SIZE
     configure(scene, size, samples=6 if preview else 16)
-    seg, swap, mix = 288, 48, CROSSFADE_FRAMES
-    t0 = 120  # frames of direction colour before each network's crossfade
-    b = seg  # B starts arriving here, fully in at seg + swap
-    end = seg + swap + seg - swap
-    show_a, show_b = [(b, 1.0), (b + swap, 0.0)], [(b, 0.0), (b + swap, 1.0)]
-    cross_a = [(t0, 0.0), (t0 + mix, 1.0)]
-    cross_b = [(b + swap + t0 - mix, 0.0), (b + swap + t0, 1.0)]
-    cloud, _head = build_scene(
-        manifest, base, animated=False, crossfade=cross_a, visible=show_a
+    seg, rgb, mix, held, sweep, lab, hold, out = (
+        420,
+        120,
+        CROSSFADE_FRAMES,
+        48,
+        60,
+        24,
+        96,
+        24,
     )
-    _fibres(
-        "FibresB",
-        os.path.join(base_b, second["tracts"]),
-        fibre_material(second, name="FibresB", crossfade=cross_b, visible=show_b),
-    )
-    brain = bpy.data.objects["GlassBrain"]
-    with np.load(os.path.join(base_b, second["glass"])) as g:
-        if len(g["lit"]) != len(brain.data.vertices):
-            raise ValueError(
-                "the two networks' glass brains differ; export both together"
-            )
-        brain.data.attributes.new("lit_b", "FLOAT", "POINT").data.foreach_set(
-            "value", g["lit"].astype(np.float32)
+    end = 2 * seg + 24
+    nets = [(manifest, base, 0), (second, base_b, seg)]
+
+    def plan(s, first):
+        cross = s + rgb
+        cut = cross + mix + held  # sweep starts
+        named = cut + sweep  # sweep ends, labels arrive
+        leave = named + lab + hold  # fade out starts
+        show = (
+            [(leave, 1.0), (leave + out, 0.0)]
+            if first
+            else [(s, 0.0), (s + 24, 1.0), (leave, 1.0), (leave + out, 0.0)]
         )
+        return dict(cross=cross, cut=cut, named=named, leave=leave, show=show)
+
+    plans = [plan(s, i == 0) for i, (_m, _b, s) in enumerate(nets)]
+    cloud, _head = None, None
+    for i, ((net, root_dir, s), pl) in enumerate(zip(nets, plans)):
+        prune = None
+        if net.get("prune"):
+            n, rc = net["prune"]["n"], net["prune"]["rank_cut"]
+            prune = (
+                [(pl["cut"], -0.06), (pl["named"] - 12, rc - 0.5 / max(n - 1, 1))],
+                [(pl["cut"], 0.06), (pl["named"] - 12, 0.06), (pl["named"], 1e-5)],
+            )
+        if i == 0:  # the scene first: building it clears every material
+            cloud, _head = build_scene(net, root_dir, animated=False)
+            bpy.data.objects.remove(bpy.data.objects["Fibres"], do_unlink=True)
+        material = fibre_material(
+            net,
+            name=f"Fibres{i}",
+            crossfade=[(pl["cross"], 0.0), (pl["cross"] + mix, 1.0)],
+            visible=pl["show"],
+            prune=prune,
+            near=True,
+        )
+        _fibres(f"Fibres{i}", os.path.join(root_dir, net["tracts"]), material)
+
+    brain = bpy.data.objects["GlassBrain"]
+    keys = []
+    for i, ((net, root_dir, _s), pl) in enumerate(zip(nets, plans)):
+        with np.load(os.path.join(root_dir, net["glass"])) as g:
+            if len(g["lit"]) != len(brain.data.vertices):
+                raise ValueError(
+                    "the networks' glass brains differ; export them together"
+                )
+            for attr in ("lit", "lit_keep"):
+                brain.data.attributes.new(
+                    f"{attr}{i}", "FLOAT", "POINT"
+                ).data.foreach_set("value", g[attr].astype(np.float32))
+        kept = [
+            (pl["named"], 0.0),
+            (pl["named"] + lab, 1.0),
+            (pl["leave"], 1.0),
+            (pl["leave"] + out, 0.0),
+        ]
+        keys += [(f"lit{i}", pl["show"], PATCH_ALL), (f"lit_keep{i}", kept, PATCH_KEPT)]
     brain.data.materials.clear()
     brain.data.materials.append(
         glass_material(
@@ -1188,50 +1316,42 @@ def render_sequence(
             GLASS_COLOUR,
             GLASS_STRENGTH * NETWORK_RECEDE["glass"],
             2.6,
-            region_keys=[("lit", show_a), ("lit_b", show_b)],
-            patch=(PATCH_BASE, PATCH_RIM),
+            region_keys=keys,
         )
     )
+
     side = manifest["lateral_side"]
-    pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
+    pivot, camera = perspective_rig(cloud, (side * 0.85, 0.25, 0.5), (0, 0, 1))
     scene.camera = camera
+    rate = 360.0 / (seg - lab - hold)  # degrees per moving frame
+    spin = [
+        (1, -rate * (plans[0]["named"] - 1)),
+        (plans[0]["named"], 0.0),
+        (plans[0]["leave"], 0.0),
+        (plans[1]["named"], 360.0),
+        (plans[1]["leave"], 360.0),
+        (end, 360.0 + rate * (end - plans[1]["leave"])),
+    ]
+    for frame, angle in spin:
+        pivot.rotation_euler = (0.0, 0.0, math.radians(angle))
+        pivot.keyframe_insert("rotation_euler", frame=frame)
 
     root = bpy.data.objects.new("Overlay", None)
     scene.collection.objects.link(root)
     root.parent = camera
     root.location = (0.0, 0.0, -60.0)
-    hh, tsize = size[1] / size[0], 0.034 * size[1] / size[0] * 2
-    direction_keys = [
-        (t0, 1.0),
-        (t0 + mix // 2, 0.0),
-        (b + swap // 2, 0.0),
-        (b + swap, 1.0),
-        (cross_b[0][0], 1.0),
-        (cross_b[0][0] + mix // 2, 0.0),
-    ]
-    bar_keys = [
-        (t0 + mix // 2, 0.0),
-        (t0 + mix, 1.0),
-        (b, 1.0),
-        (b + swap // 2, 0.0),
-        (cross_b[0][0] + mix // 2, 0.0),
-        (cross_b[1][0], 1.0),
-    ]
+    hh = size[1] / size[0]
+    tsize = 0.034 * hh * 2
+    direction_keys, bar_keys = [], []
+    for i, pl in enumerate(plans):
+        c = pl["cross"] + mix // 2
+        if i:  # back to the direction key as the next network arrives
+            direction_keys += [(pl["show"][0][0], 0.0), (pl["show"][1][0], 1.0)]
+            bar_keys += [(plans[0]["leave"], 1.0), (plans[0]["leave"] + 12, 0.0)]
+        direction_keys += [(c - 6, 1.0), (c, 0.0)]
+        bar_keys += [(c, 0.0), (c + 6, 1.0)]
     _legend(root, manifest, "direction", hh, tsize, direction_keys, tag="Dir")
     _legend(root, manifest, manifest["metric"], hh, tsize, bar_keys, tag="Bar")
-    for tag, net, keys in (
-        ("A", manifest, [(b, 1.0), (b + swap // 2, 0.0)]),
-        ("B", second, [(b + swap // 2, 0.0), (b + swap, 1.0)]),
-    ):
-        heading = net["caption"].split("\n")[0].split(" · n=")[-1]
-        _text(
-            f"Title{tag}",
-            f"{net['title']} · n={heading}",
-            tsize,
-            (-0.96, hh - 1.6 * tsize, 0),
-            root,
-            material=fading_material(f"Title{tag}", (TEXT_GREY,) * 3, 1.0, keys),
-        )
     sub_line = manifest["caption"].split("\n")[0].split(" · n=")[0]
     _text(
         "Subject",
@@ -1239,15 +1359,74 @@ def render_sequence(
         tsize * 0.62,
         (-0.96, -hh + 0.04, 0),
         root,
-        material=flat_material("SubjectText", (0.6,) * 3, 1.0),
+        material=flat_material("SubjectText", (0.55,) * 3, 1.0),
     )
+    for i, ((net, _root, _s), pl) in enumerate(zip(nets, plans)):
+        on = (
+            pl["show"]
+            if i
+            else [(1, 1.0), (pl["leave"], 1.0), (pl["leave"] + out, 0.0)]
+        )
+        heading = net["caption"].split("\n")[0].split(" · n=")[-1]
+        _text(
+            f"Title{i}",
+            f"{net['title']} · n={heading}",
+            tsize,
+            (-0.96, hh - 1.6 * tsize, 0),
+            root,
+            material=fading_material(f"Title{i}", (TEXT_GREY,) * 3, 1.0, on),
+        )
+        if net.get("prune"):
+            pr = net["prune"]
+            words = (
+                f"strongest {pr['keep']:.0%} by mean TI_max along the fibre: "
+                f"≥ {pr['cut_v_per_m']:.3f} V/m, n = {pr['n_kept']:,} of {pr['n']:,}"
+            )
+            pruned = [
+                (pl["cut"], 0.0),
+                (pl["cut"] + 12, 1.0),
+                (pl["leave"], 1.0),
+                (pl["leave"] + out, 0.0),
+            ]
+            _text(
+                f"Prune{i}",
+                words,
+                tsize * 0.7,
+                (-0.96, hh - 2.9 * tsize, 0),
+                root,
+                material=fading_material(f"Prune{i}", (TEXT_GREY,) * 3, 1.0, pruned),
+            )
+        if net.get("keep_labels"):
+            named = [
+                (pl["named"], 0.0),
+                (pl["named"] + lab, 1.0),
+                (pl["leave"], 1.0),
+                (pl["leave"] + out, 0.0),
+            ]
+            _text(
+                f"Note{i}",
+                "labels: regions where these fibres terminate "
+                "(n = streamlines ending there)",
+                tsize * 0.6,
+                (-0.96, -hh + 0.04 + 1.1 * tsize, 0),
+                root,
+                material=fading_material(f"Note{i}", (0.7,) * 3, 1.0, named),
+            )
+            scene.frame_set(pl["named"] + lab)  # the camera is still while labels show
+            bpy.context.view_layer.update()
+            _callouts(
+                root, camera, net["keep_labels"], hh, tsize * 0.9, named, tag=str(i)
+            )
     fit_overlay(root, camera, 60.0)
-
+    if frames:  # sample stills instead of the movie, for quick checks
+        scene.render.image_settings.file_format = "PNG"
+        for frame in frames:
+            scene.frame_set(frame)
+            scene.render.filepath = os.path.join(out_dir, f"{name}_f{frame:04d}.png")
+            bpy.ops.render.render(write_still=True)
+        return out_dir
+    scene.frame_set(1)
     scene.frame_start, scene.frame_end = 1, end
-    turn = math.radians(360.0) / seg  # one turn per network segment, constant speed
-    for frame in (1, end):
-        pivot.rotation_euler = (0.0, 0.0, turn * (frame - 1))
-        pivot.keyframe_insert("rotation_euler", frame=frame)
     return _render_movie(scene, out_dir, name)
 
 
@@ -1297,6 +1476,12 @@ def main(argv: list[str]) -> None:
                 argv[3],
                 argv[4],
                 preview="preview" in argv[5:],
+                frames=[
+                    int(f)
+                    for a in argv[5:]
+                    if a.startswith("frames=")
+                    for f in a[7:].split(",")
+                ],
             ),
             flush=True,
         )

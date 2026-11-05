@@ -615,3 +615,30 @@ def test_network_config_validation():
     ):
         with pytest.raises(ValueError):
             TractVisualConfig(subject_id="e", simulation_name="s", **bad)
+
+
+def test_prune_keeps_the_top_fraction_by_mean_ti_max():
+    from tit.blender.tract_publication import prune_by_ti_max
+
+    lines = [
+        np.stack([np.arange(5.0), np.full(5, float(i)), np.zeros(5)], 1)
+        for i in range(10)
+    ]
+    t = _tracts(lines)
+    t.dpv["ti_max"] = np.repeat(
+        np.arange(10, dtype=np.float32) / 10, 5
+    )  # mean = i / 10
+    rank, kept, cut, rank_cut = prune_by_ti_max(t, 0.2)
+    assert list(np.flatnonzero(kept)) == [8, 9]  # the two highest means
+    assert cut == pytest.approx(0.8)  # the weakest kept streamline's mean
+    np.testing.assert_allclose(rank, np.arange(10) / 9)
+    assert rank_cut == pytest.approx(8 / 9)
+    assert (rank[kept] >= rank_cut).all() and (rank[~kept] < rank_cut).all()
+
+
+def test_region_words_name_dk40_parcels_with_hemisphere():
+    from tit.blender.tract_publication import region_words
+
+    assert region_words("lh.superiorfrontal") == "L superior frontal"
+    assert region_words("rh.precuneus") == "R precuneus"
+    assert region_words("Left-Thalamus-Proper") == "Left-Thalamus-Proper"

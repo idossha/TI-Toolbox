@@ -9380,6 +9380,11 @@ export interface components {
          *         -1 left, 1 right, 0 the side of the strongest field.
          *     iso_shell_percentile : float or None
          *         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
+         *     prune_keep_fraction : float or None
+         *         In a named-network turntable sequence, sweep away all but this fraction of the
+         *         streamlines, the strongest by mean TI_max along each, then name where they end.
+         *     label_regions : int
+         *         How many cortical regions the pruned network names.
          *     turntable_crossfade : bool
          *         The turntable shows direction colours for its first half, crossfades over 2 s, then
          *         shows ``metric`` (a scalar metric) for the second half.
@@ -9481,6 +9486,16 @@ export interface components {
              * @default false
              */
             turntable_crossfade: boolean;
+            /**
+             * Prune Keep Fraction
+             * @default null
+             */
+            prune_keep_fraction: number | null;
+            /**
+             * Label Regions
+             * @default 5
+             */
+            label_regions: number;
             /**
              * Stills
              * @default true

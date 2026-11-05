@@ -231,6 +231,58 @@ def bundle_statement(name: str, n: int, summary: dict) -> str:
     return text
 
 
+#: DK40 parcel names as words, for on-screen labels.
+DK40_WORDS = {
+    "superiorfrontal": "superior frontal",
+    "rostralmiddlefrontal": "rostral middle frontal",
+    "caudalmiddlefrontal": "caudal middle frontal",
+    "parsopercularis": "pars opercularis",
+    "parstriangularis": "pars triangularis",
+    "parsorbitalis": "pars orbitalis",
+    "lateralorbitofrontal": "lateral orbitofrontal",
+    "medialorbitofrontal": "medial orbitofrontal",
+    "frontalpole": "frontal pole",
+    "precentral": "precentral",
+    "paracentral": "paracentral",
+    "superiorparietal": "superior parietal",
+    "inferiorparietal": "inferior parietal",
+    "supramarginal": "supramarginal",
+    "postcentral": "postcentral",
+    "precuneus": "precuneus",
+    "lateraloccipital": "lateral occipital",
+    "lingual": "lingual",
+    "cuneus": "cuneus",
+    "pericalcarine": "pericalcarine",
+}
+
+
+def region_words(name: str) -> str:
+    """``"lh.superiorfrontal"`` -> ``"L superior frontal"``; other names unchanged."""
+    hemi, _, parcel = name.partition(".")
+    if hemi in ("lh", "rh") and parcel:
+        return f"{hemi[0].upper()} {DK40_WORDS.get(parcel, parcel)}"
+    return name
+
+
+def prune_by_ti_max(tracts: td.Tracts, keep: float):
+    """Rank a network's streamlines by mean TI_max along each one; keep the top *keep*.
+
+    Returns ``(rank per streamline in [0, 1], kept mask, cut-off V/m, rank of the weakest
+    kept)``. The score is the plain mean of the per-vertex ``ti_max`` over the streamline's
+    points (evenly spaced, so the arc-length mean), with no display smoothing.
+    """
+    sid = tracts.streamline_id()
+    score = np.bincount(sid, tracts.dpv["ti_max"], tracts.n) / tracts.lengths
+    order = np.argsort(score, kind="stable")
+    rank = np.empty(tracts.n)
+    rank[order] = np.arange(tracts.n) / max(tracts.n - 1, 1)
+    n_keep = max(1, int(round(keep * tracts.n)))
+    kept = np.zeros(tracts.n, dtype=bool)
+    kept[order[-n_keep:]] = True
+    weakest = order[-n_keep]
+    return rank, kept, float(score[weakest]), float(rank[weakest])
+
+
 def edges_between(edges: dict[int, dict], side_a, side_b) -> set[int]:
     """Edge ids joining a region of *side_a* to a region of *side_b* (either orientation)."""
     a, b = set(side_a), set(side_b)
@@ -409,7 +461,26 @@ def export_scene(
         ],
         1,
     )
+    prune = kept = None
+    if cfg.network_from and cfg.prune_keep_fraction:
+        rank, kept, cut, rank_cut = prune_by_ti_max(tracts, cfg.prune_keep_fraction)
+        tracts.dpv["rank"] = rank[sid].astype(np.float32)
+        prune = {
+            "keep": float(cfg.prune_keep_fraction),
+            "cut_v_per_m": cut,
+            "rank_cut": rank_cut,
+            "n_kept": int(kept.sum()),
+            "n": int(tracts.n),
+        }
+    if highlight and regions is not None:
+        deep = [regions[1][n][0] for n in highlight if n in regions[1]]
+        if deep:
+            from scipy.spatial import cKDTree
+
+            near, _ = cKDTree(np.concatenate(deep)).query(tracts.points)
+            tracts.dpv["thal"] = near.astype(np.float32)
     tube = td.decimate(tracts, RENDER_STEP_MM)
+    extra = {k: tube.dpv[k] for k in ("rank", "thal") if k in tube.dpv}
     np.savez(
         os.path.join(bundle_dir, "tracts.npz"),
         points=tube.points.astype(np.float32),
@@ -419,6 +490,7 @@ def export_scene(
         d=tube.dpv["d"],
         gain=tube.dpv["gain"],
         tangent=np.abs(td.tangents(tube)).astype(np.float32),
+        **extra,
     )
     if context is not None and context.n:
         thin = td.decimate(context, CONTEXT_STEP_MM)
@@ -433,8 +505,10 @@ def export_scene(
     simple = simplify_to_budget(glass[0], glass[1], GLASS_TRIANGLES)
     gv, gt = simple.vertices.astype(np.float32), simple.triangles.astype(np.int32)
     lit_full = np.zeros(len(glass[0]), np.float32)
+    keep_full = np.zeros(len(glass[0]), np.float32)
     frame_full = np.full(len(glass[0]), 1e6, np.float32)
     labels, sub_v, sub_t, sub_lit, sub_frame = [], [], [], [], []
+    keep_labels = []
     if regions is not None:
         cortical, subcortical = regions
         weight, when, count = {}, {}, {}
@@ -464,6 +538,40 @@ def export_scene(
             when.update({n: float(FRONT_START_FRAME) for n in drawn})
         if not highlight:
             top = max((weight[n] for n in drawn), default=1.0)
+        if kept is not None and highlight:
+            # Where the kept (strongest) streamlines end: lit linearly in their count, and
+            # the busiest parcels plus the thalamus named on screen.
+            held = {}
+            for i, pair in enumerate(_end_regions(tracts, edges)):
+                if kept[i]:
+                    for name in {n for n in pair if n}:
+                        held[name] = held.get(name, 0) + 1
+            parcels = sorted(
+                (n for n in held if n in cortical and n not in highlight),
+                key=lambda n: -held[n],
+            )
+            busiest = max((held[n] for n in parcels), default=1)
+            for name in parcels:
+                ix = cortical[name]
+                keep_full[ix] = np.maximum(
+                    keep_full[ix], max(held[name] / busiest, 0.12)
+                )
+            for name in parcels[: cfg.label_regions]:
+                keep_labels.append(
+                    {
+                        "name": f"{region_words(name)} · n={held[name]}",
+                        "xyz": [float(c) for c in glass[0][cortical[name]].mean(0)],
+                    }
+                )
+            deep = [subcortical[n][0] for n in highlight if n in subcortical]
+            if deep:
+                keep_labels.append(
+                    {
+                        "name": f"thalamus (L+R) · n={int(kept.sum())}",
+                        "xyz": [float(c) for c in np.concatenate(deep).mean(0)],
+                        "deep": True,
+                    }
+                )
         for name in drawn:
             level = float(np.clip(np.sqrt(weight[name] / top), 0.2, 1.0))
             if name in cortical:
@@ -490,6 +598,7 @@ def export_scene(
         vertices=gv,
         triangles=gt,
         lit=lit_full[simple.source_index],
+        lit_keep=keep_full[simple.source_index],
         frame=frame_full[simple.source_index],
     )
     if sub_v:
@@ -550,6 +659,8 @@ def export_scene(
         "shell_percentile": float(cfg.iso_shell_percentile or 0),
         "crossfade": bool(cfg.turntable_crossfade),
         "network": bool(cfg.network_from),
+        "prune": prune,
+        "keep_labels": keep_labels,
         "smoothing_note": f"colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm",
         "labels": labels,
         "scalp": "scalp.npz" if scalp is not None else None,
