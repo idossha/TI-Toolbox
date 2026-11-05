@@ -51,13 +51,42 @@ PLASMA_SRGB = (
     (0.94, 0.9752, 0.1313),
 )
 
+#: matplotlib 3.10.8 ``coolwarm`` at ``linspace(0, 1, 17)``, sRGB: the diverging map of
+#: ``align_index`` (blue across the field, neutral grey at 1, warm along it).
+COOLWARM_SRGB = (
+    (0.2298, 0.2987, 0.7537),
+    (0.3042, 0.4069, 0.8453),
+    (0.3837, 0.5102, 0.9178),
+    (0.4677, 0.6056, 0.9685),
+    (0.5543, 0.6901, 0.9955),
+    (0.6408, 0.7608, 0.9978),
+    (0.724, 0.8149, 0.9757),
+    (0.8006, 0.8504, 0.93),
+    (0.8674, 0.8644, 0.8626),
+    (0.9256, 0.8255, 0.7711),
+    (0.9595, 0.767, 0.6741),
+    (0.9697, 0.6905, 0.5751),
+    (0.9567, 0.598, 0.4773),
+    (0.9214, 0.4914, 0.3834),
+    (0.8654, 0.3711, 0.2958),
+    (0.7906, 0.2314, 0.2162),
+    (0.7057, 0.0156, 0.1502),
+)
+
+#: The align_index colour window: log2 ratio in [-ALIGN_OCTAVES, +ALIGN_OCTAVES], 1 at the centre.
+ALIGN_OCTAVES = 1.0
+
 #: metric -> (label, units). Every entry is a field descriptor, not an activation prediction.
 METRICS = {
     "ti_along": ("TI envelope along the fibre", "V/m"),
     "ti_max": ("TI_max at the fibre", "V/m"),
     "ti_ratio": ("ti_along / ti_max", "1"),
+    "align_index": ("Field along fibre ÷ random-direction baseline", "1"),
     "direction": ("Fibre direction (|x| R, |y| G, |z| B)", ""),
 }
+
+#: Metrics drawn on the diverging map, centred at 1.
+DIVERGING = frozenset({"align_index"})
 
 
 @dataclass
@@ -151,6 +180,19 @@ def select(tracts: Tracts, index: np.ndarray) -> Tracts:
     )
 
 
+def concat(parts: list[Tracts]) -> Tracts:
+    """One Tracts of *parts* in order; data keys are those every part has."""
+    dpv_keys = set.intersection(*(set(p.dpv) for p in parts))
+    dps_keys = set.intersection(*(set(p.dps) for p in parts))
+    lengths = np.concatenate([p.lengths for p in parts])
+    return Tracts(
+        np.concatenate([p.points for p in parts]),
+        np.r_[0, np.cumsum(lengths)].astype(np.int64),
+        {k: np.concatenate([p.dpv[k] for p in parts]) for k in dpv_keys},
+        {k: np.concatenate([p.dps[k] for p in parts]) for k in dps_keys},
+    )
+
+
 def subsample(
     weight: np.ndarray, k: int, seed: int = 0, floor: float = 0.1
 ) -> np.ndarray:
@@ -208,7 +250,14 @@ def tangents(tracts: Tracts) -> np.ndarray:
 
 
 def vertex_metric(tracts: Tracts, metric: str) -> np.ndarray:
-    """(V,) the scalar a metric colours by, in its own units (``direction`` has none)."""
+    """(V,) the scalar a metric colours by, in its own units (``direction`` has none).
+
+    ``align_index`` is ``ti_along / ti_avg`` (``ti_avg``: the envelope along a uniformly random
+    direction), so 1 means as much field along the fibre as a random direction would see.
+    """
+    if metric == "align_index":
+        along, avg = tracts.dpv["ti_along"], tracts.dpv["ti_avg"]
+        return np.divide(along, avg, out=np.ones_like(along), where=avg > 0)
     if metric == "ti_ratio":
         along, peak = tracts.dpv["ti_along"], tracts.dpv["ti_max"]
         return np.divide(along, peak, out=np.zeros_like(along), where=peak > 0)
@@ -247,6 +296,30 @@ def smooth_along(
     return out.astype(np.float32)
 
 
+def display_metric(tracts: Tracts, metric: str) -> np.ndarray:
+    """(V,) *metric* as drawn: averaged along each fibre (:data:`SMOOTH_MM`).
+
+    A ratio is the ratio of the averaged numerator and denominator, as the tract pipeline's
+    streamline ``align_index`` is a ratio of arc-length means.
+    """
+    if metric in ("align_index", "ti_ratio"):
+        top = smooth_along(tracts, tracts.dpv["ti_along"])
+        key = "ti_avg" if metric == "align_index" else "ti_max"
+        bottom = smooth_along(tracts, tracts.dpv[key])
+        default = 1.0 if metric == "align_index" else 0.0
+        return np.divide(top, bottom, out=np.full_like(top, default), where=bottom > 0)
+    return smooth_along(tracts, vertex_metric(tracts, metric))
+
+
+def colour_position(values: np.ndarray, metric: str, vmax: float) -> np.ndarray:
+    """Values -> [0, 1] along the colour map: linear to *vmax*, or log2 about 1 (diverging)."""
+    values = np.asarray(values, dtype=np.float64)
+    if metric in DIVERGING:
+        octaves = np.log2(np.maximum(values, 1e-6)) / ALIGN_OCTAVES
+        return np.clip(0.5 + 0.5 * octaves, 0.0, 1.0).astype(np.float32)
+    return np.clip(values / vmax, 0.0, 1.0).astype(np.float32)
+
+
 def peak_vertex(tracts: Tracts, values: np.ndarray) -> np.ndarray:
     """(S,) global vertex index of each streamline's maximum of *values* (first on a tie)."""
     order = np.lexsort((-np.asarray(values), tracts.streamline_id()))
@@ -260,12 +333,17 @@ def robust_max(values: np.ndarray, q: float = 99.5) -> float:
     return top if top > 0 else 1.0
 
 
-def colormap(v: np.ndarray) -> np.ndarray:
-    """(..., 3) sRGB of :data:`PLASMA_SRGB` at *v* in [0, 1] (clipped), linearly interpolated."""
-    stops = np.asarray(PLASMA_SRGB)
+def colormap(v: np.ndarray, stops=PLASMA_SRGB) -> np.ndarray:
+    """(..., 3) sRGB of *stops* at *v* in [0, 1] (clipped), linearly interpolated."""
+    stops = np.asarray(stops)
     x = np.linspace(0.0, 1.0, len(stops))
     v = np.clip(np.asarray(v, dtype=np.float64), 0.0, 1.0)
     return np.stack([np.interp(v, x, stops[:, c]) for c in range(3)], axis=-1)
+
+
+def stops_for(metric: str):
+    """The colour stops *metric* is drawn with."""
+    return COOLWARM_SRGB if metric in DIVERGING else PLASMA_SRGB
 
 
 def read_edges(path: str) -> dict[int, dict]:

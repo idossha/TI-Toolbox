@@ -819,7 +819,15 @@ bundle's paths are relative to the manifest, so another Blender can re-render it
 averaged along each fibre over ±3 mm for display (tractography tangent noise makes per-point
 `ti_along` jitter ~28 % per millimetre) and the caption says so; thresholds and edge rankings use
 the tract pipeline's own per-streamline and per-edge statistics; `vmax_v_per_m` fixes the colour
-window so runs compare on one scale. Every drawn quantity is labelled as a field descriptor, and the propagation video's caption says it shows where
+window so runs compare on one scale. Stills and videos are network-focused by default (`focus`):
+the montage's bundle (`network_bundle`) and its strongest `summary.json` top edges with at least
+`network_min_streamlines` are drawn as whole tubes of one width per streamline (only colour varies
+along a fibre), the endpoint regions they reach most are lit from the subject's own labels (charm
+annotation on the central surface, `labeling.nii.gz` or the FastSurfer aparc+aseg for the rest)
+and the top three are named with their streamline counts; captions state bundle-level medians,
+which hold across tractography tools, not a single top edge, which does not. `align_index`
+(`ti_along / ti_avg`, a diverging map about 1 on a log2 scale) is a second colour mode and the
+viewer's default when the TRX carries `ti_avg`. Every drawn quantity is labelled as a field descriptor, and the propagation video's caption says it shows where
 fibres project, not evoked activity. Excluded alternative: STREAM-4D's code and `template.blend`
 (non-commercial licence, incompatible with GPL-3); one curve object per streamline keyframed per
 frame (their design) instead of one polyline mesh whose shader reads the frame.

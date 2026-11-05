@@ -68,7 +68,8 @@ def viewer_payload(
         ),
         dtype=np.float32,
     )
-    for key in ("ti_along", "ti_max"):
+    channels = [k for k in ("ti_along", "ti_max", "ti_avg") if k in picked.dpv]
+    for key in channels:
         picked.dpv[key] = td.smooth_along(picked, picked.dpv[key])
     t = td.decimate(picked, WEB_STEP_MM)
     edge_id = t.dps.get("edge_id", np.full(t.n, -1)).astype(np.int64)
@@ -78,12 +79,13 @@ def viewer_payload(
     surface = simplify_to_budget(glass[0], glass[1], WEB_TRIANGLES)
     centre = (surface.vertices.max(0) + surface.vertices.min(0)) / 2.0
     scales = {}
-    for key in ("ti_along", "ti_max"):
+    for key in channels:
         scales[key] = float(max(t.dpv[key].max(initial=0.0), 1e-12))
     metric_max = {
         "ti_along": td.robust_max(t.dpv["ti_along"]),
         "ti_max": td.robust_max(t.dpv["ti_max"]),
         "ti_ratio": 1.0,
+        "align_index": 2.0**td.ALIGN_OCTAVES,
     }
 
     # Strongest edges first, unassigned last: by the edge's median streamline ti_along_mean
@@ -103,6 +105,8 @@ def viewer_payload(
         "centre": [float(c) for c in centre],
         "scale": POSITION_SCALE,
         "stops": td.PLASMA_SRGB,
+        "stops_diverging": td.COOLWARM_SRGB,
+        "align_octaves": td.ALIGN_OCTAVES,
         "metrics": {k: {"label": v[0], "units": v[1]} for k, v in td.METRICS.items()},
         "metric_max": metric_max,
         "n_streamlines": int(t.n),
@@ -237,6 +241,7 @@ output { font-variant-numeric: tabular-nums; color: var(--muted); }
       <option value="ti_along">TI envelope along the fibre (V/m)</option>
       <option value="ti_max">TI_max at the fibre (V/m)</option>
       <option value="ti_ratio">ti_along / ti_max</option>
+      <option value="align_index">Field along fibre ÷ random-direction baseline</option>
       <option value="direction">Fibre direction (RGB)</option>
     </select>
     <label class="field" for="threshold">Streamline peak ti_along &ge; <output id="thrval"></output></label>
@@ -265,11 +270,13 @@ const pos = Float32Array.from(typed(D.positions, Int16Array), (q) => q * s);
 const offsets = typed(D.offsets, Uint32Array);
 const nVert = pos.length / 3, nLine = offsets.length - 1;
 const vals = {};
-for (const k of ["ti_along", "ti_max"]) {
+for (const k of Object.keys(D.values)) {
   const q = typed(D.values[k], Uint16Array), scale = D.value_scale[k] / 65535;
   vals[k] = Float32Array.from(q, (x) => x * scale);
 }
 vals.ti_ratio = vals.ti_along.map((a, i) => (vals.ti_max[i] > 0 ? a / vals.ti_max[i] : 0));
+if (vals.ti_avg) vals.align_index = vals.ti_along.map((a, i) => (vals.ti_avg[i] > 0 ? a / vals.ti_avg[i] : 1));
+else document.querySelector('#metric option[value="align_index"]').remove();
 const alongMax = typed(D.along_max, Float32Array);
 const edgeId = typed(D.edge_id, Int32Array);
 const lineOf = new Uint32Array(nVert);
@@ -284,11 +291,15 @@ for (let l = 0; l < nLine; l++) {
     tangent[3*i] = Math.abs(dx / n); tangent[3*i+1] = Math.abs(dy / n); tangent[3*i+2] = Math.abs(dz / n);
   }
 }
-const stops = D.stops;
-function cmap(v, out, o) {
+function cmap(v, out, o, stops) {
   const x = Math.min(Math.max(v, 0), 1) * (stops.length - 1), i = Math.min(Math.floor(x), stops.length - 2), f = x - i;
   for (let c = 0; c < 3; c++) out[o + c] = stops[i][c] * (1 - f) + stops[i + 1][c] * f;
 }
+const diverging = (m) => m === "align_index";
+// A colour-map position: linear to the metric's top, or log2 about 1 for a diverging ratio.
+const position = (m, value) => diverging(m)
+  ? 0.5 + 0.5 * Math.log2(Math.max(value, 1e-6)) / D.align_octaves
+  : value / D.metric_max[m];
 
 const view = document.getElementById("view");
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -359,21 +370,25 @@ function recolour() {
   const m = ui("metric").value;
   if (m === "direction") colours.set(tangent);
   else {
-    // Low-field fibres fade toward the background, as in the renders, so the hot network reads.
-    const v = vals[m], top = D.metric_max[m], bg = scene.background, floor = dark.matches ? 0.18 : 0.4;
+    // Low-field fibres fade toward the background, as in the renders, so the hot network reads;
+    // a diverging ratio is not faded (its colour is the value, both ends matter).
+    const v = vals[m], bg = scene.background, floor = diverging(m) ? 1 : dark.matches ? 0.18 : 0.4;
+    const stops = diverging(m) ? D.stops_diverging : D.stops;
     for (let i = 0; i < nVert; i++) {
-      const x = Math.min(Math.max(v[i] / top, 0), 1), b = floor + (1 - floor) * Math.pow(x, 1.4), o = 3 * i;
-      cmap(x, colours, o);
+      const x = Math.min(Math.max(position(m, v[i]), 0), 1), b = floor + (1 - floor) * Math.pow(x, 1.4), o = 3 * i;
+      cmap(x, colours, o, stops);
       colours[o] = bg.r + (colours[o] - bg.r) * b; colours[o+1] = bg.g + (colours[o+1] - bg.g) * b; colours[o+2] = bg.b + (colours[o+2] - bg.b) * b;
     }
   }
   geom.getAttribute("color").needsUpdate = true;
   const meta = D.metrics[m];
-  ui("barlabel").textContent = meta.label + (meta.units ? ` (${meta.units})` : "");
+  ui("barlabel").textContent = meta.label + (meta.units && meta.units !== "1" ? ` (${meta.units})` : "");
   if (m === "direction") { ui("ramp").style.background = "linear-gradient(90deg,#f00,#0f0,#00f)"; ui("lo").textContent = "|x| R  |y| G  |z| B"; ui("hi").textContent = ""; }
   else {
+    const stops = diverging(m) ? D.stops_diverging : D.stops;
     ui("ramp").style.background = `linear-gradient(90deg, ${stops.map((c, i) => `rgb(${c.map((x) => Math.round(255 * x)).join(",")}) ${(100 * i) / (stops.length - 1)}%`).join(",")})`;
-    ui("lo").textContent = "0"; ui("hi").textContent = D.metric_max[m].toPrecision(2) + (meta.units === "1" ? "" : " " + meta.units);
+    if (diverging(m)) { ui("lo").textContent = "0.5 · across"; ui("hi").textContent = "along · 2"; }
+    else { ui("lo").textContent = "0"; ui("hi").textContent = D.metric_max[m].toPrecision(2) + (meta.units === "1" ? "" : " " + meta.units); }
   }
   draw();
 }
@@ -413,6 +428,7 @@ let pending = false;
 function draw() { if (!pending) { pending = true; requestAnimationFrame(() => { pending = false; controls.update(); renderer.render(scene, camera); }); } }
 controls.addEventListener("change", draw);
 new ResizeObserver(resize).observe(view);
+if (vals.align_index) ui("metric").value = "align_index"; // reads best when available
 theme(); recolour(); rebuild(); resize(); frame(); draw();
 window.__tractViewerReady = true;
 </script>

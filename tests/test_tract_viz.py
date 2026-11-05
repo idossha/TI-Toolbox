@@ -218,56 +218,96 @@ def _sphere(n=12):
     return pts, np.asarray(tris)
 
 
-def test_export_scene_passes_coordinates_and_attributes_through(
-    tmp_path, three, monkeypatch
-):
+def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, three):
     from tit.blender import tract_publication as tp
     from tit.blender.config import TractConfig
 
-    seen = {}
-
-    def patches(surface, tracts, start, end, gain, radius=5.0):
-        seen["n"] = tracts.n
-        return np.zeros(len(surface), np.float32), np.zeros(len(surface), np.float32)
-
-    monkeypatch.setattr(tp, "endpoint_patches", patches)
     cfg = TractConfig(subject_id="x", simulation_name="s", roi_center_mm=[1, 2, 3])
     electrodes = [{"name": "F7", "xyz": [-60.0, 30.0, 10.0], "channel": 0}]
-    manifest_path = tp.export_scene(
+    sphere = _sphere()
+    edges = {
+        0: {"region_a": "lh.a", "region_b": "Left-B"},
+        1: {"region_a": "lh.a", "region_b": "lh.c"},
+    }
+    cortical = {"lh.a": np.arange(0, 20), "lh.c": np.arange(40, 50)}
+    blob = (
+        np.array([[0, 0, 0], [1, 0, 0], [0, 1, 0]], np.float32),
+        np.array([[0, 1, 2]]),
+    )
+    tp.export_scene(
         cfg,
         three,
         99,
-        _sphere(),
+        (*sphere, len(sphere[0])),
         None,
         electrodes,
         str(tmp_path / "b"),
         title="t",
         synthetic=True,
+        context=three,
+        edges=edges,
+        regions=(cortical, {"Left-B": blob}),
+        caption="network",
     )
     manifest = json.loads((tmp_path / "b" / "manifest.json").read_text())
-    assert manifest_path.endswith("manifest.json")
     assert manifest["n_shown"] == 3 and manifest["n_total"] == 99
-    assert manifest["units"] == "V/m" and manifest["electrodes"] == electrodes
+    assert manifest["caption"].startswith("network · colour averaged")
     assert manifest["roi"] == {"center": [1, 2, 3], "radius": 10.0}
-    assert seen["n"] == 2  # only the edge-assigned streamlines (edge_id -1, 0, 1)
+    # lh.a ends both assigned streamlines, so it carries the most field and is named first.
+    assert [l["name"] for l in manifest["labels"]][0] == "lh.a (n=2)"
+    assert {l["name"] for l in manifest["labels"]} == {
+        "lh.a (n=2)",
+        "lh.c (n=1)",
+        "Left-B (n=1)",
+    }
     with np.load(tmp_path / "b" / "tracts.npz") as t:
-        n = len(t["points"])
-        for key in ("v", "d", "gain"):
-            assert t[key].shape == (n,)
-        assert t["tangent"].shape == (n, 3)
+        offsets = t["offsets"]
+        np.testing.assert_array_equal(
+            t["points"][offsets[:-1]], three.points[three.offsets[:-1]]
+        )
+        np.testing.assert_array_equal(
+            t["points"][offsets[1:] - 1], three.points[three.offsets[1:] - 1]
+        )
+        for a, b in zip(offsets[:-1], offsets[1:]):
+            assert np.ptp(t["r"][a:b]) == 0  # one width along the whole fibre
         assert 0.0 <= t["v"].min() and t["v"].max() <= 1.0
-        # Decimation keeps both ends, so each streamline's endpoints are the input's exactly.
-        np.testing.assert_array_equal(
-            t["points"][t["offsets"][:-1]], three.points[three.offsets[:-1]]
-        )
-        np.testing.assert_array_equal(
-            t["points"][t["offsets"][1:] - 1], three.points[three.offsets[1:] - 1]
-        )
-        # d is the arc distance from the streamline's ti_along maximum: zero there.
-        assert (t["d"][: t["offsets"][1]] == 0).sum() >= 1
+        assert t["tangent"].shape == (len(t["points"]), 3)
+    with np.load(tmp_path / "b" / "glass.npz") as g:
+        assert (g["lit"] > 0).any() and g["lit"].max() == pytest.approx(1.0)
+        assert len(g["lit"]) == len(g["vertices"])
+    with np.load(tmp_path / "b" / "regions.npz") as r:
+        assert r["vertices"].shape == (3, 3) and (r["lit"] > 0).all()
+    assert (tmp_path / "b" / "context.npz").is_file()
     assert manifest["vmax"] == pytest.approx(
         np.percentile(td.smooth_along(three, three.dpv["ti_along"]), 99.5), rel=1e-5
     )
+
+
+def test_align_index_colours_diverge_about_one():
+    """1 sits mid-map, half and double sit at the ends (log2 window of one octave)."""
+    v = td.colour_position(np.array([0.25, 0.5, 1.0, 2.0, 4.0]), "align_index", 2.0)
+    np.testing.assert_allclose(v, [0.0, 0.0, 0.5, 1.0, 1.0])
+    mid = td.colormap(np.array([0.5]), td.COOLWARM_SRGB)[0]
+    assert np.ptp(mid) < 0.02  # neutral grey at 1
+    blue, warm = td.colormap(np.array([0.0, 1.0]), td.COOLWARM_SRGB)
+    assert blue[2] > blue[0] and warm[0] > warm[2]
+
+
+def test_align_index_is_the_ratio_of_averaged_along_and_random_direction_field(three):
+    three.dpv["ti_avg"] = (three.dpv["ti_max"] * 0.5).astype(np.float32)
+    ratio = td.display_metric(three, "align_index")
+    np.testing.assert_allclose(
+        ratio, 0.7 / 0.5, rtol=1e-5
+    )  # ti_along = 0.7 ti_max throughout
+
+
+def test_concat_keeps_order_and_shared_keys(three):
+    both = td.concat([three, td.select(three, [0])])
+    assert both.n == 4 and both.offsets[-1] == len(both.points)
+    np.testing.assert_array_equal(
+        both.points[both.offsets[3] :], three.points[: three.offsets[1]]
+    )
+    assert set(both.dpv) == set(three.dpv)
 
 
 def test_resolve_tractogram_prefers_all_then_the_only_one(tmp_path):
@@ -360,6 +400,9 @@ def test_viewer_payload_round_trips_positions_and_values(three):
     )  # SimNIBS surfaces arrive as float32
     payload = viewer_payload(three, sphere, [electrode], edges, title="t")
     json.dumps(payload)  # every number a plain float, so the page can embed it
+    assert (
+        "ti_avg" not in payload["values"]
+    )  # no ti_avg in the TRX: no align_index channel
     centre = np.asarray(payload["centre"])
     np.testing.assert_allclose(
         np.asarray(payload["electrodes"][0]["xyz"]) + centre,

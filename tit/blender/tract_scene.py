@@ -27,13 +27,17 @@ import time
 
 import numpy as np
 
-#: Brightness of a fibre at normalised field v: ``LOW + (1 - LOW) * v**GAMMA``, then a boost
-#: above 1 for the top of the range so only hot fibres reach the bloom threshold.
-LOW, GAMMA, BOOST = 0.05, 1.7, 0.9
-#: Tube radius in mm at v: ``R0 + R1 * v**1.3``.
-R0, R1 = 0.06, 0.34  # whole-brain tractograms are dense; thicker tubes read as fur
-#: Tube opacity at v: ``OPACITY0 + (1 - OPACITY0) * v``; dim fibres must not hide hot ones.
-OPACITY0 = 0.2
+#: Brightness of a fibre at colour position v: ``LOW + (1 - LOW) * v**GAMMA``, then a boost
+#: above 1 for the top of the range so only hot fibres reach the bloom threshold. Width and
+#: opacity never vary along a fibre: varying them per point drew hot segments as stubs.
+LOW, GAMMA, BOOST = 0.6, 1.0, 0.8
+#: Brightness of a diverging (align_index) fibre: the colour carries the value.
+DIVERGING_STRENGTH = 0.95
+#: Context fibres: thin, grey, faint and additive. They must never occlude: a dithered,
+#: partly opaque context stacked into a grey veil that cut the network into dashes.
+CONTEXT_RADIUS, CONTEXT_COLOUR, CONTEXT_STRENGTH = 0.05, (0.6, 0.64, 0.72), 0.006
+#: Glass brain rim emission (lighter than the scalp's ghost would make it).
+GLASS_STRENGTH = 0.055
 TEXT_GREY = 0.85
 CHANNEL_COLOURS = (
     (0.25, 0.75, 1.0),
@@ -192,6 +196,8 @@ def _fibre_colour_strength(m: _Nodes, manifest, v):
         colour = colour.outputs[0]
     else:
         colour = _ramp(m, v, manifest["stops"])
+    if manifest.get("diverging") or manifest["metric"] == "direction":
+        return colour, DIVERGING_STRENGTH
     base = m.math("MULTIPLY_ADD", m.math("POWER", v, GAMMA), 1.0 - LOW, LOW)
     boost = m.math("MULTIPLY_ADD", m.math("POWER", v, 3.0), BOOST, 1.0)
     return colour, m.math("MULTIPLY", base, boost)
@@ -207,9 +213,7 @@ def _keyed_frame(m: _Nodes, last: int):
     return socket
 
 
-def fibre_material(
-    manifest, *, animated: bool = False, opaque: bool = False, name: str = "Fibres"
-):
+def fibre_material(manifest, *, animated: bool = False, name: str = "Fibres"):
     import bpy
 
     mat = bpy.data.materials.new(name)
@@ -217,15 +221,7 @@ def fibre_material(
     v = m.attr("v")
     colour, strength = _fibre_colour_strength(m, manifest, v)
 
-    def finish(shader):
-        if opaque:
-            return m.finish(shader)
-        mat.surface_render_method = "DITHERED"
-        mix = m.new("ShaderNodeMixShader")
-        m.feed(mix.inputs[0], m.math("MULTIPLY_ADD", v, 1.0 - OPACITY0, OPACITY0))
-        m.feed(mix.inputs[1], m.transparent())
-        m.feed(mix.inputs[2], shader)
-        m.finish(mix.outputs[0])
+    finish = m.finish  # opaque everywhere: a fibre is one continuous tube
 
     if not animated:
         finish(m.emission(colour, strength))
@@ -247,7 +243,7 @@ def fibre_material(
     )
     trail = m.math("MULTIPLY", m.math("LESS_THAN", d, reach), gain)
     lit = m.math("MULTIPLY_ADD", trail, 0.55, m.math("MULTIPLY", glow, 2.6))
-    resting = m.math("MULTIPLY", strength, 0.22)
+    resting = m.math("MULTIPLY", strength, 0.3)
     finish(
         m.add(
             m.emission(colour, m.math("MULTIPLY_ADD", lit, strength, resting)),
@@ -260,8 +256,20 @@ def fibre_material(
     return mat
 
 
-def glass_material(name, colour, strength, power, *, region_frames: int | None = None):
-    """Facing-ratio emission over transparency; with *region_frames*, patches light up."""
+def glass_material(
+    name,
+    colour,
+    strength,
+    power,
+    *,
+    region_frames: int | None = None,
+    regions: bool = False,
+):
+    """Facing-ratio emission over transparency, with lit region patches when *regions*.
+
+    The ``lit`` attribute sets each patch's brightness; with *region_frames* a patch lights
+    when the frame passes its ``frame`` attribute, otherwise it is lit throughout.
+    """
     import bpy
 
     mat = bpy.data.materials.new(name)
@@ -274,20 +282,101 @@ def glass_material(name, colour, strength, power, *, region_frames: int | None =
     shader = m.add(
         m.transparent(), m.emission(colour, m.math("MULTIPLY", rim, strength))
     )
-    if region_frames:
-        frame = _keyed_frame(m, region_frames)
-        on = m.math(
-            "DIVIDE", m.math("SUBTRACT", frame, m.attr("frame")), 8.0, clamp=True
-        )
+    if regions or region_frames:
+        lit = m.attr("lit")
+        if region_frames:
+            frame = _keyed_frame(m, region_frames)
+            on = m.math(
+                "DIVIDE", m.math("SUBTRACT", frame, m.attr("frame")), 8.0, clamp=True
+            )
+            lit = m.math("MULTIPLY", on, lit)
         # Brightest where the surface faces away (rim), so a patch reads as cortex, not a decal.
-        lit = m.math("POWER", m.attr("lit"), 3.0)  # the fibres' cubed gain, as above
-        glow = m.math(
-            "MULTIPLY",
-            m.math("MULTIPLY", on, lit),
-            m.math("MULTIPLY_ADD", rim, 0.9, 0.25),
-        )
+        glow = m.math("MULTIPLY", lit, m.math("MULTIPLY_ADD", rim, 0.45, 0.1))
         shader = m.add(shader, m.emission(REGION_COLOUR, glow))
     m.finish(shader)
+    return mat
+
+
+def _context_material():
+    """Faint grey light added over the scene: the rest of the tractogram, hiding nothing."""
+    import bpy
+
+    mat = bpy.data.materials.new("Context")
+    mat.surface_render_method = "BLENDED"
+    m = _Nodes(mat)
+    m.finish(m.add(m.transparent(), m.emission(CONTEXT_COLOUR, CONTEXT_STRENGTH)))
+    return mat
+
+
+def place_labels(
+    scene, camera, overlay, labels, hh: float, material, *, edge: float = 0.45
+) -> None:
+    """Region names at their centroids' projections onto *camera* (overlay coordinates).
+
+    Text sits right of its point, or left of it beyond *edge* (toward the colour bar), on a
+    dark translucent plate so it reads over bright fibres; a small white dot in 3-D marks the
+    point itself. Labels within a line of each other are pushed apart vertically.
+    """
+    import bpy
+    from mathutils import Vector
+
+    for obj in [o for o in overlay.children if o.name.startswith("RegionLabel")]:
+        bpy.data.objects.remove(obj, do_unlink=True)
+    bpy.context.view_layer.update()
+    size = 0.026 * hh * 2
+    spots = []
+    half = (
+        camera.data.ortho_scale / 2
+    )  # stills are orthographic: overlay units = local / half
+    to_camera = camera.matrix_world.inverted()
+    for label in labels:
+        local = to_camera @ Vector(label["xyz"])
+        spots.append([local.x / half, local.y / half, label["name"]])
+    spots.sort(key=lambda spot: -spot[1])
+    for above, below in zip(spots, spots[1:]):
+        if above[1] - below[1] < 1.5 * size:
+            below[1] = above[1] - 1.5 * size
+    plate = bpy.data.materials.get("RegionLabelPlate") or _plate_material()
+    for i, (ox, oy, name) in enumerate(spots):
+        right = ox > edge
+        text = _text(
+            f"RegionLabel{i}",
+            name,
+            size,
+            (ox - 0.012 if right else ox + 0.012, oy - 0.008, 0.0),
+            overlay,
+            align="RIGHT" if right else "LEFT",
+            material=material,
+        )
+        bpy.context.view_layer.update()
+        width = text.dimensions.x / max(overlay.scale.x, 1e-9)
+        x0 = text.location.x - width if right else text.location.x
+        pad = 0.25 * size
+        box = _mesh_object(
+            f"RegionLabelPlate{i}",
+            [
+                (x0 - pad, oy - 0.008 - pad, -0.002),
+                (x0 + width + pad, oy - 0.008 - pad, -0.002),
+                (x0 + width + pad, oy - 0.008 + size, -0.002),
+                (x0 - pad, oy - 0.008 + size, -0.002),
+            ],
+            faces=[(0, 1, 2, 3)],
+        )
+        box.parent = overlay
+        box.data.materials.append(plate)
+
+
+def _plate_material():
+    import bpy
+
+    mat = bpy.data.materials.new("RegionLabelPlate")
+    mat.surface_render_method = "BLENDED"
+    m = _Nodes(mat)
+    mix = m.new("ShaderNodeMixShader")
+    m.feed(mix.inputs[0], 0.6)
+    m.feed(mix.inputs[1], m.transparent())
+    m.feed(mix.inputs[2], m.emission((0.0, 0.0, 0.0), 0.0))
+    m.finish(mix.outputs[0])
     return mat
 
 
@@ -327,7 +416,8 @@ def _two_lines(text: str) -> str:
 def build_overlay(manifest, camera, *, caption: str, distance: float):
     """Colour bar, ticks, title and caption in camera space; returns its root empty.
 
-    Built at half-width 1 (x right, y up); :func:`fit_overlay` scales it to a camera.
+    Built at half-width 1 (x right, y up); :func:`fit_overlay` scales it to a camera. A
+    manifest with ``"bare": true`` gets only the root (region labels still hang from it).
     """
     import bpy
 
@@ -340,6 +430,10 @@ def build_overlay(manifest, camera, *, caption: str, distance: float):
     hh = h / w
     x0, x1, y0, y1 = 0.885, 0.91, -0.42 * hh, 0.42 * hh
     size = 0.034 * hh * 2
+    if manifest.get(
+        "bare"
+    ):  # a panel for a composed figure: it brings its own bar and text
+        return root
     if manifest["metric"] != "direction":
         bar = _mesh_object(
             "ColourBar",
@@ -348,22 +442,22 @@ def build_overlay(manifest, camera, *, caption: str, distance: float):
             attributes={"v": [0, 0, 1, 1]},
         )
         bar.parent = root
-        bar.data.materials.append(
-            fibre_material(manifest, opaque=True, name="ColourBarMaterial")
-        )
-        vmax = manifest["vmax"]
-        for frac in (0.0, 0.5, 1.0):
+        bar.data.materials.append(fibre_material(manifest, name="ColourBarMaterial"))
+        ticks = manifest.get("ticks") or [
+            [f, f"{f * manifest['vmax']:.2f}"] for f in (0.0, 0.5, 1.0)
+        ]
+        for frac, tick in ticks:
             y = y0 + frac * (y1 - y0) - 0.35 * size
             _text(
                 f"Tick{frac}",
-                f"{frac * vmax:.2f}",
+                tick,
                 size * 0.8,
                 (x0 - 0.012, y, 0),
                 root,
                 align="RIGHT",
                 material=text,
             )
-        units = f" ({manifest['units']})" if manifest["units"] else ""
+        units = f" ({manifest['units']})" if manifest["units"] not in ("", "1") else ""
         _text(
             "BarTitle",
             _two_lines(manifest["label"] + units),
@@ -624,13 +718,26 @@ def build_scene(manifest, base: str, *, animated: bool):
             edges=edges,
             attributes={
                 "v": v,
-                "r": R0 + R1 * v**1.3,
+                "r": t["r"] if "r" in t.files else np.full(len(v), 0.2, np.float32),
                 "d": t["d"],
                 "gain": t["gain"],
                 "tangent": t["tangent"],
             },
         )
     _tube_modifier(fibres, fibre_material(manifest, animated=animated))
+    if manifest.get("context"):
+        with np.load(os.path.join(base, manifest["context"])) as c:
+            cp, co = c["points"], c["offsets"]
+        keep = np.ones(len(cp) - 1, dtype=bool)
+        keep[co[1:-1] - 1] = False
+        pairs = np.stack([np.arange(len(cp) - 1), np.arange(1, len(cp))], 1)[keep]
+        context = _mesh_object(
+            "Context",
+            cp,
+            edges=pairs,
+            attributes={"r": np.full(len(cp), CONTEXT_RADIUS)},
+        )
+        _tube_modifier(context, _context_material(), resolution=4)
 
     with np.load(os.path.join(base, manifest["glass"])) as g:
         glass_v = g["vertices"]
@@ -640,15 +747,35 @@ def build_scene(manifest, base: str, *, animated: bool):
             faces=g["triangles"],
             attributes={"frame": g["frame"], "lit": g["lit"]},
         )
+    region_frames = manifest["front"]["frames"] if animated else None
     brain.data.materials.append(
         glass_material(
             "Glass",
             GLASS_COLOUR,
-            0.1,
+            GLASS_STRENGTH,
             2.6,
-            region_frames=manifest["front"]["frames"] if animated else None,
+            region_frames=region_frames,
+            regions=True,
         )
     )
+    if manifest.get("regions"):
+        with np.load(os.path.join(base, manifest["regions"])) as r:
+            deep = _mesh_object(
+                "DeepRegions",
+                r["vertices"],
+                faces=r["triangles"],
+                attributes={"frame": r["frame"], "lit": r["lit"]},
+            )
+        deep.data.materials.append(
+            glass_material(
+                "DeepRegion",
+                REGION_COLOUR,
+                0.12,
+                1.5,
+                region_frames=region_frames,
+                regions=True,
+            )
+        )
     if manifest.get("scalp"):
         with np.load(os.path.join(base, manifest["scalp"])) as s:
             scalp = _mesh_object("Scalp", s["vertices"], faces=s["triangles"])
@@ -685,6 +812,14 @@ def build_scene(manifest, base: str, *, animated: bool):
             ):
                 socket.default_value = value
                 socket.keyframe_insert("default_value", frame=frame)
+    for i, label in enumerate(manifest.get("labels") or []):
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=16, ring_count=8, radius=1.4, location=label["xyz"]
+        )
+        bpy.context.active_object.name = f"RegionPoint{i}"
+        bpy.context.active_object.data.materials.append(
+            flat_material(f"RegionPoint{i}", (1, 1, 1), 1.0)
+        )
     if manifest.get("roi"):
         roi = manifest["roi"]
         bpy.ops.mesh.primitive_uv_sphere_add(
@@ -710,11 +845,12 @@ def render_stills(manifest, base, out_dir) -> list[str]:
     camera.data.type = "ORTHO"
     camera.data.clip_start, camera.data.clip_end = 1.0, 5000.0
     scene.camera = camera
-    shown = (
+    shown = manifest.get("caption") or (
         f"{manifest['n_shown']:,} of {manifest['n_total']:,} streamlines · colour averaged "
         f"along each fibre over ±{manifest.get('smoothing_mm', 0):g} mm"
     )
     overlay = build_overlay(manifest, camera, caption=shown, distance=10.0)
+    label_material = flat_material("RegionLabelText", (1.0, 0.86, 0.7), 1.0)
     side = manifest["lateral_side"]
     views = {
         "lateral": ((side, 0.0, 0.0), (0, 0, 1)),
@@ -724,9 +860,23 @@ def render_stills(manifest, base, out_dir) -> list[str]:
     written = []
     for view, (direction, up) in views.items():
         aim_ortho(
-            camera, cloud, direction, up, size, bar=manifest["metric"] != "direction"
+            camera,
+            cloud,
+            direction,
+            up,
+            size,
+            bar=manifest["metric"] != "direction" and not manifest.get("bare"),
         )
         fit_overlay(overlay, camera, 10.0)
+        place_labels(
+            scene,
+            camera,
+            overlay,
+            manifest.get("labels") or [],
+            size[1] / size[0],
+            label_material,
+            edge=0.62 if manifest.get("bare") else 0.45,
+        )
         scene.render.filepath = os.path.join(out_dir, f"{manifest['stem']}_{view}.png")
         scene.render.image_settings.file_format = "PNG"
         started = time.time()
@@ -745,7 +895,9 @@ def render_turntable(manifest, base, out_dir) -> str:
     side = manifest["lateral_side"]
     pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
     scene.camera = camera
-    overlay = build_overlay(manifest, camera, caption="", distance=60.0)
+    overlay = build_overlay(
+        manifest, camera, caption=manifest.get("caption", ""), distance=60.0
+    )
     fit_overlay(overlay, camera, 60.0)
     n, degrees = manifest["turntable_frames"], manifest["turntable_degrees"]
     scene.frame_start, scene.frame_end = 1, n

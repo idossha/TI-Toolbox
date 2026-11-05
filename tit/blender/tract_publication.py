@@ -31,8 +31,13 @@ logger = logging.getLogger(__name__)
 
 #: Point spacing of the render tubes; real tractograms step 0.2-1 mm, far finer than a tube.
 RENDER_STEP_MM = 1.5
-#: Endpoint-to-cortex radius for the propagation animation's region patches.
-PATCH_RADIUS_MM = 5.0
+#: Context lines are thinned harder: they are drawn faint and thin.
+CONTEXT_STEP_MM = 3.0
+#: Tube radius per streamline, mm: ``TUBE_R0 + TUBE_R1 * gain`` (gain = its peak / the window).
+TUBE_R0, TUBE_R1 = 0.12, 0.12
+#: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
+#: lighting them all washed the cortex (sub-CHN insula_lh: 41).
+N_LABELS, N_LIT = 3, 6
 #: Frames of electrode pulse before the fronts leave their peaks.
 FRONT_START_FRAME = 18
 #: Frames the last state is held after the slowest front lands.
@@ -66,29 +71,24 @@ def resolve_tractogram(tract_dir: str, tractogram: str) -> str:
     return found[0]
 
 
-def glass_surface(m2m_dir: str) -> tuple[np.ndarray, np.ndarray, str]:
-    """Both hemispheres' pial surfaces (central when pial is absent), merged: (V, T, kind)."""
+def glass_surface(m2m_dir: str) -> tuple[np.ndarray, np.ndarray, int]:
+    """Both hemispheres' central surfaces, merged: (V, T, number of lh vertices).
+
+    The central surface carries the charm annotations vertex for vertex, so a region patch
+    is the annotation's own vertices; it is also the surface every subject has.
+    """
     import nibabel as nib
 
-    surfaces = os.path.join(m2m_dir, "surfaces")
-    kind = (
-        "pial"
-        if all(
-            os.path.isfile(os.path.join(surfaces, f"{h}.pial.gii"))
-            for h in ("lh", "rh")
-        )
-        else "central"
-    )
     vertices, triangles = [], []
     for hemi in ("lh", "rh"):
-        path = os.path.join(surfaces, f"{hemi}.{kind}.gii")
+        path = os.path.join(m2m_dir, "surfaces", f"{hemi}.central.gii")
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Cortical surface not found: {path}")
         darrays = nib.load(path).darrays
         offset = sum(len(v) for v in vertices)
         vertices.append(np.asarray(darrays[0].data, dtype=np.float64))
         triangles.append(np.asarray(darrays[1].data, dtype=np.int64) + offset)
-    return np.concatenate(vertices), np.concatenate(triangles), kind
+    return np.concatenate(vertices), np.concatenate(triangles), len(vertices[0])
 
 
 def simulation_electrodes(sim_dir: str) -> list[dict]:
@@ -109,35 +109,164 @@ def simulation_electrodes(sim_dir: str) -> list[dict]:
     ]
 
 
-def endpoint_patches(
-    surface: np.ndarray,
-    tracts: td.Tracts,
-    arrive_start: np.ndarray,
-    arrive_end: np.ndarray,
-    gain: np.ndarray,
-    radius: float = PATCH_RADIUS_MM,
-) -> tuple[np.ndarray, np.ndarray]:
-    """Per surface vertex: the frame a front first lands within *radius*, and how bright.
+def label_volume(pm, sid: str) -> str | None:
+    """charm ``segmentation/labeling.nii.gz``, else the FastSurfer/FreeSurfer aparc+aseg.
 
-    Brightness is the largest ``gain * (1 - distance / radius) ** 2`` over the endpoints in
-    reach, so a patch fades out toward its rim. Vertices no endpoint reaches get frame ``1e6``
-    and brightness 0, so they never light.
+    The same order the tract pipeline names regions from, so a region name finds its voxels.
     """
-    from scipy.spatial import cKDTree
+    for path in (
+        pm.tissue_labeling(sid),
+        os.path.join(pm.fastsurfer_mri(sid), "aparc.DKTatlas+aseg.deep.nii.gz"),
+        os.path.join(pm.freesurfer_mri(sid), "aparc.DKTatlas+aseg.mgz"),
+    ):
+        if os.path.isfile(path):
+            return path
+    return None
 
-    ends = np.concatenate(
-        [tracts.points[tracts.offsets[:-1]], tracts.points[tracts.offsets[1:] - 1]]
+
+def region_geometry(
+    m2m_dir: str,
+    volume: str | None,
+    names: list[str],
+    glass_vertices: np.ndarray,
+    n_lh: int,
+    atlas: str = "DK40",
+) -> tuple[dict[str, np.ndarray], dict[str, tuple[np.ndarray, np.ndarray]]]:
+    """Where each named region is drawn, from the subject's own labels.
+
+    Returns ``(cortical, subcortical)``: cortical regions as indices into *glass_vertices*
+    (an ``lh.``/``rh.`` name from the charm annotation on the central surface; a ``ctx-``
+    volume label from the voxel under each vertex), subcortical regions as a marching-cubes
+    surface ``(vertices, triangles)`` of their voxels. Names found in neither are left out.
+    """
+    import nibabel as nib
+
+    cortical: dict[str, np.ndarray] = {}
+    subcortical: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+    wanted = set(names)
+    for hemi, offset in (("lh", 0), ("rh", n_lh)):
+        annots = sorted(
+            glob.glob(os.path.join(m2m_dir, "segmentation", f"{hemi}.*_{atlas}.annot"))
+        )
+        if not annots:
+            continue
+        labels, _ctab, label_names = nib.freesurfer.read_annot(annots[0])
+        for k, raw in enumerate(label_names):
+            name = f"{hemi}.{raw.decode() if isinstance(raw, bytes) else raw}"
+            if name in wanted:
+                cortical[name] = np.flatnonzero(labels == k) + offset
+    missing = wanted - set(cortical)
+    if volume and missing:
+        from tit.atlas.segstats import resolve_lut_for_atlas
+
+        img = nib.load(volume)
+        data = np.asanyarray(img.dataobj)
+        data = (data[..., 0] if data.ndim == 4 else data).astype(np.int32)
+        value_of = {v: k for k, v in resolve_lut_for_atlas(volume).items()}
+        ijk = np.rint(
+            (glass_vertices - img.affine[:3, 3]) @ np.linalg.inv(img.affine[:3, :3]).T
+        ).astype(int)
+        inside = np.all((ijk >= 0) & (ijk < data.shape), axis=1)
+        under = np.zeros(len(glass_vertices), dtype=np.int32)
+        under[inside] = data[tuple(ijk[inside].T)]
+        for name in sorted(missing):
+            value = value_of.get(name)
+            if value is None:
+                continue
+            if name.startswith("ctx-"):
+                cortical[name] = np.flatnonzero(under == value)
+            else:
+                mesh = _label_surface(data == value, img.affine)
+                if mesh is not None:
+                    subcortical[name] = mesh
+    return cortical, subcortical
+
+
+def _label_surface(mask: np.ndarray, affine: np.ndarray):
+    """Marching-cubes surface of one label's voxels in world mm, or ``None`` when empty."""
+    from skimage.measure import marching_cubes
+
+    where = np.argwhere(mask)
+    if len(where) < 8:
+        return None
+    lo, hi = where.min(0) - 1, where.max(0) + 2
+    lo = np.maximum(lo, 0)
+    box = np.pad(mask[lo[0] : hi[0], lo[1] : hi[1], lo[2] : hi[2]], 1).astype(
+        np.float32
     )
-    when = np.concatenate([arrive_start, arrive_end])
-    strength = np.concatenate([gain, gain])
-    frame = np.full(len(surface), 1e6)
-    lit = np.zeros(len(surface))
-    for i, hits in enumerate(cKDTree(surface).query_ball_point(ends, radius)):
-        if hits:
-            falloff = 1.0 - np.linalg.norm(surface[hits] - ends[i], axis=1) / radius
-            np.minimum.at(frame, hits, when[i])
-            np.maximum.at(lit, hits, strength[i] * falloff**2)
-    return frame.astype(np.float32), lit.astype(np.float32)
+    verts, faces, _n, _v = marching_cubes(box, 0.5)
+    verts = verts - 1 + lo
+    return (verts @ affine[:3, :3].T + affine[:3, 3]).astype(np.float32), faces.astype(
+        np.int32
+    )
+
+
+def _end_regions(tracts: td.Tracts, edges: dict[int, dict]) -> list[tuple[str, str]]:
+    """(start region, end region) per streamline: streamlines run region_a -> region_b."""
+    out = []
+    for e in tracts.dps.get("edge_id", np.full(tracts.n, -1)):
+        record = edges.get(int(e))
+        out.append((record["region_a"], record["region_b"]) if record else ("", ""))
+    return out
+
+
+def bundle_statement(name: str, n: int, summary: dict) -> str:
+    """``"insula_lh, 1,232 streamlines: median ti_along 0.12 V/m, align_index 1.01"``.
+
+    Bundle-level field statistics are what hold across tractography tools; which single
+    edge ranks first does not, so captions lead with the bundle.
+    """
+    stats = (summary.get("bundles") or {}).get(name) or {}
+
+    def median(key):
+        value = stats.get(key)
+        return value.get("median") if isinstance(value, dict) else value
+
+    text = f"{name}, {n:,} streamlines"
+    along, align = median("ti_along_mean"), median("align_index")
+    if along is not None and align is not None:
+        text += f": median ti_along {along:.3f} V/m, align_index {align:.2f}"
+    return text
+
+
+def select_network(
+    cfg, tract_dir: str, everything: td.Tracts, edges, summary
+) -> tuple[td.Tracts, str, list[dict]]:
+    """The foreground: the configured bundle plus the run's top stimulated edges.
+
+    Top edges come from ``summary.json``'s ``top_edges`` (the pipeline's own ranking), kept
+    when they have at least ``network_min_streamlines`` streamlines. Returns the streamlines,
+    a one-line description and the edges used.
+    """
+    parts, words = [], []
+    if cfg.network_bundle:
+        path = os.path.join(tract_dir, f"{cfg.network_bundle}.trx")
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Network bundle not found: {path}")
+        bundle = td.load_trx(path)
+        parts.append(bundle)
+        words.append(bundle_statement(cfg.network_bundle, bundle.n, summary))
+    ranked = summary.get("top_edges") or []
+    top = [
+        e for e in ranked if e.get("n_streamlines", 0) >= cfg.network_min_streamlines
+    ]
+    top = top[: cfg.network_top_edges]
+    if top:
+        ids = {int(e["edge_id"]) for e in top}
+        pick = np.flatnonzero(np.isin(everything.dps["edge_id"], list(ids)))
+        parts.append(td.select(everything, pick))
+        words.append(
+            f"its {len(top)} strongest edges (≥ {cfg.network_min_streamlines} streamlines each)"
+        )
+    if not parts:
+        raise ValueError("network mode needs network_bundle or summary.json top_edges")
+    network = parts[0] if len(parts) == 1 else td.concat(parts)
+    if network.n > cfg.max_streamlines:
+        weight = network.dps.get("ti_along_max", np.ones(network.n))
+        network = td.select(
+            network, td.subsample(weight, cfg.max_streamlines, cfg.seed)
+        )
+    return network, " + ".join(words), top
 
 
 def _simplified(vertices: np.ndarray, triangles: np.ndarray, budget: int):
@@ -151,70 +280,134 @@ def export_scene(
     cfg,
     tracts: td.Tracts,
     n_total: int,
-    glass: tuple[np.ndarray, np.ndarray],
+    glass: tuple[np.ndarray, np.ndarray, int],
     scalp: tuple[np.ndarray, np.ndarray] | None,
     electrodes: list[dict],
     bundle_dir: str,
     *,
     title: str,
     synthetic: bool,
+    context: td.Tracts | None = None,
+    edges: dict[int, dict] | None = None,
+    regions: tuple[dict, dict] | None = None,
+    caption: str = "",
 ) -> str:
-    """Write the Blender bundle for *tracts* (already subsampled); return the manifest path."""
+    """Write the Blender bundle; return the manifest path.
+
+    *tracts* are drawn as full tubes of constant width per streamline, coloured along their
+    length; *context* (optional) as faint thin lines. *regions* is :func:`region_geometry`'s
+    result for the foreground's endpoint regions, which are lit by how much field their
+    fibres carry.
+    """
     os.makedirs(bundle_dir, exist_ok=True)
+    edges = edges or {}
     metric = str(cfg.metric)
-    # Colour, peaks and front gains all read the display-smoothed values (td.SMOOTH_MM).
     along = td.smooth_along(tracts, tracts.dpv["ti_along"])
-    shown = td.smooth_along(
-        tracts,
-        td.vertex_metric(tracts, "ti_along" if metric == "direction" else metric),
-    )
-    if metric == "ti_ratio":
+    shown = td.display_metric(tracts, "ti_along" if metric == "direction" else metric)
+    if metric in td.DIVERGING:
+        vmax = 2.0**td.ALIGN_OCTAVES
+    elif metric == "ti_ratio":
         vmax = 1.0
     else:
         vmax = float(cfg.vmax_v_per_m) if cfg.vmax_v_per_m else td.robust_max(shown)
-    # Peak, arc and gain come from the full-resolution streamline, then the tube is thinned.
+    along_top = (
+        float(cfg.vmax_v_per_m)
+        if cfg.vmax_v_per_m and metric == "ti_along"
+        else td.robust_max(along)
+    )
     s = td.arc_length(tracts)
     peak = td.peak_vertex(tracts, along)
     sid = tracts.streamline_id()
-    tracts.dpv["d"] = np.abs(s - s[peak][sid]).astype(np.float32)
-    along_top = td.robust_max(along)
     gain = np.clip(along[peak] / along_top, 0.0, 1.0)
+    tracts.dpv["d"] = np.abs(s - s[peak][sid]).astype(np.float32)
     tracts.dpv["gain"] = gain[sid].astype(np.float32)
-    tracts.dpv["v"] = np.clip(shown / vmax, 0.0, 1.0).astype(np.float32)
+    tracts.dpv["v"] = td.colour_position(shown, metric, vmax)
+    tracts.dpv["r"] = (TUBE_R0 + TUBE_R1 * gain)[sid].astype(np.float32)
     total = s[tracts.offsets[1:] - 1]
     speed = float(cfg.front_speed_mm_per_frame)
-    arrive_start = FRONT_START_FRAME + s[peak] / speed
-    arrive_end = FRONT_START_FRAME + (total - s[peak]) / speed
+    arrive = np.stack(
+        [
+            FRONT_START_FRAME + s[peak] / speed,
+            FRONT_START_FRAME + (total - s[peak]) / speed,
+        ],
+        1,
+    )
     tube = td.decimate(tracts, RENDER_STEP_MM)
     np.savez(
         os.path.join(bundle_dir, "tracts.npz"),
         points=tube.points.astype(np.float32),
         offsets=tube.offsets.astype(np.int64),
         v=tube.dpv["v"],
+        r=tube.dpv["r"],
         d=tube.dpv["d"],
         gain=tube.dpv["gain"],
         tangent=np.abs(td.tangents(tube)).astype(np.float32),
     )
+    if context is not None and context.n:
+        thin = td.decimate(context, CONTEXT_STEP_MM)
+        np.savez(
+            os.path.join(bundle_dir, "context.npz"),
+            points=thin.points.astype(np.float32),
+            offsets=thin.offsets.astype(np.int64),
+        )
 
-    gv, gt = _simplified(*glass, GLASS_TRIANGLES)
-    edge = tracts.dps.get("edge_id")
-    assigned = np.flatnonzero(edge >= 0) if edge is not None else np.arange(tracts.n)
-    if len(assigned) == 0:
-        assigned = np.arange(tracts.n)
-    frame, lit = endpoint_patches(
-        gv,
-        td.select(tracts, assigned),
-        arrive_start[assigned],
-        arrive_end[assigned],
-        gain[assigned],
-    )
+    from tit.scene.simplify import simplify_to_budget
+
+    simple = simplify_to_budget(glass[0], glass[1], GLASS_TRIANGLES)
+    gv, gt = simple.vertices.astype(np.float32), simple.triangles.astype(np.int32)
+    lit_full = np.zeros(len(glass[0]), np.float32)
+    frame_full = np.full(len(glass[0]), 1e6, np.float32)
+    labels, sub_v, sub_t, sub_lit, sub_frame = [], [], [], [], []
+    if regions is not None:
+        cortical, subcortical = regions
+        weight, when, count = {}, {}, {}
+        for i, pair in enumerate(_end_regions(tracts, edges)):
+            for k, name in enumerate(pair):
+                if name:
+                    count[name] = count.get(name, 0) + 1
+                    weight[name] = weight.get(name, 0.0) + float(gain[i])
+                    when[name] = min(when.get(name, 1e6), float(arrive[i, k]))
+        drawn = sorted(
+            (n for n in weight if n in cortical or n in subcortical),
+            key=lambda n: -weight[n],
+        )[:N_LIT]
+        top = max((weight[n] for n in drawn), default=1.0)
+        for name in drawn:
+            level = float(np.clip(np.sqrt(weight[name] / top), 0.2, 1.0))
+            if name in cortical:
+                ix = cortical[name]
+                lit_full[ix] = np.maximum(lit_full[ix], level)
+                frame_full[ix] = np.minimum(frame_full[ix], when[name])
+                centre = glass[0][ix].mean(0) if len(ix) else None
+            else:
+                v, t = subcortical[name]
+                sub_t.append(t + sum(len(x) for x in sub_v))
+                sub_v.append(v)
+                sub_lit.append(np.full(len(v), level, np.float32))
+                sub_frame.append(np.full(len(v), when[name], np.float32))
+                centre = v.mean(0)
+            if centre is not None and len(labels) < N_LABELS:
+                labels.append(
+                    {
+                        "name": f"{name} (n={count[name]})",
+                        "xyz": [float(c) for c in centre],
+                    }
+                )
     np.savez(
         os.path.join(bundle_dir, "glass.npz"),
         vertices=gv,
         triangles=gt,
-        frame=frame,
-        lit=lit,
+        lit=lit_full[simple.source_index],
+        frame=frame_full[simple.source_index],
     )
+    if sub_v:
+        np.savez(
+            os.path.join(bundle_dir, "regions.npz"),
+            vertices=np.concatenate(sub_v),
+            triangles=np.concatenate(sub_t),
+            lit=np.concatenate(sub_lit),
+            frame=np.concatenate(sub_frame),
+        )
     if scalp is not None:
         sv, st = _simplified(*scalp, SCALP_TRIANGLES)
         np.savez(os.path.join(bundle_dir, "scalp.npz"), vertices=sv, triangles=st)
@@ -222,9 +415,18 @@ def export_scene(
     hot = tracts.points[along >= np.percentile(along, 99)]
     side = -1.0 if hot[:, 0].mean() < gv[:, 0].mean() else 1.0
     label, units = td.METRICS[metric]
-    travel = float(np.percentile(np.maximum(arrive_start, arrive_end), 98))
+    if metric in td.DIVERGING:
+        ticks = [[0.0, "0.5"], [0.5, "1"], [1.0, "2"]]
+    else:
+        ticks = [[f, f"{f * vmax:.2f}"] for f in (0.0, 0.5, 1.0)]
+    travel = float(np.percentile(arrive.max(1), 98))
     frames = int(min(FRONT_MAX_FRAMES, np.ceil(travel) + FRONT_HOLD_FRAMES))
     stem = f"{cfg.subject_id}_{cfg.simulation_name}_tract_{metric}"
+    shown_text = (
+        caption or f"{tracts.n:,} of {n_total:,} streamlines"
+    ) + f" · colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm"
+    if context is not None and context.n:
+        shown_text += f" · grey: {context.n:,} other streamlines"
     manifest = {
         "title": title,
         "synthetic": synthetic,
@@ -232,13 +434,19 @@ def export_scene(
         "label": label,
         "units": units,
         "vmax": vmax,
-        "stops": td.PLASMA_SRGB,
+        "ticks": ticks,
+        "stops": td.stops_for(metric),
+        "diverging": metric in td.DIVERGING,
+        "caption": shown_text,
         "n_shown": tracts.n,
         "n_total": int(n_total),
         "smoothing_mm": td.SMOOTH_MM,
         "lateral_side": side,
         "tracts": "tracts.npz",
+        "context": "context.npz" if context is not None and context.n else None,
         "glass": "glass.npz",
+        "regions": "regions.npz" if sub_v else None,
+        "labels": labels,
         "scalp": "scalp.npz" if scalp is not None else None,
         "electrodes": electrodes,
         "roi": (
@@ -314,15 +522,20 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
         with open(os.path.join(tract_dir, "summary.json"), encoding="utf-8") as stream:
             summary = json.load(stream)
     synthetic = bool(summary.get("synthetic"))
-    tracts = td.load_trx(path)
-    for key in ("ti_along", "ti_max"):
-        if key not in tracts.dpv:
+    everything = td.load_trx(path)
+    needed = ["ti_along", "ti_max"] + (
+        ["ti_avg"] if cfg.metric == "align_index" else []
+    )
+    for key in needed:
+        if key not in everything.dpv:
             raise ValueError(f"{path} has no data_per_vertex {key!r}")
-    n_total = tracts.n
-    weight = tracts.dps.get("ti_along_max")
+    n_total = everything.n
+    weight = everything.dps.get("ti_along_max")
     if weight is None:
-        weight = np.maximum.reduceat(tracts.dpv["ti_along"], tracts.offsets[:-1])
-    tracts = td.select(tracts, td.subsample(weight, cfg.max_streamlines, cfg.seed))
+        weight = np.maximum.reduceat(
+            everything.dpv["ti_along"], everything.offsets[:-1]
+        )
+    tracts = td.select(everything, td.subsample(weight, cfg.max_streamlines, cfg.seed))
     log.info(f"{path}: {n_total} streamlines, rendering {tracts.n}")
     edges = td.read_edges(os.path.join(tract_dir, "edges.json"))
     electrodes = simulation_electrodes(sim_dir)
@@ -351,16 +564,43 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
 
         msh = os.path.join(m2m, f"{sid}.msh")
         scalp = extract_scalp_from_msh(msh) if os.path.isfile(msh) else None
+        kwargs = {}
+        if cfg.focus:
+            network, words, top = select_network(
+                cfg, tract_dir, everything, edges, summary
+            )
+            names = sorted(
+                {n for pair in _end_regions(network, edges) for n in pair if n}
+            )
+            regions = region_geometry(
+                m2m, label_volume(pm, sid), names, glass[0], glass[2]
+            )
+            context = None
+            if cfg.context_streamlines:
+                keep = td.subsample(
+                    np.ones(everything.n), cfg.context_streamlines, cfg.seed
+                )
+                context = td.select(everything, keep)
+            caption = (
+                words.replace(" + ", "\n+ ", 1)
+                + f" · {network.n:,} of {n_total:,} drawn"
+            )
+            log.info(f"network: {caption}; {len(names)} endpoint regions")
+            kwargs = dict(
+                context=context, edges=edges, regions=regions, caption=caption
+            )
+            tracts = network
         manifest = export_scene(
             cfg,
             tracts,
             n_total,
-            glass[:2],
+            glass,
             scalp,
             electrodes,
             os.path.join(out, "tract_scene"),
             title=title,
             synthetic=synthetic,
+            **kwargs,
         )
         render(manifest)
     return out

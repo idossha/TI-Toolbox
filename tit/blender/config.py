@@ -226,7 +226,21 @@ class TractConfig:
         directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,
         else the directory's only ``.trx``.
     metric : Metric
-        What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
+        What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``
+        (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging
+        about 1) or ``direction``.
+    focus : bool
+        Network-focused stills and videos: the bundle and top edges as full tubes, the rest
+        of the tractogram as faint context, their endpoint regions lit from the subject's own
+        labels. ``False`` draws a subsample of the whole tractogram.
+    network_bundle : str
+        A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank
+        foregrounds the top edges only.
+    network_top_edges, network_min_streamlines : int
+        How many of ``summary.json``'s top edges join the foreground, and the streamline
+        count an edge needs to be one of them.
+    context_streamlines : int
+        Faint context fibres drawn behind the network (0: none).
     max_streamlines : int
         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
     vmax_v_per_m : float or None
@@ -254,6 +268,7 @@ class TractConfig:
         TI_ALONG = "ti_along"
         TI_MAX = "ti_max"
         TI_RATIO = "ti_ratio"
+        ALIGN_INDEX = "align_index"
         DIRECTION = "direction"
 
     subject_id: str
@@ -262,6 +277,11 @@ class TractConfig:
     metric: Metric = Metric.TI_ALONG
     max_streamlines: int = 15_000
     vmax_v_per_m: float | None = None
+    focus: bool = True
+    network_bundle: str = ""
+    network_top_edges: int = 5
+    network_min_streamlines: int = 10
+    context_streamlines: int = 0
     stills: bool = True
     turntable: bool = False
     propagation: bool = False
@@ -287,6 +307,15 @@ class TractConfig:
             raise ValueError("max_streamlines must be > 0")
         if self.vmax_v_per_m is not None and not self.vmax_v_per_m > 0:
             raise ValueError("vmax_v_per_m must be > 0")
+        if self.network_top_edges < 0 or self.network_min_streamlines < 1:
+            raise ValueError(
+                "network_top_edges must be >= 0, network_min_streamlines >= 1"
+            )
+        if self.context_streamlines < 0:
+            raise ValueError("context_streamlines must be >= 0")
+        name = (self.network_bundle or "").strip()
+        if name and (os.sep in name or name.startswith(".")):
+            raise ValueError("network_bundle is a bundle name in the tract directory")
         if self.width < 64 or self.height < 64:
             raise ValueError("width and height must be at least 64 px")
         if self.turntable_frames < 2:

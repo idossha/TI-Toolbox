@@ -4,8 +4,9 @@ What this pins (2026-11-04)
     - :func:`tit.blender.tract_data.load_trx` (standard library) reads a TRX exactly as
       trx-python -- the reference implementation, an independent reader -- does, for a file
       written by ``dev/tract_synthetic.write_trx`` and for one written by trx-python itself.
-    - :func:`tit.blender.tract_publication.endpoint_patches` (SciPy KD-tree) equals a brute-force
-      distance search.
+    - :func:`tit.blender.tract_publication.region_geometry` takes cortical regions vertex for
+      vertex from a FreeSurfer annotation and wraps subcortical labels found through the label
+      volume's LUT (nibabel writes the inputs, so the expectations are the written arrays).
     - :func:`tit.plotting.tract_connectome.plot_connectome` writes a readable PNG.
 
 Run in the image: simnibs_python -m pytest tests/numerical/test_tract_viz_real.py -q
@@ -76,29 +77,37 @@ def test_load_trx_reads_what_the_spec_writer_wrote(tmp_path):
     reference.close()
 
 
-def test_endpoint_patches_match_a_brute_force_search():
-    pytest.importorskip("scipy.spatial")
-    from tit.blender import tract_data as td
-    from tit.blender.tract_publication import endpoint_patches
+def test_region_geometry_reads_annotation_vertices_and_voxel_surfaces(tmp_path):
+    """Cortical names come from the annot (vertex for vertex), subcortical ones from the LUT."""
+    nib = pytest.importorskip("nibabel")
+    pytest.importorskip("skimage")
+    from tit.blender.tract_publication import region_geometry
 
-    rng = np.random.default_rng(5)
-    lines = _lines(rng, 40)
-    points = np.concatenate(lines)
-    offsets = np.r_[0, np.cumsum([len(l) for l in lines])]
-    tracts = td.Tracts(points, offsets, {}, {})
-    surface = rng.uniform(points.min(0), points.max(0), (500, 3))
-    start, end, gain = rng.uniform(20, 90, 40), rng.uniform(20, 90, 40), rng.random(40)
-    frame, lit = endpoint_patches(surface, tracts, start, end, gain, radius=3.0)
-
-    ends = np.concatenate([points[offsets[:-1]], points[offsets[1:] - 1]])
-    when, strength = np.r_[start, end], np.r_[gain, gain]
-    dist = np.linalg.norm(surface[:, None] - ends[None], axis=2)
-    near = dist <= 3.0
-    expect_frame = np.where(near.any(1), np.where(near, when, np.inf).min(1), 1e6)
-    expect_lit = np.where(near, strength * (1 - dist / 3.0) ** 2, 0.0).max(1)
-    assert near.any(1).sum() > 20  # the case has vertices to check
-    np.testing.assert_allclose(frame, expect_frame, rtol=1e-6)
-    np.testing.assert_allclose(lit, expect_lit, rtol=1e-6)
+    seg = tmp_path / "segmentation"
+    seg.mkdir()
+    labels = np.array([0, 1, 1, 2, 1, 0], dtype=np.int32)
+    ctab = np.array([[0, 0, 0, 0, 0], [255, 0, 0, 0, 1], [0, 255, 0, 0, 2]], dtype=np.int32)
+    names = [b"unknown", b"insula", b"precentral"]
+    for hemi in ("lh", "rh"):
+        nib.freesurfer.write_annot(str(seg / f"{hemi}.X_DK40.annot"), labels, ctab, names)
+    data = np.zeros((12, 12, 12), np.int16)
+    data[3:8, 4:9, 2:7] = 10
+    affine = np.diag([2.0, 2.0, 2.0, 1.0])
+    affine[:3, 3] = [-5.0, 3.0, 1.0]
+    volume = tmp_path / "labeling.nii"
+    nib.save(nib.Nifti1Image(data, affine), str(volume))
+    (tmp_path / "labeling_LUT.txt").write_text("0 Unknown 0 0 0 0\n10 Left-Thalamus-Proper 0 118 14 0\n")
+    glass = np.zeros((12, 3))
+    cortical, deep = region_geometry(
+        str(tmp_path), str(volume), ["lh.insula", "rh.precentral", "Left-Thalamus-Proper"], glass, 6
+    )
+    np.testing.assert_array_equal(cortical["lh.insula"], [1, 2, 4])
+    np.testing.assert_array_equal(cortical["rh.precentral"], [9])  # rh vertices follow lh's 6
+    verts, faces = deep["Left-Thalamus-Proper"]
+    world = (np.argwhere(data == 10) @ affine[:3, :3].T) + affine[:3, 3]
+    # the surface wraps the label's voxel centres: inside their box grown by one voxel
+    assert (verts >= world.min(0) - 2.0 - 1e-6).all() and (verts <= world.max(0) + 2.0 + 1e-6).all()
+    assert len(faces) > 20
 
 
 def test_connectome_figure_is_written(tmp_path):

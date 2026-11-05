@@ -9353,7 +9353,21 @@ export interface components {
          *         directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,
          *         else the directory's only ``.trx``.
          *     metric : Metric
-         *         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
+         *         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``
+         *         (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging
+         *         about 1) or ``direction``.
+         *     focus : bool
+         *         Network-focused stills and videos: the bundle and top edges as full tubes, the rest
+         *         of the tractogram as faint context, their endpoint regions lit from the subject's own
+         *         labels. ``False`` draws a subsample of the whole tractogram.
+         *     network_bundle : str
+         *         A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank
+         *         foregrounds the top edges only.
+         *     network_top_edges, network_min_streamlines : int
+         *         How many of ``summary.json``'s top edges join the foreground, and the streamline
+         *         count an edge needs to be one of them.
+         *     context_streamlines : int
+         *         Faint context fibres drawn behind the network (0: none).
          *     max_streamlines : int
          *         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
          *     vmax_v_per_m : float or None
@@ -9396,6 +9410,31 @@ export interface components {
              * @default null
              */
             vmax_v_per_m: number | null;
+            /**
+             * Focus
+             * @default true
+             */
+            focus: boolean;
+            /**
+             * Network Bundle
+             * @default
+             */
+            network_bundle: string;
+            /**
+             * Network Top Edges
+             * @default 5
+             */
+            network_top_edges: number;
+            /**
+             * Network Min Streamlines
+             * @default 10
+             */
+            network_min_streamlines: number;
+            /**
+             * Context Streamlines
+             * @default 0
+             */
+            context_streamlines: number;
             /**
              * Stills
              * @default true
@@ -10740,7 +10779,7 @@ export interface components {
          * @description Per-vertex colouring of the streamline tubes.
          * @enum {string}
          */
-        Metric: "ti_along" | "ti_max" | "ti_ratio" | "direction";
+        Metric: "ti_along" | "ti_max" | "ti_ratio" | "align_index" | "direction";
         /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.

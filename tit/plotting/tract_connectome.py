@@ -180,6 +180,19 @@ def ranking_winners(rows: list[dict]) -> tuple[dict, dict]:
     return by_max, by_along
 
 
+def _ranked(row: dict, name: str) -> float:
+    """A montage's bundle statistic under either ranking schema.
+
+    ``median_sl_mean_<name>`` (median over streamlines of each streamline's mean) is the
+    tract pipeline's ranking since its review; ``mean_<name>`` is the earlier pooled mean.
+    """
+    return float(row.get(f"median_sl_mean_{name}", row.get(f"mean_{name}")))
+
+
+def _align(row: dict) -> float:
+    return float(row.get("align_index", row.get("mean_align", float("nan"))))
+
+
 def plot_target_ranking(target_json: str, png_path: str, *, title: str = "") -> str:
     """Scatter of every ranked montage plus the two winners side by side, to *png_path*."""
     import json
@@ -197,55 +210,74 @@ def plot_target_ranking(target_json: str, png_path: str, *, title: str = "") -> 
         target = json.load(stream)
     rows = target["ranking"]["montages"]
     by_max, by_along = ranking_winners(rows)
-    gain = by_along["mean_ti_along"] / by_max["mean_ti_along"] - 1.0
+    gain = _ranked(by_along, "ti_along") / _ranked(by_max, "ti_along") - 1.0
     colours = {"max": "#e8833a", "along": "#2a9d8f"}
+    n = len(rows)
 
     fig, (ax_s, ax_b) = plt.subplots(
         1,
         2,
-        figsize=(11.5, 4.6),
+        figsize=(12, 4.8),
         gridspec_kw={"width_ratios": [1.15, 1.0]},
         constrained_layout=True,
     )
     ax_s.scatter(
-        [r["mean_ti_max"] for r in rows],
-        [r["mean_ti_along"] for r in rows],
+        [_ranked(r, "ti_max") for r in rows],
+        [_ranked(r, "ti_along") for r in rows],
         s=9,
         c="0.7",
         lw=0,
     )
     for row, key, text in (
-        (by_max, "max", "highest mean TI_max"),
-        (by_along, "along", "highest mean ti_along"),
+        (
+            by_max,
+            "max",
+            f"highest TI_max · ti_along rank {by_max['rank_by_ti_along']} of {n}",
+        ),
+        (
+            by_along,
+            "along",
+            f"highest ti_along · TI_max rank {by_along['rank_by_ti_max']} of {n}",
+        ),
     ):
-        ax_s.scatter(
-            row["mean_ti_max"],
-            row["mean_ti_along"],
-            s=70,
-            c=colours[key],
-            zorder=3,
-            ec="k",
-            lw=0.6,
-        )
+        x, y = _ranked(row, "ti_max"), _ranked(row, "ti_along")
+        ax_s.scatter(x, y, s=70, c=colours[key], zorder=3, ec="k", lw=0.6)
         ax_s.annotate(
-            f"{montage_label(row['montage'])}\n{text}",
-            (row["mean_ti_max"], row["mean_ti_along"]),
-            xytext=(8, -4 if key == "max" else 6),
+            f"{montage_label(row['montage'])}\n{text}\nalign_index {_align(row):.2f}",
+            (x, y),
+            xytext=(-12, -4) if key == "along" else (-12, -10),
+            va="top",
+            bbox={"fc": "white", "ec": "none", "alpha": 0.85, "pad": 1.5},
             textcoords="offset points",
+            ha="right",
             fontsize=8,
             color=colours[key],
         )
-    ax_s.set_xlabel("Mean TI_max on the bundle (V/m)")
-    ax_s.set_ylabel("Mean TI envelope along the fibres (V/m)")
-    ax_s.set_title(f"{len(rows)} montages ranked", fontsize=10)
+    ax_s.set_xlabel("TI_max on the bundle (V/m)")
+    ax_s.set_ylabel("TI envelope along the fibres (V/m)")
+    ax_s.set_title(
+        f"{n} montages, median over streamlines of each streamline's mean", fontsize=10
+    )
     ax_s.spines[["top", "right"]].set_visible(False)
 
-    metrics = [("mean_ti_along", "ti_along"), ("mean_ti_max", "TI_max")]
-    x = np.arange(len(metrics))
+    metrics = [
+        ("ti_along", "ti_along"),
+        ("ti_avg", "ti_avg (random direction)"),
+        ("ti_max", "TI_max"),
+    ]
+    metrics = [
+        m
+        for m in metrics
+        if all(
+            f"median_sl_mean_{m[0]}" in r or f"mean_{m[0]}" in r
+            for r in (by_max, by_along)
+        )
+    ]
+    xs = np.arange(len(metrics))
     for i, (row, key) in enumerate(((by_max, "max"), (by_along, "along"))):
-        values = [row[m] for m, _ in metrics]
+        values = [_ranked(row, m) for m, _ in metrics]
         bars = ax_b.bar(
-            x + (i - 0.5) * 0.38,
+            xs + (i - 0.5) * 0.38,
             values,
             0.36,
             color=colours[key],
@@ -260,11 +292,12 @@ def plot_target_ranking(target_json: str, png_path: str, *, title: str = "") -> 
                 va="bottom",
                 fontsize=8,
             )
-    ax_b.set_xticks(x, [label for _m, label in metrics])
-    ax_b.set_ylabel("Mean on the bundle (V/m)")
+    ax_b.set_xticks(xs, [label for _m, label in metrics])
+    ax_b.set_ylabel("On the bundle (V/m)")
     ax_b.set_title(
-        f"ti_along {gain:+.0%}; alignment {by_max['mean_align']:.2f} vs {by_along['mean_align']:.2f}",
-        fontsize=10,
+        f"ti_along {gain:+.0%}; align_index {_align(by_max):.2f} vs {_align(by_along):.2f}\n"
+        "(below 1: more field across the bundle than a random direction sees)",
+        fontsize=9,
     )
     ax_b.legend(frameon=False, fontsize=8)
     ax_b.spines[["top", "right"]].set_visible(False)
