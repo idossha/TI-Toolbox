@@ -9,7 +9,7 @@ Modules
 -------
 config
     Dataclass configurations: `MontageConfig`, `VectorConfig`,
-    `RegionConfig`, `SubcorticalConfig`.
+    `RegionConfig`, `SubcorticalConfig`, `TractConfig`.
 montage_publication
     Build scalp + GM + electrode Blender scene for publication.
 vector_field_exporter
@@ -18,6 +18,8 @@ region_exporter
     Export atlas-labelled cortical regions as STL or PLY meshes.
 subcortical_exporter
     Export sub-cortical structures from a labelled NIfTI as STL/MSH/PLY.
+tract_publication, tract_scene, tract_data
+    Tractography renders: streamlines coloured by the TI field along each fibre.
 electrode_placement
     Place electrode objects on a scalp surface in Blender.
 io
@@ -41,11 +43,13 @@ _EXPORTS = {
     "VectorConfig": "config",
     "RegionConfig": "config",
     "SubcorticalConfig": "config",
+    "TractConfig": "config",
     "MontageResult": "montage_publication",
     "run_montage": "montage_publication",
     "run_vectors": "vector_field_exporter",
     "run_regions": "region_exporter",
     "run_subcortical": "subcortical_exporter",
+    "run_tract": "tract_publication",
 }
 __all__ = list(_EXPORTS)
 

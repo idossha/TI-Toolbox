@@ -807,6 +807,31 @@ output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re
 (minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
 read on ernie; a job would add queueing and a lock for no benefit).
 
+**Tract renders are a `blender` job, `_type: TractConfig`.** [`tract_publication.py`](../../tit/blender/tract_publication.py)
+reads a simulation's `tract/` directory (`<bundle_or_all>.trx` with per-vertex `ti_along`/`ti_max`
+in m2m world mm, `edges.json`, `connectome_<metric>.npz`; the reader is
+[`tract_data.py`](../../tit/blender/tract_data.py)), subsamples to `max_streamlines` with odds rising
+with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/tract/` a
+self-contained web viewer and a connectome figure (on by default) and, through a
+`tract_scene/manifest.json` bundle rendered by [`tract_scene.py`](../../tit/blender/tract_scene.py)
+in the pinned Blender's own Python, PNG stills and opt-in turntable and propagation MP4s. The
+bundle's paths are relative to the manifest, so another Blender can re-render it. Colours are
+averaged along each fibre over ±3 mm for display (tractography tangent noise makes per-point
+`ti_along` jitter ~28 % per millimetre) and the caption says so; thresholds and edge rankings use
+the tract pipeline's own per-streamline and per-edge statistics; `vmax_v_per_m` fixes the colour
+window so runs compare on one scale. Stills and videos are network-focused by default (`focus`):
+the montage's bundle (`network_bundle`) and its strongest `summary.json` top edges with at least
+`network_min_streamlines` are drawn as whole tubes of one width per streamline (only colour varies
+along a fibre), the endpoint regions they reach most are lit from the subject's own labels (charm
+annotation on the central surface, `labeling.nii.gz` or the FastSurfer aparc+aseg for the rest)
+and the top three are named with their streamline counts; captions state bundle-level medians,
+which hold across tractography tools, not a single top edge, which does not. `align_index`
+(`ti_along / ti_avg`, a diverging map about 1 on a log2 scale) is a second colour mode and the
+viewer's default when the TRX carries `ti_avg`. Every drawn quantity is labelled as a field descriptor, and the propagation video's caption says it shows where
+fibres project, not evoked activity. Excluded alternative: STREAM-4D's code and `template.blend`
+(non-commercial licence, incompatible with GPL-3); one curve object per streamline keyframed per
+frame (their design) instead of one polyline mesh whose shader reads the frame.
+
 ## 9. DWI preprocessing runs as sibling containers
 
 QSIPrep and QSIRecon run as sibling containers through the Docker socket, not inside the core image.
