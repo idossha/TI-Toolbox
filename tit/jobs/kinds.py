@@ -44,6 +44,7 @@ MODULE_FOR_KIND: dict[str, str] = {
     "analyzer": "tit.analyzer",
     "stats": "tit.stats",
     "source": "tit.source",
+    "tract": "tit.tract",
     "blender": "tit.blender",
     "nifti_average": "tit.stats.nifti_average",
     "nilearn": "tit.plotting.nilearn",

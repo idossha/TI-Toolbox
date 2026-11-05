@@ -76,7 +76,7 @@ _TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
     # server and the lock table tell a correlation from a group comparison.
     "GroupComparisonConfig": "GroupComparisonConfig",
     "CorrelationConfig": "CorrelationConfig",
-    # tit.tract's runner config (not yet a job kind, so not in CONFIG_CLASS_REGISTRY).
+    # tit.tract's runner config.
     "TractConfig": "TractConfig",
 }
 
@@ -245,6 +245,7 @@ CONFIG_CLASS_REGISTRY: dict[str, str] = {
     "RegionConfig": "tit.blender.config.RegionConfig",
     "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
     "TractVisualConfig": "tit.blender.config.TractVisualConfig",
+    "TractConfig": "tit.tract.config.TractConfig",
     "NiftiAverageConfig": "tit.stats.nifti_average_config.NiftiAverageConfig",
     "NilearnConfig": "tit.plotting.nilearn.config.NilearnConfig",
 }

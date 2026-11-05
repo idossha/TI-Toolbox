@@ -437,6 +437,8 @@ def keys_for(
         elif kind == "source":
             requests.append(LockRequest(f"subject:{sid}:forward"))
             requests.append(LockRequest(f"subject:{sid}:m2m", mode="read"))
+        elif kind == "tract":
+            requests.extend(_tract_requests(sid, config))
 
     if kind == "source":
         # An fsavg_map pair writes <sim>/fsaverage/ inside that simulation.
@@ -473,6 +475,30 @@ def keys_for(
         requests.append(LockRequest(f"project:nifti_average:{name}"))
         requests.extend(_simulation_reads(config))
 
+    return requests
+
+
+def _tract_requests(sid: str, config: dict[str, Any]) -> list[LockRequest]:
+    """track/network replace the tractogram and target writes beside it; assess only reads it."""
+    stages = config.get("stages") or ("track", "network", "assess")
+    writes = any(s in stages for s in ("track", "network", "target"))
+    requests = [
+        LockRequest(f"subject:{sid}:tract", mode="write" if writes else "read"),
+        LockRequest(f"subject:{sid}:m2m", mode="read"),
+    ]
+    if "assess" in stages:
+        assess = config.get("assess")
+        for sim in (
+            (assess.get("simulations") or []) if isinstance(assess, dict) else []
+        ):
+            requests.append(LockRequest(f"subject:{sid}:sim:{sim}"))
+    target = config.get("target")
+    if "target" in stages and isinstance(target, dict) and target.get("leadfield_hdf"):
+        requests.append(LockRequest(f"subject:{sid}:leadfields", mode="read"))
+        if target.get("ex_run"):
+            requests.append(
+                LockRequest(f"subject:{sid}:ex:{target['ex_run']}", mode="read")
+            )
     return requests
 
 

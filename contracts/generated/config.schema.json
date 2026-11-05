@@ -2985,6 +2985,350 @@
       "type": "object",
       "additionalProperties": false
     },
+    "TractConfig": {
+      "description": "One ``tit.tract`` run for one subject.\n\nAttributes:\n    subject_id: Subject (without ``sub-``).\n    stages: Any of :data:`STAGES`; run in that order.",
+      "properties": {
+        "subject_id": {
+          "title": "Subject Id",
+          "type": "string"
+        },
+        "stages": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Stages",
+          "type": "array"
+        },
+        "track": {
+          "$ref": "#/$defs/TrackConfig"
+        },
+        "network": {
+          "$ref": "#/$defs/NetworkConfig"
+        },
+        "assess": {
+          "$ref": "#/$defs/AssessConfig"
+        },
+        "target": {
+          "$ref": "#/$defs/TargetConfig"
+        },
+        "_type": {
+          "const": "TractConfig"
+        }
+      },
+      "required": [
+        "subject_id",
+        "_type"
+      ],
+      "title": "TractConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "AssessConfig": {
+      "description": "TI fields along streamlines (the ``assess`` stage).\n\nAttributes:\n    simulations: Simulation folder names under ``Simulations/``.\n    selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.\n        Edges, connectomes and per-streamline metrics always cover every streamline.\n    step_mm: Uniform arc-length step the streamlines are resampled to before sampling.\n        The activating function converges once the step is at most a quarter of\n        ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).\n    af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is\n        smoothed over before differentiating (a piecewise-constant field has no\n        pointwise derivative at a finite scale otherwise).\n    thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.\n    profile_points: Nodes of the along-tract profiles.\n    min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``\n        ranking in ``summary.json`` (they stay in every raw output).",
+      "properties": {
+        "simulations": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Simulations",
+          "type": "array"
+        },
+        "selections": {
+          "items": {
+            "$ref": "#/$defs/Selection"
+          },
+          "title": "Selections",
+          "type": "array"
+        },
+        "step_mm": {
+          "default": 0.5,
+          "title": "Step Mm",
+          "type": "number"
+        },
+        "af_scale_mm": {
+          "default": 2.0,
+          "title": "Af Scale Mm",
+          "type": "number"
+        },
+        "thresholds": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Thresholds",
+          "type": "array"
+        },
+        "profile_points": {
+          "default": 100,
+          "title": "Profile Points",
+          "type": "integer"
+        },
+        "min_streamlines": {
+          "default": 5,
+          "title": "Min Streamlines",
+          "type": "integer"
+        }
+      },
+      "title": "AssessConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "NetworkConfig": {
+      "description": "Endpoint-to-region association (the ``network`` stage).\n\nAttributes:\n    atlas: Cortical annotation name in ``m2m/segmentation`` (``\"DK40\"`` ->\n        ``lh.<sid>_DK40.annot``). Without annotations every region comes from the\n        label volume.\n    label_volume: Volume atlas for subcortical (and, without annotations, cortical)\n        labels; default: charm ``segmentation/labeling.nii.gz``, else FastSurfer\n        ``aparc.DKTatlas+aseg.deep.nii.gz``.\n    surface: m2m surface the annotation labels sit on (``central``, ``white``, ``pial``).\n    radius_mm: An endpoint takes the nearest labelled vertex or voxel within this\n        distance, else it is unassigned (-1).",
+      "properties": {
+        "atlas": {
+          "default": "DK40",
+          "title": "Atlas",
+          "type": "string"
+        },
+        "label_volume": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label Volume"
+        },
+        "surface": {
+          "default": "central",
+          "title": "Surface",
+          "type": "string"
+        },
+        "radius_mm": {
+          "default": 3.0,
+          "title": "Radius Mm",
+          "type": "number"
+        }
+      },
+      "title": "NetworkConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "Selection": {
+      "description": "A named subset of the whole-brain tractogram.\n\nAttributes:\n    name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.\n    kind: ``\"all\"``; ``\"between\"`` (one end in ``regions[0]``, the other in\n        ``regions[1]``); ``\"edges\"`` (the union of the region pairs in ``pairs``);\n        ``\"from\"`` (either end in any of ``regions``); ``\"through\"``\n        (any point inside ``mask_path``, or inside label ``label`` of it);\n        ``\"to_cortex\"`` (one end in any of ``regions``, the other in a cortical label:\n        ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);\n        ``\"top_edges\"`` (the ``k`` edges of ``regions[0]`` with most streamlines).\n    regions: Region names as the network stage names them (``\"lh.insula\"`` for a\n        cortical annotation label, the label table name such as ``\"Left-Thalamus-Proper\"``\n        for a volume label).\n    mask_path: NIfTI in m2m T1 space, for ``\"through\"``.\n    label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.\n    k: Edge count for ``\"top_edges\"``.\n    pairs: Region-name pairs ``[[a, b], ...]`` for ``\"edges\"``; order inside a pair does\n        not matter. Names, not edge ids: ids renumber when the network is rebuilt.",
+      "properties": {
+        "name": {
+          "default": "all",
+          "title": "Name",
+          "type": "string"
+        },
+        "kind": {
+          "default": "all",
+          "enum": [
+            "all",
+            "between",
+            "edges",
+            "from",
+            "through",
+            "to_cortex",
+            "top_edges"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "regions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Regions",
+          "type": "array"
+        },
+        "mask_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mask Path"
+        },
+        "label": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "k": {
+          "default": 5,
+          "title": "K",
+          "type": "integer"
+        },
+        "pairs": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Pairs",
+          "type": "array"
+        }
+      },
+      "title": "Selection",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "TargetConfig": {
+      "description": "Tract-density ROI and direction-aware ranking (the ``target`` stage).\n\nAttributes:\n    selection: The bundle the mask is made from.\n    min_count: Voxels crossed by at least this many streamlines are in the mask.\n    leadfield_hdf: Leadfield for the ranking (name under ``leadfields/`` or a path);\n        ``None`` skips the ranking.\n    ex_run: ex-search run whose ``final_output.csv`` montages are ranked.\n    montages: Explicit montages ``[e1+, e1-, e2+, e2-]`` to rank.\n    pool: Electrodes whose every two-pair montage is ranked.\n    top_n: Montages read from ``ex_run`` (its top rows by composite index).\n    current_mA: Channel currents for the ranking.",
+      "properties": {
+        "selection": {
+          "$ref": "#/$defs/Selection"
+        },
+        "min_count": {
+          "default": 1,
+          "title": "Min Count",
+          "type": "integer"
+        },
+        "leadfield_hdf": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Leadfield Hdf"
+        },
+        "ex_run": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ex Run"
+        },
+        "montages": {
+          "items": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "title": "Montages",
+          "type": "array"
+        },
+        "pool": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Pool",
+          "type": "array"
+        },
+        "top_n": {
+          "default": 20,
+          "title": "Top N",
+          "type": "integer"
+        },
+        "current_mA": {
+          "items": {
+            "type": "number"
+          },
+          "title": "Current Ma",
+          "type": "array"
+        }
+      },
+      "title": "TargetConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
+    "TrackConfig": {
+      "description": "Whole-brain tractography (the ``track`` stage).\n\nQSIPrep-preprocessed DWI, single-shell CSD on b0 + one shell, ACT on charm\ntissues, DIPY probabilistic tracking. A subject without QSIPrep output is refused.\n\nAttributes:\n    pmf_threshold: Fibre-ODF values below this fraction are not followed.\n    n_seeds: Random seeds placed in white matter.\n    step_mm: Tracking step.\n    max_angle: Maximum turning angle per step, degrees.\n    min_length_mm, max_length_mm: Streamline length window.\n    sh_order: CSD spherical-harmonic order.\n    shell: CSD shell b-value; ``None`` = the shell closest to b3000 among shells with\n        >= 30 directions (``tracking.pick_shell``).\n    random_seed: Tracking and seeding RNG seed (> 0 is reproducible).\n    n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.\n    flip_test: Run the 8 gradient-axis-flip frame check (coherence with the DTI V1).\n    export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world.\n    overwrite: Replace an existing tractogram.",
+      "properties": {
+        "pmf_threshold": {
+          "default": 0.1,
+          "title": "Pmf Threshold",
+          "type": "number"
+        },
+        "n_seeds": {
+          "default": 200000,
+          "title": "N Seeds",
+          "type": "integer"
+        },
+        "step_mm": {
+          "default": 0.5,
+          "title": "Step Mm",
+          "type": "number"
+        },
+        "max_angle": {
+          "default": 30.0,
+          "title": "Max Angle",
+          "type": "number"
+        },
+        "min_length_mm": {
+          "default": 20.0,
+          "title": "Min Length Mm",
+          "type": "number"
+        },
+        "max_length_mm": {
+          "default": 250.0,
+          "title": "Max Length Mm",
+          "type": "number"
+        },
+        "sh_order": {
+          "default": 8,
+          "title": "Sh Order",
+          "type": "integer"
+        },
+        "shell": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Shell"
+        },
+        "random_seed": {
+          "default": 1,
+          "title": "Random Seed",
+          "type": "integer"
+        },
+        "n_jobs": {
+          "default": -1,
+          "title": "N Jobs",
+          "type": "integer"
+        },
+        "flip_test": {
+          "default": true,
+          "title": "Flip Test",
+          "type": "boolean"
+        },
+        "export_acpc_tck": {
+          "default": true,
+          "title": "Export Acpc Tck",
+          "type": "boolean"
+        },
+        "overwrite": {
+          "default": false,
+          "title": "Overwrite",
+          "type": "boolean"
+        }
+      },
+      "title": "TrackConfig",
+      "type": "object",
+      "additionalProperties": false
+    },
     "TractVisualConfig": {
       "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. Stills, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``\n    (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging\n    about 1) or ``direction``.\nfocus : bool\n    Network-focused stills and videos: the bundle and top edges as full tubes, the rest\n    of the tractogram as faint context, their endpoint regions lit from the subject's own\n    labels. ``False`` draws a subsample of the whole tractogram.\nnetwork_bundle : str\n    A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank\n    foregrounds the top edges only.\nnetwork_top_edges, network_min_streamlines : int\n    How many of ``summary.json``'s top edges join the foreground, and the streamline\n    count an edge needs to be one of them.\ncontext_streamlines : int\n    Faint context fibres drawn behind the network (0: none).\nnetwork_from, network_to, network_name : list of str, list of str, str\n    A network by its regions: every streamline whose edge joins a region of\n    ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,\n    none subsampled. Overrides ``network_bundle`` and the top edges.\nhighlight_regions : list of str\n    Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.\nregion_labels : bool\n    Name the lit regions on the still.\nlateral_side : int\n    -1 left, 1 right, 0 the side of the strongest field.\niso_shell_percentile : float or None\n    Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.\nprune_keep_fraction : float or None\n    In a named-network turntable sequence, sweep away all but this fraction of the\n    streamlines, the strongest by mean TI_max along each, then name where they end.\nlabel_regions : int\n    How many cortical regions the pruned network names.\nturntable_crossfade : bool\n    The turntable shows direction colours for its first half, crossfades over 2 s, then\n    shows ``metric`` (a scalar metric) for the second half.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nvmax_v_per_m : float or None\n    Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.\n    Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write.\nwidth, height : int\n    Still resolution in pixels (videos are 1920x1080).\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.\nseed : int\n    Subsampling seed.",
       "properties": {
@@ -3445,6 +3789,7 @@
     "SimulationConfig": "tit.sim.config.SimulationConfig",
     "SourceConfig": "tit.source.config.SourceConfig",
     "SubcorticalConfig": "tit.blender.config.SubcorticalConfig",
+    "TractConfig": "tit.tract.config.TractConfig",
     "TractVisualConfig": "tit.blender.config.TractVisualConfig",
     "VectorConfig": "tit.blender.config.VectorConfig"
   },
@@ -3561,6 +3906,7 @@
     "leadfield": "LeadfieldConfig",
     "analyzer": "AnalyzerConfig",
     "source": "SourceConfig",
+    "tract": "TractConfig",
     "nifti_average": "NiftiAverageConfig",
     "nilearn": "NilearnConfig",
     "stats": "GroupComparisonConfig",

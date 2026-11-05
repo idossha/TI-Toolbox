@@ -4383,3 +4383,26 @@ with no shell above it is refused with the override named.
 **Alternatives rejected.** The highest shell (the old default; b4100 on the study scan); the
 shell with the most directions (b4100 again); multi-shell CSD (`MultiShellDeconvModel` needs cvxpy,
 which the image lacks).
+
+## 2026-11-05 — Networks are chosen in the optimizers, through a `tract` job kind
+
+**Decision.** `tit.tract` becomes a job kind (`TractConfig` in `CONFIG_CLASS_REGISTRY`) with routes
+`/api/tract/{manifest,edges,streamlines,mask,masks,rankings}`, and a network mask gets a sidecar whose
+fingerprint flex and ex preflight compare with the current tractogram and network (ARCHITECTURE §15).
+Requests name edges by region pairs. Answers the design's open questions as the maintainer did: the
+job is offered from Pre-processing and from the optimizer's empty state, ranking is an explicit
+action, targets are WM only in subject space, and the atlas is chosen in the job form. Pinned by
+`tests/test_tract_routes.py` and `tests/numerical/test_tract_mask.py`.
+
+**Why.** The output is already a target the optimizers accept (`SubcorticalROI(label=None)`,
+`roi_atlas`), so `FlexConfig`, `ExConfig` and their runners do not change. The fingerprint is the one
+check the mask's existence cannot give: a mask from a replaced network still loads and optimizes.
+
+**Measured.** `load_trx` reads CHN's 163 MB tractogram (99 955 streamlines, 13.5 M points) in 0.13 s on
+this machine (2026-11-05), so the mask route answers synchronously and the pane's subsample needs one
+cold build per network, not one per selection.
+
+**Alternatives rejected.** Selection in TetraVox (a cross-process reply protocol, and no remote
+projects); edge ids on the wire (they renumber on rebuild); a cache per edge list (each new selection
+would rebuild); field-weighted subsampling for the pane (it would favour a metric); a streaming POST
+for masks (a held request is fine for one explicit, sub-minute action).

@@ -1043,6 +1043,7 @@ def tool_get_quick_facts(_: Dict[str, Any]) -> Dict[str, Any]:
             "analyzer",
             "stats",
             "source",
+            "tract",
             "blender",
             "nifti_average",
             "nilearn",

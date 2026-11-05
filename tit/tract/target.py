@@ -20,6 +20,9 @@ import itertools
 import json
 import logging
 import os
+import re
+import tempfile
+from dataclasses import asdict
 from pathlib import Path
 
 import numpy as np
@@ -28,7 +31,7 @@ from tit.calc import envelope, envelope_max, envelope_mean
 
 from . import geometry
 from .io import load_streamlines, save_nifti
-from .network import select
+from .network import network_fingerprint, select
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +46,23 @@ def density_mask(streamlines, ref_path: str, out_path: str, min_count: int = 1) 
         [np.asarray(s, np.float64) for s in streamlines], ref.affine, ref.shape[:3]
     )
     mask = (density >= min_count).astype(np.uint8)
-    save_nifti(mask, ref.affine, out_path)
+    if not mask.any():
+        raise ValueError(
+            f"No voxel is crossed by at least {min_count} streamline(s) of this selection."
+        )
+    # Replaced in one step: a job may be reading the mask this overwrites.
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
+    fd, tmp = tempfile.mkstemp(
+        dir=os.path.dirname(os.path.abspath(out_path)), suffix=".nii.gz"
+    )
+    os.close(fd)
+    try:
+        save_nifti(mask, ref.affine, tmp)
+        os.chmod(tmp, 0o644)  # mkstemp creates 0600; the mask is a shared output
+        os.replace(tmp, out_path)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
     vox_mm3 = float(abs(np.linalg.det(ref.affine[:3, :3])))
     return {
         "path": out_path,
@@ -52,6 +71,58 @@ def density_mask(streamlines, ref_path: str, out_path: str, min_count: int = 1) 
         "min_count": int(min_count),
         "max_density": int(density.max()) if density.size else 0,
     }
+
+
+def mask_sidecar_path(mask_path: str) -> str:
+    """``tract-<name>.json`` beside ``tract-<name>.nii[.gz]``."""
+    return re.sub(r"\.nii(\.gz)?$", "", mask_path) + ".json"
+
+
+def read_mask_sidecar(mask_path: str) -> dict | None:
+    """The mask's sidecar, or ``None`` when it has none (a mask made by hand or by an older run)."""
+    try:
+        with open(mask_sidecar_path(mask_path)) as f:
+            record = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return record if isinstance(record, dict) else None
+
+
+def write_mask_with_sidecar(
+    pm, subject_id: str, selection, bundle, min_count: int
+) -> dict:
+    """The bundle's density mask, and the sidecar saying what made it.
+
+    ``fingerprint`` is what the optimizers' preflight compares with the current tractogram and
+    network (``tit.jobs.preflight``): a mask from a replaced network is refused, not optimized.
+    """
+    mask_path = os.path.join(pm.masks(subject_id), f"tract-{selection.name}.nii.gz")
+    mask = density_mask(bundle, pm.t1(subject_id), mask_path, min_count)
+    record = {
+        "selection": asdict(selection),
+        "n_streamlines": int(len(bundle)),
+        "fingerprint": network_fingerprint(pm, subject_id),
+        **mask,
+    }
+    sidecar = mask_sidecar_path(mask_path)
+    Path(sidecar + ".tmp").write_text(json.dumps(record, indent=1) + "\n")
+    os.replace(sidecar + ".tmp", sidecar)
+    return record
+
+
+def _current_mask(pm, subject_id: str, selection, min_count: int) -> dict | None:
+    """The sidecar when the mask on disk is exactly this selection of this network."""
+    path = os.path.join(pm.masks(subject_id), f"tract-{selection.name}.nii.gz")
+    record = read_mask_sidecar(path)
+    if (
+        os.path.isfile(path)
+        and record
+        and record.get("selection") == asdict(selection)
+        and record.get("min_count") == min_count
+        and record.get("fingerprint") == network_fingerprint(pm, subject_id)
+    ):
+        return record
+    return None
 
 
 def roi_specs(mask_path: str):
@@ -87,8 +158,12 @@ def ex_run_montages(csv_path: str, top_n: int) -> list[list[str]]:
     )
     seen, out = set(), []
     for r in records:
-        key = tuple(r["electrodes"][:4])
-        if len(key) == 4 and key not in seen:
+        key = tuple(r["electrodes"])
+        if len(key) != 4:
+            raise ValueError(
+                f"{csv_path} is not a two-pair search: the ranking scores two-pair montages."
+            )
+        if key not in seen:
             seen.add(key)
             out.append(list(key))
         if len(out) >= top_n:
@@ -186,11 +261,18 @@ def run_target(subject_id: str, cfg, step_mm: float = 0.5) -> dict:
     bundle = [streamlines[i] for i in pick]
     if not bundle:
         raise ValueError(f"selection {sel.name!r} picks no streamline")
-    mask_path = os.path.join(pm.masks(subject_id), f"tract-{sel.name}.nii.gz")
+    # A ranking of an existing target must not rewrite the mask an optimizer may be reading.
+    record = _current_mask(pm, subject_id, sel, cfg.min_count)
+    if record is None:
+        record = write_mask_with_sidecar(pm, subject_id, sel, bundle, cfg.min_count)
+    mask_path = record["path"]
     result = {
-        "selection": {"name": sel.name, "kind": sel.kind, "regions": sel.regions},
+        "selection": asdict(sel),
         "n_streamlines": int(len(bundle)),
-        "mask": density_mask(bundle, pm.t1(subject_id), mask_path, cfg.min_count),
+        "mask": {
+            k: record[k]
+            for k in ("path", "n_voxels", "volume_mm3", "min_count", "max_density")
+        },
         "optimizer_rois": {
             "flex": f"FlexConfig.SubcorticalROI(atlas_path={mask_path!r}, label=None, tissues='WM')",
             "ex": f"ExConfig.AtlasROI(atlas_path={mask_path!r}, label=None)",
@@ -214,6 +296,7 @@ def run_target(subject_id: str, cfg, step_mm: float = 0.5) -> dict:
         )
         result["ranking"] = {
             "leadfield": lf,
+            "ex_run": cfg.ex_run,
             "current_mA": cfg.current_mA,
             "sorted_by": "median_sl_mean_ti_along",
             **info,

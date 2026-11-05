@@ -4056,6 +4056,330 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tract/manifest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether a subject has a network to target, and its regions */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The manifest; `available` false when the job has not run. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractManifest"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The project has no such subject. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every edge touching any seed region, most streamlines first */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    seed: string[];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The edges. `edge_id` is transient; it renumbers when the network is rebuilt. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractEdges"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description No such subject, or no network yet. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description A seed the network does not name. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/streamlines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A bounded subsample of the given edges' streamlines as TVSL1 binary
+         * @description At most 64 edges, each at most 100 streamlines drawn uniformly, about one point per 2 mm. `group` of a streamline is the position of its edge in the `pair` list. A cold cache answers 202 and the client polls.
+         */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    /** @description `region_a|region_b`, repeated. */
+                    pair: string[];
+                    wait?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description TVSL1 bytes (`tit/scene/tvsl.py`). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/octet-stream": string;
+                    };
+                };
+                /** @description Cold cache; poll after Retry-After. */
+                202: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description No such subject, or no network yet. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description An unknown region or pair, or more than 64 pairs. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/mask": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write the tract-density mask of the given region pairs
+         * @description Writes `m2m_<id>/masks/tract-<name>.nii.gz` and its `.json` sidecar (selection, counts, fingerprint). Region-name pairs, never edge ids or client paths.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TractMaskRequest"];
+                };
+            };
+            responses: {
+                /** @description The mask. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractMask"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description No such subject, or no network yet. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description A mask of this name exists and `overwrite` is false. */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Bad name, unknown region or pair, an edge below `min_n`, or an empty mask. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/masks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** This subject's masks made from its network */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The masks; `stale` when the network was rebuilt since. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractMasks"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The project has no such subject. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/tract/rankings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Montage rankings of an ex-search run on this subject's networks */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                    ex_run: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every ranking made from this run; every statistic side by side. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractRankings"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The project has no such subject. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/scene/target-preview": {
         parameters: {
             query?: never;
@@ -6400,7 +6724,7 @@ export interface components {
             totals: components["schemas"]["OverviewTotals"];
         };
         /** @enum {string} */
-        PipelineKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn";
+        PipelineKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "tract" | "blender" | "nifti_average" | "nilearn";
         ValidateError: {
             path: string;
             message: string;
@@ -6471,7 +6795,7 @@ export interface components {
             resolved?: components["schemas"]["PlanResolved"] | null;
         };
         /** @enum {string} */
-        JobKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "blender" | "nifti_average" | "nilearn" | "project_init" | "tools";
+        JobKind: "pre" | "sim" | "flex" | "flex_adaptive" | "flex_pareto" | "ex" | "mex" | "leadfield" | "analyzer" | "stats" | "source" | "tract" | "blender" | "nifti_average" | "nilearn" | "project_init" | "tools";
         /** @enum {string} */
         JobState: "queued" | "running" | "succeeded" | "failed" | "cancelled" | "skipped" | "lost";
         JobProgress: {
@@ -9719,8 +10043,104 @@ export interface components {
              */
             glass_brain_cmap: string;
         };
+        /**
+         * TractConfig
+         * @description One ``tit.tract`` run for one subject.
+         *
+         *     Attributes:
+         *         subject_id: Subject (without ``sub-``).
+         *         stages: Any of :data:`STAGES`; run in that order.
+         */
+        TractConfig: {
+            /** Subject Id */
+            subject_id: string;
+            /** Stages */
+            stages?: string[];
+            track?: components["schemas"]["TrackConfig"];
+            network?: components["schemas"]["NetworkConfig"];
+            assess?: components["schemas"]["AssessConfig"];
+            target?: components["schemas"]["TargetConfig"];
+            /** @constant */
+            _type: "TractConfig";
+        };
+        TractRegion: {
+            name: string;
+            cortical: boolean;
+        };
+        TractManifest: {
+            available: boolean;
+            qsiprep_available: boolean;
+            tractogram_available: boolean;
+            atlas?: string | null;
+            n_streamlines?: number | null;
+            n_edges?: number | null;
+            frac_both_ends_assigned?: number | null;
+            qc_passed?: boolean | null;
+            fingerprint?: string | null;
+            regions?: components["schemas"]["TractRegion"][];
+        };
+        TractEdge: {
+            edge_id: number;
+            region_a: string;
+            region_b: string;
+            n: number;
+            share: number;
+        };
+        TractEdges: {
+            edges: components["schemas"]["TractEdge"][];
+        };
+        TractMaskRequest: {
+            subject: string;
+            name: string;
+            pairs: string[][];
+            /** @default 1 */
+            min_count: number;
+            /** @default 5 */
+            min_n: number;
+            /** @default false */
+            overwrite: boolean;
+        };
+        TractMask: {
+            name: string;
+            path: string;
+            fingerprint: string;
+            stale: boolean;
+            pairs: string[][];
+            min_count: number;
+            n_edges: number;
+            n_streamlines: number;
+            n_voxels: number;
+            volume_mm3: number;
+        };
+        TractMasks: {
+            masks: components["schemas"]["TractMask"][];
+        };
+        TractRankingMontage: {
+            montage: string[];
+            median_sl_mean_ti_along: number;
+            pooled_mean_ti_along: number;
+            median_sl_mean_ti_max: number;
+            pooled_mean_ti_max: number;
+            median_sl_mean_ti_avg: number;
+            pooled_mean_ti_avg: number;
+            align_index: number;
+            rank_by_ti_along: number;
+            rank_by_ti_max: number;
+        };
+        TractRanking: {
+            name: string;
+            ex_run: string;
+            n_streamlines: number;
+            current_mA: number[];
+            n_points: number;
+            n_points_in_leadfield_mesh: number;
+            montages: components["schemas"]["TractRankingMontage"][];
+        };
+        TractRankings: {
+            rankings: components["schemas"]["TractRanking"][];
+        };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
-        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["TractVisualConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["TractConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["TractVisualConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
         /** ActivityDay */
         ActivityDay: {
             /** Date */
@@ -10880,6 +11300,277 @@ export interface components {
             subject_id: string;
             /** Simulation Name */
             simulation_name: string;
+        };
+        /**
+         * AssessConfig
+         * @description TI fields along streamlines (the ``assess`` stage).
+         *
+         *     Attributes:
+         *         simulations: Simulation folder names under ``Simulations/``.
+         *         selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.
+         *             Edges, connectomes and per-streamline metrics always cover every streamline.
+         *         step_mm: Uniform arc-length step the streamlines are resampled to before sampling.
+         *             The activating function converges once the step is at most a quarter of
+         *             ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).
+         *         af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is
+         *             smoothed over before differentiating (a piecewise-constant field has no
+         *             pointwise derivative at a finite scale otherwise).
+         *         thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.
+         *         profile_points: Nodes of the along-tract profiles.
+         *         min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``
+         *             ranking in ``summary.json`` (they stay in every raw output).
+         */
+        AssessConfig: {
+            /** Simulations */
+            simulations?: string[];
+            /** Selections */
+            selections?: components["schemas"]["Selection"][];
+            /**
+             * Step Mm
+             * @default 0.5
+             */
+            step_mm: number;
+            /**
+             * Af Scale Mm
+             * @default 2
+             */
+            af_scale_mm: number;
+            /** Thresholds */
+            thresholds?: number[];
+            /**
+             * Profile Points
+             * @default 100
+             */
+            profile_points: number;
+            /**
+             * Min Streamlines
+             * @default 5
+             */
+            min_streamlines: number;
+        };
+        /**
+         * Selection
+         * @description A named subset of the whole-brain tractogram.
+         *
+         *     Attributes:
+         *         name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.
+         *         kind: ``"all"``; ``"between"`` (one end in ``regions[0]``, the other in
+         *             ``regions[1]``); ``"edges"`` (the union of the region pairs in ``pairs``);
+         *             ``"from"`` (either end in any of ``regions``); ``"through"``
+         *             (any point inside ``mask_path``, or inside label ``label`` of it);
+         *             ``"to_cortex"`` (one end in any of ``regions``, the other in a cortical label:
+         *             ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);
+         *             ``"top_edges"`` (the ``k`` edges of ``regions[0]`` with most streamlines).
+         *         regions: Region names as the network stage names them (``"lh.insula"`` for a
+         *             cortical annotation label, the label table name such as ``"Left-Thalamus-Proper"``
+         *             for a volume label).
+         *         mask_path: NIfTI in m2m T1 space, for ``"through"``.
+         *         label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.
+         *         k: Edge count for ``"top_edges"``.
+         *         pairs: Region-name pairs ``[[a, b], ...]`` for ``"edges"``; order inside a pair does
+         *             not matter. Names, not edge ids: ids renumber when the network is rebuilt.
+         */
+        Selection: {
+            /**
+             * Name
+             * @default all
+             */
+            name: string;
+            /**
+             * Kind
+             * @default all
+             * @enum {string}
+             */
+            kind: "all" | "between" | "edges" | "from" | "through" | "to_cortex" | "top_edges";
+            /** Regions */
+            regions?: string[];
+            /**
+             * Mask Path
+             * @default null
+             */
+            mask_path: string | null;
+            /**
+             * Label
+             * @default null
+             */
+            label: number | null;
+            /**
+             * K
+             * @default 5
+             */
+            k: number;
+            /** Pairs */
+            pairs?: string[][];
+        };
+        /**
+         * NetworkConfig
+         * @description Endpoint-to-region association (the ``network`` stage).
+         *
+         *     Attributes:
+         *         atlas: Cortical annotation name in ``m2m/segmentation`` (``"DK40"`` ->
+         *             ``lh.<sid>_DK40.annot``). Without annotations every region comes from the
+         *             label volume.
+         *         label_volume: Volume atlas for subcortical (and, without annotations, cortical)
+         *             labels; default: charm ``segmentation/labeling.nii.gz``, else FastSurfer
+         *             ``aparc.DKTatlas+aseg.deep.nii.gz``.
+         *         surface: m2m surface the annotation labels sit on (``central``, ``white``, ``pial``).
+         *         radius_mm: An endpoint takes the nearest labelled vertex or voxel within this
+         *             distance, else it is unassigned (-1).
+         */
+        NetworkConfig: {
+            /**
+             * Atlas
+             * @default DK40
+             */
+            atlas: string;
+            /**
+             * Label Volume
+             * @default null
+             */
+            label_volume: string | null;
+            /**
+             * Surface
+             * @default central
+             */
+            surface: string;
+            /**
+             * Radius Mm
+             * @default 3
+             */
+            radius_mm: number;
+        };
+        /**
+         * TargetConfig
+         * @description Tract-density ROI and direction-aware ranking (the ``target`` stage).
+         *
+         *     Attributes:
+         *         selection: The bundle the mask is made from.
+         *         min_count: Voxels crossed by at least this many streamlines are in the mask.
+         *         leadfield_hdf: Leadfield for the ranking (name under ``leadfields/`` or a path);
+         *             ``None`` skips the ranking.
+         *         ex_run: ex-search run whose ``final_output.csv`` montages are ranked.
+         *         montages: Explicit montages ``[e1+, e1-, e2+, e2-]`` to rank.
+         *         pool: Electrodes whose every two-pair montage is ranked.
+         *         top_n: Montages read from ``ex_run`` (its top rows by composite index).
+         *         current_mA: Channel currents for the ranking.
+         */
+        TargetConfig: {
+            selection?: components["schemas"]["Selection"];
+            /**
+             * Min Count
+             * @default 1
+             */
+            min_count: number;
+            /**
+             * Leadfield Hdf
+             * @default null
+             */
+            leadfield_hdf: string | null;
+            /**
+             * Ex Run
+             * @default null
+             */
+            ex_run: string | null;
+            /** Montages */
+            montages?: string[][];
+            /** Pool */
+            pool?: string[];
+            /**
+             * Top N
+             * @default 20
+             */
+            top_n: number;
+            /** Current Ma */
+            current_mA?: number[];
+        };
+        /**
+         * TrackConfig
+         * @description Whole-brain tractography (the ``track`` stage).
+         *
+         *     QSIPrep-preprocessed DWI, single-shell CSD on b0 + one shell, ACT on charm
+         *     tissues, DIPY probabilistic tracking. A subject without QSIPrep output is refused.
+         *
+         *     Attributes:
+         *         pmf_threshold: Fibre-ODF values below this fraction are not followed.
+         *         n_seeds: Random seeds placed in white matter.
+         *         step_mm: Tracking step.
+         *         max_angle: Maximum turning angle per step, degrees.
+         *         min_length_mm, max_length_mm: Streamline length window.
+         *         sh_order: CSD spherical-harmonic order.
+         *         shell: CSD shell b-value; ``None`` = the shell closest to b3000 among shells with
+         *             >= 30 directions (``tracking.pick_shell``).
+         *         random_seed: Tracking and seeding RNG seed (> 0 is reproducible).
+         *         n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.
+         *         flip_test: Run the 8 gradient-axis-flip frame check (coherence with the DTI V1).
+         *         export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world.
+         *         overwrite: Replace an existing tractogram.
+         */
+        TrackConfig: {
+            /**
+             * Pmf Threshold
+             * @default 0.1
+             */
+            pmf_threshold: number;
+            /**
+             * N Seeds
+             * @default 200000
+             */
+            n_seeds: number;
+            /**
+             * Step Mm
+             * @default 0.5
+             */
+            step_mm: number;
+            /**
+             * Max Angle
+             * @default 30
+             */
+            max_angle: number;
+            /**
+             * Min Length Mm
+             * @default 20
+             */
+            min_length_mm: number;
+            /**
+             * Max Length Mm
+             * @default 250
+             */
+            max_length_mm: number;
+            /**
+             * Sh Order
+             * @default 8
+             */
+            sh_order: number;
+            /**
+             * Shell
+             * @default null
+             */
+            shell: number | null;
+            /**
+             * Random Seed
+             * @default 1
+             */
+            random_seed: number;
+            /**
+             * N Jobs
+             * @default -1
+             */
+            n_jobs: number;
+            /**
+             * Flip Test
+             * @default true
+             */
+            flip_test: boolean;
+            /**
+             * Export Acpc Tck
+             * @default true
+             */
+            export_acpc_tck: boolean;
+            /**
+             * Overwrite
+             * @default false
+             */
+            overwrite: boolean;
         };
     };
     responses: {

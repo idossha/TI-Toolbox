@@ -237,6 +237,12 @@ def select(
             np.concatenate(streamlines), selection.mask_path, selection.label
         )
         return np.logical_or.reduceat(hit, np.r_[0, np.cumsum(counts)[:-1]])
+    if kind == "edges":
+        size = len(names)
+        wanted = [np.sort(_region_ids(p, names)) for p in selection.pairs]
+        keys = np.array([a * size + b for a, b in wanted], dtype=np.int64)
+        ends = np.sort(labels, axis=1)
+        return (ends[:, 0] >= 0) & np.isin(ends[:, 0] * size + ends[:, 1], keys)
     ids = _region_ids(selection.regions, names)
     if kind == "between":
         a, b = ids[0], ids[1]
@@ -258,6 +264,20 @@ def select(
     edges, counts = np.unique(edge_id[touches], return_counts=True)
     keep = edges[np.argsort(-counts, kind="stable")[: selection.k]]
     return np.isin(edge_id, keep) & touches
+
+
+def network_fingerprint(pm, subject_id: str) -> str:
+    """Names the tractogram and network a target came from; changes when either is rebuilt."""
+    from tit.scene.cache import fingerprint
+
+    tract_dir = pm.tractography(subject_id)
+    return fingerprint(
+        [
+            os.path.join(tract_dir, "tractogram.trx"),
+            os.path.join(tract_dir, "network.npz"),
+        ],
+        version="tract1",
+    )
 
 
 def run_network(subject_id: str, cfg) -> dict:

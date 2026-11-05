@@ -11,7 +11,7 @@ Where the expectations come from
     ``dataclasses.fields()`` of the runner config classes (the independent source), mapped per
     kind as the runners' ``__main__`` modules load them: sim -> SimulationConfig,
     flex* -> FlexConfig, ex -> ExConfig, mex -> MExConfig, leadfield -> LeadfieldConfig,
-    analyzer -> AnalyzerConfig, source -> SourceConfig, pre -> PreprocessConfig,
+    analyzer -> AnalyzerConfig, source -> SourceConfig, tract -> TractConfig, pre -> PreprocessConfig,
     stats -> GroupComparisonConfig | CorrelationConfig, nifti_average -> NiftiAverageConfig,
     nilearn -> NilearnConfig, blender -> Montage|Vector|Region|SubcorticalConfig; a ``tools``
     job has no dataclass, and its keys are the two ``tit.jobs.kinds.command_for`` reads. The keys are
@@ -49,6 +49,7 @@ RUNNER_CONFIGS: dict[str, tuple[str, ...]] = {
     "leadfield": ("LeadfieldConfig",),
     "analyzer": ("AnalyzerConfig",),
     "source": ("SourceConfig",),
+    "tract": ("TractConfig",),
     "pre": ("PreprocessConfig",),
     "stats": ("GroupComparisonConfig", "CorrelationConfig"),
     "nifti_average": ("NiftiAverageConfig",),
