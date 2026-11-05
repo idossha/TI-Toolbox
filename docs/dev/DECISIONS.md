@@ -4348,3 +4348,20 @@ keeps its name for the day it becomes a job kind. Pinned by
 **Measured** (2026-11-04, synthetic 8 092-streamline tractogram in sub-ernie, this machine): one
 2400×1600 still at 48 EEVEE samples took 893 s in the image's Blender 4.4.3 under amd64 emulation
 and 3.9 s in a host Blender 5.1; stills default to 32 samples, and the videos are opt-in.
+
+## 2026-11-05 — Tractography's frame check fits its own tensor; the m2m DTI tensor is not needed
+
+**Decision.** `tit.tract`'s track stage fits the frame check's reference tensor itself
+(`tracking.dti_reference`: the DTI extractor's `fit_tensor`, DIPY WLS, on the tracked QSIPrep DWI
+and brain mask, b0 + shells up to 1500 s/mm^2, else the lowest shell; recorded in `qc.json`
+`dti_reference`) and compares tangents with its principal eigenvector in ACPC world. Tracking
+needs only QSIPrep output and the charm m2m folder; `tensor_peaks`/`m2m_tensor` and the m2m-tensor
+refusal are gone (ARCHITECTURE §15). Supersedes that refusal in the 2026-11-04 "One tractography
+route" entry. Pinned by `tests/numerical/test_tract_frames.py::test_frame_check_reference_is_the_planted_direction_from_the_dwi_alone`.
+
+**Why.** A 43-participant EEG study will have QSIPrep output but no m2m tensor unless it also runs
+the separate DTI extraction, which the tractography does not otherwise use. The same fit on the
+same data is the independent low-shell estimate the check needs (CSD runs on the high shell).
+
+**Alternatives rejected.** Keeping the m2m tensor as an optional reference (two references, two
+code paths); dropping the frame check (it is what catches a wrong gradient frame).
