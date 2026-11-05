@@ -46,20 +46,23 @@ const planned = (willOverwrite: boolean) => ({ jobs: [{ will_overwrite: willOver
 
 let container: HTMLElement;
 let root: Root;
+let client: QueryClient;
 let onQueued: ReturnType<typeof vi.fn<(job: api.JobStatus) => void>>;
 
-async function settle(): Promise<void> {
-  await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+/** Polls instead of giving one tick: React Query schedules its notifications, and a loaded machine runs them late. */
+async function eventually(check: () => void): Promise<void> {
+  // Outside act(), which would hold the very updates this waits for until its scope ends.
+  await vi.waitFor(check, { timeout: 10_000 });
 }
+const byTestId = (id: string) => document.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`);
+const preflightAnswered = () => expect(!!byTestId("ve-assess-missing") || byTestId("ve-assess-networks")?.disabled === false).toBe(true);
 
 async function mount(): Promise<void> {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
   onQueued = vi.fn<(job: api.JobStatus) => void>();
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   act(() => {
     root.render(
       <QueryClientProvider client={client}>
@@ -67,15 +70,11 @@ async function mount(): Promise<void> {
       </QueryClientProvider>,
     );
   });
-  await settle();
+  await eventually(preflightAnswered);
 }
 
-const byTestId = (id: string) => document.querySelector<HTMLButtonElement>(`[data-testid="${id}"]`);
-async function click(id: string): Promise<void> {
-  await act(async () => {
-    byTestId(id)!.click();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-  });
+function click(id: string): void {
+  act(() => byTestId(id)!.click());
 }
 
 beforeEach(() => {
@@ -98,6 +97,7 @@ describe("Assess networks", () => {
       { what: "network for sub-ernie", expected_path: "/t/network.npz", how_to_fix: "Run Tractography for sub-ernie first." },
     ]);
     await mount();
+    await eventually(() => expect(byTestId("ve-assess-missing")).not.toBeNull());
     expect(byTestId("ve-assess-networks")).toBeNull();
     const reason = byTestId("ve-assess-missing")!.textContent;
     expect(reason).toContain("tractogram for sub-ernie");
@@ -108,49 +108,52 @@ describe("Assess networks", () => {
   it("queues the assess-only config without overwrite when nothing would be replaced", async () => {
     await mount();
     expect(vi.mocked(api.preflightTract).mock.calls[0]).toEqual([CONFIG, "ernie"]);
-    await click("ve-assess-networks");
+    click("ve-assess-networks");
+    await eventually(() => expect(onQueued).toHaveBeenCalledWith({ id: "job1" }));
     expect(vi.mocked(api.createTractJob).mock.calls).toEqual([[CONFIG, "ernie", false]]);
-    expect(onQueued).toHaveBeenCalledWith({ id: "job1" });
   });
 
   it("asks before replacing what the plan says exists, and sends overwrite only on Replace", async () => {
     vi.mocked(api.planTract).mockResolvedValue(planned(true));
     await mount();
-    await click("ve-assess-networks");
+    click("ve-assess-networks");
+    await eventually(() => expect(byTestId("existing-outputs-replace")).not.toBeNull());
     expect(api.createTractJob).not.toHaveBeenCalled();
-    await click("existing-outputs-replace");
+    click("existing-outputs-replace");
+    await eventually(() => expect(onQueued).toHaveBeenCalled());
     expect(vi.mocked(api.createTractJob).mock.calls).toEqual([[CONFIG, "ernie", true]]);
   });
 
   it("queues nothing when the answer is Skip", async () => {
     vi.mocked(api.planTract).mockResolvedValue(planned(true));
     await mount();
-    await click("ve-assess-networks");
-    await click("existing-outputs-skip");
+    click("ve-assess-networks");
+    await eventually(() => expect(byTestId("existing-outputs-skip")).not.toBeNull());
+    click("existing-outputs-skip");
+    await eventually(() => expect(byTestId("existing-outputs-skip")).toBeNull());
     expect(api.createTractJob).not.toHaveBeenCalled();
-    expect(byTestId("existing-outputs-skip")).toBeNull();
   });
 
   it("asks when the server refuses (409) a replacement a stale plan did not report", async () => {
     vi.mocked(api.createTractJob).mockRejectedValueOnce(new ApiError(409, "/api/jobs", "exists"));
     await mount();
-    await click("ve-assess-networks");
-    expect(byTestId("existing-outputs-replace")).not.toBeNull();
+    click("ve-assess-networks");
+    await eventually(() => expect(byTestId("existing-outputs-replace")).not.toBeNull());
     expect(onQueued).not.toHaveBeenCalled();
   });
 
   it("does not offer a second run of this simulation while its job is queued or running", async () => {
     await mount();
-    await click("ve-assess-networks");
+    click("ve-assess-networks");
+    await eventually(() => expect(onQueued).toHaveBeenCalled());
     model.all = [{ id: "job1", kind: "tract", state: "running" }];
     act(() => root.render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={client}>
         <AssessNetworks subjectId="ernie" simulationName="L_Insula" onQueued={onQueued} />
       </QueryClientProvider>,
     ));
-    await settle();
+    await eventually(() => expect(byTestId("ve-assess-networks")!.textContent).toContain("Assessing"));
     expect(byTestId("ve-assess-networks")!.disabled).toBe(true);
-    expect(byTestId("ve-assess-networks")!.textContent).toContain("Assessing");
   });
 
   it("is refreshed by a finished tract job, which rewrites what the tab reads", () => {
