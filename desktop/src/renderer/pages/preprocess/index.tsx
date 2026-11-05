@@ -391,17 +391,19 @@ function PreprocessPage() {
 
       </RunWork>
 
-      <TractographyDialog
-        open={tractographyOpen}
-        onOpenChange={setTractographyOpen}
-        subject={selected[0]}
-        atlas={values.tractography_atlas ?? "DK40"}
-        seeds={values.tractography_seeds ?? 200_000}
-        onSave={(atlas, seeds) => {
-          form.setValue("tractography_atlas", atlas);
-          form.setValue("tractography_seeds", seeds);
-        }}
-      />
+      {tractographyOpen && (
+        <TractographyDialog
+          open
+          onOpenChange={setTractographyOpen}
+          subject={selected[0]}
+          atlas={values.tractography_atlas ?? "DK40"}
+          seeds={values.tractography_seeds ?? 200_000}
+          onSave={(atlas, seeds) => {
+            form.setValue("tractography_atlas", atlas);
+            form.setValue("tractography_seeds", seeds);
+          }}
+        />
+      )}
       <QsiPrepDialog
         open={qsiPrepOpen}
         onOpenChange={setQsiPrepOpen}

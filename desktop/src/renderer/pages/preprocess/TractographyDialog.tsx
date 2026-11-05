@@ -1,8 +1,9 @@
 /**
  * Tractography's **Configure…**, the sibling of `QsiPrepDialog`: what the row's checkbox will run
- * with. The atlas fixes the network's regions, so a new one needs a new connectome.
+ * with. The atlas fixes the network's regions, so a new one needs a new connectome. The page mounts
+ * it only while open, so each opening starts from the row's values.
  */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "../../ui/Button";
 import { Field } from "../../ui/Field";
@@ -22,12 +23,6 @@ export function TractographyDialog({ open, onOpenChange, subject, atlas, seeds, 
 }) {
   const [draftAtlas, setDraftAtlas] = useState(atlas);
   const [draftSeeds, setDraftSeeds] = useState(seeds);
-  useEffect(() => {
-    if (open) {
-      setDraftAtlas(atlas);
-      setDraftSeeds(seeds);
-    }
-  }, [open, atlas, seeds]);
   const atlases = useQuery({
     queryKey: ["atlases", subject, "cortical", "subject"],
     queryFn: () => getAtlases(subject as string, "cortical", "subject"),
