@@ -16,9 +16,6 @@ import json
 import numpy as np
 import pytest
 
-pytest.importorskip("dipy")
-
-
 class _Pm:
     def __init__(self, root):
         self.root = root
@@ -42,6 +39,9 @@ def _bundle(y):
 
 @pytest.fixture
 def pm(tmp_path):
+    # In the fixture: a module-level skip reports even when `-m host_numerical` deselects every
+    # test here, and check_junit's host-numerical leg rightly refuses a skip it does not list.
+    pytest.importorskip("dipy", reason="skipping: needs the image (SimNIBS, DIPY)")
     import nibabel as nib
 
     affine = np.diag([2.0, 2.0, 2.0, 1.0])
