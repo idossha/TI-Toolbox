@@ -268,7 +268,8 @@ test("Results: rank the ex run on the network; every statistic side by side", as
   await page.locator(`[data-testid="results-node-ex:CHN:${RUN}-ex"]`).click();
   const ranking = page.getByTestId("network-ranking");
   await expect(ranking).toBeVisible();
-  await ranking.scrollIntoViewIfNeeded();
+  // The preview re-renders as the run's files load, which can detach the panel mid-scroll.
+  await expect(() => ranking.scrollIntoViewIfNeeded({ timeout: 5_000 })).toPass({ timeout: 30_000 });
   await expect(ranking.getByRole("combobox", { name: "Network mask" })).toContainText(MASK);
   const id = await groupJobId(() => ranking.getByTestId("network-rank").click());
   await expectSucceeded(id);
