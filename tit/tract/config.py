@@ -70,28 +70,25 @@ class Selection:
 class TrackConfig:
     """Whole-brain tractography (the ``track`` stage).
 
+    QSIPrep-preprocessed DWI, single-shell CSD on b0 + the highest shell, ACT on charm
+    tissues, DIPY tracking. A subject without QSIPrep output is refused.
+
     Attributes:
-        route: ``"csd"`` (QSIPrep DWI: single-shell CSD on b0 + the highest shell, ACT on
-            charm tissues, probabilistic tracking), ``"tensor"`` (the m2m DTI tensor:
-            deterministic EuDX on V1, FA stopping inside charm WM), or ``"auto"`` (csd
-            when the subject has QSIPrep DWI, else tensor).
-        algorithm: csd route tracker, ``"prob"`` (DIPY probabilistic) or ``"ptt"``
-            (DIPY parallel transport tractography).
-        pmf_threshold: csd route: fibre-ODF values below this fraction are not followed.
+        algorithm: Tracker, ``"prob"`` (DIPY probabilistic) or ``"ptt"`` (DIPY parallel
+            transport tractography).
+        pmf_threshold: Fibre-ODF values below this fraction are not followed.
         n_seeds: Random seeds placed in white matter.
         step_mm: Tracking step.
         max_angle: Maximum turning angle per step, degrees.
         min_length_mm, max_length_mm: Streamline length window.
-        fa_threshold: FA below which the tensor route stops.
         sh_order: CSD spherical-harmonic order.
         random_seed: Tracking and seeding RNG seed (> 0 is reproducible).
         n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.
-        flip_test: Run the 8 axis-flip frame check (csd: coherence; tensor: mean length).
-        export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world (csd).
+        flip_test: Run the 8 gradient-axis-flip frame check (coherence with the DTI V1).
+        export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world.
         overwrite: Replace an existing tractogram.
     """
 
-    route: Literal["auto", "csd", "tensor"] = "auto"
     algorithm: Literal["prob", "ptt"] = "prob"
     pmf_threshold: float = 0.1
     n_seeds: int = 200_000
@@ -99,7 +96,6 @@ class TrackConfig:
     max_angle: float = 30.0
     min_length_mm: float = 20.0
     max_length_mm: float = 250.0
-    fa_threshold: float = 0.2
     sh_order: int = 8
     random_seed: int = 1
     n_jobs: int = -1
@@ -108,8 +104,6 @@ class TrackConfig:
     overwrite: bool = False
 
     def __post_init__(self) -> None:
-        if self.route not in ("auto", "csd", "tensor"):
-            raise ValueError("route must be 'auto', 'csd' or 'tensor'")
         if self.algorithm not in ("prob", "ptt"):
             raise ValueError("algorithm must be 'prob' or 'ptt'")
         for name in ("n_seeds", "step_mm", "max_angle", "min_length_mm"):

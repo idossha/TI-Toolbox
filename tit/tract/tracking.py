@@ -1,32 +1,24 @@
 """Whole-brain tractography with DIPY, written in m2m T1 world (the SimNIBS mesh frame).
 
-Two routes (method spec section 3):
-
-* ``csd`` -- QSIPrep ACPC DWI: single-shell single-tissue CSD (Tournier 2007) on b0 + the
-  highest shell, anatomically constrained (Smith 2012) by charm's WM/GM/CSF labels mapped
-  into the DWI grid, probabilistic tracking. Streamlines come out in ACPC world and are
-  mapped to m2m T1 world with the exact QSIPrep chain
-  (:func:`tit.pre.qsi.tensor_math.acpc_to_t1_world`).
-* ``tensor`` -- the m2m DTI tensor (already on the T1 grid): EuDX on the principal
-  eigenvector (FACT-type deterministic tracking; cannot resolve crossings), FA stopping
-  inside charm WM.
+One route (method spec section 3): QSIPrep ACPC DWI, single-shell single-tissue CSD
+(Tournier 2007) on b0 + the highest shell, anatomically constrained (Smith 2012) by charm's
+WM/GM/CSF labels mapped into the DWI grid, probabilistic tracking. Streamlines come out in
+ACPC world and are mapped to m2m T1 world with the exact QSIPrep chain
+(:func:`tit.pre.qsi.tensor_math.acpc_to_t1_world`). A subject without QSIPrep output is
+refused before any work (:func:`csd_inputs`).
 
 DIPY tracks in voxel index space (a voxel-frame direction ``d`` steps
 ``A[:3, :3] @ (d / voxel_size)`` in world), so every direction it reads -- gradient
 directions, peak directions -- is converted from world with ``d_vox = M^-1 d_world``,
 ``M = A[:3, :3] / column norms``.
 
-The QC record carries an 8-axis-flip frame check; the unflipped frame must score highest:
+The QC record carries an 8-axis-flip frame check; the unflipped frame must score highest
+on the tangent-vs-DTI-V1 coherence (spec V4), the median ``|t . e1|`` over streamline
+points where the m2m tensor's FA > 0.4 (CSD on the high shell against the tensor's own
+b <= 1500 fit), for each gradient-axis sign flip on a central block of the brain; the same
+coherence is reported for the whole-brain tractogram.
 
-* csd route: the tangent-vs-DTI-V1 coherence (spec V4), the median ``|t . e1|`` over
-  streamline points where the m2m tensor's FA > 0.4 (CSD on the high shell against the
-  tensor's own b <= 1500 fit), for each gradient-axis sign flip on a central block of the
-  brain, and for the whole-brain tractogram;
-* tensor route: the mean streamline length for each eigenvector-axis sign flip (MRtrix
-  ``dwigradcheck``'s criterion). Its coherence against the V1 it followed would be
-  circular, so it is not reported.
-
-The csd route's ACT treats the label volume's deep grey nuclei as grey matter
+ACT treats the label volume's deep grey nuclei as grey matter
 (:data:`DEEP_GREY`; charm's tissue map calls the pallidum WM).
 """
 
@@ -58,8 +50,6 @@ SHELL_TOLERANCE = 100.0
 #: Side of the central block the flip test fits and tracks in (voxels).
 FLIP_BLOCK = 48
 FLIP_SEEDS = 4000
-#: Seeds per flip for the tensor route's whole-brain length check.
-TENSOR_FLIP_SEEDS = 20_000
 #: aseg deep grey nuclei (thalamus, caudate, putamen, pallidum, hippocampus, amygdala,
 #: accumbens). charm's final_tissues calls the pallidum WM; ACT treats them all as grey
 #: matter (a valid end). Brain stem and ventral DC stay WM: tracts run through them.
@@ -83,7 +73,7 @@ def inferior_exit(aseg: np.ndarray, fod_mask: np.ndarray) -> np.ndarray:
 
 
 class TrackingError(RuntimeError):
-    """The inputs of a route are missing or the frame check failed."""
+    """The tracking inputs are missing or the frame check failed."""
 
 
 # ── frames ───────────────────────────────────────────────────────────────
@@ -130,16 +120,34 @@ def labels_on_grid(
     return out.reshape(shape)
 
 
-# ── CSD route ────────────────────────────────────────────────────────────
+# ── tracking ─────────────────────────────────────────────────────────────
 
 
 def csd_inputs(pm, subject_id: str) -> dict:
-    """QSIPrep DWI, ``.b`` table, mask, ACPC->T1 chain and charm labels for *subject_id*."""
+    """QSIPrep DWI, ``.b`` table, mask, ACPC->T1 chain and charm labels for *subject_id*.
+
+    Raises:
+        TrackingError: no QSIPrep output, or no m2m DTI tensor (the frame check's reference).
+    """
     import nibabel as nib
 
     from tit.pre.qsi.dti_extractor import qsiprep_inputs, read_itk_transform
+    from tit.pre.utils import PreprocessError
 
-    paths = qsiprep_inputs(Path(pm.qsiprep_subject(subject_id)))
+    qsi = Path(pm.qsiprep_subject(subject_id))
+    try:
+        paths = qsiprep_inputs(qsi)
+    except PreprocessError as exc:
+        raise TrackingError(
+            f"Tractography needs QSIPrep-preprocessed DWI in {qsi} ({exc}). Run tit.pre's "
+            "QSIPrep step (PreprocessConfig run_qsiprep=True) for this subject first."
+        ) from exc
+    tensor = os.path.join(pm.m2m(subject_id), const.FILE_DTI_TENSOR)
+    if not os.path.isfile(tensor):
+        raise TrackingError(
+            f"Tractography's frame check needs the m2m DTI tensor at {tensor}. Run tit.pre's "
+            "DTI extraction (PreprocessConfig extract_dti=True) for this subject first."
+        )
     t1 = nib.load(pm.t1(subject_id))
     chain = tm.acpc_to_t1_world(
         t1.affine, t1.shape[:3], read_itk_transform(paths["xfm"])
@@ -357,7 +365,6 @@ def flip_test(
                 "flip": list(flip),
                 "n_streamlines": len(sl),
                 **coherence(sl, *tensor),
-                **_mean_length(sl),
             }
         )
         logger.info(f"flip test {flip}: {rows[-1]}")
@@ -365,7 +372,7 @@ def flip_test(
 
 
 def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
-    """The csd route; returns streamlines in ACPC world and the QC fields."""
+    """Track one subject; returns streamlines in ACPC world and the QC fields."""
     import nibabel as nib
     from scipy.ndimage import binary_dilation
 
@@ -447,7 +454,7 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     return sl, info
 
 
-# ── tensor route ─────────────────────────────────────────────────────────
+# ── QC ───────────────────────────────────────────────────────────────────
 
 
 def m2m_tensor(pm, subject_id: str) -> tuple[np.ndarray, np.ndarray]:
@@ -466,129 +473,6 @@ def tensor_peaks(t6: np.ndarray, affine: np.ndarray, mask: np.ndarray):
     vals, vecs = tm.eig_desc(tm.simnibs_to_world(t6[mask].astype(np.float64), affine))
     fa, _ = tm.fa_md(vals)
     return vecs[:, :, 0], fa
-
-
-def eudx_on_tensor(
-    t6, affine, wm, cfg, n_jobs, *, n_seeds, flip=None, return_all=False
-) -> tuple[list, int, dict]:
-    """EuDX on the principal eigenvector of a stored (SimNIBS frame) tensor field.
-
-    FA stopping at ``cfg.fa_threshold`` inside *wm*; seeds where FA >= threshold in *wm*.
-    *flip* multiplies the voxel-frame eigenvector components (the frame check). Returns
-    ``(streamlines in the affine's world, seeds used, {"wm_fa_median": ...})``.
-    """
-    from dipy.data import get_sphere
-    from dipy.direction.peaks import PeaksAndMetrics
-    from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
-    from dipy.tracking.tracker import eudx_tracking
-    from dipy.tracking.utils import random_seeds_from_mask
-
-    nonzero = np.any(t6 != 0, axis=-1)
-    e1, fa_vals = tensor_peaks(t6, affine, nonzero)
-    fa = np.zeros(t6.shape[:3])
-    fa[nonzero] = fa_vals
-    sphere = get_sphere(name="repulsion724")
-    idx = np.zeros(len(e1), dtype=np.int32)
-    e1_vox = world_to_voxel_dirs(e1, affine)
-    if flip is not None:
-        e1_vox = e1_vox * np.asarray(flip, dtype=np.float64)
-    for lo in range(0, len(e1), 100_000):
-        idx[lo : lo + 100_000] = np.argmax(
-            np.abs(e1_vox[lo : lo + 100_000] @ sphere.vertices.T), axis=1
-        )
-    del e1, e1_vox
-    pam = PeaksAndMetrics()
-    pam.sphere = sphere
-    pam.peak_indices = np.full(fa.shape + (1,), -1, dtype=np.int32)
-    pam.peak_indices[nonzero, 0] = idx
-    pam.peak_values = np.zeros(fa.shape + (1,))
-    pam.peak_values[nonzero, 0] = fa_vals
-    pam.peak_dirs = np.zeros(fa.shape + (1, 3))
-    pam.peak_dirs[nonzero, 0] = sphere.vertices[idx]
-    fa_wm = np.where(wm, fa, 0.0)
-    sc = ThresholdStoppingCriterion(fa_wm, cfg.fa_threshold)
-    seed_mask = fa_wm >= cfg.fa_threshold
-    seeds = random_seeds_from_mask(
-        seed_mask,
-        affine,
-        seeds_count=int(n_seeds),
-        seed_count_per_voxel=False,
-        random_seed=cfg.random_seed,
-    )
-    gen = eudx_tracking(
-        seeds,
-        sc,
-        affine,
-        pam=pam,
-        sphere=sphere,
-        max_angle=cfg.max_angle,
-        step_size=cfg.step_mm,
-        min_len=cfg.min_length_mm,
-        max_len=cfg.max_length_mm,
-        random_seed=cfg.random_seed,
-        nbr_threads=n_jobs,
-        return_all=return_all,
-    )
-    sl = [np.asarray(s, np.float32) for s in gen]
-    return sl, len(seeds), {"wm_fa_median": float(np.median(fa[wm & nonzero]))}
-
-
-def tensor_flip_test(t6, affine, wm, cfg, n_jobs) -> list[dict]:
-    """Mean streamline length for each of the 8 eigenvector-axis sign flips.
-
-    The check MRtrix's ``dwigradcheck`` makes: with the frame right, neighbouring voxels'
-    directions join up and streamlines run longest; a flipped axis breaks oblique and
-    curved tracts. It does not score streamlines against the field they followed.
-    """
-    rows = []
-    for flip in itertools.product((1, -1), repeat=3):
-        sl, _, _ = eudx_on_tensor(
-            t6,
-            affine,
-            wm,
-            cfg,
-            n_jobs,
-            n_seeds=TENSOR_FLIP_SEEDS,
-            flip=flip,
-            return_all=True,
-        )
-        rows.append({"flip": list(flip), "n_streamlines": len(sl), **_mean_length(sl)})
-        logger.info(f"tensor flip test {flip}: {rows[-1]}")
-    return rows
-
-
-def _mean_length(streamlines) -> dict:
-    lengths = [np.linalg.norm(np.diff(s, axis=0), axis=1).sum() for s in streamlines]
-    return {"mean_length_mm": float(np.mean(lengths)) if lengths else 0.0}
-
-
-def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
-    """The tensor route; returns streamlines in m2m T1 world and the QC fields."""
-    t6, affine = m2m_tensor(pm, subject_id)
-    labels_path = os.path.join(pm.m2m(subject_id), "final_tissues.nii.gz")
-    wm = labels_on_grid(labels_path, t6.shape[:3], affine, np.eye(4)) == WM
-    t0 = time.time()
-    sl, n_seeds, extra = eudx_on_tensor(
-        t6, affine, wm, cfg, n_jobs, n_seeds=cfg.n_seeds
-    )
-    info = {
-        "inputs": {
-            "tensor": os.path.join(pm.m2m(subject_id), const.FILE_DTI_TENSOR),
-            "labels": labels_path,
-        },
-        "n_seeds": int(n_seeds),
-        "seconds": {"tracking": round(time.time() - t0, 1)},
-        **extra,
-    }
-    if cfg.flip_test:
-        t0 = time.time()
-        info["flip_test"] = tensor_flip_test(t6, affine, wm, cfg, n_jobs)
-        info["flip_test_score"] = "mean_length_mm"
-        info["seconds"]["flip_test"] = round(time.time() - t0, 1)
-    return sl, info
-
-
-# ── QC ───────────────────────────────────────────────────────────────────
 
 
 def coherence(
@@ -638,14 +522,6 @@ def _length_stats(streamlines) -> dict:
     }
 
 
-def resolve_route(pm, subject_id: str, route: str) -> str:
-    if route != "auto":
-        return route
-    qsi = Path(pm.qsiprep_subject(subject_id))
-    has_dwi = any(qsi.glob("**/dwi/*_space-ACPC_desc-preproc_dwi.nii.gz"))
-    return "csd" if has_dwi else "tensor"
-
-
 def run_track(subject_id: str, cfg) -> dict:
     """The ``track`` stage: write ``tractogram.trx`` (m2m T1 world) and ``qc.json``.
 
@@ -660,29 +536,22 @@ def run_track(subject_id: str, cfg) -> dict:
     trx_path = os.path.join(out_dir, "tractogram.trx")
     if os.path.exists(trx_path) and not cfg.overwrite:
         raise TrackingError(f"{trx_path} exists; set track.overwrite to replace it")
-    route = resolve_route(pm, subject_id, cfg.route)
     n_jobs = resolve_n_jobs(cfg.n_jobs)
     t0 = time.time()
-    if route == "csd":
-        sl_native, info = track_csd(pm, subject_id, cfg, n_jobs)
-        chain = np.asarray(info["acpc_to_t1"])
-        if cfg.export_acpc_tck:
-            import nibabel as nib
+    sl_native, info = track_csd(pm, subject_id, cfg, n_jobs)
+    chain = np.asarray(info["acpc_to_t1"])
+    if cfg.export_acpc_tck:
+        import nibabel as nib
 
-            ref = nib.Nifti1Image(
-                np.zeros((1, 1, 1), np.uint8), np.asarray(info["dwi_affine"])
-            )
-            save_tractogram(
-                os.path.join(out_dir, "tractogram_acpc.tck"), sl_native, ref
-            )
-        sl = [apply_affine(chain, s.astype(np.float64)) for s in sl_native]
-        del sl_native
-    else:
-        sl, info = track_tensor(pm, subject_id, cfg, n_jobs)
+        ref = nib.Nifti1Image(
+            np.zeros((1, 1, 1), np.uint8), np.asarray(info["dwi_affine"])
+        )
+        save_tractogram(os.path.join(out_dir, "tractogram_acpc.tck"), sl_native, ref)
+    sl = [apply_affine(chain, s.astype(np.float64)) for s in sl_native]
+    del sl_native
     save_tractogram(trx_path, sl, pm.t1(subject_id))
     qc = {
         "subject_id": subject_id,
-        "route": route,
         "space": "m2m T1 world, RAS mm (SimNIBS mesh coordinates)",
         "config": {k: getattr(cfg, k) for k in cfg.__dataclass_fields__},
         "n_workers": n_jobs,
@@ -690,11 +559,8 @@ def run_track(subject_id: str, cfg) -> dict:
         "length_mm": _length_stats(sl),
         **info,
     }
-    if route == "csd":
-        # CSD on the high shell vs the m2m tensor's own fit (b <= 1500): two estimates
-        qc["coherence_vs_dti_v1"] = coherence(sl, *m2m_tensor(pm, subject_id))
-    else:
-        qc["coherence_vs_dti_v1"] = "not measured: the tensor route follows this V1"
+    # CSD on the high shell vs the m2m tensor's own fit (b <= 1500): two estimates
+    qc["coherence_vs_dti_v1"] = coherence(sl, *m2m_tensor(pm, subject_id))
     qc["seconds"]["total"] = round(time.time() - t0, 1)
     if qc.get("flip_test"):
         qc.update(flip_verdict(qc["flip_test"], qc["flip_test_score"]))
@@ -711,7 +577,7 @@ def flip_verdict(rows: list[dict], key: str = "median_abs_cos") -> dict:
     """Did the unflipped frame win the 8-flip test on *key*, and by how much?
 
     Flipping all three axes reflects every direction through the origin, which leaves an
-    antipodally symmetric ODF (or a tensor's eigenvector axis) unchanged, so
+    antipodally symmetric ODF unchanged, so
     ``(-1, -1, -1)`` is the unflipped frame again and the 8 flips are 4 distinct frames.
     Passed when the best score belongs to the unflipped pair; the margin is its lower
     score minus the best of the other three frames.

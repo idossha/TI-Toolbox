@@ -5,12 +5,10 @@ and an oblique anisotropic affine, with an oblique planted direction
 ``d = (0.48, -0.6, 0.64)``:
 
 * ``tensor_peaks`` of a stored (SimNIBS-frame) tensor ``l1 d d^T + l2 (I - d d^T)`` returns
-  ``+/- d`` and its FA (closed form for two equal minor eigenvalues);
-* the tensor route's EuDX tracking (``eudx_on_tensor``) runs every streamline along
-  ``+/- d`` in world (|cos| > 0.995: EuDX snaps to repulsion724 vertices), and a flipped voxel
-  axis does not (the frame check is sensitive);
-* the csd route (``fit_csd`` on DWI simulated in world coordinates as
-  ``S0 exp(-b g^T D g)``, then ``track_sh``) also runs along ``+/- d``.
+  ``+/- d`` and its FA (closed form for two equal minor eigenvalues); the frame check's
+  coherence reads the m2m tensor through it;
+* the tracker (``fit_csd`` on DWI simulated in world coordinates as
+  ``S0 exp(-b g^T D g)``, then ``track_sh``) runs along ``+/- d``.
 
 Expected values are the planted direction and the FA formula; DIPY is the tracker. SimNIBS
 and DIPY run in a child interpreter (``tests/conftest.py`` mocks them in-process). Reproduce::
@@ -52,7 +50,7 @@ def directions(sl):
     v = np.array([s[-1] - s[0] for s in sl if len(s) > 4])
     return np.abs(v @ d) / np.linalg.norm(v, axis=1)
 cfg = TrackConfig(n_seeds=300, step_mm=0.5, min_length_mm=5.0, max_length_mm=250.0,
-                  fa_threshold=0.2, max_angle=30.0)
+                  max_angle=30.0)
 """
 
 
@@ -68,7 +66,7 @@ def _child(code: str) -> str:
     return proc.stdout
 
 
-def test_tensor_route_tracks_along_the_planted_direction():
+def test_tensor_peaks_return_the_planted_direction_and_fa():
     out = _child("""
 shape = (30, 30, 30)
 evals = np.array([l1, l2, l2])
@@ -80,19 +78,12 @@ for name, m in lin.items():
     e1, fa = tr.tensor_peaks(t6, A, mask)
     assert np.allclose(np.abs(e1 @ d), 1.0, atol=1e-5), name
     assert np.allclose(fa, fa_exact, rtol=1e-4), (name, fa[0], fa_exact)
-    sl, _, _ = tr.eudx_on_tensor(t6, A, mask, cfg, 1, n_seeds=300, return_all=True)
-    cos = directions(sl)
-    # EuDX snaps to repulsion724 vertices (~5 deg apart): |cos| >= cos(5.7 deg) = 0.995
-    assert len(cos) > 50 and cos.min() > 0.995, (name, len(cos), cos.min())
-    sl_f, _, _ = tr.eudx_on_tensor(t6, A, mask, cfg, 1, n_seeds=300, flip=(-1, 1, 1),
-                                   return_all=True)
-    assert np.median(directions(sl_f)) < 0.99, name  # a flipped voxel axis is visible
-    print(name, len(cos), round(float(cos.min()), 5))
+    print(name, round(float(fa[0]), 5))
 """)
     print(out)
 
 
-def test_csd_route_tracks_along_the_planted_direction():
+def test_csd_tracks_along_the_planted_direction():
     out = _child("""
 rng = np.random.default_rng(1)
 g = rng.normal(size=(60, 3)); g /= np.linalg.norm(g, axis=1, keepdims=True)
