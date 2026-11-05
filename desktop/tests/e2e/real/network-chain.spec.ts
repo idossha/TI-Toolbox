@@ -16,13 +16,13 @@
  * Run: lockf /tmp/tit-e2e.lock env TIT_E2E_OFFSCREEN=1 TIT_E2E_SERVER_URL=... TIT_E2E_TOKEN=... \
  *   TIT_E2E_CHAIN_SUBJECT=... npx playwright test --project=real tests/e2e/real/network-chain.spec.ts
  */
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
 import { answerExistingOutputs, connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, selectSubject, setServerPanels, waitForJobTerminal } from "../_helpers";
 import { addOptRow, clearOptRows, closeOptEditor, openOptEditor, setOptCell, setOptSubject } from "../_jobs";
-import { createAndSelectMontage } from "./_simMontage";
+import { createAndSelectMontage, deleteMontage } from "./_simMontage";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -40,7 +40,7 @@ test.describe.configure({ mode: "serial" });
 let app: ElectronApplication;
 let page: Page;
 let panelsAsFound: string[] = [];
-const results: Record<string, unknown> = {};
+let results: Record<string, unknown> = {};
 const record = (key: string, value: unknown): void => {
   results[key] = value;
   writeFileSync(join(SHOTS, "chain-results.json"), JSON.stringify(results, null, 1));
@@ -85,6 +85,8 @@ async function createMask(panel: Locator): Promise<{ name: string; path: string;
 
 test.beforeAll(async () => {
   mkdirSync(SHOTS, { recursive: true });
+  // A rerun from a later step (-g) keeps what the earlier ones recorded.
+  if (existsSync(join(SHOTS, "chain-results.json"))) results = JSON.parse(readFileSync(join(SHOTS, "chain-results.json"), "utf8"));
   panelsAsFound = await getServerPanels(SERVER_URL, TOKEN);
   if (!panelsAsFound.includes("visual-exporter")) await setServerPanels(SERVER_URL, TOKEN, [...panelsAsFound, "visual-exporter"]);
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-real-")) });
@@ -219,12 +221,16 @@ test("4. the ranking's first montage is simulated from the Simulator", async () 
   await selectSubject(page, SUBJECT!);
   await gotoPage(page, "simulator", "Simulator");
   await createAndSelectMontage(page, { subject: SUBJECT!, net: `${NET}.csv`, name: SIMULATION, pairs: [[a, b], [c, d]] });
-  await expect(page.getByTestId("run-button")).toHaveText("Run simulation", { timeout: 15_000 });
+  // Every run page stays mounted, so the button is named rather than found by test id.
+  const run = page.getByRole("button", { name: "Run simulation", exact: true });
+  await expect(run).toBeEnabled({ timeout: 30_000 });
   await shot("07_simulator");
   const started = Date.now();
-  const id = await groupJobId(() => page.getByTestId("run-button").click());
+  const id = await groupJobId(() => run.click());
   await succeeded(id);
   record("simulation", { job: id, minutes: (Date.now() - started) / 60_000, electrodes: [a, b, c, d] });
+  // The montage list is the project's, shared with every subject: leave it as found.
+  await deleteMontage(page, SIMULATION).catch(() => undefined);
 });
 
 async function openNetworksTab(): Promise<void> {
@@ -244,7 +250,7 @@ async function runExport(): Promise<string[]> {
     if (r.url().endsWith("/api/jobs") && r.request().method() === "POST" && r.status() < 300) ids.push(((await r.json()) as { id: string }).id);
   };
   page.on("response", onResponse);
-  await page.getByTestId("run-button").click();
+  await page.getByRole("button", { name: "Run export", exact: true }).click();
   await expect.poll(() => ids.length, { timeout: 30_000 }).toBeGreaterThan(0);
   await page.waitForTimeout(3_000);
   page.off("response", onResponse);

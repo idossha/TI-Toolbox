@@ -50,6 +50,8 @@ NETWORK_RADIUS = 0.09
 #: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
 #: lighting them all washed the cortex (sub-CHN insula_lh: 41).
 N_LABELS, N_LIT = 3, 6
+#: A selection lights its busiest parcels only: all 64 of a hippocampal-cortical set wash the cortex.
+MAX_LIT_PARCELS = 24
 #: Glow of highlighted regions (e.g. both thalami in a named network): soft, not white.
 HIGHLIGHT_LEVEL = 0.4
 #: How far past the midline a same-side streamline must reach to count as crossing it twice.
@@ -578,6 +580,10 @@ def export_scene(
             # Highlighted regions (the thalami) at HIGHLIGHT_LEVEL; the network's cortical
             # parcels by how many of its streamlines end in them, so the busiest glow most.
             parcels = [n for n in count if n in cortical and n not in highlight]
+            if cfg.selection:
+                parcels = sorted(parcels, key=lambda n: (-count[n], n))[
+                    :MAX_LIT_PARCELS
+                ]
             busiest = max((count[n] for n in parcels), default=1)
             drawn = [
                 n for n in highlight if n in cortical or n in subcortical

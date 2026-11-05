@@ -116,11 +116,18 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
     () =>
       (presets.data ?? []).map((preset) => ({
         id: preset.id,
-        label: preset.label,
+        // The reason sits under the name: a column of its own is cut off in a narrow form.
+        label: preset.reason ? (
+          <>
+            {preset.label}
+            <span className="field-help" style={{ display: "block", whiteSpace: "normal" }}>{preset.reason}</span>
+          </>
+        ) : (
+          preset.label
+        ),
         search: `${preset.label} ${preset.id}`,
         value: preset,
         disabled: !!preset.reason,
-        reason: preset.reason ?? undefined,
         data: { state: preset.reason ? "unavailable" : "available" },
       })),
     [presets.data],

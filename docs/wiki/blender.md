@@ -99,7 +99,7 @@ records it in `manifest.json`. **Advanced** replaces any one value.
 | Setting | Automatic rule |
 |---|---|
 | Title | Two regions are named; a longer list goes by the network's name |
-| Lit regions | The regions it was chosen by, else its two busiest ends |
+| Lit regions | The regions it was chosen by, else its two busiest ends, and at most 24 parcels |
 | Views | Lateral and oblique; superior and posterior too when each hemisphere holds at least a quarter of its ends |
 | Side shown | The hemisphere holding more of its ends; left on a tie |
 | Region names | Drawn up to 6 regions, each only on a view that faces it |

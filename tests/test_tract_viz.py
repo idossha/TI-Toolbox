@@ -771,6 +771,51 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
     assert radii.min() == pytest.approx(setup["values"]["tube_radius_mm"])
 
 
+def test_a_selection_lights_only_its_busiest_parcels(tmp_path, three, monkeypatch):
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+    from tit.tract.config import Selection
+
+    monkeypatch.setattr(tp, "MAX_LIT_PARCELS", 1)
+    selection = Selection(
+        name="net", kind="edges", pairs=[["lh.a", "lh.b"], ["lh.a", "lh.c"]]
+    )
+    cfg = TractVisualConfig(
+        "x", "s", selection=selection, metric="ti_max", region_labels=False
+    )
+    # Streamlines 0 and 1 end in lh.b, one in lh.c: lh.a is the seed, lh.b the busiest parcel.
+    three.dps["edge_id"] = np.array([0, 0, 1])
+    edges = {
+        0: {"region_a": "lh.a", "region_b": "lh.b"},
+        1: {"region_a": "lh.a", "region_b": "lh.c"},
+    }
+    cortical = {
+        "lh.a": np.arange(0, 5),
+        "lh.b": np.arange(10, 15),
+        "lh.c": np.arange(20, 25),
+    }
+    sphere = _sphere()
+    bundle = tmp_path / "b"
+    tp.export_scene(
+        cfg,
+        three,
+        3,
+        (*sphere, len(sphere[0])),
+        None,
+        [],
+        str(bundle),
+        title="t",
+        synthetic=False,
+        edges=edges,
+        regions=(cortical, {}),
+        highlight=["lh.a"],
+    )
+    with np.load(bundle / "glass.npz") as glass:
+        lit = glass["lit"]
+    assert lit[10:15].min() > 0  # lh.b
+    assert lit[20:25].max() == 0  # lh.c
+
+
 def test_the_bundle_route_becomes_a_selection_of_the_edges_it_holds(three):
     from tit.blender import tract_publication as tp
     from tit.blender.config import TractVisualConfig
