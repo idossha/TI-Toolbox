@@ -283,8 +283,11 @@
  * is clipped. Raise the floor so TERMINAL/SCENE still read as real panes at the width they
  * now have. */
 @media (max-width: 1139px) {
-  .job-terminal,
-  .run-tabs {
+  .job-terminal {
     min-height: 320px;
+  }
+  /* Tall enough that the scene is usable where it now sits, under the form. */
+  .run-tabs {
+    min-height: max(320px, 72vh);
   }
 }

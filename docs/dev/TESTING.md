@@ -420,7 +420,7 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   `dev/tract_synthetic.py` back through trx-python and checks the endpoint patches against brute
   force. Renders are judged by eye: `python3 dev/tract_synthetic.py <m2m> <out>` makes a tractogram
   in a real brain, a `TractVisualConfig` job with `tractogram` pointing at it renders, and
-  `blender --background --python tit/blender/tract_scene.py -- <out>/tract_scene/manifest.json
+  `blender --background --python tit/blender/tract_scene.py -- <out>/bundle_<colour>/manifest.json
   turntable,propagation` re-renders the bundle in another Blender. The Networks tab's request and
   gates are pinned by `desktop/tests/unit/visual-exporter-*.test.ts` and
   `desktop/tests/e2e/visual-exporter.spec.ts`; `desktop/tests/e2e/real/visual-exporter-networks.spec.ts`

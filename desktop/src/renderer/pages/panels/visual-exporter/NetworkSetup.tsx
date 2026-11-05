@@ -2,6 +2,7 @@
  * What the render of a chosen network will do (`tit.blender.network_setup`): the Plan's statement of
  * it, and the Advanced fields that replace any one value. An absent key is automatic.
  */
+import type { ReactNode } from "react";
 import { useTractManifest } from "../../_shared/roi/tract";
 import { Field, TextInput } from "../../../ui/Field";
 import { NumberInput } from "../../../ui/NumberInput";
@@ -10,7 +11,7 @@ import { SelectionPicker } from "../../../ui/SelectionList";
 import { Checkbox } from "../../../ui/Toggle";
 import { removedSentence, type TractPreset } from "../../_shared/roi/networkChoice";
 
-export const NETWORK_VIEWS = ["lateral", "oblique", "superior", "posterior"];
+export const NETWORK_VIEWS = ["posterior", "superior", "lateral", "oblique"];
 const AUTO = "auto";
 
 export interface NetworkSetupRecord {
@@ -41,13 +42,45 @@ export interface NetworkSetupRecord {
 
 const count = (n: number) => n.toLocaleString("en-US");
 
-function rows(setup: NetworkSetupRecord): [string, string, string][] {
+/** `8 cingulate regions` when a word runs through them all, else `8 regions`; few are just named. */
+export function summarizeRegions(regions: readonly string[]): string {
+  if (regions.length <= 3) return regions.join(", ");
+  const bare = regions.map((r) => r.replace(/^(lh\.|rh\.|Left-|Right-)/, "").toLowerCase());
+  const first = bare[0]!;
+  for (let size = first.length; size >= 5; size -= 1) {
+    for (let at = 0; at + size <= first.length; at += 1) {
+      const word = first.slice(at, at + size);
+      if (bare.every((name) => name.includes(word))) return `${regions.length} ${word} regions`;
+    }
+  }
+  return `${regions.length} regions`;
+}
+
+/** The setup in a few words, for the collapsed section's own title. */
+export function setupSummary(setup: NetworkSetupRecord): string {
+  const v = setup.values;
+  const drawn = setup.n_drawn < setup.n_streamlines ? `${count(setup.n_drawn)} of ${count(setup.n_streamlines)} drawn` : null;
+  return [v.views.join(" + "), v.lateral_side < 0 ? "left side" : "right side", drawn, v.iso_shell_percentile === null ? "no shell" : `shell p${v.iso_shell_percentile}`].filter(Boolean).join(" · ");
+}
+
+function rows(setup: NetworkSetupRecord): [string, string, ReactNode][] {
   const v = setup.values;
   const drawn = setup.n_drawn < setup.n_streamlines ? `${count(setup.n_drawn)} of ${count(setup.n_streamlines)}, evenly sampled` : `all ${count(setup.n_streamlines)}`;
   return [
     ["title", "Title", v.title],
     ["caption", "Caption", v.caption ?? "Network, streamlines drawn, medians along the fibres"],
-    ["highlight_regions", "Lit regions", v.highlight_regions.join(", ")],
+    [
+      "highlight_regions",
+      "Lit regions",
+      v.highlight_regions.length > 3 ? (
+        <details>
+          <summary>{summarizeRegions(v.highlight_regions)}</summary>
+          {v.highlight_regions.join(", ")}
+        </details>
+      ) : (
+        summarizeRegions(v.highlight_regions)
+      ),
+    ],
     ["views", "Views", v.views.join(", ")],
     ["lateral_side", "Side shown", v.lateral_side < 0 ? "left" : "right"],
     ["region_labels", "Region names", v.region_labels ? "drawn" : "none"],
@@ -58,12 +91,11 @@ function rows(setup: NetworkSetupRecord): [string, string, string][] {
   ];
 }
 
-/** The Plan's block: every value the render will use, why, and whether the user set it. */
+/** Every value the render will use, why, and whether the user set it, in the form that overrides it. */
 export function NetworkSetupPlan({ setup }: { setup: NetworkSetupRecord }) {
   const removed = setup.opposite_removed;
   return (
     <div data-testid="network-setup-plan">
-      <div className="card-title" style={{ marginBottom: "var(--space-2)" }}>Automatic setup</div>
       {removed && (
         <p className="field-help" data-testid="network-setup-removed">
           {removedSentence({
@@ -96,13 +128,14 @@ function withKey(overrides: Record<string, unknown>, key: string, value: unknown
 }
 
 /** Every automatic value's override. Leaving a field empty or on Automatic leaves it automatic. */
-export function NetworkAdvanced({ subject, overrides, onChange, auto, disabled }: {
+export function NetworkAdvanced({ subject, overrides, onChange, setup, disabled }: {
   subject: string;
   overrides: Record<string, unknown>;
   onChange: (overrides: Record<string, unknown>) => void;
-  auto?: NetworkSetupRecord["values"];
+  setup?: NetworkSetupRecord;
   disabled?: boolean;
 }) {
+  const auto = setup?.values;
   const manifest = useTractManifest(subject);
   const regionItems = (manifest.data?.regions ?? []).map((r) => ({ id: r.name, label: r.name, detail: r.cortical ? "cortical" : "subcortical", search: r.name }));
   const set = (key: string, value: unknown) => onChange(withKey(overrides, key, value));
@@ -111,7 +144,8 @@ export function NetworkAdvanced({ subject, overrides, onChange, auto, disabled }
   const shell = "iso_shell_percentile" in overrides ? (overrides.iso_shell_percentile === null ? "off" : "set") : AUTO;
   return (
     <details data-testid="network-advanced">
-      <summary className="card-title">Advanced</summary>
+      <summary className="card-title">Setup{setup ? <span className="field-help" data-testid="network-setup-summary"> · {setupSummary(setup)}</span> : null}</summary>
+      {setup && <NetworkSetupPlan setup={setup} />}
       <div className="form-grid" style={{ marginTop: "var(--space-2)" }}>
         <Field label="Title" htmlFor="ve-setup-title">
           <TextInput id="ve-setup-title" value={(overrides.title as string) ?? ""} placeholder={auto?.title ?? "Automatic"} disabled={disabled} onChange={(e) => set("title", e.target.value || undefined)} />

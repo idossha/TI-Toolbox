@@ -54,6 +54,7 @@ const SIMULATIONS: readonly QueryKey[] = [
 
 const SEARCH_RESULTS: readonly QueryKey[] = [
   ["plan"],
+  ["ex-run-montages"],
   ["results-flex-runs"],
   ["results-ex-runs"],
   ["results-file-text"],

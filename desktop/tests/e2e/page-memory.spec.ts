@@ -29,7 +29,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, openSceneLayers } from "./_helpers";
 import { activePage as activePageOf, fingerprint, settle, useThePage } from "./_pageMemory";
 import { waitForScene } from "./_runPane";
 
@@ -465,6 +465,7 @@ test("pane collapse and expansion retain the live canvas, work DOM and a scrolle
   // embed's spinbuttons went with the embed). The grey matter is always opaque and has no control.
   // Nudge the skin off its default with the keyboard and remember what it became — the point of
   // the test is that collapsing the pane does not reset it.
+  await openSceneLayers(current);
   const skin = current.getByRole("slider", { name: "Skin opacity" });
   await expect(current.getByRole("slider", { name: "GM opacity" })).toHaveCount(0);
   await skin.focus();

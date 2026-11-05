@@ -18,8 +18,9 @@ from collections import Counter
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-#: The stills of a network with both hemispheres in it, and of one lying mostly on one side.
-BILATERAL_VIEWS = ("lateral", "oblique", "superior", "posterior")
+#: The two stills of a network: from behind and above when both hemispheres hold it, where a side
+#: view shows half; from its own side and obliquely when it lies mostly on one.
+BILATERAL_VIEWS = ("posterior", "superior")
 ONE_SIDE_VIEWS = ("lateral", "oblique")
 #: Every view a config may ask for.
 ALL_VIEWS = ("lateral", "superior", "oblique", "posterior")
@@ -207,7 +208,7 @@ def resolve_network_setup(
             else "No seed: the busiest ends of the network."
         ),
         "views": (
-            "Both hemispheres hold a quarter of its ends or more."
+            "Both hemispheres hold a quarter of its ends or more: a side view shows half of it."
             if bilateral
             else "It lies mostly in one hemisphere."
         ),

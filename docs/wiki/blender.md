@@ -87,20 +87,37 @@ Dermon & Barbas 1994, *J Comp Neurol*,
 
 **Running.** **Run export** on a network the simulation cannot draw yet queues the tract job's `assess`
 stage first (about 3 min under emulation; fields along every streamline, one small `<name>.trx`), and the
-render waits for it. A simulation with `all.trx` needs no assess. Files carry the network's name
-(`<sid>_<sim>_<network>_tract_<metric>_<view>.png`, bundle under `tract_scene/<network>_<metric>/`), so
-networks of one simulation sit side by side. The Plan says **will overwrite** only when this network in
-this colouring has files already, or when a bundle of this name holds other edges; you are asked before
-anything is queued.
+render waits for it. A simulation with `all.trx` needs no assess.
 
-**Automatic setup.** The Plan lists what the render will use, with a reason for each, and the render
-records it in `manifest.json`. **Advanced** replaces any one value.
+**Where renders go.** One folder per network, named for what each file shows, since the caption drawn in
+the image already names the subject, simulation and network:
+
+```
+visual_exports/sub-<id>/<sim>/networks/<network>/
+  ti_max_posterior.png  ti_max_superior.png  direction_posterior.png  ...
+  ti_max_turntable.mp4
+  network.json
+```
+
+`network.json` holds the selection, the code version and, per colour, the automatic setup used, the counts
+drawn and removed, the files, and the config to render it again:
+`simnibs_python -m tit.blender network.json ti_max`. The same network, colour and view replaces its own
+file and nothing else; the Plan names the files it would replace, and you are asked before anything is
+queued. The render's working bundle is deleted when the render succeeds, and kept when it fails
+(`bundle_<colour>/`), or always with `keep_bundle` in the config. The **Renders** tab beside **Terminal** and
+**Scene** shows them by network, one network open at a time.
+
+**The Scene pane** fills the column while you choose. The Plan is one line above it, opening on a click, and
+**Layers** at the pane's corner opens the legend and the opacity sliders over the canvas.
+
+**Setup.** The **Setup** section of the form lists what the render will use, with a reason for each when you
+rest on it, and replaces any one value.
 
 | Setting | Automatic rule |
 |---|---|
 | Title | Two regions are named; a longer list goes by the network's name |
 | Lit regions | The regions it was chosen by, else its two busiest ends, and at most 24 parcels |
-| Views | Lateral and oblique; superior and posterior too when each hemisphere holds at least a quarter of its ends |
+| Views | Two stills: posterior and superior when each hemisphere holds at least a quarter of its ends, where a side view shows half of it; else lateral on its side and oblique |
 | Side shown | The hemisphere holding more of its ends; left on a tie |
 | Region names | Drawn up to 6 regions, each only on a view that faces it |
 | Streamlines drawn | All up to 8,000, then an even sample, and the caption says how many |
@@ -113,7 +130,7 @@ Other options:
 - **Colour by:** **Fibre direction (RGB)**, the local tangent, or **TI_max**, the field magnitude
   along each fibre averaged over ±3 mm for display. A turntable in TI_max opens in fibre direction and
   crossfades.
-- **Stills** and a **Turntable video**.
+- **Stills**, and a **Turntable video**, which is off until you ask for it.
 - **Quality:** **Fast preview** (960x640 stills, a 4 s turntable at 960x540) checks a choice before
   **Final** (2400x1600 stills, a 5 s turntable at 1920x1080).
 - **Thalamocortical sequence:** one video of `all.trx` in which the frontal, then the posterior
@@ -127,12 +144,12 @@ Every colour shows a field descriptor along the fibres, not a prediction of acti
 
 Renders run in the container's Blender. On Apple Silicon that is emulated: a preview frame takes
 about a minute, so a sequence (864 frames, 216 in a preview) takes many hours, while a local Blender
-renders the same frame in seconds. To use one, run the job, stop it once its `tract_scene/` bundles exist,
-and re-render them:
+renders the same frame in seconds. To use one, run the job, stop it once its bundles exist under
+`networks/thalamocortical_sequence/`, and re-render them:
 
 ```bash
 blender --background --factory-startup --python tit/blender/tract_scene.py -- sequence \
-  tract_scene/frontal/manifest.json tract_scene/posterior/manifest.json <output_dir> <name> [preview]
+  bundle_frontal/manifest.json bundle_posterior/manifest.json <output_dir> <name> [preview]
 ```
 
 ### Cortical Regions

@@ -740,7 +740,7 @@ function outputDirFor(kind, subject, config) {
       const sim = String(cfg.simulation_name ?? "").trim();
       if (!sim) return "";
       if (type === "VectorConfig") return `${veBase}/${sim}/vectors`;
-      if (type === "TractVisualConfig") return `${veBase}/${sim}/tract`;
+      if (type === "TractVisualConfig") return `${veBase}/${sim}/networks/${tractNetworkName(cfg)}`;
       if (type === "RegionConfig") return `${veBase}/${sim}/${String(cfg.format ?? "stl").toLowerCase()}`;
       return "";
     }
@@ -763,15 +763,20 @@ function assessReplaces(subject, cfg) {
   const names = (cfg.assess?.selections ?? [{ name: "all" }]).map((s) => s.name);
   return !!outputs && (names.length ? names.some((name) => outputs.networks.includes(name)) : outputs.has_edges);
 }
-/** `tit.blender.tract_publication.output_stem`. */
-function tractRenderStem(subject, cfg) {
-  const network = cfg.selection?.name ?? cfg.network_bundle;
-  return `${subject}_${cfg.simulation_name}${network ? `_${network}` : ""}_tract_${cfg.metric ?? "ti_along"}`;
+/** `tit.blender.tract_publication.network_slug`. */
+function tractNetworkName(cfg) {
+  return cfg.thalamocortical_sequence ? "thalamocortical_sequence" : (cfg.selection?.name ?? cfg.network_bundle ?? "all");
 }
-/** `replaced_outputs`: a render replaces only its own network's files. */
+function tractRendersOf(subject, cfg) {
+  return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).filter((r) => r.network === tractNetworkName(cfg));
+}
+/** `planned_outputs`: this mock's renders are one lateral still per network and colour. */
+function replacedRenders(subject, cfg) {
+  const metric = cfg.metric ?? "ti_along";
+  return tractRendersOf(subject, cfg).filter((r) => r.colour === metric).map((r) => r.name);
+}
 function renderReplaces(subject, cfg) {
-  const stem = `${tractRenderStem(subject, cfg)}_`;
-  return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).some((r) => r.name.startsWith(stem));
+  return replacedRenders(subject, cfg).length > 0;
 }
 /** `resolve_network_setup`'s answer in the shape the Plan reads, from the mock's own edge counts. */
 function mockNetworkSetup(cfg) {
@@ -816,7 +821,7 @@ function existsForFixture(kind, subject, config) {
   // A `simulation_networks.json` entry is a simulation with a `tract/` folder, listed bundles or not.
   if (kind === "tract") return isTractAssess(cfg) && `${subject}/${cfg.assess.simulations?.[0]}` in simulationNetworks;
   // `_plan_blender`: a tract render's folder exists once something is rendered there.
-  if (kind === "blender" && cfg._type === "TractVisualConfig") return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).length > 0;
+  if (kind === "blender" && cfg._type === "TractVisualConfig") return tractRendersOf(subject, cfg).length > 0;
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -911,7 +916,9 @@ function resolveMontageSources(montageSources, ids) {
 }
 function resolvedFor(kind, config, montageSources, ids) {
   const cfg = config && typeof config === "object" ? config : {};
-  if (kind === "blender" && cfg._type === "TractVisualConfig" && cfg.selection) return { network_setup: mockNetworkSetup(cfg) };
+  if (kind === "blender" && cfg._type === "TractVisualConfig") {
+    return { replaced_outputs: ids.flatMap((subject) => replacedRenders(subject, cfg)), ...(cfg.selection ? { network_setup: mockNetworkSetup(cfg) } : {}) };
+  }
   if (kind === "sim") {
     const montages = [...(Array.isArray(cfg.montages) ? cfg.montages : []), ...resolveMontageSources(montageSources, ids)];
     return montages.length ? { montages } : null;
@@ -1648,8 +1655,11 @@ function finishJob(job) {
     if (job.status.kind === "blender" && cfg._type === "TractVisualConfig" && cfg.selection) {
       const key = `${cfg.subject_id}/${cfg.simulation_name}`;
       const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
-      const name = `${tractRenderStem(cfg.subject_id, cfg)}_lateral.png`;
-      simulationNetworks[key] = { ...earlier, renders: [{ path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/tract/${name}`, name, kind: "image", modified_at: nowIso() }, ...earlier.renders.filter((r) => r.name !== name)] };
+      const network = tractNetworkName(cfg);
+      const colour = cfg.metric ?? "ti_along";
+      const name = `${colour}_lateral.png`;
+      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), network, colour, view: "lateral" };
+      simulationNetworks[key] = { ...earlier, renders: [render, ...earlier.renders.filter((r) => r.path !== render.path)] };
     }
   }
   job.status.finished_at = nowIso();

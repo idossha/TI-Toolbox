@@ -22,7 +22,9 @@ from __future__ import annotations
 import json
 import math
 import os
+import shutil
 import sys
+import tempfile
 import time
 
 import numpy as np
@@ -879,24 +881,27 @@ def video_output(scene, path_stem: str, fps: int = 24) -> None:
 
 
 def _render_movie(scene, out_dir: str, name: str, fps: int = 24) -> str:
+    """The movie, moved into *out_dir* only when whole.
+
+    Blender writes it frame by frame under a name with the frame range in it, so it goes to a
+    temporary folder: a failed or killed render must leave nothing in the output folder.
+    """
     import bpy
 
-    stem = os.path.join(out_dir, f".{name}_")
-    video_output(scene, stem, fps)
-    bpy.ops.render.render(animation=True)
-    produced = [
-        f
-        for f in os.listdir(out_dir)
-        if f.startswith(f".{name}_") and f.endswith(".mp4")
-    ]
-    if not produced:
-        raise RuntimeError(f"Blender wrote no movie for {name}")
-    final = os.path.join(out_dir, f"{name}.mp4")
-    os.replace(os.path.join(out_dir, produced[0]), final)
-    return final
-
-
-# ── scene ────────────────────────────────────────────────────────────────────
+    working = tempfile.mkdtemp(prefix="tit-movie-")
+    try:
+        video_output(scene, os.path.join(working, "movie_"), fps)
+        bpy.ops.render.render(animation=True)
+        produced = [f for f in os.listdir(working) if f.endswith(".mp4")]
+        if not produced:
+            raise RuntimeError(f"Blender wrote no movie for {name}")
+        final = os.path.join(out_dir, f"{name}.mp4")
+        part = f"{final}.part"
+        shutil.copyfile(os.path.join(working, produced[0]), part)
+        os.replace(part, final)
+        return final
+    finally:
+        shutil.rmtree(working, ignore_errors=True)
 
 
 def _fibres(name, path, material):

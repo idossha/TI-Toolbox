@@ -939,7 +939,7 @@ def _blender_output_dir(pm: PathManager, config: Any) -> str:
     ``VectorConfig``       ``visual_exports/sub-<id>/<sim>/vectors``    (vector_field_exporter.py)
     ``MontageConfig``      ``visual_exports/sub-<id>/montage_publication`` (montage_publication.py)
     ``SubcorticalConfig``  ``visual_exports/sub-<id>/sub-cortical``     (subcortical_exporter.py)
-    ``TractVisualConfig``        ``visual_exports/sub-<id>/<sim>/tract``      (tract_publication.py)
+    ``TractVisualConfig``  ``visual_exports/sub-<id>/<sim>/networks/<network>`` (tract_publication.py)
 
     An ``output_dir`` already on the config always wins -- montage and sub-cortical both
     accept one, and a caller that set it means it.
@@ -968,7 +968,9 @@ def _blender_output_dir(pm: PathManager, config: Any) -> str:
     if name == "RegionConfig":
         return os.path.join(base, sim, str(config.format).lower())
     if name == "TractVisualConfig":
-        return os.path.join(base, sim, "tract")
+        from tit.blender.tract_publication import network_output_dir
+
+        return network_output_dir(config, os.path.join(base, sim))
     return ""
 
 
@@ -986,9 +988,14 @@ def _plan_blender(
     if type(config).__name__ == "TractVisualConfig":
         from tit.blender.tract_publication import replaced_outputs
 
-        # Tract renders share a folder, and the names say which network: only these are replaced.
-        will_overwrite = exists and bool(replaced_outputs(config, output_dir))
-        resolved = _network_setup(pm, config)
+        # A network's folder holds its other colours and views: only these are replaced.
+        setup = _network_setup(pm, config)
+        views = setup["values"]["views"] if setup else None
+        replaced = replaced_outputs(config, output_dir, views)
+        will_overwrite = bool(replaced)
+        resolved = {"replaced_outputs": replaced}
+        if setup:
+            resolved["network_setup"] = setup
     return [
         PlanJob(
             kind=kind,
@@ -1048,7 +1055,7 @@ def _network_setup(pm: PathManager, config: Any) -> dict[str, Any] | None:
         setup["opposite_removed"] = opposite_removed(
             resolve_preset(preset, names, pairs, values), selection.pairs
         )
-    return {"network_setup": setup}
+    return setup
 
 
 def _require_outputs_inside_project(pm: PathManager, jobs: list[PlanJob]) -> None:

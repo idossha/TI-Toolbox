@@ -3,13 +3,18 @@
 :func:`run_tract` reads a simulation's ``tract/`` directory (see :mod:`tit.blender.tract_data`)
 and the subject's anatomy, then writes:
 
-- ``tract_scene/``: the render bundle (``manifest.json`` plus ``.npz`` arrays, paths relative
-  to the manifest) that :mod:`tit.blender.tract_scene` renders in Blender's own Python. Kept so
-  another Blender build can re-render it:
-  ``blender --background --python tit/blender/tract_scene.py -- tract_scene/manifest.json``;
-- the stills, turntable and propagation MP4s Blender writes beside it;
-- ``<sid>_<sim>_tract_viewer.html`` (:mod:`tit.plotting.tract_web`) and
-  ``<sid>_<sim>_connectome_<metric>.png`` (:mod:`tit.plotting.tract_connectome`).
+``visual_exports/sub-<id>/<sim>/networks/<network>/``, one folder per network (``all`` for a
+render of the whole tractogram):
+
+- ``<colour>_<view>.png`` and ``<colour>_turntable.mp4``, which Blender renders from a temporary
+  bundle (``bundle_<colour>/``, ``manifest.json`` plus ``.npz`` arrays) that
+  :mod:`tit.blender.tract_scene` reads in Blender's own Python. The bundle is deleted after a
+  successful render, and kept after a failed one or with ``keep_bundle``;
+- ``network.json``: per colour the config that re-renders it
+  (``simnibs_python -m tit.blender network.json <colour>``), the resolved setup, the counts and
+  the files, with the selection and the code version;
+- ``tract_viewer.html`` (:mod:`tit.plotting.tract_web`) and ``connectome_<metric>.png``
+  (:mod:`tit.plotting.tract_connectome`) when asked for.
 
 Every quantity drawn is a field descriptor along the fibres, not a prediction of activation.
 """
@@ -20,8 +25,9 @@ import glob
 import json
 import logging
 import os
+import shutil
 import subprocess
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import numpy as np
@@ -381,58 +387,103 @@ def select_network(
 
 
 def network_slug(cfg) -> str:
-    """The network's name in file names, ``""`` for a render of a whole tractogram."""
+    """The network's folder name: a selection's, a bundle's, or ``all`` for a whole tractogram."""
+    if cfg.thalamocortical_sequence:
+        return "thalamocortical_sequence"
     if cfg.selection is not None:
         return cfg.selection.name
     named = (cfg.network_bundle or cfg.network_name or "").strip()
-    return "".join(c if c.isalnum() or c in "_-" else "_" for c in named)
+    return "".join(c if c.isalnum() or c in "_-" else "_" for c in named) or "all"
 
 
-def output_stem(cfg) -> str:
-    """``<sid>_<sim>[_<network>]_tract_<metric>``: networks and metrics never share a file."""
-    slug = network_slug(cfg)
-    parts = [cfg.subject_id.strip(), cfg.simulation_name.strip()] + (
-        [slug] if slug else []
-    )
-    return "_".join(parts) + f"_tract_{cfg.metric}"
+def network_output_dir(cfg, simulation_exports: str) -> str:
+    """``networks/<network>/`` of a simulation's exports, or the ``output_dir`` the config names."""
+    explicit = (cfg.output_dir or "").strip()
+    return explicit or os.path.join(simulation_exports, "networks", network_slug(cfg))
 
 
-def scene_folder(cfg) -> str:
-    """A network's bundle has a folder of its own, under ``tract_scene/``."""
-    slug = network_slug(cfg)
-    return (
-        os.path.join("tract_scene", f"{slug}_{cfg.metric}") if slug else "tract_scene"
-    )
+def bundle_folder(cfg) -> str:
+    """Where a run's temporary render bundle lies, inside the network's folder."""
+    return f"bundle_{cfg.metric}"
 
 
-def replaced_outputs(cfg, out_dir: str) -> list[str]:
-    """The files in *out_dir* this config's run would replace; the Plan's "will overwrite".
-
-    A selection's automatic views depend on the network, and its stem on nothing else, so all
-    four are looked for: a render of this network in this metric made any of them.
-    """
-    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
+def planned_outputs(cfg, views=None) -> list[str]:
+    """The files this config's run writes, named as they will be. *views*: the resolved ones."""
     if cfg.thalamocortical_sequence:
-        names = [f"{sid}_{sim}_thalamocortical_sequence.mp4"]
-    else:
-        stem = output_stem(cfg)
-        names = []
-        if cfg.stills:
-            views = cfg.views or (
-                ALL_VIEWS if cfg.selection else ("lateral", "superior", "oblique")
-            )
-            names += [f"{stem}_{view}.png" for view in views]
-        names += [
-            f"{stem}_{video}.mp4"
-            for video, wanted in (
-                ("turntable", cfg.turntable),
-                ("propagation", cfg.propagation),
-            )
-            if wanted
-        ]
-        if cfg.web:
-            names.append(f"{sid}_{sim}_tract_viewer.html")
-    return [n for n in names if os.path.isfile(os.path.join(out_dir, n))]
+        return ["ti_max_sequence.mp4"]
+    metric = str(cfg.metric)
+    names = []
+    if cfg.stills:
+        chosen = views or cfg.views or ALL_VIEWS[:3]
+        names += [f"{metric}_{view}.png" for view in chosen]
+    if cfg.turntable:
+        names.append(f"{metric}_turntable.mp4")
+    if cfg.propagation:
+        names.append(f"{metric}_propagation.mp4")
+    if cfg.web:
+        names.append("tract_viewer.html")
+    return names
+
+
+def replaced_outputs(cfg, out_dir: str, views=None) -> list[str]:
+    """The files in *out_dir* this config's run would replace; the Plan's "will overwrite"."""
+    return [
+        n
+        for n in planned_outputs(cfg, views)
+        if os.path.isfile(os.path.join(out_dir, n))
+    ]
+
+
+def _remove_bundles(cfg, out: str, folders: list[str]) -> None:
+    """A successful render leaves no bundle behind, unless the config asked to keep it."""
+    if cfg.keep_bundle:
+        return
+    for folder in folders:
+        shutil.rmtree(os.path.join(out, folder), ignore_errors=True)
+
+
+def write_network_record(out: str, cfg, original, setup: dict | None) -> str:
+    """``network.json``: what each colour of this network was rendered from, and how.
+
+    One entry per colour, replaced when that colour is rendered again. ``config`` re-renders it:
+    ``simnibs_python -m tit.blender network.json <colour>``.
+    """
+    from datetime import datetime, timezone
+
+    import tit
+    from tit.config_io import serialize_config
+
+    path = os.path.join(out, "network.json")
+    record = {}
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as stream:
+            record = json.load(stream)
+    selection = cfg.selection
+    views = setup["values"]["views"] if setup else None
+    colours = dict(record.get("colours") or {})
+    colours[str(cfg.metric)] = {
+        "config": serialize_config(original),
+        "setup": setup,
+        "files": [
+            n
+            for n in planned_outputs(cfg, views)
+            if os.path.isfile(os.path.join(out, n))
+        ],
+        "rendered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    }
+    record = {
+        "network": network_slug(cfg),
+        "subject_id": cfg.subject_id.strip(),
+        "simulation": cfg.simulation_name.strip(),
+        "selection": asdict(selection) if selection else None,
+        "preset": cfg.preset,
+        "code_version": tit.__version__,
+        "colours": colours,
+    }
+    with open(path + ".tmp", "w", encoding="utf-8") as stream:
+        json.dump(record, stream, indent=1, allow_nan=False)
+    os.replace(path + ".tmp", path)
+    return path
 
 
 def _simplified(vertices: np.ndarray, triangles: np.ndarray, budget: int):
@@ -692,7 +743,6 @@ def export_scene(
         ticks = [[f, f"{f * vmax:.2f}"] for f in (0.0, 0.5, 1.0)]
     travel = float(np.percentile(arrive.max(1), 98))
     frames = int(min(FRONT_MAX_FRAMES, np.ceil(travel) + FRONT_HOLD_FRAMES))
-    stem = output_stem(cfg)
     shown_text = (caption or f"{tracts.n:,} of {n_total:,} streamlines") + (
         ""
         if named
@@ -736,9 +786,8 @@ def export_scene(
             if cfg.roi_center_mm is not None
             else None
         ),
-        # A network's bundle lies one folder deeper (scene_folder), beside no other's.
-        "output_dir": "../.." if network_slug(cfg) else "..",
-        "stem": stem,
+        "output_dir": "..",
+        "stem": metric,
         "stills": bool(cfg.stills),
         "views": list(cfg.views),
         "preview": str(cfg.quality) == "preview",
@@ -1025,7 +1074,7 @@ def _render_sequence(
                 glass,
                 scalp,
                 electrodes,
-                os.path.join(out, "tract_scene", key),
+                os.path.join(out, f"bundle_{key}"),
                 title=net.network_name,
                 synthetic=synthetic,
                 shell=shell,
@@ -1033,7 +1082,8 @@ def _render_sequence(
             )
         )
     extra = ["preview"] if str(cfg.quality) == "preview" else []
-    render("sequence", *manifests, out, f"{sid}_{sim}_thalamocortical_sequence", *extra)
+    render("sequence", *manifests, out, "ti_max_sequence", *extra)
+    _remove_bundles(cfg, out, [f"bundle_{key}" for key in configs])
 
 
 def _tractogram_name(cfg, sim_dir: str) -> str:
@@ -1070,8 +1120,12 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
         os.path.join(sim_dir, "tract"), _tractogram_name(cfg, sim_dir)
     )
     tract_dir = os.path.dirname(path)
-    out = (cfg.output_dir or "").strip() or os.path.join(
-        pm.ti_toolbox(), "visual_exports", f"{const.PREFIX_SUBJECT}{sid}", sim, "tract"
+    original = cfg
+    out = network_output_dir(
+        cfg,
+        os.path.join(
+            pm.ti_toolbox(), "visual_exports", f"{const.PREFIX_SUBJECT}{sid}", sim
+        ),
     )
     os.makedirs(out, exist_ok=True)
 
@@ -1104,7 +1158,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
     if cfg.web:
         from tit.plotting.tract_web import write_viewer
 
-        viewer = os.path.join(out, f"{sid}_{sim}_tract_viewer.html")
+        viewer = os.path.join(out, "tract_viewer.html")
         write_viewer(
             viewer, tracts, glass[:2], electrodes, edges, title=title, n_total=n_total
         )
@@ -1114,7 +1168,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
 
         for npz in sorted(glob.glob(os.path.join(tract_dir, "connectome_*.npz"))):
             metric = Path(npz).stem.removeprefix("connectome_")
-            png = os.path.join(out, f"{sid}_{sim}_connectome_{metric}.png")
+            png = os.path.join(out, f"connectome_{metric}.png")
             plot_connectome(npz, png, title=title)
             log.info(f"wrote {png}")
     if cfg.stills or cfg.turntable or cfg.propagation or cfg.thalamocortical_sequence:
@@ -1137,6 +1191,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 synthetic=synthetic,
                 log=log,
             )
+            write_network_record(out, cfg, original, None)
             return out
         kwargs = {}
         setup = None
@@ -1201,10 +1256,12 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             glass,
             scalp,
             electrodes,
-            os.path.join(out, scene_folder(cfg)),
+            os.path.join(out, bundle_folder(cfg)),
             title=title,
             synthetic=synthetic,
             **kwargs,
         )
         render(manifest)
+        write_network_record(out, cfg, original, setup)
+        _remove_bundles(cfg, out, [bundle_folder(cfg)])
     return out

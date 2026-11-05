@@ -10,8 +10,7 @@ import { markersFromElectrodes } from "../../_shared/scene/model";
 import { openView } from "../../viewer/api";
 import { Button } from "../../../ui/Button";
 import { openNativeScene, exportNativeScene } from "../../../viewer/native";
-import { getAtlasRegions, type SimulationNetworks } from "./api";
-import { NetworkRenders } from "./NetworkRenders";
+import { getAtlasRegions } from "./api";
 import type { Mode } from "./config";
 import {
   exportRegionKey,
@@ -37,7 +36,6 @@ export interface ExportPreviewProps {
   labels: number[];
   niftiPath: string;
   fieldName: string;
-  networkRenders: SimulationNetworks["renders"];
   /** The network being chosen, drawn live; `null` while the tab draws a file or the sequence. */
   networkValue?: NetworkRoiValue | null;
   onNetworkChange?: (value: RoiValue) => void;
@@ -95,17 +93,10 @@ export function ExportPreview(props: ExportPreviewProps) {
       </p>
     );
   if (mode === "networks")
-    return (
-      <div className="network-preview" data-testid="network-preview">
-        {props.networkValue && (
-          <div className="network-preview-pane">
-            <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} />
-          </div>
-        )}
-        <div className="network-preview-renders">
-          <NetworkRenders renders={props.networkRenders} />
-        </div>
-      </div>
+    return props.networkValue ? (
+      <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} />
+    ) : (
+      <p className="field-help">An existing file or the sequence draws what it holds: nothing to choose here. Its renders are in the Renders tab.</p>
     );
   if (mode === "subcortical" || mode === "vectors") {
     if (mode === "subcortical" && !volumePath)

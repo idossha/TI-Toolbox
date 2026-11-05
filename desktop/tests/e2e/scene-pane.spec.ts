@@ -20,7 +20,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, openSceneLayers } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows, setOptCell } from "./_jobs";
 import { cameraPosition, type OrbitCamera } from "../../src/renderer/scene/camera";
@@ -340,6 +340,7 @@ test("the grey matter is opaque everywhere, with the skin the only surface that 
     });
     expect(gm, `${pageId} draws no grey matter`).not.toBeNull();
     expect(gm!.opacity, `${pageId} draws translucent grey matter`).toBe(1);
+    await openSceneLayers(panel);
     await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toHaveCount(0);
     await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toHaveCount(1);
   }

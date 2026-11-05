@@ -945,19 +945,31 @@ def _render(name: str, metric: str = "ti_max") -> dict:
     }
 
 
-def test_the_plan_of_a_render_says_only_its_own_files_are_replaced(
+def test_the_plan_of_a_render_names_exactly_what_it_replaces(
     client: TestClient, project: Path
 ) -> None:
-    out = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/tract"
-    out.mkdir(parents=True)
-    (
-        out / "S1_sim1_tract_ti_max_lateral.png"
-    ).touch()  # a render from before names held a network
-    (out / "S1_sim1_other_tract_ti_max_lateral.png").touch()
-    assert _plan_replaces(client, "blender", _render("mine")) == [False]
-    (out / "S1_sim1_mine_tract_ti_max_lateral.png").touch()
-    assert _plan_replaces(client, "blender", _render("mine")) == [True]
-    assert _plan_replaces(client, "blender", _render("mine", "direction")) == [False]
+    def replaced(name: str, metric: str = "ti_max") -> tuple[bool, list[str], str]:
+        body = client.post(
+            "/api/plan/blender",
+            json={"config": _render(name, metric), "subject_ids": ["S1"]},
+        ).json()
+        job = body["jobs"][0]
+        return (
+            job["will_overwrite"],
+            body["resolved"]["replaced_outputs"],
+            job["output_dir"],
+        )
+
+    out = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks"
+    (out / "other").mkdir(parents=True)
+    (out / "other" / "ti_max_lateral.png").touch()
+    # The network here (one edge, left and midline) lies on one side: lateral and oblique.
+    assert replaced("mine") == (False, [], str(out / "mine"))
+    (out / "mine").mkdir()
+    (out / "mine" / "ti_max_lateral.png").touch()
+    (out / "mine" / "ti_max_superior.png").touch()  # not a view this run draws
+    assert replaced("mine")[:2] == (True, ["ti_max_lateral.png"])
+    assert replaced("mine", "direction")[:2] == (False, [])
 
 
 def test_the_plan_of_a_render_states_its_automatic_setup_from_the_network(
@@ -1043,13 +1055,17 @@ def test_two_jobs_claim_a_network_each_in_one_folder() -> None:
     class Job:
         output_dir = "/p/sim/tract"
 
-    render = lambda name: {  # noqa: E731
+    render = lambda metric: {  # noqa: E731
         "_type": "TractVisualConfig",
-        "metric": "ti_max",
-        "selection": {"name": name},
+        "metric": metric,
+        "selection": {"name": "a"},
     }
-    assert _named_folders("blender", render("a"), [Job()]) != _named_folders(
-        "blender", render("b"), [Job()]
+    # One network's two colours share its folder and no file.
+    assert _named_folders("blender", render("ti_max"), [Job()]) != _named_folders(
+        "blender", render("direction"), [Job()]
+    )
+    assert _named_folders("blender", render("ti_max"), [Job()]) == _named_folders(
+        "blender", render("ti_max"), [Job()]
     )
     assess = lambda name: {"assess": {"selections": [{"name": name}]}}  # noqa: E731
     assert _named_folders("tract", assess("a"), [Job()]) != _named_folders(

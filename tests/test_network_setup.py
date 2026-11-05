@@ -37,10 +37,11 @@ from tit.blender.network_setup import (
     resolve_network_setup,
 )
 from tit.blender.tract_publication import (
+    bundle_folder,
+    network_output_dir,
+    network_slug,
     network_statement,
-    output_stem,
     replaced_outputs,
-    scene_folder,
 )
 from tit.tract import geometry
 from tit.tract.config import Selection
@@ -306,60 +307,57 @@ def test_posterior_is_a_real_view_and_empty_views_keep_their_old_meaning() -> No
 # ---- names: networks of one simulation coexist ----------------------------------------------
 
 
-def test_two_networks_and_two_metrics_never_share_a_name() -> None:
+def test_each_network_has_a_folder_and_each_colour_its_own_bundle() -> None:
     a = config(selection=net([["a", "b"]], name="alpha"), metric="ti_max")
-    b = config(selection=net([["a", "b"]], name="beta"), metric="ti_max")
-    c = config(selection=net([["a", "b"]], name="alpha"), metric="direction")
-    assert output_stem(a) == "CHN_sim_alpha_tract_ti_max"
-    assert len({output_stem(a), output_stem(b), output_stem(c)}) == 3
-    assert scene_folder(a) == str(Path("tract_scene") / "alpha_ti_max")
-    assert len({scene_folder(a), scene_folder(b), scene_folder(c)}) == 3
+    b = config(selection=net([["a", "b"]], name="beta"), metric="direction")
+    assert network_output_dir(a, "/x/sim") == "/x/sim/networks/alpha"
+    assert network_output_dir(b, "/x/sim") == "/x/sim/networks/beta"
+    assert bundle_folder(a) == "bundle_ti_max"
+    assert bundle_folder(b) == "bundle_direction"
 
 
-def test_a_render_of_the_whole_tractogram_keeps_its_old_names() -> None:
-    cfg = config(metric="ti_max")
-    assert output_stem(cfg) == "CHN_sim_tract_ti_max"
-    assert scene_folder(cfg) == "tract_scene"
+def test_a_render_of_the_whole_tractogram_is_the_network_called_all() -> None:
+    assert network_output_dir(config(), "/x/sim") == "/x/sim/networks/all"
 
 
-def test_a_bundle_and_a_display_name_reach_the_file_name_safely() -> None:
-    assert output_stem(config(network_bundle="cst_lh", metric="direction")) == (
-        "CHN_sim_cst_lh_tract_direction"
-    )
+def test_the_config_can_name_its_own_folder() -> None:
+    cfg = config(selection=net([["a", "b"]]), output_dir="/elsewhere")
+    assert network_output_dir(cfg, "/x/sim") == "/elsewhere"
+
+
+def test_a_bundle_and_a_display_name_become_a_safe_folder() -> None:
+    assert network_slug(config(network_bundle="cst_lh")) == "cst_lh"
     named = config(
         network_from=["a"], network_to=["b"], network_name="Posterior TC (L)"
     )
-    assert output_stem(named) == "CHN_sim_Posterior_TC__L__tract_ti_along"
+    assert network_slug(named) == "Posterior_TC__L_"
 
 
-def test_only_this_networks_own_files_count_as_replaced(tmp_path: Path) -> None:
-    (
-        tmp_path / "CHN_sim_tract_ti_max_lateral.png"
-    ).touch()  # a render with no network in its name
-    (tmp_path / "CHN_sim_beta_tract_ti_max_lateral.png").touch()
-    alpha = config(
-        selection=net([["a", "b"]], name="alpha"), metric="ti_max", web=False
-    )
-    assert replaced_outputs(alpha, str(tmp_path)) == []
-
-    (tmp_path / "CHN_sim_alpha_tract_ti_max_posterior.png").touch()
-    assert replaced_outputs(alpha, str(tmp_path)) == [
-        "CHN_sim_alpha_tract_ti_max_posterior.png"
+def test_the_plan_replaces_exactly_this_colours_files_for_these_views(
+    tmp_path: Path,
+) -> None:
+    cfg = config(selection=net([["a", "b"]], name="alpha"), metric="ti_max", web=False)
+    for name in (
+        "ti_max_posterior.png",
+        "ti_max_lateral.png",
+        "direction_posterior.png",
+    ):
+        (tmp_path / name).touch()
+    assert replaced_outputs(cfg, str(tmp_path), ["posterior", "superior"]) == [
+        "ti_max_posterior.png"
     ]
-    # Another metric of the same network replaces nothing.
-    other = config(
-        selection=net([["a", "b"]], name="alpha"), metric="direction", web=False
-    )
-    assert replaced_outputs(other, str(tmp_path)) == []
+    assert replaced_outputs(cfg, str(tmp_path), ["superior"]) == []
+    other = config(selection=net([["a", "b"]]), metric="direction", web=False)
+    assert replaced_outputs(other, str(tmp_path), ["posterior"]) == [
+        "direction_posterior.png"
+    ]
 
 
 def test_a_video_is_replaced_only_when_a_video_is_asked_for(tmp_path: Path) -> None:
-    (tmp_path / "CHN_sim_tract_ti_along_turntable.mp4").touch()
+    (tmp_path / "ti_along_turntable.mp4").touch()
     assert replaced_outputs(config(web=False), str(tmp_path)) == []
     asked = config(web=False, stills=False, turntable=True)
-    assert replaced_outputs(asked, str(tmp_path)) == [
-        "CHN_sim_tract_ti_along_turntable.mp4"
-    ]
+    assert replaced_outputs(asked, str(tmp_path)) == ["ti_along_turntable.mp4"]
 
 
 # ---- labels -----------------------------------------------------------------------------------

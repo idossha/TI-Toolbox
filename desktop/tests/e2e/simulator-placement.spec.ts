@@ -27,7 +27,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, openSceneLayers } from "./_helpers";
 import { expectRunPaneTab } from "./_runPane";
 import { jobRows, setJobMontage, setJobSource } from "./_jobs";
 
@@ -357,6 +357,7 @@ test("the dot is on top of the scalp at every skin opacity", async () => {
   // is placing electrodes, it looks like it places it under the skin."* Two halves, both here — the
   // click reads the SKIN's depth however faint it is (so the coordinate is on the scalp, not on the
   // cortex behind it), and the dot is drawn over the head whatever the scalp's opacity is.
+  await openSceneLayers(page);
   const skin = page.getByRole("slider", { name: "Skin opacity" });
   await expect(skin).toBeVisible();
   for (const [key, what] of [

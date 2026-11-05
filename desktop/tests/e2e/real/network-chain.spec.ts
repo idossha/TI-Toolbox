@@ -263,9 +263,8 @@ test("5. the Networks tab assesses and renders the chosen network, and the still
   await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
   await page.locator("#ve-network-metric").click();
   await page.getByRole("option", { name: "TI_max", exact: true }).click();
-  await expect(page.getByTestId("network-setup-plan")).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("ve-assess-first")).toBeVisible();
-  await expect(page.getByTestId("network-setup-removed")).toContainText("opposite-hemisphere removed");
+  await page.getByTestId("network-advanced").locator("summary").click();
+  await expect(page.getByTestId("network-setup-removed")).toContainText("opposite-hemisphere removed", { timeout: 30_000 });
   await page.waitForFunction(() => (window.__scene?.lines?.streamlines ?? 0) > 0, null, { timeout: 120_000 }).catch(() => undefined);
   await shot("08_networks_preset_plan_pane");
   const started = Date.now();
@@ -273,11 +272,11 @@ test("5. the Networks tab assesses and renders the chosen network, and the still
   expect(ids, "an assess job, then a render that waits for it").toHaveLength(2);
   await shot("09_networks_running");
   for (const id of ids) await succeeded(id);
-  await page.getByRole("radio", { name: "Scene" }).or(page.getByRole("tab", { name: "Scene" })).first().click();
+  await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  const stem = `${SUBJECT}_${SIMULATION}_posterior_thalamocortical_tract_ti_max`;
-  for (const view of ["lateral", "oblique", "superior", "posterior"]) {
-    const still = renders.getByRole("img", { name: `${stem}_${view}.png` });
+  // Bilateral: the automatic setup's two views.
+  for (const view of ["posterior", "superior"]) {
+    const still = renders.getByRole("img", { name: `posterior_thalamocortical, TI_max · ${view}` });
     await expect(still).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
   }
@@ -289,16 +288,19 @@ test("6. another network renders beside the first, and each way of choosing is o
   test.setTimeout(JOB_TIMEOUT);
   await page.getByTestId("network-presets").getByRole("option", { name: /Frontal thalamocortical/ }).click();
   await expect(page.getByTestId("network-mask-name")).toHaveValue("frontal_thalamocortical");
-  await page.getByTestId("network-advanced").locator("summary").click();
+  // Setup is still open from the last step: one view, set by hand.
   await page.getByRole("checkbox", { name: "Automatic", exact: true }).click();
-  for (const view of ["Oblique", "Superior", "Posterior"]) await page.getByRole("checkbox", { name: view, exact: true }).click().catch(() => undefined);
+  for (const view of ["Superior"]) await page.getByRole("checkbox", { name: view, exact: true }).click();
   await shot("11_networks_advanced");
   const ids = await runExport();
   for (const id of ids) await succeeded(id);
+  await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: `${SUBJECT}_${SIMULATION}_frontal_thalamocortical_tract_ti_max_lateral.png` })).toBeVisible({ timeout: 30_000 });
-  await expect(renders.getByRole("img", { name: `${SUBJECT}_${SIMULATION}_posterior_thalamocortical_tract_ti_max_lateral.png` })).toBeVisible();
+  await expect(renders.getByRole("img", { name: "frontal_thalamocortical, TI_max · posterior" })).toBeVisible({ timeout: 30_000 });
+  await renders.locator('details[data-network="posterior_thalamocortical"] > summary').click();
+  await expect(renders.getByRole("img", { name: "posterior_thalamocortical, TI_max · superior" })).toBeVisible();
   await shot("12_two_networks_in_gallery");
+  await page.getByRole("radio", { name: "Scene", exact: true }).click();
   const body = await server<{ networks: string[]; has_edges: boolean; assessed: { name: string; n_streamlines: number }[] }>(`/api/catalog/simulations/${SIMULATION}/networks?subject=${SUBJECT}`);
   record("second_network", { jobs: ids, assessed: body.assessed, networks: body.networks });
   expect(body.assessed.map((a) => a.name).sort()).toEqual(["frontal_thalamocortical", "posterior_thalamocortical"]);

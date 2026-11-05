@@ -1377,3 +1377,9 @@ absent fields reproduce the previous render. Behaviour that moves: a render's `w
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-05 — A network's outputs are one folder
+
+`TractVisualConfig` gains `keep_bundle`. `POST /api/plan/blender` names `networks/<network>` and returns
+`resolved.replaced_outputs`. `SimulationNetworks.renders[]` gains `network`, `colour` and `view`, read from
+`visual_exports/sub-<id>/<sim>/networks/`. The flat layout of the earlier entry today never shipped.
+

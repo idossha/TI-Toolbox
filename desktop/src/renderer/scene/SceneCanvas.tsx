@@ -357,6 +357,7 @@ export function SceneCanvas({
    * component's own state, which is the page-session: the pane is retained across a collapse, so
    * the switch survives one exactly as the opacity sliders do.
    */
+  const [layersOpen, setLayersOpen] = useState(false);
   const [showNames, setShowNames] = useState(namesOn ?? false);
   // Adjusted during render rather than in an effect (the `react-hooks/set-state-in-effect` pattern
   // `pages/panels/source` uses): the pane asks for names the moment the free-hand editor opens, and
@@ -1275,7 +1276,20 @@ export function SceneCanvas({
         </div>
       )}
 
+      {/* Closed by default, and an overlay when open: the canvas never gives up room to them, and
+          what they cover is only what the user asked to see. */}
       <div className="scene-chrome scene-chrome-bottom">
+        <button
+          type="button"
+          className="scene-layers-toggle"
+          data-testid="scene-layers-toggle"
+          aria-expanded={layersOpen}
+          onClick={() => setLayersOpen((open) => !open)}
+        >
+          Layers
+        </button>
+      </div>
+      <div className="scene-layers" data-testid="scene-layers" hidden={!layersOpen}>
         <div className="scene-chrome-stack">
           <ul className="scene-legend" data-testid="scene-legend">
             {legendRows.map((row) => (

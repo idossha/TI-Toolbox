@@ -306,7 +306,10 @@ class TractVisualConfig:
     roi_center_mm, roi_radius_mm : list of float or None, float
         A target sphere to draw, in subject mm.
     output_dir : str or None
-        Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.
+        Resolved to ``visual_exports/sub-<id>/<sim>/networks/<network>`` when ``None``.
+    keep_bundle : bool
+        Keep the render bundle (``bundle_<colour>/``) after a successful render, to re-render it
+        in another Blender. It is deleted otherwise; a failed render always keeps it.
     seed : int
         Subsampling seed.
     """
@@ -366,6 +369,7 @@ class TractVisualConfig:
     roi_center_mm: list[float] | None = None
     roi_radius_mm: float = 10.0
     output_dir: str | None = None
+    keep_bundle: bool = False
     seed: int = 0
 
     def __post_init__(self) -> None:

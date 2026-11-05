@@ -42,7 +42,8 @@ import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/
 import { emptyRoi, type NetworkRoiValue, type RoiValue } from "../../_shared/roi/types";
 import { NetworkChooser, NETWORK_NAME_RE, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
 import { AssessNetworks } from "./AssessNetworks";
-import { NetworkAdvanced, NetworkSetupPlan, type NetworkSetupRecord } from "./NetworkSetup";
+import { NetworkAdvanced, type NetworkSetupRecord } from "./NetworkSetup";
+import { NetworkRenders } from "./NetworkRenders";
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
@@ -55,6 +56,7 @@ import {
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
+  networkPlanLine,
   CHOOSE_A_NETWORK,
   NAME_IS_RESERVED,
   NAME_THE_NETWORK,
@@ -403,6 +405,8 @@ function VisualExporterPanel() {
   const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
   const loading = head !== null && (validateQuery.isPending || planQuery.isFetching);
   const networkSetup = planQuery.data?.resolved?.network_setup as NetworkSetupRecord | undefined;
+  const replacedFiles = (planQuery.data?.resolved?.replaced_outputs as string[] | undefined) ?? [];
+  const networkRenders = networksQuery.data?.renders ?? [];
 
   function handleRunClick() {
     if (configs.length === 0) {
@@ -433,7 +437,7 @@ function VisualExporterPanel() {
         queued += 1;
       }
       const n = batch.length;
-      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName)}`);
+      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName, selection?.name ?? (networkSequence ? "thalamocortical_sequence" : chosenNetwork))}`);
     } catch (error) {
       // The export exists: ask, and on Replace resend only the jobs not already queued.
       if (!overwrite && isExistingOutputsConflict(error)) setRefused(batch.slice(queued));
@@ -456,6 +460,19 @@ function VisualExporterPanel() {
           subjects={subjectId ? [subjectId] : []}
           {...jobs}
           paneControls={<PaneHeaderControls controller={scenePane} />}
+          planLine={
+            mode === "networks"
+              ? networkPlanLine({
+                  jobs: 1 + (selection && assessing && assessing !== "ready" ? 1 : 0),
+                  memGb: planQuery.data?.cost.mem_gb,
+                  title: networkSetup?.values.title ?? (selection ? selection.name : undefined),
+                  streamlines: countQuery.data,
+                  replaced: replacedFiles,
+                })
+              : undefined
+          }
+          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.length}`, content: <NetworkRenders renders={networkRenders} current={networkFromFile ? chosenNetwork : selection?.name} /> } : undefined}
+          sceneFocusKey={mode === "networks" && chooserActive ? `${networkValue.how}|${networkValue.preset}|${networkValue.pairs.length}|${networkValue.includeOpposite}` : undefined}
           plan={<>
             <PlanSummary plan={planQuery.data} loading={loading}
               error={planQuery.error ? "Could not compute the plan." : undefined}
@@ -466,7 +483,7 @@ function VisualExporterPanel() {
                 A tract job assesses this network first (about 3 min: fields along every streamline), and the render waits for it.
               </p>
             )}
-            {!loading && networkSetup && <NetworkSetupPlan setup={networkSetup} />}
+            {replacedFiles.length > 0 && <p className="field-help" data-testid="ve-replaced-files">Replaces: {replacedFiles.join(", ")}</p>}
             {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
           </>}
           scene={<ExportPreview
@@ -478,7 +495,6 @@ function VisualExporterPanel() {
             labels={subcorticalLabels} niftiPath={niftiPath}
             onLabelsChange={(labels) => { setLabelIds(labels.map(String)); setLabelsText(labels.join(",")); }}
             fieldName={mode === "subcortical" ? subcortField : regionField}
-            networkRenders={networksQuery.data?.renders ?? []}
             networkValue={chooserActive ? networkValue : null}
             onNetworkChange={onNetworkChange}
           />}
@@ -812,7 +828,7 @@ function VisualExporterPanel() {
                           )}
                           <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />
                           {!(networkFromFile && chosenNetwork === "all") && (
-                            <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} auto={networkSetup?.values} />
+                            <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} setup={networkSetup} />
                           )}
                         </>
                       )}

@@ -64,6 +64,8 @@ def test_simulation_networks_lists_trx_stems_and_finished_renders(tree):
     Path(pm.simulation("001", "simA")).mkdir(parents=True)
     assert catalog.simulation_networks(pm, "001", "simA") == {
         "networks": [],
+        "assessed": [],
+        "has_edges": False,
         "renders": [],
     }
     assert catalog.simulation_networks(pm, "001", "absent") is None
@@ -72,17 +74,26 @@ def test_simulation_networks_lists_trx_stems_and_finished_renders(tree):
     tract.mkdir(parents=True)
     for name in ("cst_lh.trx", "all.trx", "edges.json"):
         (tract / name).touch()
-    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "tract")
-    (out / "tract_scene").mkdir(parents=True)
-    for name in ("a_lateral.png", "a_turntable.mp4", ".a_0001-0048.mp4", "a.html"):
+    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "networks", "net")
+    (out / "bundle_ti_max").mkdir(parents=True)
+    for name in (
+        "ti_max_lateral.png",
+        "ti_max_turntable.mp4",
+        "network.json",
+        "a.html",
+    ):
         (out / name).touch()
+    (out / "bundle_ti_max" / "not_a_render.png").touch()
 
     found = catalog.simulation_networks(pm, "001", "simA")
     assert found["networks"] == ["all", "cst_lh"]
-    # Blender's dot-prefixed movie is still being written; the viewer page is not a render.
-    assert {r["name"]: r["kind"] for r in found["renders"]} == {
-        "a_lateral.png": "image",
-        "a_turntable.mp4": "video",
+    # Each with what it shows; neither a kept bundle nor the viewer page is a render.
+    assert {
+        r["name"]: (r["kind"], r["network"], r["colour"], r["view"])
+        for r in found["renders"]
+    } == {
+        "ti_max_lateral.png": ("image", "net", "ti_max", "lateral"),
+        "ti_max_turntable.mp4": ("video", "net", "ti_max", "turntable"),
     }
 
 
@@ -92,9 +103,9 @@ def test_simulation_network_render_leaf_alias(tree, internal):
     target = (root if internal else outside) / "render.png"
     target.touch()
     Path(pm.simulation("001", "simA")).mkdir(parents=True)
-    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "tract")
+    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "networks", "net")
     out.mkdir(parents=True)
-    (out / "a.png").symlink_to(target)
+    (out / "ti_max_lateral.png").symlink_to(target)
     renders = catalog.simulation_networks(pm, "001", "simA")["renders"]
     assert bool(renders) is internal
 

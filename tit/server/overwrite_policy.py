@@ -71,14 +71,10 @@ def _named_folders(kind: str, config: dict[str, Any], jobs: list[Any]) -> set[st
 
 
 def _network_claims(kind: str, config: dict[str, Any], folders: set[str]) -> set[str]:
-    """One tract folder holds many networks, so a job claims only its own network's files there."""
+    """A tract folder holds many networks and a network's folder many colours: a job claims its own."""
     if kind == "blender" and config.get("_type") == "TractVisualConfig":
-        name = (config.get("selection") or {}).get("name") or config.get(
-            "network_bundle"
-        )
-        if name:
-            metric = config.get("metric", "ti_along")
-            return {f"{folder}/{name}_tract_{metric}*" for folder in folders}
+        metric = config.get("metric", "ti_along")
+        return {f"{folder}/{metric}*" for folder in folders}
     if kind == "tract" and isinstance(config.get("assess"), dict):
         names = [s.get("name") for s in config["assess"].get("selections", [{}])]
         return {

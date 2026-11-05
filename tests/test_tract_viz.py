@@ -28,8 +28,12 @@ Run: .venv/bin/python -m pytest tests/test_tract_viz.py -q
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 import base64
 import json
+import os
 
 import numpy as np
 import pytest
@@ -741,7 +745,7 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
         (*sphere, len(sphere[0])),
         None,
         [],
-        str(out / tp.scene_folder(cfg)),
+        str(out / tp.bundle_folder(cfg)),
         title="t",
         synthetic=False,
         edges={
@@ -753,12 +757,12 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
         highlight=["lh.a"],
         setup=setup,
     )
-    bundle = out / "tract_scene" / "net_ti_max"
+    bundle = out / "bundle_ti_max"
     manifest = json.loads((bundle / "manifest.json").read_text())
-    assert manifest["stem"] == "x_s_net_tract_ti_max"
+    assert manifest["stem"] == "ti_max"
     assert manifest["network"] is True
     assert manifest["setup"] == setup
-    # The stills land beside every other network's, two levels up from the bundle.
+    # The stills land in the network's folder, one level up from the bundle.
     assert (bundle / manifest["output_dir"]).resolve() == out.resolve()
     # Words, and which hemisphere each name belongs to.
     assert {(label["name"], label["hemi"]) for label in manifest["labels"]} == {
@@ -832,7 +836,176 @@ def test_the_bundle_route_becomes_a_selection_of_the_edges_it_holds(three):
         ("lh.a", "lh.b"),
         ("lh.a", "lh.c"),
     ]
-    assert tp.output_stem(picked) == "x_s_cst_tract_ti_along"
+    assert tp.network_slug(picked) == "cst"
+
+
+def _run_tract_project(tmp_path, monkeypatch, three, render):
+    """A sub-x simulation with an assessed bundle, and run_tract's anatomy and Blender stubbed."""
+    from tit.blender import tract_publication as tp
+    from tit.paths import get_path_manager
+
+    (tmp_path / "project").mkdir()
+    pm = get_path_manager(str(tmp_path / "project"))
+    tract = Path(pm.simulation("x", "s"), "tract")
+    tract.mkdir(parents=True)
+    three.dps["edge_id"] = np.array([0, 0, 0])
+    (tract / "edges.json").write_text(
+        json.dumps({"0": {"region_a": "lh.a", "region_b": "rh.b", "n_streamlines": 3}})
+    )
+    monkeypatch.setattr(tp.td, "load_trx", lambda path: three)
+    (tract / "net.trx").touch()
+    sphere = _sphere()
+    monkeypatch.setattr(tp, "glass_surface", lambda m2m: (*sphere, 72))
+    monkeypatch.setattr(tp, "label_volume", lambda pm, sid: None)
+    monkeypatch.setattr(tp, "region_geometry", lambda *a, **k: ({}, {}))
+    monkeypatch.setattr(tp, "simulation_electrodes", lambda d: [])
+    monkeypatch.setattr(
+        tp, "ti_iso_shell", lambda *a, **k: (*map(np.asarray, sphere), 0.3)
+    )
+    monkeypatch.setattr(tp, "render", render)
+    return pm
+
+
+def _selection_config(**fields):
+    from tit.blender.config import TractVisualConfig
+    from tit.tract.config import Selection
+
+    return TractVisualConfig(
+        "x",
+        "s",
+        selection=Selection(
+            name="net", kind="edges", regions=["lh.a"], pairs=[["lh.a", "rh.b"]]
+        ),
+        metric="ti_max",
+        web=False,
+        connectome=False,
+        **fields,
+    )
+
+
+def _still_writer(manifest_path, *rest):
+    """What Blender does with a bundle: write the manifest's stills beside it."""
+    manifest = json.loads(Path(manifest_path).read_text())
+    base = Path(manifest_path).parent / manifest["output_dir"]
+    for view in manifest["views"]:
+        (base / f"{manifest['stem']}_{view}.png").write_bytes(b"png")
+
+
+def test_a_run_leaves_the_stills_and_network_json_and_can_be_run_again_from_it(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+    from tit.config_io import deserialize_config
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    out = Path(tp.run_tract(_selection_config()))
+    assert out.parts[-3:] == ("s", "networks", "net")
+    # lh.a and rh.b hold one hemisphere each: from behind and above.
+    assert sorted(p.name for p in out.iterdir()) == [
+        "network.json",
+        "ti_max_posterior.png",
+        "ti_max_superior.png",
+    ]
+    record = json.loads((out / "network.json").read_text())
+    assert record["network"] == "net"
+    assert record["selection"]["pairs"] == [["lh.a", "rh.b"]]
+    assert record["code_version"]
+    entry = record["colours"]["ti_max"]
+    assert entry["files"] == ["ti_max_posterior.png", "ti_max_superior.png"]
+    assert entry["setup"]["n_streamlines"] == 3
+    assert entry["setup"]["n_drawn"] == 3
+
+    # Re-render: what network.json holds is a config, the same one, and it runs.
+    (out / "ti_max_posterior.png").unlink()
+    config = dict(entry["config"])
+    config.pop("project_dir")
+    again = deserialize_config(TractVisualConfig, config)
+    assert again.selection == _selection_config().selection
+    tp.run_tract(again)
+    assert (out / "ti_max_posterior.png").exists()
+
+
+def test_rendering_another_colour_keeps_the_first_in_network_json(
+    tmp_path, monkeypatch, three
+):
+    from dataclasses import replace
+
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    cfg = _selection_config()
+    out = Path(tp.run_tract(cfg))
+    tp.run_tract(replace(cfg, metric="direction"))
+    assert set(json.loads((out / "network.json").read_text())["colours"]) == {
+        "ti_max",
+        "direction",
+    }
+    assert (out / "ti_max_posterior.png").exists() and (
+        out / "direction_posterior.png"
+    ).exists()
+
+
+def test_a_bundle_is_kept_when_asked_for(tmp_path, monkeypatch, three):
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    out = Path(tp.run_tract(_selection_config(keep_bundle=True)))
+    assert (out / "bundle_ti_max" / "manifest.json").exists()
+
+
+def test_a_failed_render_keeps_its_bundle_and_writes_no_record(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+
+    def failing(*args):
+        raise RuntimeError("Blender died")
+
+    pm = _run_tract_project(tmp_path, monkeypatch, three, failing)
+    with pytest.raises(RuntimeError, match="Blender died"):
+        tp.run_tract(_selection_config())
+    out = Path(pm.ti_toolbox(), "visual_exports", "sub-x", "s", "networks", "net")
+    assert (out / "bundle_ti_max" / "manifest.json").exists()
+    assert not (out / "network.json").exists()
+
+
+def test_a_movie_being_written_is_never_in_the_output_folder(tmp_path, monkeypatch):
+    import importlib.util
+    import sys
+    from types import SimpleNamespace
+
+    path = Path(__file__).resolve().parents[1] / "tit" / "blender" / "tract_scene.py"
+    spec = importlib.util.spec_from_file_location("tract_scene_movie_test", path)
+    scene_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(scene_module)
+    seen = {}
+    monkeypatch.setattr(
+        scene_module, "video_output", lambda scene, stem, fps: seen.update(stem=stem)
+    )
+
+    def renders(fail):
+        def render(animation=True):
+            # Blender names the movie after the stem and the frame range.
+            Path(seen["stem"] + "0001-0096.mp4").write_bytes(b"movie")
+            assert os.listdir(tmp_path) == []
+            if fail:
+                raise RuntimeError("killed mid-movie")
+
+        return SimpleNamespace(
+            ops=SimpleNamespace(render=SimpleNamespace(render=render))
+        )
+
+    monkeypatch.setitem(sys.modules, "bpy", renders(True))
+    with pytest.raises(RuntimeError):
+        scene_module._render_movie(None, str(tmp_path), "ti_max_turntable")
+    assert os.listdir(tmp_path) == []
+    assert not os.path.exists(os.path.dirname(seen["stem"]))
+
+    monkeypatch.setitem(sys.modules, "bpy", renders(False))
+    final = scene_module._render_movie(None, str(tmp_path), "ti_max_turntable")
+    assert os.listdir(tmp_path) == ["ti_max_turntable.mp4"]
+    assert Path(final).read_bytes() == b"movie"
 
 
 def test_a_network_drawn_in_part_is_an_even_sample_that_says_so(three):

@@ -224,7 +224,7 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     turntable_frames,
   };
   const overrides = form.overrides ?? {};
-  if (form.selection) return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as TractVisualConfig;
+  if (form.selection) return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as unknown as TractVisualConfig;
   if (form.network === "all") return { ...base, ...outputs, tractogram: "all.trx", views: form.views } as TractVisualConfig;
   return { ...base, ...outputs, tractogram: `${form.network}.trx`, network_bundle: form.network, network_top_edges: 0, overrides } as TractVisualConfig;
 }
@@ -236,7 +236,7 @@ export function buildNetworkAssessConfig(subjectId: string, simulationName: stri
     subject_id: subjectId,
     stages: ["assess"],
     assess: { simulations: [simulationName], selections: [selection] },
-  } as TractConfig;
+  } as unknown as TractConfig;
 }
 
 /** The assess stage with no bundle: `edges.json` and the rest, which a top-N list is read from. */
@@ -246,7 +246,7 @@ export function buildConnectionsAssessConfig(subjectId: string, simulationName: 
     subject_id: subjectId,
     stages: ["assess"],
     assess: { simulations: [simulationName], selections: [] },
-  } as TractConfig;
+  } as unknown as TractConfig;
 }
 
 /**
@@ -270,8 +270,18 @@ export function buildAssessConfig(subjectId: string, simulationName: string): Tr
   } as TractConfig;
 }
 
+/** The Plan as one line: what Run queues, what it draws, and what it replaces. */
+export function networkPlanLine(plan: { jobs: number; memGb?: number; title?: string; streamlines?: number; replaced: readonly string[] }): string {
+  const parts = [`${plan.jobs} job${plan.jobs === 1 ? "" : "s"}`];
+  if (plan.memGb !== undefined) parts.push(`${plan.memGb} GB`);
+  if (plan.title) parts.push(plan.title);
+  if (plan.streamlines !== undefined) parts.push(`${plan.streamlines.toLocaleString("en-US")} streamlines`);
+  parts.push(plan.replaced.length ? `will overwrite ${plan.replaced.length} file${plan.replaced.length === 1 ? "" : "s"}` : "replaces nothing");
+  return parts.join(" · ");
+}
+
 /** The one-line "what this Run writes" the action bar and the toast both say. */
-export function outputHint(mode: Mode, subjectId: string, simulationName: string): string {
+export function outputHint(mode: Mode, subjectId: string, simulationName: string, network = "all"): string {
   const sub = `sub-${subjectId}`;
   switch (mode) {
     case "regions":
@@ -284,6 +294,6 @@ export function outputHint(mode: Mode, subjectId: string, simulationName: string
     case "subcortical":
       return `visual_exports/${sub}/sub-cortical`;
     case "networks":
-      return `visual_exports/${sub}/${simulationName}/tract`;
+      return `visual_exports/${sub}/${simulationName}/networks/${network}`;
   }
 }

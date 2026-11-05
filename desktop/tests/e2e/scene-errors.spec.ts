@@ -14,7 +14,7 @@
  * worth drawing and the form entirely usable, so it is a sentence under the stage, not a state.
  */
 import { expect, test, type Page } from "@playwright/test";
-import { connectLauncher, gotoPage, launchElectronApp, selectSubject } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp, selectSubject, openSceneLayers } from "./_helpers";
 
 const SERVER = process.env.TIT_E2E_SERVER_URL!;
 const TOKEN = process.env.TIT_E2E_TOKEN!;
@@ -57,6 +57,7 @@ for (const endpoint of ["manifest", "surface"] as const) {
       expect(requests).toBeGreaterThan(afterFirstRound);
       // The renderer's own opacity chrome — proof the canvas mounted. The skin is the only surface
       // with a slider; the grey matter is always opaque (maintainer, 2026-09-06).
+      await openSceneLayers(panel);
       await expect(panel.getByRole("slider", { name: "Skin opacity", exact: true })).toBeEnabled();
       await expect(panel.getByRole("slider", { name: "GM opacity", exact: true })).toHaveCount(0);
     } finally {

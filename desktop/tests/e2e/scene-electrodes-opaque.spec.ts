@@ -29,7 +29,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette } from "./_helpers";
+import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, openSceneLayers } from "./_helpers";
 import { waitForScene } from "./_runPane";
 import { jobRows, setJobMontage } from "./_jobs";
 import { cameraBasis, projectToCanvas, type OrbitCamera, type Vec3 } from "../../src/renderer/scene/camera";
@@ -69,6 +69,7 @@ type Px = [number, number];
 
 test("at full skin opacity every electrode is visible and touches the scalp, silhouette included", async () => {
   const active = page.locator('[data-page-active="true"]');
+  await openSceneLayers(active);
   const skin = active.getByRole("slider", { name: "Skin opacity", exact: true });
   await skin.focus();
   await page.keyboard.press("End");
@@ -212,6 +213,7 @@ test("Actual size draws only the montage, each electrode at the configured width
     const b = await page.evaluate((pts) => window.__scene?.samplePixels(pts, false) ?? null, pt);
     return Math.max(...[0, 1, 2].map((c) => Math.abs(a![0]![c]! - b![0]![c]!))) > 0;
   };
+  await openSceneLayers(page.locator('[data-page-active="true"]'));
   const sizeSwitch = page.locator('[data-page-active="true"]').getByTestId("scene-actual-size-toggle").getByRole("switch", { name: "Actual size" });
 
   // The click opened a montage draft, and a montage being written is still picked off the whole
@@ -295,6 +297,7 @@ test("Actual size draws only the montage, each electrode at the configured width
 test("a name shows only on an electrode the frame drew, and the two switches share one row", async () => {
   const active = page.locator('[data-page-active="true"]');
   // Side by side in one box: the same row, Actual size to the right of Electrode names.
+  await openSceneLayers(active);
   const toggles = active.getByTestId("scene-toggles");
   const [names, size] = await toggles.locator("label").evaluateAll((els) => els.map((e) => e.getBoundingClientRect().toJSON() as DOMRect));
   expect(Math.abs(names!.top - size!.top), "the switches are on one row").toBeLessThan(2);

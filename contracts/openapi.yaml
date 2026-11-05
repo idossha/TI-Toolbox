@@ -4796,15 +4796,18 @@ components:
           description: Whether the assess stage has written this simulation's edges.json.
         renders:
           type: array
-          description: PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first.
+          description: PNG and MP4 files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.
           items:
             type: object
-            required: [path, name, kind, modified_at]
+            required: [path, name, kind, modified_at, network, colour, view]
             properties:
               path: { type: string }
               name: { type: string }
               kind: { type: string, enum: [image, video] }
               modified_at: { type: string }
+              network: { type: string }
+              colour: { type: string, description: "what the fibres are coloured by" }
+              view: { type: string, description: "a still's view, or turntable, propagation or sequence" }
     SimulationDetail:
       description: v0 Simulation plus montages, fields, spaces, reports, niftis, meshes
       allOf:
@@ -5376,6 +5379,16 @@ components:
     PlanResolved:
       type: object
       properties:
+        network_setup:
+          type: object
+          additionalProperties: true
+          description: >-
+            blender, a named network only: tit.blender.network_setup.resolve_network_setup's values,
+            reasons, overridden, n_streamlines, n_drawn, and opposite_removed for a same-side preset.
+        replaced_outputs:
+          type: array
+          items: { type: string }
+          description: blender, a tract render - the files of its folder this run would replace.
         montages:
           type: array
           items: { type: object, additionalProperties: true }

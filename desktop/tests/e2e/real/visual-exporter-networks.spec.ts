@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -11,11 +11,11 @@ import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, 
  * Needs a simulation with `tract/` outputs, which Dataset 000 does not have, so it is opt-in:
  *   TIT_E2E_NETWORKS_SUBJECT=CHN TIT_E2E_NETWORKS_SIMULATION=thalamus \
  *   TIT_E2E_NETWORKS_SHOTS=<dir> npx playwright test --project=real tests/e2e/real/visual-exporter-networks.spec.ts
- * Renders replace any in the simulation's `visual_exports/.../tract/`. Emulated Blender takes tens of
+ * Renders replace any in the network's `visual_exports/.../networks/<name>/`. Emulated Blender takes tens of
  * minutes for the turntable. What the pictures show is judged by eye from the screenshots.
  *
  * With TIT_E2E_PROJECT_HOST set, a third test submits the thalamocortical sequence, waits for its two
- * bundles and for Blender to open its movie, and cancels: its whole render takes hours emulated.
+ * bundles, and cancels: its whole render takes hours emulated.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -93,11 +93,17 @@ test("one low-resolution still renders from the tab", async () => {
   // One view is an override of the automatic setup.
   await page.getByTestId("network-advanced").locator("summary").click();
   await page.getByRole("checkbox", { name: "Automatic", exact: true }).click();
-  for (const view of ["Lateral", "Superior", "Posterior"]) await page.getByRole("checkbox", { name: view, exact: true }).click();
+  // A file's Plan names the edges it holds, so its automatic views are checked here; leave oblique.
+  for (const view of ["Posterior", "Superior", "Lateral"]) {
+    const box = page.getByRole("checkbox", { name: view, exact: true });
+    if ((await box.getAttribute("aria-checked")) === "true") await box.click();
+  }
+  const oblique = page.getByRole("checkbox", { name: "Oblique", exact: true });
+  if ((await oblique.getAttribute("aria-checked")) !== "true") await oblique.click();
   await shot("02-networks-still-options");
   await runAndWait(40);
-  await page.getByRole("radio", { name: "Scene" }).or(page.getByRole("tab", { name: "Scene" })).first().click();
-  const still = page.getByTestId("network-renders").getByRole("img", { name: new RegExp(`_${NETWORK}_tract_direction_oblique\\.png`) });
+  await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
+  const still = page.getByTestId("network-renders").getByRole("img", { name: `${NETWORK}, Fibre direction · oblique` });
   await expect(still).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
   await shot("03-networks-still-rendered");
@@ -109,6 +115,7 @@ test("one short turntable renders from the tab and plays", async () => {
   await page.getByRole("checkbox", { name: "Turntable video" }).click();
   await shot("04-networks-turntable-options");
   await runAndWait(170);
+  await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const video = page.getByTestId("network-renders").locator("video").first();
   await expect(video).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => video.evaluate((v: HTMLVideoElement) => v.duration), { timeout: 30_000 }).toBeGreaterThan(1);
@@ -124,14 +131,11 @@ test("the thalamocortical sequence exports both bundles and starts rendering fro
   await shot("06-networks-sequence-options");
   const started = Date.now();
   const id = await submit();
-  const scene = join(PROJECT_HOST!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, SIMULATION!, "tract", "tract_scene");
+  const scene = join(PROJECT_HOST!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, SIMULATION!, "networks", "thalamocortical_sequence");
   // This job's files, not those of an earlier run in the same folder (2 s for filesystem mtime grain).
   const written = (path: string) => statSync(path, { throwIfNoEntry: false }) !== undefined && statSync(path).mtimeMs >= started - 2_000;
   try {
-    await expect.poll(() => written(join(scene, "posterior", "manifest.json")) && written(join(scene, "frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
-    // The scene is built and the first frames are on their way once the dot-prefixed movie is open.
-    const tract = join(scene, "..");
-    await expect.poll(() => readdirSync(tract).some((name) => name.startsWith(".") && name.includes("thalamocortical_sequence") && written(join(tract, name))), { timeout: 15 * 60_000, intervals: [5_000] }).toBe(true);
+    await expect.poll(() => written(join(scene, "bundle_posterior", "manifest.json")) && written(join(scene, "bundle_frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
     await page.getByRole("radio", { name: "Terminal" }).or(page.getByRole("tab", { name: "Terminal" })).first().click();
     await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toContainText("running");
     await shot("07-networks-sequence-rendering");

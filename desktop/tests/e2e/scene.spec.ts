@@ -24,7 +24,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
-import { connectLauncher, gotoPage, launchElectronApp } from "./_helpers";
+import { connectLauncher, gotoPage, launchElectronApp, openSceneLayers } from "./_helpers";
 import {
   ORBIT_RAD_PER_PX,
   cameraBasis,
@@ -466,6 +466,7 @@ test("the pane's chrome sits in its corners and every opacity row is one line", 
 
   // (2) "GM", not "Grey matter": on a 2-row card the long name wrapped and made its slider row two
   // lines tall. Each row is one line — its height is under one and a half line boxes.
+  await openSceneLayers(pane);
   const rows = pane.locator(".scene-opacity-row");
   const heights = await rows.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
   expect(heights.length).toBe(2);
@@ -477,6 +478,7 @@ test("the Electrode names switch shows a name for every electrode the eye can se
   await connect(page);
   await openGalleryScene(page);
   const pane = page.getByTestId("scene-pane");
+  await openSceneLayers(pane);
   const toggle = pane.getByTestId("scene-names-toggle");
 
   // Default off: no name overlay at all.
@@ -1066,6 +1068,7 @@ test("an opaque surface shows only its outer sheet — no inner layer bleeds thr
 
   // The skin is taken to alpha 0 so this measures the grey matter alone: a translucent shell in
   // front of it would compose over every sample and no closed form could be written down.
+  await openSceneLayers(page);
   const skin = page.getByRole("slider", { name: "Skin opacity", exact: true });
   await skin.focus();
   await page.keyboard.press("Home");

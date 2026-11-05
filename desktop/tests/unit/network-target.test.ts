@@ -14,6 +14,9 @@ import { emptyRoi, isRoiComplete, roiToConfig, withNetworkEdit, withRoiSpace, ty
 import { roiForSubject } from "../../src/renderer/pages/_shared/roi/subjectChange";
 import { targetPreviewRoi } from "../../src/renderer/pages/_shared/scene/targetPreviewModel";
 import { exTargets, buildExConfig, defaultExFormState } from "../../src/renderer/pages/optimizer/exConfig";
+import { networkPlanLine } from "../../src/renderer/pages/panels/visual-exporter/config";
+import { summarizeRegions } from "../../src/renderer/pages/panels/visual-exporter/NetworkSetup";
+import { groupRenders, renderLabel } from "../../src/renderer/pages/panels/visual-exporter/NetworkRenders";
 import { rankingConfig, rankingEstimate } from "../../src/renderer/pages/results/NetworkRanking";
 import { optimizerTargetLabel, roiModesFor } from "../../src/renderer/pages/optimizer/rows";
 import { decodePickId, decodePickPixel, encodePickId, pickIdToRgb, PICK_KIND_EDGE } from "../../src/renderer/scene/pickId";
@@ -110,6 +113,28 @@ describe("choosing a network", () => {
     const value = { ...(emptyRoi("network") as NetworkRoiValue), how: "preset" as const, name: "mine", nameEdited: true };
     expect(withChoice(value, { preset: "x" }, withNetworkEdit).name).toBe("mine");
     expect(withChoice({ ...value, nameEdited: false }, { preset: "x" }, withNetworkEdit).name).toBe("x");
+  });
+});
+
+describe("what the column says", () => {
+  it("the Plan as one line says what it queues, draws and replaces", () => {
+    expect(networkPlanLine({ jobs: 1, memGb: 6, title: "Cingulate cortical network", streamlines: 4332, replaced: ["a.png", "b.png"] })).toBe("1 job · 6 GB · Cingulate cortical network · 4,332 streamlines · will overwrite 2 files");
+    expect(networkPlanLine({ jobs: 2, replaced: [] })).toBe("2 jobs · replaces nothing");
+  });
+
+  it("a long region list is summarised, by the word running through it when there is one", () => {
+    const cingulate = ["caudalanteriorcingulate", "isthmuscingulate", "posteriorcingulate", "rostralanteriorcingulate"].flatMap((p) => [`lh.${p}`, `rh.${p}`]);
+    expect(summarizeRegions(cingulate)).toBe("8 cingulate regions");
+    expect(summarizeRegions(["lh.a", "rh.b", "Brain-Stem", "lh.c"])).toBe("4 regions");
+    expect(summarizeRegions(["Left-Thalamus-Proper", "Right-Thalamus-Proper"])).toBe("Left-Thalamus-Proper, Right-Thalamus-Proper");
+  });
+
+  it("renders group by network, newest network first, and read as colour and view", () => {
+    const render = (network: string, colour: string, view: string) => ({ path: `/${network}/${colour}_${view}.png`, name: `${colour}_${view}.png`, kind: "image" as const, modified_at: "t", network, colour, view });
+    const groups = groupRenders([render("b", "ti_max", "superior"), render("a", "direction", "lateral"), render("b", "ti_max", "posterior")]);
+    expect(groups.map((g) => g.network)).toEqual(["b", "a"]);
+    expect(groups[0]!.renders.map(renderLabel)).toEqual(["TI_max · posterior", "TI_max · superior"]);
+    expect(renderLabel({ colour: "direction", view: "lateral" })).toBe("Fibre direction · lateral");
   });
 });
 

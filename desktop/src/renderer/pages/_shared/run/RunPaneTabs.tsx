@@ -24,7 +24,7 @@
  * the log tail and re-upload 150 k triangles on every switch. `hidden` (not `display:none` in a
  * style prop) is what `[hidden]` in the stylesheet acts on.
  */
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { SegmentedControl } from "../../../ui/SegmentedControl";
 import { usePageSession } from "../../../app/pageSession";
 import { useJobsModel } from "../../../app/jobs-rail/model";
@@ -32,7 +32,7 @@ import { RUNNING_STATES } from "../../../app/jobs-rail/model";
 import type { JobState } from "../../../ui/Status";
 import "./run.css";
 
-export type RunPaneTab = "terminal" | "scene";
+export type RunPaneTab = "terminal" | "scene" | "extra";
 
 /** True when any job of `kinds` is queued or running — the signal that flips the default tab. */
 export function hasActiveJob(jobs: { kind: string; state: string }[], kinds: string[]): boolean {
@@ -67,14 +67,36 @@ export interface RunPaneTabsProps {
    * stay in the terminal (maintainer, 2026-09-07).
    */
   ranHere?: boolean;
+  /** A third tab of the page's own, such as a gallery. A label with its count, and its content. */
+  extra?: { label: string; content: ReactNode };
+  /** When this changes the pane goes back to Scene: the user is choosing what it draws. */
+  sceneFocusKey?: string;
 }
 
-export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls, ranHere }: RunPaneTabsProps) {
+export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls, ranHere, extra, sceneFocusKey }: RunPaneTabsProps) {
   const { all } = useJobsModel();
   const [chosen, setChosen] = usePageSession<RunPaneTab | null>("runPaneTab", null);
   const live = useMemo(() => hasActiveJob(all, kinds), [all, kinds]);
   const active = live || !!ranHere;
-  const tab = resolveTab(chosen, active);
+  // A tab this mode does not have is not a choice it can honour.
+  const tab = resolveTab(chosen === "extra" && !extra ? null : chosen, active);
+  // Choosing goes back to Scene, and that is no pin: the next job's start still shows its log.
+  const lastFocusKey = useRef(sceneFocusKey);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (sceneFocusKey === lastFocusKey.current) return;
+    lastFocusKey.current = sceneFocusKey;
+    focused.current = true;
+    setChosen("scene");
+    // `setChosen` is the page session's, fresh every render; the key is the fact to react to.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sceneFocusKey]);
+  useEffect(() => {
+    if (!live || !focused.current) return;
+    focused.current = false;
+    setChosen(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [live]);
 
   return (
     <section className="run-tabs" data-testid="run-pane-tabs" data-tab={tab} data-active-job={live ? "1" : "0"} data-ran-here={ranHere ? "1" : "0"} data-chosen={chosen ?? ""}>
@@ -85,12 +107,14 @@ export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls, ran
           value={tab}
           onValueChange={(value) => {
             const next = value as RunPaneTab;
+            focused.current = false;
             setChosen(next);
             onTabChange?.(next);
           }}
           options={[
             { value: "terminal", label: "Terminal", title: "The log of the job this page is following" },
             { value: "scene", label: "Scene", title: "The subject's head model — pick from it, or from the form" },
+            ...(extra ? [{ value: "extra", label: extra.label }] : []),
           ]}
         />
         {controls}
@@ -102,6 +126,11 @@ export function RunPaneTabs({ kinds, terminal, scene, onTabChange, controls, ran
         <div className="run-tabs-panel" data-testid="run-pane-panel-scene" hidden={tab !== "scene"}>
           {scene}
         </div>
+        {extra && (
+          <div className="run-tabs-panel" data-testid="run-pane-panel-extra" hidden={tab !== "extra"}>
+            {extra.content}
+          </div>
+        )}
       </div>
     </section>
   );

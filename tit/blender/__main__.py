@@ -42,12 +42,22 @@ def main() -> int:
     logger = logging.getLogger("tit.blender")
 
     if len(sys.argv) < 2:
-        logger.error("Usage: simnibs_python -m tit.blender <config.json>")
+        logger.error(
+            "Usage: simnibs_python -m tit.blender <config.json | network.json [colour]>"
+        )
         return 1
 
     config_path = sys.argv[1]
     with open(config_path) as f:
         data = json.load(f)
+    if "colours" in data:
+        # A network's network.json: its one colour, or the one named after it.
+        colours = data["colours"]
+        wanted = sys.argv[2] if len(sys.argv) > 2 else next(iter(colours))
+        if wanted not in colours or (len(sys.argv) < 3 and len(colours) > 1):
+            logger.error(f"Name a colour to render again: {sorted(colours)}")
+            return 1
+        data = colours[wanted]["config"]
 
     from tit.paths import get_path_manager
 

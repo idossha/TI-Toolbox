@@ -823,9 +823,9 @@ read on ernie; a job would add queueing and a lock for no benefit).
 reads a simulation's `tract/` directory (`<bundle_or_all>.trx` with per-vertex `ti_along`/`ti_max`
 in m2m world mm, `edges.json`, `connectome_<metric>.npz`; the reader is
 [`tract_data.py`](../../tit/blender/tract_data.py)), subsamples to `max_streamlines` with odds rising
-with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/tract/` a
+with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/networks/<network>/` a
 self-contained web viewer and a connectome figure (on by default) and, through a
-`tract_scene/manifest.json` bundle rendered by [`tract_scene.py`](../../tit/blender/tract_scene.py)
+`bundle_<colour>/manifest.json` bundle rendered by [`tract_scene.py`](../../tit/blender/tract_scene.py)
 in the pinned Blender's own Python, PNG stills and opt-in turntable and propagation MP4s. The
 bundle's paths are relative to the manifest, so another Blender can re-render it. Colours are
 averaged along each fibre over ±3 mm for display (tractography tangent noise makes per-point
@@ -857,14 +857,20 @@ Applying the setup draws what `network_from` draws, the approved glass-thalamus 
 (`network_bundle`, `network_top_edges: 0`) is first read as the Selection of the edges it holds.
 `network_from`/`network_to` stay for scripts and the sequence.
 
-**Outputs coexist.** `<sid>_<sim>[_<network>]_tract_<metric>_<view>.png` and
-`tract_scene/<network>_<metric>/`, in the flat folder the catalog already lists, so renders without a
-network in their name still list. The Plan's `will_overwrite` is `replaced_outputs`, the files of this
-network and metric; an assess plans an overwrite only over its own `<name>.trx`, or `edges.json` when it
-writes no bundle, because the rest of that folder covers every streamline whichever selections ran. Two
-queued jobs conflict (`refuse_outputs_of_active_jobs`) only over the same network. `summary.json`'s
+**One folder per network.** `visual_exports/sub-<id>/<sim>/networks/<network>/` (`all` for a whole
+tractogram, `thalamocortical_sequence` for the sequence) holds `<colour>_<view>.png`,
+`<colour>_turntable.mp4` and `network.json`: the selection, code version and, per colour, the config that
+re-renders it (`-m tit.blender network.json <colour>`), the setup, counts and files. A render's bundle
+(`bundle_<colour>/`) is deleted on success, kept on failure or with `keep_bundle`. Blender writes a movie to a
+temporary folder and it is copied in whole, so a killed render leaves nothing there. The Plan's
+`resolved.replaced_outputs` are the files this colour and these views would replace, and `will_overwrite` is
+true only for them; an assess plans an overwrite only over its own `<name>.trx`, or `edges.json` when it
+writes no bundle, because the rest of that folder covers every streamline whichever selections ran. Two queued
+jobs conflict (`refuse_outputs_of_active_jobs`) only over the same network and colour. `summary.json`'s
 `bundles` keeps other networks' records and now holds `pairs` and `n_selected`, which
-`GET /api/catalog/simulations/{name}/networks` returns as `assessed` beside `has_edges`.
+`GET /api/catalog/simulations/{name}/networks` returns as `assessed` beside `has_edges`; its `renders` carry
+`network`, `colour` and `view`. Excluded alternative: names that carry the network in one flat folder, which
+gave 101 files and a bundle per render on one simulation.
 
 **The Visual exporter's Networks tab submits those jobs.** `NetworkChooser`
 (`pages/_shared/roi/`, also the Optimizer's Network target) offers a preset (`GET /api/tract/presets`,
@@ -875,9 +881,13 @@ same-hemisphere pairs by atlas label, not a midline plane, so nothing downstream
 count of kept streamlines more than 5 mm past the plane midway between the hemispheres' mean x and back.
 By-region, by-connection, strongest and other presets are unfiltered. A network this simulation cannot
 draw (no matching `<name>.trx`, no `all.trx`) is assessed first by a `tract` job the render names in
-`after`; there is no other chaining. `quality: preview` spends 8 samples per still and 960x540 at 6 samples per video frame, and absent
+`after`; there is no other chaining. On this tab the Plan is a one-line `<details>` over the pane
+(`ExtensionRunPanel.planLine`), the setup is in the form beside its overrides, and renders are a third tab
+(`RunPaneTabs.extra`). `SceneCanvas` keeps the legend and sliders behind **Layers** on every page, closed by
+default and over the canvas rather than beside it; `desktop/tests/e2e/network-scene-layout.spec.ts` holds the
+canvas to at least 60 % of the window's height, in px. `quality: preview` spends 8 samples per still and 960x540 at 6 samples per video frame, and absent
 fields reproduce the previous render. `thalamocortical_sequence` promotes the approved video into the
-config: `run_tract` exports one bundle per network under `tract_scene/{frontal,posterior}/` on one
+config: `run_tract` exports `bundle_frontal/` and `bundle_posterior/` in `networks/thalamocortical_sequence/` on one
 TI_max window (p99 over both) and runs `tract_scene.py -- sequence`, with the thalami flat-shaded glass
 at `HIGHLIGHT_LEVEL` 0.4; it refuses to run beside stills, a turntable or named network fields. The
 preview renders every fourth frame at 6 fps. Jobs render in the image's Blender (`TIT_BLENDER_BIN`, set

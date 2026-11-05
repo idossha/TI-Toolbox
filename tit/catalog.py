@@ -934,15 +934,17 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     ``assess`` stage); ``assessed`` what ``summary.json`` recorded of those made from region
     pairs, for telling a network already assessed from one that only shares its name;
     ``has_edges`` whether the assess stage has run here at all, which is what gives ``edges.json``;
-    ``renders`` the PNG and MP4 files in ``visual_exports/sub-<id>/<sim>/tract/``, newest first.
+    ``renders`` the PNG and MP4 files in ``visual_exports/sub-<id>/<sim>/networks/<network>/``,
+    each with its network, colour and view, newest first.
     ``None`` if subject or simulation is unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
     ``GET /api/catalog/simulations`` is a :func:`simulation_detail`.
     """
     if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
         return None
     tract_dir = _jailed(pm, os.path.join(pm.simulation(sid, sim), "tract"))
-    render_dir = _jailed(
-        pm, os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "tract")
+    networks_dir = _jailed(
+        pm,
+        os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "networks"),
     )
     networks = (
         sorted(
@@ -954,20 +956,29 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
         else []
     )
     renders = []
-    if render_dir and os.path.isdir(render_dir):
-        for name in os.listdir(render_dir):
-            kind = {".png": "image", ".mp4": "video"}.get(os.path.splitext(name)[1])
-            path = _jailed(pm, os.path.join(render_dir, name))
-            # A dot prefix is a movie Blender is still writing (tract_scene._render_movie).
-            if kind and path and not name.startswith(".") and os.path.isfile(path):
-                renders.append(
-                    {
-                        "path": path,
-                        "name": name,
-                        "kind": kind,
-                        "modified_at": _mtime_iso(path),
-                    }
-                )
+    if networks_dir and os.path.isdir(networks_dir):
+        for network in sorted(os.listdir(networks_dir)):
+            folder = _jailed(pm, os.path.join(networks_dir, network))
+            if not folder or not os.path.isdir(folder):
+                continue
+            for name in sorted(os.listdir(folder)):
+                stem, extension = os.path.splitext(name)
+                kind = {".png": "image", ".mp4": "video"}.get(extension)
+                path = _jailed(pm, os.path.join(folder, name))
+                if kind and path and os.path.isfile(path):
+                    # <colour>_<view>: a colour may hold an underscore, a view does not.
+                    colour, _, view = stem.rpartition("_")
+                    renders.append(
+                        {
+                            "path": path,
+                            "name": name,
+                            "kind": kind,
+                            "modified_at": _mtime_iso(path),
+                            "network": network,
+                            "colour": colour or stem,
+                            "view": view,
+                        }
+                    )
     renders.sort(key=lambda r: (r["modified_at"], r["name"]), reverse=True)
     assessed = []
     if tract_dir and os.path.isfile(os.path.join(tract_dir, "summary.json")):

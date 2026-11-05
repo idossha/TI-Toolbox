@@ -6599,13 +6599,18 @@ export interface components {
             }[];
             /** @description Whether the assess stage has written this simulation's edges.json. */
             has_edges: boolean;
-            /** @description PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first. */
+            /** @description PNG and MP4 files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first. */
             renders: {
                 path: string;
                 name: string;
                 /** @enum {string} */
                 kind: "image" | "video";
                 modified_at: string;
+                network: string;
+                /** @description what the fibres are coloured by */
+                colour: string;
+                /** @description a still's view, or turntable, propagation or sequence */
+                view: string;
             }[];
         };
         /** @description v0 Simulation plus montages, fields, spaces, reports, niftis, meshes */
@@ -6940,6 +6945,12 @@ export interface components {
             }[];
         };
         PlanResolved: {
+            /** @description blender, a named network only: tit.blender.network_setup.resolve_network_setup's values, reasons, overridden, n_streamlines, n_drawn, and opposite_removed for a same-side preset. */
+            network_setup?: {
+                [key: string]: unknown;
+            };
+            /** @description blender, a tract render - the files of its folder this run would replace. */
+            replaced_outputs?: string[];
             montages?: {
                 [key: string]: unknown;
             }[];
@@ -9935,7 +9946,10 @@ export interface components {
          *     roi_center_mm, roi_radius_mm : list of float or None, float
          *         A target sphere to draw, in subject mm.
          *     output_dir : str or None
-         *         Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.
+         *         Resolved to ``visual_exports/sub-<id>/<sim>/networks/<network>`` when ``None``.
+         *     keep_bundle : bool
+         *         Keep the render bundle (``bundle_<colour>/``) after a successful render, to re-render it
+         *         in another Blender. It is deleted otherwise; a failed render always keeps it.
          *     seed : int
          *         Subsampling seed.
          */
@@ -10112,6 +10126,11 @@ export interface components {
              * @default null
              */
             output_dir: string | null;
+            /**
+             * Keep Bundle
+             * @default false
+             */
+            keep_bundle: boolean;
             /**
              * Seed
              * @default 0

@@ -511,3 +511,9 @@ export async function getServerPanels(url: string, token: string): Promise<strin
   const body = (await res.json()) as { panels?: unknown };
   return Array.isArray(body.panels) ? body.panels.filter((p): p is string => typeof p === "string") : [];
 }
+
+/** The scene's legend and sliders, closed by default; the pane may have been left open by a step before. */
+export async function openSceneLayers(scope: Locator | Page): Promise<void> {
+  const toggle = scope.getByTestId("scene-layers-toggle");
+  if ((await toggle.getAttribute("aria-expanded")) !== "true") await toggle.click();
+}

@@ -66,9 +66,36 @@
 
 .scene-chrome-bottom {
   left: var(--space-2);
-  right: var(--space-2);
   bottom: var(--space-2);
-  justify-content: space-between;
+}
+
+.scene-layers-toggle {
+  padding: 2px var(--space-2);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--on-canvas);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+/* Over the canvas, never beside it; a long list scrolls in here rather than the page. */
+.scene-layers {
+  position: absolute;
+  left: var(--space-2);
+  bottom: calc(var(--space-2) + 28px);
+  width: min(260px, 60%);
+  max-height: calc(100% - 64px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.scene-layers[hidden] {
+  display: none;
 }
 
 .scene-legend {

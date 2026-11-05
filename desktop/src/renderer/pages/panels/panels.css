@@ -154,10 +154,11 @@
 .network-setup-list > div { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: var(--space-2); }
 .network-setup-list dt { color: var(--ink-2); }
 .network-setup-list dd { margin: 0; overflow-wrap: anywhere; }
-.network-preview { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: var(--space-2); }
-.network-preview-pane { flex: 1 1 60%; min-height: 240px; }
-.network-preview-renders { flex: 1 1 40%; min-height: 0; overflow: auto; }
-.network-renders { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); padding: var(--space-3); overflow: auto; height: 100%; align-content: start; }
+.extension-plan-line > summary { cursor: pointer; font-size: var(--text-sm, 12px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.extension-plan-line[open] > summary { white-space: normal; }
+.network-render-groups { height: 100%; overflow: auto; display: flex; flex-direction: column; gap: var(--space-2); }
+.network-render-groups > details > summary { cursor: pointer; font-weight: 600; padding: var(--space-1) 0; }
+.network-renders { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); padding: var(--space-2) 0; align-content: start; }
 .network-renders figure { margin: 0; min-width: 0; }
 .network-renders img, .network-renders video { display: block; width: 100%; background: #000; border-radius: var(--radius-1, 4px); }
 .network-renders figcaption { margin-top: var(--space-1); font-size: var(--text-xs, 11px); color: var(--text-secondary, inherit); overflow-wrap: anywhere; }

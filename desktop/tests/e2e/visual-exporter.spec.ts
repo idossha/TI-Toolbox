@@ -229,9 +229,11 @@ test("an existing file still renders, a preset is chosen in its place, and the s
   });
   expect(sequence.config).toMatchObject({ thalamocortical_sequence: true, stills: false, turntable: false });
 
-  await page.getByRole("tab", { name: "Scene" }).or(page.getByRole("radio", { name: "Scene" })).first().click();
+  await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: /_lateral\.png/ })).toBeVisible();
+  // By network, labelled by what it shows: the mock's fixture still, of the network called all.
+  await expect(renders.getByRole("img", { name: "all, Fibre direction · lateral" })).toBeVisible();
+  await expect(renders.locator("figcaption").first()).toHaveText("Fibre direction · lateral");
   await page.screenshot({ path: join(ARTIFACTS, "panel-visual-exporter-networks.png") });
 });
 
@@ -275,6 +277,7 @@ test("a preset is chosen, says what same-side left out, and Run assesses it befo
   await expect(page.getByTestId("network-removed")).toHaveText("· 95 of 107; 12 opposite-hemisphere removed (right thalamus to left cortex 12, left thalamus to right cortex 0)");
   await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
   await expect(page.getByTestId("ve-assess-first")).toContainText("assesses this network first");
+  await page.getByTestId("network-advanced").locator("summary").click();
   await expect(page.getByTestId("network-setup-removed")).toContainText("12 opposite-hemisphere removed");
   await page.screenshot({ path: join(ARTIFACTS, "panel-visual-exporter-network-preset.png") });
 
@@ -304,9 +307,14 @@ test("a render of one network leaves another's files alone, and asks only about 
   await first.click();
   const job = await submittedJob(() => page.getByTestId("run-button").click());
   expect(job).toMatchObject({ kind: "blender" });
-  await page.getByRole("radio", { name: "Scene" }).or(page.getByRole("tab", { name: "Scene" })).first().click();
-  await expect(page.getByTestId("network-renders").getByRole("img", { name: /precentral_brainstem_tract_direction_lateral\.png/ })).toBeVisible({ timeout: 30_000 });
-  await expect(page.getByTestId("network-renders").getByRole("img", { name: /ernie_Thalamus_tract_direction_lateral\.png/ })).toBeVisible();
+  const rendersTab = page.getByRole("radio", { name: /^Renders \d+$/ });
+  await expect(page.getByRole("radio", { name: "Renders 2" })).toBeVisible({ timeout: 30_000 });
+  await rendersTab.click();
+  // One group for each; the newer open, the older a header until it is asked for.
+  const renders = page.getByTestId("network-renders");
+  await expect(renders.getByRole("img", { name: "precentral_brainstem, Fibre direction · lateral" })).toBeVisible();
+  await expect(renders.locator("details")).toHaveCount(2);
+  await expect(renders.locator('details[data-network="all"]')).not.toHaveAttribute("open");
   await page.getByTestId("run-button").click();
   await expect(page.getByTestId("existing-outputs-replace")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("existing-outputs-skip").click();
@@ -343,7 +351,7 @@ test("by connection: the table is the choice, and a line in the pane is too", as
   await page.getByTestId("network-edges").getByRole("option", { name: /Left-Thalamus-Proper/ }).click();
   await expect(page.getByTestId("network-count")).toContainText("300 streamlines · 1 edge");
   await expect(page.getByTestId("network-mask-name")).toHaveValue("lh_insula_Left-Thalamus-Proper");
-  await expect(page.getByTestId("network-preview")).toBeVisible();
+  await expect(page.getByTestId("run-pane-panel-scene")).toBeVisible();
 });
 
 test("strongest here: no metric is chosen for you, and the list follows the one you name", async () => {
@@ -374,8 +382,8 @@ test("strongest here on a simulation not yet assessed offers its edge table, and
 test("advanced overrides reach the config and the Plan says who set what", async () => {
   await openNetworksOf("ernie", "Thalamus", false);
   await page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ }).click();
-  await expect(page.getByTestId("network-setup-plan")).toContainText("Automatic setup");
   await page.getByTestId("network-advanced").locator("summary").click();
+  await expect(page.getByTestId("network-setup-plan")).toContainText("Streamlines drawn");
   await page.locator("#ve-setup-side").click();
   await page.getByRole("option", { name: "Right" }).click();
   await page.locator("#ve-setup-shell").click();

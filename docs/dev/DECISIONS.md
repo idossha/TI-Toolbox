@@ -4509,3 +4509,23 @@ nothing new downstream); a midline-plane test (the head is not aligned to it, an
 plane is used only for the QC count of same-side streamlines crossing twice, which labels cannot catch); a
 filter on every selection (the user picked those edges by hand).
 
+## 2026-11-05 — A network's renders are one folder, two stills and no bundle; the scene owns the column
+
+**Decision.** `networks/<network>/<colour>_<view>.png` plus `network.json`, replacing the flat folder of
+`<sid>_<sim>_<network>_tract_<metric>_<view>.png` from earlier the same day (unreleased, so no compatibility).
+Automatic setup draws two views, not four. Bundles are deleted after a successful render (`keep_bundle` keeps
+them). A movie is written outside the output folder. On the Networks tab the Plan is one line, setup moved to
+the form, renders are a tab; `SceneCanvas` folds its legend and sliders behind **Layers** on every page. Pinned
+by `tests/test_tract_viz.py`, `tests/test_tract_routes.py` and `desktop/tests/e2e/network-scene-layout.spec.ts`.
+
+**Why.** The maintainer's review (2026-11-05): 101 files and 133 MB for one simulation, 106 MB of it bundles, and
+a 200 px scene under the Plan that could not practically be rotated. A hidden partial movie stayed behind when a
+job was killed mid-render, which a `finally` cannot catch.
+
+**Measured.** Canvas at 1440x900: 518 x 662 px, was about 518 x 180 px. A named network's render peaks at 3.93 to
+4.13 GB (`tit/jobs/costs.py`).
+
+**Alternatives rejected.** A folder per colour (a network's renders are looked at together); keeping the
+bundle by default (`network.json`'s config rebuilds it in under a minute); a draggable split (the existing
+expand and the taller pane were enough, and it is a second gesture to maintain).
+

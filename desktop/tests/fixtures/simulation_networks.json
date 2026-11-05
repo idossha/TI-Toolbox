@@ -14,10 +14,13 @@
     "has_edges": true,
     "renders": [
       {
-        "path": "/mnt/example/derivatives/ti-toolbox/visual_exports/sub-ernie/Thalamus/tract/ernie_Thalamus_tract_direction_lateral.png",
-        "name": "ernie_Thalamus_tract_direction_lateral.png",
+        "path": "/mnt/example/derivatives/ti-toolbox/visual_exports/sub-ernie/Thalamus/networks/all/direction_lateral.png",
+        "name": "direction_lateral.png",
         "kind": "image",
-        "modified_at": "2026-11-05T00:00:00+00:00"
+        "modified_at": "2026-11-05T00:00:00+00:00",
+        "network": "all",
+        "colour": "direction",
+        "view": "lateral"
       }
     ]
   }
