@@ -229,6 +229,9 @@ class TractConfig:
         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
     max_streamlines : int
         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
+    vmax_v_per_m : float or None
+        Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.
+        Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).
     stills, turntable, propagation, web, connectome : bool
         Which outputs to write.
     width, height : int
@@ -258,6 +261,7 @@ class TractConfig:
     tractogram: str = ""
     metric: Metric = Metric.TI_ALONG
     max_streamlines: int = 15_000
+    vmax_v_per_m: float | None = None
     stills: bool = True
     turntable: bool = False
     propagation: bool = False
@@ -281,6 +285,8 @@ class TractConfig:
         self.metric = TractConfig.Metric(self.metric)
         if self.max_streamlines <= 0:
             raise ValueError("max_streamlines must be > 0")
+        if self.vmax_v_per_m is not None and not self.vmax_v_per_m > 0:
+            raise ValueError("vmax_v_per_m must be > 0")
         if self.width < 64 or self.height < 64:
             raise ValueError("width and height must be at least 64 px")
         if self.turntable_frames < 2:

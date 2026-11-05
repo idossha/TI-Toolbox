@@ -129,6 +129,18 @@ def test_ratio_metric_guards_zero_ti_max(three):
         td.vertex_metric(three, "direction")
 
 
+def test_smoothing_keeps_constants_and_never_crosses_streamlines():
+    a = np.stack([np.arange(20.0), np.zeros(20), np.zeros(20)], 1)
+    b = a + [0, 5, 0]
+    t = _tracts([a, b])
+    values = np.r_[np.full(20, 1.0), np.full(20, 3.0)]
+    np.testing.assert_allclose(td.smooth_along(t, values, 3.0), values, rtol=1e-6)
+    zigzag = np.r_[np.tile([0.0, 2.0], 10), np.tile([0.0, 2.0], 10)]
+    smooth = td.smooth_along(t, zigzag, 3.0)
+    assert smooth[5:15].std() < 0.2 * zigzag[5:15].std()  # 1 mm jitter averaged out
+    np.testing.assert_allclose(smooth[5:15].mean(), 1.0, atol=0.15)
+
+
 def test_subsample_keeps_everything_under_budget():
     assert list(td.subsample(np.ones(5), 10)) == [0, 1, 2, 3, 4]
 
@@ -254,7 +266,7 @@ def test_export_scene_passes_coordinates_and_attributes_through(
         # d is the arc distance from the streamline's ti_along maximum: zero there.
         assert (t["d"][: t["offsets"][1]] == 0).sum() >= 1
     assert manifest["vmax"] == pytest.approx(
-        np.percentile(three.dpv["ti_along"], 99.5), rel=1e-5
+        np.percentile(td.smooth_along(three, three.dpv["ti_along"]), 99.5), rel=1e-5
     )
 
 
@@ -301,7 +313,12 @@ def test_tract_config_validates_and_round_trips():
     data = serialize_config(cfg)
     assert data["_type"] == "TractConfig"
     assert deserialize_config(TractConfig, data) == cfg
+    assert (
+        TractConfig(subject_id="e", simulation_name="s", vmax_v_per_m=0.3).vmax_v_per_m
+        == 0.3
+    )
     for bad in (
+        {"vmax_v_per_m": 0.0},
         {"max_streamlines": 0},
         {"roi_center_mm": [1, 2]},
         {"metric": "fa"},
@@ -321,7 +338,20 @@ def _decode(text, dtype):
 def test_viewer_payload_round_trips_positions_and_values(three):
     from tit.plotting.tract_web import viewer_payload
 
-    edges = {0: {"region_a": "lh.a", "region_b": "lh.b"}}
+    edges = {
+        0: {
+            "region_a": "lh.a",
+            "region_b": "lh.b",
+            "n_streamlines": 40,
+            "ti_along_mean": {"median": 0.01},
+        },
+        1: {
+            "region_a": "rh.a",
+            "region_b": "rh.b",
+            "n_streamlines": 7,
+            "ti_along_mean": {"median": 0.2},
+        },
+    }
     electrode = {"name": "F7", "xyz": [-60.0, 30.0, 10.0], "channel": 1}
     sphere = _sphere()
     sphere = (
@@ -352,12 +382,18 @@ def test_viewer_payload_round_trips_positions_and_values(three):
     first = along[offsets[:-1]]
     np.testing.assert_allclose(
         first,
-        three.dpv["ti_along"][three.offsets[:-1]],
+        td.smooth_along(three, three.dpv["ti_along"])[three.offsets[:-1]],
         atol=payload["value_scale"]["ti_along"] / 65535,
     )
-    names = {e["id"]: e["name"] for e in payload["edges"]}
-    assert names == {-1: "unassigned", 0: "lh.a – lh.b", 1: "edge 1"}
-    assert payload["edges"][-1]["id"] == -1  # unassigned listed last
+    assert [(e["id"], e["name"], e["n"]) for e in payload["edges"]] == [
+        (
+            1,
+            "rh.a – rh.b",
+            7,
+        ),  # the higher edges.json median first, its tractogram count
+        (0, "lh.a – lh.b", 40),
+        (-1, "unassigned", 1),  # last, counted in the shown subset
+    ]
 
 
 def test_viewer_page_is_self_contained_pinned_and_small(tmp_path):
@@ -408,6 +444,8 @@ def test_top_edges_are_the_largest_upper_triangle_entries():
     m = np.array([[9.0, 0.2, 0.0], [0.2, 9.0, np.nan], [0.0, np.nan, 9.0]])
     m[0, 2] = m[2, 0] = 0.5
     assert top_edges(m, ["a", "b", "c"], k=5) == [("a", "c", 0.5), ("a", "b", 0.2)]
+    counts = np.array([[0, 30, 2], [30, 0, 0], [2, 0, 0]])
+    assert top_edges(m, ["a", "b", "c"], 5, counts, min_count=10) == [("a", "b", 0.2)]
     assert metric_units("ti_along_max") == "V/m"
     assert metric_units("count") == "streamlines"
     assert metric_units("ti_ratio_mean") == "1"
@@ -416,7 +454,9 @@ def test_top_edges_are_the_largest_upper_triangle_entries():
 # -- TRX reading (the reference reader is checked in tests/numerical) ----------------------------
 
 
-def test_load_trx_reads_zip_and_directory_and_drops_one_point_streamlines(tmp_path, three):
+def test_load_trx_reads_zip_and_directory_and_drops_one_point_streamlines(
+    tmp_path, three
+):
     import importlib.util
     import zipfile
     from pathlib import Path
@@ -441,3 +481,28 @@ def test_load_trx_reads_zip_and_directory_and_drops_one_point_streamlines(tmp_pa
         np.testing.assert_array_equal(got.offsets, three.offsets)
         np.testing.assert_array_equal(got.dpv["ti_along"], three.dpv["ti_along"])
         assert list(got.dps["edge_id"]) == list(three.dps["edge_id"])
+
+
+def test_ranking_winners_and_montage_labels():
+    from tit.plotting.tract_connectome import montage_label, ranking_winners
+
+    rows = [
+        {
+            "montage": ["T8", "CP5", "C3", "C4"],
+            "rank_by_ti_max": 5,
+            "rank_by_ti_along": 1,
+        },
+        {
+            "montage": ["T8", "C3", "C4", "CP5"],
+            "rank_by_ti_max": 1,
+            "rank_by_ti_along": 9,
+        },
+        {
+            "montage": ["F8", "CP5", "P8", "C3"],
+            "rank_by_ti_max": 2,
+            "rank_by_ti_along": 2,
+        },
+    ]
+    by_max, by_along = ranking_winners(rows)
+    assert montage_label(by_max["montage"]) == "T8–C3 + C4–CP5"
+    assert montage_label(by_along["montage"]) == "T8–CP5 + C3–C4"

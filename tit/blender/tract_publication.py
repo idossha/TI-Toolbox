@@ -162,9 +162,16 @@ def export_scene(
     """Write the Blender bundle for *tracts* (already subsampled); return the manifest path."""
     os.makedirs(bundle_dir, exist_ok=True)
     metric = str(cfg.metric)
-    along = tracts.dpv["ti_along"]
-    shown = td.vertex_metric(tracts, "ti_along" if metric == "direction" else metric)
-    vmax = td.robust_max(shown)
+    # Colour, peaks and front gains all read the display-smoothed values (td.SMOOTH_MM).
+    along = td.smooth_along(tracts, tracts.dpv["ti_along"])
+    shown = td.smooth_along(
+        tracts,
+        td.vertex_metric(tracts, "ti_along" if metric == "direction" else metric),
+    )
+    if metric == "ti_ratio":
+        vmax = 1.0
+    else:
+        vmax = float(cfg.vmax_v_per_m) if cfg.vmax_v_per_m else td.robust_max(shown)
     # Peak, arc and gain come from the full-resolution streamline, then the tube is thinned.
     s = td.arc_length(tracts)
     peak = td.peak_vertex(tracts, along)
@@ -228,6 +235,7 @@ def export_scene(
         "stops": td.PLASMA_SRGB,
         "n_shown": tracts.n,
         "n_total": int(n_total),
+        "smoothing_mm": td.SMOOTH_MM,
         "lateral_side": side,
         "tracts": "tracts.npz",
         "glass": "glass.npz",
@@ -326,7 +334,9 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
         from tit.plotting.tract_web import write_viewer
 
         viewer = os.path.join(out, f"{sid}_{sim}_tract_viewer.html")
-        write_viewer(viewer, tracts, glass[:2], electrodes, edges, title=title)
+        write_viewer(
+            viewer, tracts, glass[:2], electrodes, edges, title=title, n_total=n_total
+        )
         log.info(f"wrote {viewer}")
     if cfg.connectome:
         from tit.plotting.tract_connectome import plot_connectome

@@ -9356,6 +9356,9 @@ export interface components {
          *         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio`` or ``direction``.
          *     max_streamlines : int
          *         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
+         *     vmax_v_per_m : float or None
+         *         Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.
+         *         Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).
          *     stills, turntable, propagation, web, connectome : bool
          *         Which outputs to write.
          *     width, height : int
@@ -9388,6 +9391,11 @@ export interface components {
              * @default 15000
              */
             max_streamlines: number;
+            /**
+             * Vmax V Per M
+             * @default null
+             */
+            vmax_v_per_m: number | null;
             /**
              * Stills
              * @default true

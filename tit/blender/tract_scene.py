@@ -31,7 +31,7 @@ import numpy as np
 #: above 1 for the top of the range so only hot fibres reach the bloom threshold.
 LOW, GAMMA, BOOST = 0.05, 1.7, 0.9
 #: Tube radius in mm at v: ``R0 + R1 * v**1.3``.
-R0, R1 = 0.08, 0.6
+R0, R1 = 0.06, 0.34  # whole-brain tractograms are dense; thicker tubes read as fur
 #: Tube opacity at v: ``OPACITY0 + (1 - OPACITY0) * v``; dim fibres must not hide hot ones.
 OPACITY0 = 0.2
 TEXT_GREY = 0.85
@@ -109,6 +109,7 @@ def _tube_modifier(obj, material, resolution: int = 6) -> None:
     link(r.outputs["Attribute"], radius.inputs["Radius"])
     link(radius.outputs["Curve"], sweep.inputs["Curve"])
     link(profile.outputs["Curve"], sweep.inputs["Profile Curve"])
+    sweep.inputs["Fill Caps"].default_value = True  # open ends read as rings end-on
     link(sweep.outputs["Mesh"], paint.inputs["Geometry"])
     link(paint.outputs["Geometry"], group_out.inputs[0])
     obj.modifiers.new("Tubes", "NODES").node_group = tree
@@ -706,7 +707,10 @@ def render_stills(manifest, base, out_dir) -> list[str]:
     camera.data.type = "ORTHO"
     camera.data.clip_start, camera.data.clip_end = 1.0, 5000.0
     scene.camera = camera
-    shown = f"{manifest['n_shown']:,} of {manifest['n_total']:,} streamlines"
+    shown = (
+        f"{manifest['n_shown']:,} of {manifest['n_total']:,} streamlines · colour averaged "
+        f"along each fibre over ±{manifest.get('smoothing_mm', 0):g} mm"
+    )
     overlay = build_overlay(manifest, camera, caption=shown, distance=10.0)
     side = manifest["lateral_side"]
     views = {

@@ -49,14 +49,28 @@ def viewer_payload(
     title: str,
     max_streamlines: int = WEB_STREAMLINES,
     seed: int = 0,
+    n_total: int | None = None,
 ) -> dict:
-    """The JSON the page reads; every array a base64 little-endian typed array."""
+    """The JSON the page reads; every array a base64 little-endian typed array.
+
+    *n_total* is the size of the tractogram *tracts* was drawn from, when it is a subset.
+    """
     weight = tracts.dps.get("ti_along_max")
     if weight is None:
         weight = np.maximum.reduceat(tracts.dpv["ti_along"], tracts.offsets[:-1])
     keep = td.subsample(weight, max_streamlines, seed)
-    t = td.decimate(td.select(tracts, keep), WEB_STEP_MM)
-    along_max = np.maximum.reduceat(t.dpv["ti_along"], t.offsets[:-1])
+    picked = td.select(tracts, keep)
+    # The threshold reads the raw per-streamline peak; colours are display-smoothed.
+    along_max = np.asarray(
+        picked.dps.get(
+            "ti_along_max",
+            np.maximum.reduceat(picked.dpv["ti_along"], picked.offsets[:-1]),
+        ),
+        dtype=np.float32,
+    )
+    for key in ("ti_along", "ti_max"):
+        picked.dpv[key] = td.smooth_along(picked, picked.dpv[key])
+    t = td.decimate(picked, WEB_STEP_MM)
     edge_id = t.dps.get("edge_id", np.full(t.n, -1)).astype(np.int64)
 
     from tit.scene.simplify import simplify_to_budget
@@ -71,9 +85,18 @@ def viewer_payload(
         "ti_max": td.robust_max(t.dpv["ti_max"]),
         "ti_ratio": 1.0,
     }
-    # Strongest edges first (by their fibres' highest ti_along), unassigned last.
-    peak = {int(e): float(along_max[edge_id == e].max()) for e in np.unique(edge_id)}
-    listed = sorted(peak, key=lambda e: (e < 0, -peak[e]))
+
+    # Strongest edges first, unassigned last: by the edge's median streamline ti_along_mean
+    # from edges.json (a whole-edge statistic), else by the shown fibres' median peak.
+    def strength(e: int) -> float:
+        median = (edges.get(e, {}).get("ti_along_mean") or {}).get("median")
+        return (
+            float(median)
+            if median is not None
+            else float(np.median(along_max[edge_id == e]))
+        )
+
+    listed = sorted({int(e) for e in edge_id}, key=lambda e: (e < 0, -strength(e)))
     return {
         "title": title,
         "three": THREE_VERSION,
@@ -83,7 +106,7 @@ def viewer_payload(
         "metrics": {k: {"label": v[0], "units": v[1]} for k, v in td.METRICS.items()},
         "metric_max": metric_max,
         "n_streamlines": int(t.n),
-        "n_total": int(tracts.n),
+        "n_total": int(n_total or tracts.n),
         "positions": _b64(_quantize(t.points, centre), "<i2"),
         "offsets": _b64(t.offsets, "<u4"),
         "values": {
@@ -100,7 +123,7 @@ def viewer_payload(
                     if e in edges
                     else ("unassigned" if e < 0 else f"edge {e}")
                 ),
-                "n": int((edge_id == e).sum()),
+                "n": int(edges.get(e, {}).get("n_streamlines", (edge_id == e).sum())),
             }
             for e in listed
         ],
@@ -127,9 +150,12 @@ def write_viewer(
     edges: dict[int, dict],
     *,
     title: str,
+    n_total: int | None = None,
 ) -> str:
     """Write the viewer page to *path* and return it."""
-    payload = viewer_payload(tracts, glass, electrodes, edges, title=title)
+    payload = viewer_payload(
+        tracts, glass, electrodes, edges, title=title, n_total=n_total
+    )
     page = (
         _PAGE.replace("__TITLE__", html.escape(title))
         .replace("__THREE__", THREE_VERSION)
@@ -222,7 +248,7 @@ output { font-variant-numeric: tabular-nums; color: var(--muted); }
     <div class="row" style="margin-top:12px"><label class="field" style="margin:0">Edges</label>
       <span><button id="all" type="button">All</button> <button id="none" type="button">None</button></span></div>
     <ul id="edges"></ul>
-    <p class="note" style="margin-top:12px">Field values are descriptors of the applied field along each fibre, not predictions of activation.</p>
+    <p class="note" style="margin-top:12px">Field values are descriptors of the applied field along each fibre, not predictions of activation. Colours are averaged along each fibre over &plusmn;3 mm; the threshold uses each streamline's raw peak.</p>
   </aside>
 </main>
 <script type="application/json" id="data">__DATA__</script>
@@ -320,7 +346,7 @@ const enabled = new Set(D.edges.map((e) => e.id));
 const list = ui("edges");
 for (const e of D.edges) {
   const li = document.createElement("li");
-  li.innerHTML = `<label><input type="checkbox" checked data-id="${e.id}"><span></span><span class="n">${e.n}</span></label>`;
+  li.innerHTML = `<label title="streamlines in the tractogram"><input type="checkbox" checked data-id="${e.id}"><span></span><span class="n">${e.n}</span></label>`;
   li.querySelector("span").textContent = e.name;
   list.append(li);
 }

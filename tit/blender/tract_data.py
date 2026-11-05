@@ -219,6 +219,34 @@ def vertex_metric(tracts: Tracts, metric: str) -> np.ndarray:
     )
 
 
+#: Display smoothing of the colour along each fibre, in mm. Real ti_along jitters ~28 % per 1 mm
+#: step from tangent noise (sub-CHN left_insula_mean: median |step change| 0.025 of 0.089 V/m,
+#: ti_max 0.006 of 0.31), which renders as speckle instead of a fibre.
+SMOOTH_MM = 3.0
+
+
+def smooth_along(
+    tracts: Tracts, values: np.ndarray, half_width_mm: float = SMOOTH_MM
+) -> np.ndarray:
+    """*values* averaged along each streamline (two box passes of +-*half_width_mm*).
+
+    Windows stop at streamline ends, so no value leaks from one streamline into the next.
+    """
+    sid = tracts.streamline_id()
+    step = np.linalg.norm(np.diff(tracts.points, axis=0), axis=1)[np.diff(sid) == 0]
+    w = int(round(half_width_mm / float(np.median(step)))) if step.size else 0
+    if w < 1:
+        return np.asarray(values, dtype=np.float32)
+    i = np.arange(len(sid))
+    lo = np.maximum(i - w, tracts.offsets[:-1][sid])
+    hi = np.minimum(i + w, tracts.offsets[1:][sid] - 1)
+    out = np.asarray(values, dtype=np.float64)
+    for _ in range(2):
+        total = np.r_[0.0, np.cumsum(out)]
+        out = (total[hi + 1] - total[lo]) / (hi - lo + 1)
+    return out.astype(np.float32)
+
+
 def peak_vertex(tracts: Tracts, values: np.ndarray) -> np.ndarray:
     """(S,) global vertex index of each streamline's maximum of *values* (first on a tie)."""
     order = np.lexsort((-np.asarray(values), tracts.streamline_id()))
