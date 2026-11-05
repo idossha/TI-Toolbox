@@ -156,7 +156,6 @@ export function NetworkPanel({ value, onChange, subject, disabled }: {
               loading={edges.isPending}
               emptyMessage="No streamline ends in these regions."
               maxHeight={220}
-              aria="grid"
             />
           )}
         </Field>

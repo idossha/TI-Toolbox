@@ -4409,8 +4409,8 @@ for masks (a held request is fine for one explicit, sub-minute action).
 
 ## 2026-11-05 — The run-page pane draws streamlines as flat-coloured lines over the head
 
-**Decision.** `renderer/scene` gains one line pass (`setLines`, `TVSL1`, pick kind 3): one device
-pixel, no depth test, one colour per edge row. A pick within 4 CSS px of a line wins. Pinned by
+**Decision.** `renderer/scene` gains one line pass (`setLines`, `TVSL1`, pick kind 3): about two device
+pixels (half-pixel offset draws, because one strip under MSAA fully covers no pixel), no depth test, one colour per edge row. A pick within 4 CSS px of a line wins. Pinned by
 `desktop/tests/e2e/scene-lines.spec.ts` (midpoint pixels equal the swatches, picks return each group),
 `desktop/tests/unit/tvsl.test.ts` and `desktop/tests/unit/network-target.test.ts`.
 

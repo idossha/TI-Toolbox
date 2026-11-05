@@ -377,10 +377,12 @@ const LINE_VS = `#version 300 es
 in vec3 aPosition;
 in highp uint aGroup;
 uniform mat4 uViewProj;
+uniform vec2 uOffsetNdc;
 flat out highp uint vGroup;
 void main() {
   vGroup = aGroup;
   gl_Position = uViewProj * vec4(aPosition, 1.0);
+  gl_Position.xy += uOffsetNdc * gl_Position.w;
 }`;
 
 const LINE_FS = `#version 300 es
@@ -404,7 +406,14 @@ void main() {
   outColor = vec4(float(id & 255u), float((id >> 8u) & 255u), float((id >> 16u) & 255u), 255.0) / 255.0;
 }`;
 
-/** How far from the cursor a one-pixel line still counts as hit, in CSS pixels. */
+/**
+ * `gl.lineWidth` is a no-op, and a single one-pixel strip under MSAA covers no pixel fully, so it
+ * would paint no pixel its swatch. Half-pixel offsets of the same strip make the line about two
+ * device pixels wide, with full coverage along its centre.
+ */
+const LINE_OFFSETS_PX: readonly (readonly [number, number])[] = [[0, 0], [0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]];
+
+/** How far from the cursor a thin line still counts as hit, in CSS pixels. */
 export const LINE_PICK_RADIUS_PX = 4;
 
 const SURFACE_PICK_FS = `#version 300 es
@@ -951,8 +960,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
   let surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
   let surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
   let markerPrograms = linkMarkerPrograms(gl);
-  let lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uColors"]);
-  let linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uKind"]);
+  let lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uOffsetNdc", "uColors"]);
+  let linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uOffsetNdc", "uKind"]);
 
   let labelTexture = createLabelTexture(gl);
   let labelColorTexture = createLabelColorTexture(gl);
@@ -1445,10 +1454,13 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
 
   /** Drawn over the anatomy: a streamline runs inside the opaque cortex, so a depth-tested line
    *  would hide exactly what the pane is showing. Only the draw; the caller set the program. */
-  function drawLines(): void {
+  function drawLines(program: Program, offsets: readonly (readonly [number, number])[]): void {
     gl.bindVertexArray(lineVao);
-    gl.drawElements(gl.LINE_STRIP, lineIndexCount, gl.UNSIGNED_INT, 0);
-    stats.drawCalls += 1;
+    for (const [x, y] of offsets) {
+      gl.uniform2f(program.uniforms.uOffsetNdc as WebGLUniformLocation, (2 * x) / drawWidth, (2 * y) / drawHeight);
+      gl.drawElements(gl.LINE_STRIP, lineIndexCount, gl.UNSIGNED_INT, 0);
+      stats.drawCalls += 1;
+    }
   }
 
   /** Texture units, fixed so no pass has to remember what another one bound. */
@@ -1842,7 +1854,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         const colors = new Float32Array(MAX_LINE_GROUPS * 3);
         lines.colors.slice(0, MAX_LINE_GROUPS).forEach((color, i) => colors.set(color, i * 3));
         gl.uniform3fv(lineProgram.uniforms.uColors as WebGLUniformLocation, colors);
-        drawLines();
+        drawLines(lineProgram, LINE_OFFSETS_PX);
         gl.enable(gl.DEPTH_TEST);
         gl.enable(gl.BLEND);
       }
@@ -1931,7 +1943,7 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
         gl.useProgram(linePickProgram.program);
         setUniformMatrix(linePickProgram, "uViewProj", matrices.vp);
         gl.uniform1ui(linePickProgram.uniforms.uKind as WebGLUniformLocation, PICK_KIND_EDGE);
-        drawLines();
+        drawLines(linePickProgram, [[0, 0]]);
         gl.enable(gl.DEPTH_TEST);
         const box = new Uint8Array(width * height * 4);
         gl.readPixels(x0, y0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, box);
@@ -2031,8 +2043,8 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       surfacePickProgram = link(gl, SURFACE_VS, SURFACE_PICK_FS, SURFACE_PICK_UNIFORMS);
       surfaceDepthProgram = link(gl, SURFACE_VS, DEPTH_FS, ["uViewProj", "uView"]);
       markerPrograms = linkMarkerPrograms(gl);
-      lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uColors"]);
-      linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uKind"]);
+      lineProgram = link(gl, LINE_VS, LINE_FS, ["uViewProj", "uOffsetNdc", "uColors"]);
+      linePickProgram = link(gl, LINE_VS, LINE_PICK_FS, ["uViewProj", "uOffsetNdc", "uKind"]);
       lineVao = null;
       lineBuffers = [];
       labelTexture = createLabelTexture(gl);

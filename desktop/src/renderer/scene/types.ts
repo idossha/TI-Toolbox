@@ -70,7 +70,7 @@ export interface SceneMarker {
 }
 
 /**
- * Streamlines drawn as one-pixel lines over the head, coloured per group. A group is one row of the
+ * Streamlines drawn as thin lines over the head, coloured per group. A group is one row of the
  * page's edge list, so a line's colour is that row's swatch and a pick reports that row. No colour
  * map, no scalar: decision S1 keeps fields on the Viewer.
  */

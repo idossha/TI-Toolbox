@@ -10,7 +10,7 @@
  *   1. two translucent triangle surfaces (skin, grey matter),
  *   2. point markers (electrodes; a sphere centre),
  *   3. a highlighted region set on a labelled surface,
- *   4. one-pixel streamlines, one flat colour per edge row, over the head,
+ *   4. thin streamlines, one flat colour per edge row, over the head,
  *   5. nothing else.
  *
  * It exists so a user can *choose*: electrodes on the Simulator, a target on the Optimizer, a

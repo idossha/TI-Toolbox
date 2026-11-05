@@ -19,6 +19,8 @@ const TOKEN = process.env.TIT_E2E_TOKEN ?? "mock-token";
 let app: ElectronApplication;
 let page: Page;
 
+test.describe.configure({ mode: "serial" });
+
 test.beforeAll(async () => {
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-network-")) });
   page = await app.firstWindow();
@@ -144,9 +146,8 @@ test("Results: ranking is an action, and every statistic is a column with none p
 });
 
 async function openFirstExRun(target: Page): Promise<Locator> {
-  await target.getByTestId("results-tree").getByText(/Ex \/ mEx runs/).first().click({ trial: true }).catch(() => undefined);
-  const node = target.locator('[data-kind="ex"]').first();
-  await node.click();
+  await target.getByTestId("results-subject-ernie").click();
+  await target.getByTestId("results-node-ex:ernie:ex_L_Insula_20260812_090000").click();
   const ranking = target.getByTestId("network-ranking");
   await expect(ranking).toBeVisible();
   return ranking;

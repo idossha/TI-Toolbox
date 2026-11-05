@@ -614,7 +614,7 @@ surface". Output folders are `subcortical_<region>_<atlas>`;
 
 **A network target adds lines, not a viewer.** The Optimizer's `network` ROI mode draws the subject's
 grey matter in the network's own atlas (locked in the pane) and the listed edges' streamlines over it
-(`GlScene.setLines`, `SceneLines`). Lines are `LINE_STRIP` with primitive restart, one device pixel, no
+(`GlScene.setLines`, `SceneLines`). Lines are `LINE_STRIP` with primitive restart, about two device pixels (half-pixel offset draws, since `gl.lineWidth` is a no-op), no
 depth test, because a streamline runs inside the opaque cortex; each is one flat colour, its edge
 row's swatch (`scene/palette.ts`, dimmed when other rows are selected), so decision S1 still holds: no
 colormap and no field. A click within 4 CSS px of a line wins over the surface and reports pick kind

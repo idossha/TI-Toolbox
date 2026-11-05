@@ -23,6 +23,8 @@ const swatchByte = (group: number) => SCENE_CATEGORICAL[group]!.map((c) => Math.
 let app: ElectronApplication;
 let page: Page;
 
+test.describe.configure({ mode: "serial" });
+
 test.beforeAll(async () => {
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-lines-")) });
   page = await app.firstWindow();
