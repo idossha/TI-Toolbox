@@ -59,6 +59,46 @@ def test_simulation_figure_leaf_alias(tree, internal):
     assert bool(figures) is internal
 
 
+def test_simulation_networks_lists_trx_stems_and_finished_renders(tree):
+    pm, _root, _outside = tree
+    Path(pm.simulation("001", "simA")).mkdir(parents=True)
+    assert catalog.simulation_networks(pm, "001", "simA") == {
+        "networks": [],
+        "renders": [],
+    }
+    assert catalog.simulation_networks(pm, "001", "absent") is None
+
+    tract = Path(pm.simulation("001", "simA"), "tract")
+    tract.mkdir(parents=True)
+    for name in ("cst_lh.trx", "all.trx", "edges.json"):
+        (tract / name).touch()
+    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "tract")
+    (out / "tract_scene").mkdir(parents=True)
+    for name in ("a_lateral.png", "a_turntable.mp4", ".a_0001-0048.mp4", "a.html"):
+        (out / name).touch()
+
+    found = catalog.simulation_networks(pm, "001", "simA")
+    assert found["networks"] == ["all", "cst_lh"]
+    # Blender's dot-prefixed movie is still being written; the viewer page is not a render.
+    assert {r["name"]: r["kind"] for r in found["renders"]} == {
+        "a_lateral.png": "image",
+        "a_turntable.mp4": "video",
+    }
+
+
+@pytest.mark.parametrize("internal", [False, True])
+def test_simulation_network_render_leaf_alias(tree, internal):
+    pm, root, outside = tree
+    target = (root if internal else outside) / "render.png"
+    target.touch()
+    Path(pm.simulation("001", "simA")).mkdir(parents=True)
+    out = Path(pm.ti_toolbox(), "visual_exports", "sub-001", "simA", "tract")
+    out.mkdir(parents=True)
+    (out / "a.png").symlink_to(target)
+    renders = catalog.simulation_networks(pm, "001", "simA")["renders"]
+    assert bool(renders) is internal
+
+
 @pytest.mark.parametrize("internal", [False, True])
 def test_subject_root_alias(tree, internal):
     pm, root, outside = tree

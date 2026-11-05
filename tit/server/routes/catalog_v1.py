@@ -63,6 +63,20 @@ def simulation_figures(
     )
 
 
+@router.get(
+    "/api/catalog/simulations/{name}/networks",
+    summary="One simulation's white-matter network outputs and the renders made of them",
+    responses={404: {"description": "unknown subject or simulation"}},
+)
+def simulation_networks(
+    name: EntityName, subject: Annotated[SubjectId, Query()]
+) -> dict:
+    return _or_404(
+        catalog.simulation_networks(_pm(), subject, name),
+        f"Unknown subject or simulation: {subject}/{name}",
+    )
+
+
 # ── montages ─────────────────────────────────────────────────────────────────
 
 

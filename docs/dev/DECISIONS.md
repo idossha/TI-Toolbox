@@ -4383,3 +4383,29 @@ with no shell above it is refused with the override named.
 **Alternatives rejected.** The highest shell (the old default; b4100 on the study scan); the
 shell with the most directions (b4100 again); multi-shell CSD (`MultiShellDeconvModel` needs cvxpy,
 which the image lacks).
+
+## 2026-11-05 — Tract renders get a Networks tab in the Visual exporter; the thalamocortical sequence joins the config
+
+**Decision.** The Visual exporter gains a fifth mode, **Networks**, instead of a new extension page.
+`TractVisualConfig` gains `views`, `quality` and `thalamocortical_sequence`, and
+`GET /api/catalog/simulations/{name}/networks` lists a simulation's `tract/*.trx` stems and rendered
+PNG and MP4 files (`contracts/CHANGES.md`, additive; ARCHITECTURE §8). The sequence's region lists and
+parameters move from `tract_network_dev/renders/configs/make_tc_configs.py` into
+`tract_publication.py`, so the approved video (8db67690) is one option rather than a script.
+Pinned by `tests/test_tract_viz.py`, `tests/test_catalog_metadata_boundaries.py`,
+`desktop/tests/unit/visual-exporter-defaults.test.ts`, `visual-exporter-gates.test.ts` and the corpus.
+
+**Why.** The other modes are already Blender exports, and the server already accepted the config
+through the `blender` job kind. Listing stays a catalog read rather than a `SimulationDetail` field,
+because every list item of `GET /api/catalog/simulations` is a detail and most simulations have no
+tract directory; `/api/tract/*` belongs to the network targeting routes.
+
+**Alternatives rejected.** A separate extension page (a second run pane and job grammar for one more
+`_type`); launching the host's Blender from the desktop app (see ARCHITECTURE §8); a preview that
+keeps all 864 sequence frames (see below); adding the web viewer and connectome figure to the tab, which
+stay `web: false, connectome: false` there because the tab shows PNG and MP4 files.
+
+**Measured** (2026-11-05, this machine, sub-CHN thalamus, the sequence's frame 300 at 960x540 and 6
+samples, `docker run` of `idossha/ti-toolbox:v3.1.3` against the bundles in
+`tract_network_dev/renders/CHN_thalamus_TC`): 76 s including the scene build in Blender 4.4.3 under
+amd64 emulation, against about 2.3 s per frame in a host Blender 5.1, with the same picture by eye.

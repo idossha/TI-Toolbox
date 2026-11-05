@@ -441,6 +441,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/catalog/simulations/{name}/networks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One simulation's white-matter network outputs and the renders made of them */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path: {
+                    name: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The simulation's tract/*.trx stems and its rendered PNG and MP4 files */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SimulationNetworks"];
+                    };
+                };
+                /** @description unknown subject or simulation */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/catalog/simulations/{name}": {
         parameters: {
             query?: never;
@@ -6124,6 +6171,18 @@ export interface components {
             path: string;
             kind: string;
         };
+        SimulationNetworks: {
+            /** @description Stems of Simulations/<sim>/tract/*.trx, sorted; empty until the tract job's assess stage has run. */
+            networks: string[];
+            /** @description PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first. */
+            renders: {
+                path: string;
+                name: string;
+                /** @enum {string} */
+                kind: "image" | "video";
+                modified_at: string;
+            }[];
+        };
         /** @description v0 Simulation plus montages, fields, spaces, reports, niftis, meshes */
         SimulationDetail: components["schemas"]["Simulation"] & {
             montages: string[];
@@ -9395,8 +9454,19 @@ export interface components {
          *         Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).
          *     stills, turntable, propagation, web, connectome : bool
          *         Which outputs to write.
+         *     views : list of str
+         *         The stills to render: ``lateral``, ``superior``, ``oblique``. Empty renders all three.
+         *     quality : Quality
+         *         ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per
+         *         still; videos 960x540 at 6), for checking a choice before a long render.
+         *     thalamocortical_sequence : bool
+         *         One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40
+         *         parcels), each going from direction colours to TI_max on one shared window, pruned to
+         *         its strongest 15 % by mean TI_max, with the regions those fibres reach named in their
+         *         own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,
+         *         ``turntable``, ``propagation`` and the network fields must be off or empty.
          *     width, height : int
-         *         Still resolution in pixels (videos are 1920x1080).
+         *         Still resolution in pixels.
          *     turntable_frames, turntable_degrees : int, float
          *         Orbit length (24 fps) and sweep.
          *     front_speed_mm_per_frame : float
@@ -9521,6 +9591,15 @@ export interface components {
              * @default true
              */
             connectome: boolean;
+            /** Views */
+            views?: string[];
+            /** @default final */
+            quality: components["schemas"]["Quality"];
+            /**
+             * Thalamocortical Sequence
+             * @default false
+             */
+            thalamocortical_sequence: boolean;
             /**
              * Width
              * @default 2400
@@ -10841,6 +10920,12 @@ export interface components {
          * @enum {string}
          */
         Metric: "ti_along" | "ti_max" | "ti_ratio" | "align_index" | "direction";
+        /**
+         * Quality
+         * @description How much sampling and video resolution a render spends.
+         * @enum {string}
+         */
+        Quality: "final" | "preview";
         /**
          * NiftiAverageSpace
          * @description Which per-subject NIfTI space the group average is computed in.

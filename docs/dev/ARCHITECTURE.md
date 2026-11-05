@@ -832,6 +832,21 @@ fibres project, not evoked activity. Excluded alternative: STREAM-4D's code and 
 (non-commercial licence, incompatible with GPL-3); one curve object per streamline keyframed per
 frame (their design) instead of one polyline mesh whose shader reads the frame.
 
+**The Visual exporter's Networks tab submits those jobs.** It lists a simulation's `tract/*.trx`
+stems through `GET /api/catalog/simulations/{name}/networks`, which also lists the PNG and MP4 files
+in the output folder for the tab's Scene pane, and refuses to run on a simulation with none, naming
+the tract job's `assess` stage. A bundle is read as its own tractogram with `network_top_edges: 0`, so
+its streamlines are not drawn twice; `all` keeps the top-edges default. `views` picks the stills,
+`quality: preview` spends 8 samples per still and 960x540 at 6 samples per video frame, and absent
+fields reproduce the previous render. `thalamocortical_sequence` promotes the approved video into the
+config: `run_tract` exports one bundle per network under `tract_scene/{frontal,posterior}/` on one
+TI_max window (p99 over both) and runs `tract_scene.py -- sequence`, with the thalami flat-shaded glass
+at `HIGHLIGHT_LEVEL` 0.4; it refuses to run beside stills, a turntable or named network fields. The
+preview renders every fourth frame at 6 fps. Jobs render in the image's Blender (`TIT_BLENDER_BIN`, set
+to `/opt/blender/blender`, 4.4.3 by `verify_runtime.py`), never a host one; the bundles stay
+re-renderable in another Blender. Excluded alternative: a host Blender launched by the desktop app (a
+second render route that exists on one machine and that no job, lock or cancel would govern).
+
 ## 9. DWI preprocessing runs as sibling containers
 
 QSIPrep and QSIRecon run as sibling containers through the Docker socket, not inside the core image.

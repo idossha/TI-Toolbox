@@ -21,6 +21,7 @@ import json
 import logging
 import os
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -51,6 +52,40 @@ FRONT_MAX_FRAMES = 240
 #: Triangle budgets for the Blender glass brain and scalp.
 GLASS_TRIANGLES = 200_000
 SCALP_TRIANGLES = 60_000
+#: The thalamocortical sequence's networks: thalami to DK40 parcels (frontal, then posterior).
+THALAMI = ["Left-Thalamus-Proper", "Right-Thalamus-Proper"]
+THALAMOCORTICAL = {
+    "frontal": (
+        "Frontal thalamocortical network",
+        [
+            "superiorfrontal",
+            "rostralmiddlefrontal",
+            "caudalmiddlefrontal",
+            "parsopercularis",
+            "parstriangularis",
+            "parsorbitalis",
+            "lateralorbitofrontal",
+            "medialorbitofrontal",
+            "frontalpole",
+            "precentral",
+            "paracentral",
+        ],
+    ),
+    "posterior": (
+        "Posterior thalamocortical network",
+        [
+            "superiorparietal",
+            "inferiorparietal",
+            "supramarginal",
+            "postcentral",
+            "precuneus",
+            "lateraloccipital",
+            "lingual",
+            "cuneus",
+            "pericalcarine",
+        ],
+    ),
+}
 
 
 def resolve_tractogram(tract_dir: str, tractogram: str) -> str:
@@ -678,6 +713,8 @@ def export_scene(
         "output_dir": "..",
         "stem": stem,
         "stills": bool(cfg.stills),
+        "views": list(cfg.views),
+        "preview": str(cfg.quality) == "preview",
         "still_size": [int(cfg.width), int(cfg.height)],
         "turntable": bool(cfg.turntable),
         "turntable_frames": int(cfg.turntable_frames),
@@ -695,8 +732,8 @@ def export_scene(
     return path
 
 
-def render(manifest_path: str) -> None:
-    """Run :mod:`tit.blender.tract_scene` on *manifest_path* in ``$TIT_BLENDER_BIN``."""
+def render(*scene_args: str) -> None:
+    """Run :mod:`tit.blender.tract_scene` with *scene_args* in ``$TIT_BLENDER_BIN``."""
     renderer = Path(__file__).with_name("tract_scene.py")
     executable = os.environ.get("TIT_BLENDER_BIN", "/opt/blender/blender")
     env = {
@@ -715,11 +752,123 @@ def render(manifest_path: str) -> None:
             "--python",
             str(renderer),
             "--",
-            manifest_path,
+            *scene_args,
         ],
         check=True,
         env=env,
     )
+
+
+def _named_network(cfg, pm, everything, edges, electrodes, glass, shell, log):
+    """Every streamline of ``network_from`` <-> ``network_to``, and :func:`export_scene`'s kwargs."""
+    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
+    ids = edges_between(edges, cfg.network_from, cfg.network_to)
+    pick = np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids)))
+    if not len(pick):
+        raise ValueError(
+            f"network_from / network_to join no streamline ({cfg.network_name})"
+        )
+    tracts = td.select(everything, pick)  # every streamline: no subsampling
+    pairs = " + ".join(
+        "–".join(e["name"] for e in electrodes if e["channel"] == c)
+        for c in sorted({e["channel"] for e in electrodes})
+    )
+    caption = network_statement(f"sub-{sid} · {sim} montage ({pairs})", tracts)
+    if shell is not None:
+        caption += (
+            f"\ntranslucent shell: TI_max = {shell[2]:.3f} V/m "
+            f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
+        )
+    names = sorted(set(cfg.highlight_regions) | set(cfg.network_to))
+    regions = region_geometry(
+        pm.m2m(sid), label_volume(pm, sid), names, glass[0], glass[2]
+    )
+    log.info(f"network {cfg.network_name}: {len(ids)} edges, {tracts.n} streamlines")
+    return tracts, {
+        "edges": edges,
+        "regions": regions,
+        "caption": caption,
+        "highlight": list(cfg.highlight_regions),
+    }
+
+
+def sequence_configs(cfg, everything, edges) -> dict:
+    """One render config per thalamocortical network, on one TI_max window (p99 over both)."""
+    configs, picks = {}, []
+    for key, (name, cortex) in THALAMOCORTICAL.items():
+        regions = [f"{hemi}.{parcel}" for hemi in ("lh", "rh") for parcel in cortex]
+        ids = edges_between(edges, THALAMI, regions)
+        picks.append(np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids))))
+        configs[key] = dict(network_name=name, network_to=regions)
+    both = np.isin(everything.streamline_id(), np.concatenate(picks))
+    if not both.any():
+        raise ValueError("no streamline joins the thalami to a DK40 cortical parcel")
+    vmax = float(np.percentile(everything.dpv["ti_max"][both], 99))
+    return {
+        key: replace(
+            cfg,
+            thalamocortical_sequence=False,
+            metric=type(cfg).Metric.TI_MAX,
+            network_from=THALAMI,
+            highlight_regions=THALAMI,
+            region_labels=False,
+            lateral_side=-1,
+            iso_shell_percentile=95.0,
+            max_streamlines=1_000_000,
+            vmax_v_per_m=vmax,
+            turntable=True,
+            turntable_crossfade=True,
+            prune_keep_fraction=0.15,
+            label_regions=5,
+            **named,
+        )
+        for key, named in configs.items()
+    }
+
+
+def _render_sequence(
+    cfg,
+    pm,
+    out,
+    everything,
+    n_total,
+    edges,
+    electrodes,
+    glass,
+    scalp,
+    *,
+    title,
+    synthetic,
+    log,
+):
+    """Export both networks' bundles, then render the one video from them."""
+    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
+    configs = sequence_configs(cfg, everything, edges)
+    first = next(iter(configs.values()))
+    shell = ti_iso_shell(pm.ti_mesh(sid, sim), first.iso_shell_percentile)
+    log.info(f"TI_max iso-shell at {shell[2]:.3f} V/m (brain p95)")
+    manifests = []
+    for key, net in configs.items():
+        tracts, kwargs = _named_network(
+            net, pm, everything, edges, electrodes, glass, shell, log
+        )
+        manifests.append(
+            export_scene(
+                net,
+                tracts,
+                n_total,
+                glass,
+                scalp,
+                electrodes,
+                os.path.join(out, "tract_scene", key),
+                title=net.network_name,
+                synthetic=synthetic,
+                shell=shell,
+                **kwargs,
+            )
+        )
+    extra = ["preview"] if str(cfg.quality) == "preview" else []
+    render("sequence", *manifests, out, f"{sid}_{sim}_thalamocortical_sequence", *extra)
 
 
 def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
@@ -780,11 +929,27 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             png = os.path.join(out, f"{sid}_{sim}_connectome_{metric}.png")
             plot_connectome(npz, png, title=title)
             log.info(f"wrote {png}")
-    if cfg.stills or cfg.turntable or cfg.propagation:
+    if cfg.stills or cfg.turntable or cfg.propagation or cfg.thalamocortical_sequence:
         from tit.blender.utils import extract_scalp_from_msh
 
         msh = os.path.join(m2m, f"{sid}.msh")
         scalp = extract_scalp_from_msh(msh) if os.path.isfile(msh) else None
+        if cfg.thalamocortical_sequence:
+            _render_sequence(
+                cfg,
+                pm,
+                out,
+                everything,
+                n_total,
+                edges,
+                electrodes,
+                glass,
+                scalp,
+                title=title,
+                synthetic=synthetic,
+                log=log,
+            )
+            return out
         kwargs = {}
         if cfg.iso_shell_percentile:
             kwargs["shell"] = ti_iso_shell(
@@ -795,35 +960,11 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 f"(brain p{cfg.iso_shell_percentile:g})"
             )
         if cfg.network_from:
-            ids = edges_between(edges, cfg.network_from, cfg.network_to)
-            pick = np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids)))
-            if not len(pick):
-                raise ValueError("network_from / network_to join no streamline")
-            tracts = td.select(everything, pick)  # every streamline: no subsampling
-            pairs = " + ".join(
-                "–".join(e["name"] for e in electrodes if e["channel"] == c)
-                for c in sorted({e["channel"] for e in electrodes})
+            tracts, network_kwargs = _named_network(
+                cfg, pm, everything, edges, electrodes, glass, kwargs.get("shell"), log
             )
-            caption = network_statement(f"sub-{sid} · {sim} montage ({pairs})", tracts)
-            if "shell" in kwargs:
-                caption += (
-                    f"\ntranslucent shell: TI_max = {kwargs['shell'][2]:.3f} V/m "
-                    f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
-                )
+            kwargs.update(network_kwargs)
             title = cfg.network_name or title
-            names = sorted(set(cfg.highlight_regions) | set(cfg.network_to))
-            regions = region_geometry(
-                m2m, label_volume(pm, sid), names, glass[0], glass[2]
-            )
-            log.info(
-                f"network {cfg.network_name}: {len(ids)} edges, {tracts.n} streamlines"
-            )
-            kwargs.update(
-                edges=edges,
-                regions=regions,
-                caption=caption,
-                highlight=list(cfg.highlight_regions),
-            )
         elif cfg.focus:
             network, words, top = select_network(
                 cfg, tract_dir, everything, edges, summary
