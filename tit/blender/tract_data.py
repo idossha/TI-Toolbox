@@ -159,6 +159,15 @@ def load_trx(path: str) -> Tracts:
     return drop_degenerate(Tracts(points, offsets, dpv, dps))
 
 
+def read_dps(path: str, key: str) -> np.ndarray | None:
+    """One ``data_per_streamline`` array of a zipped TRX, without reading the rest of it."""
+    with zipfile.ZipFile(path) as archive:
+        for name in archive.namelist():
+            if name.startswith(f"dps/{key}."):
+                return _trx_array(name, archive.read(name))[1].ravel()
+    return None
+
+
 def drop_degenerate(tracts: Tracts) -> Tracts:
     """Remove streamlines with fewer than two points (no tangent, no tube)."""
     keep = np.flatnonzero(tracts.lengths >= 2)

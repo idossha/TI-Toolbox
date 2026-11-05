@@ -1000,9 +1000,32 @@ def _plan_blender(
     ], resolved
 
 
+def _bundle_selection(pm: PathManager, config: Any) -> Any:
+    """An existing bundle, as the Selection of the edges it holds; ``None`` when it has none."""
+    name = (config.network_bundle or "").strip()
+    if not name or config.network_top_edges:
+        return None
+    from tit.blender import tract_data as td
+    from tit.tract.config import Selection
+
+    tract_dir = os.path.join(
+        pm.simulation(config.subject_id, config.simulation_name.strip()), "tract"
+    )
+    try:
+        ids = td.read_dps(os.path.join(tract_dir, f"{name}.trx"), "edge_id")
+        edges = td.read_edges(os.path.join(tract_dir, "edges.json"))
+    except (OSError, ValueError):
+        return None
+    if ids is None:
+        return None
+    held = sorted({int(e) for e in ids.tolist()} & set(edges))
+    pairs = [[edges[e]["region_a"], edges[e]["region_b"]] for e in held]
+    return Selection(name=name, kind="edges", pairs=pairs) if pairs else None
+
+
 def _network_setup(pm: PathManager, config: Any) -> dict[str, Any] | None:
     """A selection's automatic setup, from the same counts the render will read."""
-    selection = config.selection
+    selection = config.selection or _bundle_selection(pm, config)
     path = os.path.join(pm.tractography(config.subject_id), "network.npz")
     if selection is None or not os.path.isfile(path):
         return None

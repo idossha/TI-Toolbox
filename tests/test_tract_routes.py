@@ -976,6 +976,31 @@ def test_the_plan_of_a_render_states_its_automatic_setup_from_the_network(
     assert setup["opposite_removed"] is None
 
 
+def test_the_plan_of_an_existing_bundle_states_the_setup_of_the_edges_it_holds(
+    client: TestClient, project: Path
+) -> None:
+    out = _assessed_edges(project)
+    # One streamline, edge 0 in edges.json above: lh.precentral to Brain-Stem.
+    with zipfile.ZipFile(out / "a.trx", "w") as archive:
+        archive.writestr("dps/edge_id.int64", np.array([0, 99], dtype="<i8").tobytes())
+    body = client.post(
+        "/api/plan/blender",
+        json={
+            "config": {
+                "_type": "TractVisualConfig",
+                "subject_id": "S1",
+                "simulation_name": "sim1",
+                "network_bundle": "a",
+                "network_top_edges": 0,
+            },
+            "subject_ids": ["S1"],
+        },
+    ).json()
+    values = body["resolved"]["network_setup"]["values"]
+    assert values["title"] == "Brain-Stem – L precentral"
+    assert body["resolved"]["network_setup"]["n_streamlines"] == 6  # COUNTS above
+
+
 def test_catalog_records_what_a_bundle_holds_and_that_edges_exist(
     client: TestClient, project: Path
 ) -> None:
