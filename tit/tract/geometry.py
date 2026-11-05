@@ -238,15 +238,21 @@ def bundle_summary(
     per_streamline: dict[str, np.ndarray],
     thresholds: Sequence[float] = (),
 ) -> dict:
-    """Across-streamline distribution of a bundle: median and p5/p95 of every
-    per-streamline array, and the fraction of streamlines whose ``ti_along_max`` is
+    """Across-streamline distribution of a bundle: median, p25/p75 (the IQR) and p5/p95 of
+    every per-streamline array, and the fraction of streamlines whose ``ti_along_max`` is
     at least each threshold."""
     out: dict = {"n_streamlines": int(len(next(iter(per_streamline.values()))))}
     if out["n_streamlines"] == 0:
         return out
     for key, v in per_streamline.items():
-        p5, med, p95 = np.percentile(v, [5, 50, 95])
-        out[key] = {"median": float(med), "p5": float(p5), "p95": float(p95)}
+        p5, p25, med, p75, p95 = np.percentile(v, [5, 25, 50, 75, 95])
+        out[key] = {
+            "median": float(med),
+            "p25": float(p25),
+            "p75": float(p75),
+            "p5": float(p5),
+            "p95": float(p95),
+        }
     for tau in thresholds:
         out[f"frac_streamlines_ti_along_max_ge_{tau:g}"] = float(
             np.mean(per_streamline["ti_along_max"] >= tau)

@@ -179,7 +179,10 @@ def streamline_table(metrics, offsets, h, kappa, thresholds) -> dict[str, np.nda
 
 
 def _edge_records(table, edge_id, pairs, names, thresholds) -> dict:
+    """Every edge: regions, ``n_streamlines``, ``share`` (of streamlines with both ends
+    assigned) and the per-streamline distributions (median, IQR, p5/p95)."""
     records = {}
+    n_assigned = max(int((edge_id >= 0).sum()), 1)
     order = np.argsort(edge_id, kind="stable")
     ids, starts = np.unique(edge_id[order], return_index=True)
     for e, rows in zip(ids, np.split(order, starts[1:])):
@@ -191,7 +194,12 @@ def _edge_records(table, edge_id, pairs, names, thresholds) -> dict:
                 np.mean(table["ti_along_max"][rows] >= tau)
             )
         a, b = pairs[e]
-        records[str(int(e))] = {"region_a": names[a], "region_b": names[b], **stats}
+        records[str(int(e))] = {
+            "region_a": names[a],
+            "region_b": names[b],
+            "share": len(rows) / n_assigned,
+            **stats,
+        }
     return records
 
 
@@ -205,7 +213,10 @@ def _profiles(m, idx, offsets, n_nodes):
 
 def top_edges(edges: dict, min_streamlines: int, n: int = 10) -> list[dict]:
     """The *n* edges with the highest median streamline-mean ``ti_along`` among edges of at
-    least *min_streamlines* streamlines, each with its streamline count."""
+    least *min_streamlines* streamlines, each with how thin it is: its streamline count,
+    its share of the assigned streamlines and the IQR of its streamlines' mean ``ti_along``.
+    Edge rankings depend on the tractography; bundle-level values are the robust ones.
+    """
     big = [(k, v) for k, v in edges.items() if v["n_streamlines"] >= min_streamlines]
     big.sort(key=lambda kv: -kv[1]["ti_along_mean"]["median"])
     return [
@@ -214,6 +225,8 @@ def top_edges(edges: dict, min_streamlines: int, n: int = 10) -> list[dict]:
             "region_a": v["region_a"],
             "region_b": v["region_b"],
             "n_streamlines": v["n_streamlines"],
+            "share": v["share"],
+            "ti_along_mean_iqr": [v["ti_along_mean"]["p25"], v["ti_along_mean"]["p75"]],
             **{
                 key: v[key]["median"]
                 for key in (

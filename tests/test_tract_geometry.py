@@ -335,3 +335,28 @@ def test_tract_config_round_trips_through_config_io():
     assert data["_type"] == "TractConfig"
     back = deserialize_config(TractConfig, data)
     assert back == cfg
+
+
+def test_ranked_edges_carry_n_share_and_iqr():
+    from tit.tract.fields import EDGE_KEYS, _edge_records, top_edges
+
+    rng = np.random.default_rng(2)
+    edge_id = np.array([0] * 8 + [1] * 3 + [-1] * 4)
+    table = {k: rng.uniform(size=len(edge_id)) for k in EDGE_KEYS}
+    table["ti_along_mean"][:8] = np.arange(8) / 10.0  # edge 0: 0.0 ... 0.7
+    table["ti_along_mean"][8:11] = 5.0  # the thin edge has the highest value
+    table["ti_along_max"] = table["ti_along_mean"]
+    edges = _edge_records(
+        table, edge_id, np.array([[0, 1], [1, 2]]), ["a", "b", "c"], ()
+    )
+    assert edges["0"]["share"] == pytest.approx(8 / 11) and edges["1"][
+        "share"
+    ] == pytest.approx(3 / 11)
+    top = top_edges(edges, min_streamlines=5)
+    assert [t["edge_id"] for t in top] == [0]  # the 3-streamline edge is not ranked
+    assert top[0]["n_streamlines"] == 8 and top[0]["share"] == pytest.approx(8 / 11)
+    # numpy's linear percentiles of 0.0 ... 0.7
+    np.testing.assert_allclose(
+        top[0]["ti_along_mean_iqr"], np.percentile(np.arange(8) / 10, [25, 75])
+    )
+    assert "1" in edges  # still in the raw output
