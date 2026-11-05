@@ -40,8 +40,6 @@ CONTEXT_RADIUS, CONTEXT_COLOUR, CONTEXT_STRENGTH = 0.05, (0.6, 0.64, 0.72), 0.00
 SHELL_COLOUR, SHELL_STRENGTH = (1.0, 0.66, 0.36), 0.05
 #: Network videos push the context back: glass, scalp and electrodes at these fractions.
 NETWORK_RECEDE = {"glass": 0.55, "scalp": 0.5, "electrode": 0.45}
-#: Solid, softly glowing deep regions (the thalami) in network renders.
-DEEP_COLOUR, DEEP_CORE, DEEP_EDGE = (1.0, 0.55, 0.22), 0.7, 0.18
 #: Cortical patch glow in network renders: lit * (PATCH_BASE + PATCH_RIM * rim).
 PATCH_BASE, PATCH_RIM = 0.05, 0.16
 #: Fibres fade to NEAR_MIN opacity within NEAR_MM of the thalami.
@@ -426,21 +424,6 @@ def _palette(m: _Nodes, index):
         element.color = (*(_srgb_to_linear(c) for c in colour), 1.0)
     m.feed(node.inputs["Fac"], m.math("DIVIDE", m.math("ADD", index, 0.5), count))
     return node.outputs["Color"]
-
-
-def deep_material(name):
-    """Opaque, softly glowing solid: brightest where it faces the camera, dimmer at the rim."""
-    import bpy
-
-    mat = bpy.data.materials.new(name)
-    m = _Nodes(mat)
-    facing = m.new("ShaderNodeLayerWeight")
-    facing.inputs["Blend"].default_value = 0.5
-    core = m.math("SUBTRACT", 1.0, facing.outputs["Facing"])
-    m.finish(
-        m.emission(DEEP_COLOUR, m.math("MULTIPLY_ADD", core, DEEP_CORE, DEEP_EDGE))
-    )
-    return mat
 
 
 def _context_material():
@@ -1029,11 +1012,10 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
                 faces=r["triangles"],
                 attributes={"frame": r["frame"], "lit": r["lit"]},
             )
-        deep.data.polygons.foreach_set("use_smooth", [True] * len(deep.data.polygons))
+        # Flat-shaded glass, network renders too: each facet catches the rim on its own, so
+        # the thalami glow like lit crystal with the fibres showing through, not a solid.
         deep.data.materials.append(
-            deep_material("DeepRegion")
-            if recede
-            else glass_material(
+            glass_material(
                 "DeepRegion",
                 REGION_COLOUR,
                 0.12,
