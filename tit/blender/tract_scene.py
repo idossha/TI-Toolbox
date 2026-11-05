@@ -242,14 +242,14 @@ def fibre_material(manifest, *, animated: bool = False, name: str = "Fibres"):
         gain,
     )
     trail = m.math("MULTIPLY", m.math("LESS_THAN", d, reach), gain)
-    lit = m.math("MULTIPLY_ADD", trail, 0.55, m.math("MULTIPLY", glow, 2.6))
+    lit = m.math("MULTIPLY_ADD", trail, 0.55, m.math("MULTIPLY", glow, 1.6))
     resting = m.math("MULTIPLY", strength, 0.3)
     finish(
         m.add(
             m.emission(colour, m.math("MULTIPLY_ADD", lit, strength, resting)),
             m.emission(
                 (1.0, 0.93, 0.8),
-                m.math("MULTIPLY", glow, 1.2),
+                m.math("MULTIPLY", glow, 0.45),
             ),
         )
     )
@@ -338,7 +338,8 @@ def place_labels(
             below[1] = above[1] - 1.5 * size
     plate = bpy.data.materials.get("RegionLabelPlate") or _plate_material()
     for i, (ox, oy, name) in enumerate(spots):
-        right = ox > edge
+        # Flip left of the point when the text (~0.5 em per glyph) would reach the colour bar.
+        right = ox > edge or ox + 0.012 + 0.5 * size * len(name) > 0.82
         text = _text(
             f"RegionLabel{i}",
             name,

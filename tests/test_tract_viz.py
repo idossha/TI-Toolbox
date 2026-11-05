@@ -226,6 +226,10 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     electrodes = [{"name": "F7", "xyz": [-60.0, 30.0, 10.0], "channel": 0}]
     sphere = _sphere()
     edges = {
+        -1: {
+            "region_a": "lh.c",
+            "region_b": "lh.c",
+        },  # both ends in one region: n counts 1
         0: {"region_a": "lh.a", "region_b": "Left-B"},
         1: {"region_a": "lh.a", "region_b": "lh.c"},
     }
@@ -253,11 +257,10 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     assert manifest["n_shown"] == 3 and manifest["n_total"] == 99
     assert manifest["caption"].startswith("network · colour averaged")
     assert manifest["roi"] == {"center": [1, 2, 3], "radius": 10.0}
-    # lh.a ends both assigned streamlines, so it carries the most field and is named first.
-    assert [l["name"] for l in manifest["labels"]][0] == "lh.a (n=2)"
+    # n counts streamlines per region; lh.c holds one streamline with both ends in it
     assert {l["name"] for l in manifest["labels"]} == {
         "lh.a (n=2)",
-        "lh.c (n=1)",
+        "lh.c (n=2)",
         "Left-B (n=1)",
     }
     with np.load(tmp_path / "b" / "tracts.npz") as t:

@@ -362,9 +362,10 @@ def export_scene(
         cortical, subcortical = regions
         weight, when, count = {}, {}, {}
         for i, pair in enumerate(_end_regions(tracts, edges)):
+            for name in {n for n in pair if n}:  # n counts streamlines, not ends
+                count[name] = count.get(name, 0) + 1
             for k, name in enumerate(pair):
                 if name:
-                    count[name] = count.get(name, 0) + 1
                     weight[name] = weight.get(name, 0.0) + float(gain[i])
                     when[name] = min(when.get(name, 1e6), float(arrive[i, k]))
         drawn = sorted(
