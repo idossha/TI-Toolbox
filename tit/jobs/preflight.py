@@ -931,7 +931,7 @@ def _check_tract(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
         return missing
     stages = config.get("stages") or ("track", "network", "assess")
     tract_dir = Path(pm.tractography(sid))
-    fix = f"Run the tract job's track and network stages for sub-{sid} first."
+    fix = f"Run Tractography for sub-{sid} first (Pre-processing page, Diffusion)."
     if "track" in stages:
         # tit.tract.tracking's own refusal (qsiprep_inputs), reached at submission instead.
         qsi = pm.qsiprep_subject(sid)

@@ -336,6 +336,30 @@
      "output_dir": "derivatives/ti-toolbox/visual_exports/custom/subcortical"
     }
    ]
+  },
+  {
+   "id": "tract_assess",
+   "kind": "tract",
+   "subject_ids": [
+    "001"
+   ],
+   "config": {
+    "subject_id": "001",
+    "stages": [
+     "assess"
+    ],
+    "assess": {
+     "simulations": [
+      "Thalamus"
+     ]
+    }
+   },
+   "jobs": [
+    {
+     "subject": "001",
+     "output_dir": "derivatives/SimNIBS/sub-001/Simulations/Thalamus/tract"
+    }
+   ]
   }
  ],
  "module_for_kind": {

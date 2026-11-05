@@ -9,7 +9,7 @@
  * `vector_scale`/`vector_length` of 1.0). Change one and this panel stops producing the files the
  * Qt extension produced.
  */
-import type { MontageConfig, RegionConfig, SubcorticalConfig, TractVisualConfig, VectorConfig } from "./api";
+import type { MontageConfig, RegionConfig, SubcorticalConfig, TractConfig, TractVisualConfig, VectorConfig } from "./api";
 
 /**
  * What `readExportMontage` (previewModel.ts) says of a simulation placed by coordinates, and the
@@ -205,6 +205,21 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     height,
     turntable_frames,
   } as TractVisualConfig;
+}
+
+/**
+ * The tract job that gives a simulation its network outputs.
+ *
+ * shortcut: only the `all` selection (about 0.4 GB per simulation at 200,000 seeds), because the
+ * thalamocortical sequence and the default render read all.trx; offer named bundles here if disk use becomes the complaint.
+ */
+export function buildAssessConfig(subjectId: string, simulationName: string): TractConfig {
+  return {
+    _type: "TractConfig",
+    subject_id: subjectId,
+    stages: ["assess"],
+    assess: { simulations: [simulationName], selections: [{ name: "all", kind: "all" }] },
+  } as TractConfig;
 }
 
 /** The one-line "what this Run writes" the action bar and the toast both say. */

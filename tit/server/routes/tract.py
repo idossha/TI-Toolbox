@@ -151,7 +151,7 @@ def _network(pm, subject: str) -> dict[str, Any]:
         raise HTTPException(
             404,
             f"sub-{subject} has no network yet: {path.name} does not exist. "
-            "Run the tract job's track and network stages first.",
+            "Run Tractography first (Pre-processing page, Diffusion).",
         )
     with np.load(path, allow_pickle=False) as data:
         return {

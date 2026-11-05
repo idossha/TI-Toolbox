@@ -17,6 +17,8 @@ export type VectorConfig = components["schemas"]["VectorConfig"];
 export type RegionConfig = components["schemas"]["RegionConfig"];
 export type SubcorticalConfig = components["schemas"]["SubcorticalConfig"];
 export type TractVisualConfig = components["schemas"]["TractVisualConfig"];
+export type TractConfig = components["schemas"]["TractConfig"];
+export type MissingInput = components["schemas"]["MissingInput"];
 export type SimulationNetworks = components["schemas"]["SimulationNetworks"];
 export type Region = components["schemas"]["Region"];
 export type NiftiLabel = components["schemas"]["NiftiLabel"];
@@ -24,7 +26,7 @@ type PipelineConfig = components["schemas"]["PipelineConfig"];
 
 export type BlenderConfig = MontageConfig | VectorConfig | RegionConfig | SubcorticalConfig | TractVisualConfig;
 
-function asPipelineConfig(config: BlenderConfig): PipelineConfig {
+function asPipelineConfig(config: BlenderConfig | TractConfig): PipelineConfig {
   return config as unknown as PipelineConfig;
 }
 
@@ -71,4 +73,22 @@ export async function planBlender(config: BlenderConfig, subjectIds: string[]): 
 /** `overwrite` is the user's "Replace and rerun"; without it the server refuses (409) an existing export. */
 export async function createBlenderJob(config: BlenderConfig, subjectIds: string[], overwrite = false): Promise<JobStatus> {
   return unwrap(await api.POST("/api/jobs", { body: { kind: "blender", config: asPipelineConfig(config), subject_ids: subjectIds, overwrite } }), "/api/jobs");
+}
+
+/** What the assess stage needs and does not have (`tit/jobs/preflight.py::_check_tract`), in the server's words. */
+export async function preflightTract(config: TractConfig, subjectId: string): Promise<MissingInput[]> {
+  const body = { kind: "tract" as const, config: asPipelineConfig(config), subject_ids: [subjectId] };
+  return unwrap(await api.POST("/api/jobs/preflight", { body }), "/api/jobs/preflight").missing;
+}
+
+export async function planTract(config: TractConfig, subjectId: string): Promise<PlanResult> {
+  return unwrap(
+    await api.POST("/api/plan/{kind}", { params: { path: { kind: "tract" } }, body: { config: asPipelineConfig(config), subject_ids: [subjectId] } }),
+    "/api/plan/tract",
+  );
+}
+
+/** `overwrite` is the user's "Replace and rerun"; without it the server refuses (409) an existing `tract/` folder. */
+export async function createTractJob(config: TractConfig, subjectId: string, overwrite = false): Promise<JobStatus> {
+  return unwrap(await api.POST("/api/jobs", { body: { kind: "tract", config: asPipelineConfig(config), subject_ids: [subjectId], overwrite } }), "/api/jobs");
 }

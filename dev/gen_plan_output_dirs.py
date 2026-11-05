@@ -157,6 +157,18 @@ for _mode in ("region_stl", "vector", "montage", "subcortical"):
             },
         )
     )
+CASES.append(
+    (
+        "tract_assess",
+        "tract",
+        ["001"],
+        {
+            "subject_id": "001",
+            "stages": ["assess"],
+            "assess": {"simulations": ["Thalamus"]},
+        },
+    )
+)
 
 
 def _fill(value: Any, project: str) -> Any:

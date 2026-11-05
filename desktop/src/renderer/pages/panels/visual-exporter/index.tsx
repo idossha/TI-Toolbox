@@ -39,6 +39,7 @@ import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
+import { AssessNetworks } from "./AssessNetworks";
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
@@ -170,8 +171,6 @@ function VisualExporterPanel() {
     queryKey: ["simulation-networks", subjectId, simulationName],
     queryFn: () => getSimulationNetworks(subjectId, simulationName),
     enabled: mode === "networks" && !!subjectId && !!simulationName,
-    // A render lands while the page is open: keep the list current once this page queued one.
-    refetchInterval: jobs.startedJobIds.length > 0 ? 15_000 : false,
   });
   const networks = networksQuery.data?.networks ?? [];
   const chosenNetwork = networks.includes(network) ? network : networks.includes("all") ? "all" : (networks[0] ?? "");
@@ -678,7 +677,15 @@ function VisualExporterPanel() {
                   ) : networks.length === 0 && !networksQuery.isPending ? (
                     <div data-testid="ve-networks-empty">
                       <p className="field-help">{NO_NETWORK_OUTPUTS}</p>
-                      {/* shortcut: the "Assess networks" action goes here once the tract job kind exists (BRIEF_NETWORK_TARGETING_UI.md). */}
+                      <AssessNetworks
+                        subjectId={subjectId}
+                        simulationName={simulationName}
+                        onQueued={(job) => {
+                          jobs.trackJob(job);
+                          // The terminal follows this page's kind, blender; a pin follows this job whatever its kind.
+                          jobs.setPinnedJobId(job.id);
+                        }}
+                      />
                     </div>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>

@@ -104,7 +104,7 @@ function fill<T>(value: T): T {
 
 describe("POST /api/plan: the output folder the real server plans", () => {
   it("has group, stats-type and export-mode cases to check", () => {
-    expect(new Set(planTable.cases.map((c) => c.kind))).toEqual(new Set(["stats", "nifti_average", "nilearn", "blender"]));
+    expect(new Set(planTable.cases.map((c) => c.kind))).toEqual(new Set(["stats", "nifti_average", "nilearn", "blender", "tract"]));
     expect(planTable.cases.filter((c) => "output_dir" in c.config).length).toBeGreaterThanOrEqual(4);
   });
 

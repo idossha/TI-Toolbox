@@ -54,7 +54,7 @@ const RECORDS: Record<string, unknown> = {
   },
 };
 
-vi.mock("../../src/renderer/api/client", () => ({ getSubjects: vi.fn(async () => [{ id: "101" }]) }));
+vi.mock("../../src/renderer/api/client", async (original) => ({ ...(await original<object>()), getSubjects: vi.fn(async () => [{ id: "101" }]) }));
 vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => Object.keys(RECORDS).map((name) => ({ name, path: `${SIM_ROOT}/${name}` }))),
   getAtlasRegions: vi.fn(async () => []),
@@ -63,6 +63,7 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   validateBlender: vi.fn(async () => ({ ok: true, errors: [] })),
   planBlender: vi.fn(async () => ({ jobs: [], lock_conflicts: [], cost: { cpus: 1, mem_gb: 1 }, warnings: [] })),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
+  preflightTract: vi.fn(async () => []),
 }));
 vi.mock("../../src/renderer/pages/results/api", () => ({
   getTextFile: vi.fn(async (path: string) => {

@@ -1,0 +1,40 @@
+{
+  "id": "tract/assess",
+  "page": "tract",
+  "title": "Assess one simulation from the Visual exporter's Networks tab",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "assess": {
+          "selections": [
+            {
+              "kind": "all",
+              "name": "all"
+            }
+          ],
+          "simulations": [
+            "M1"
+          ]
+        },
+        "stages": [
+          "assess"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "assess"
+    ]
+  }
+}

@@ -1,4 +1,5 @@
 {
+  "ernie/docs_example": { "networks": [], "renders": [] },
   "ernie/Thalamus": {
     "networks": ["all", "thalamocortical_lh"],
     "renders": [

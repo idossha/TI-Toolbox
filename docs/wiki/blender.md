@@ -39,7 +39,13 @@ Missing inputs produce a preview message; the preview does not substitute anothe
 
 This mode renders a simulation's white-matter network outputs (`Simulations/<sim>/tract/*.trx`, written
 by the tract job's `assess` stage) as PNG stills and MP4 videos under
-`visual_exports/sub-<id>/<sim>/tract/`. A simulation with no network outputs says so and cannot run.
+`visual_exports/sub-<id>/<sim>/tract/`. A simulation with no network outputs says so and cannot run
+until it has them: **Assess networks** queues that stage for the simulation, and the tab fills in
+when the job finishes. It samples the simulation's fields along every streamline of the subject's
+tractogram and writes `all.trx`, about 0.4 GB per simulation at 200,000 seeds. It needs the subject's
+tractogram and network; without them the tab names what is missing and how to make it
+(**Pre-processing ▸ Diffusion ▸ Tractography**). Existing outputs are replaced only if you choose
+**Replace and rerun**.
 
 - **Network:** one `.trx` file. `all` draws the run's strongest edges; any other file draws that
   network alone.

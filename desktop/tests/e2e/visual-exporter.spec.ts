@@ -72,10 +72,10 @@ async function chooseSubjectAndSimulation(): Promise<void> {
   await page.getByRole("option").first().click();
 }
 
-async function submittedJob(run: () => Promise<void>): Promise<{ kind: string; subject_ids: string[]; config: Record<string, unknown> }> {
+async function submittedJob(run: () => Promise<void>): Promise<{ kind: string; subject_ids: string[]; overwrite?: boolean; config: Record<string, unknown> }> {
   const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs") && r.method() === "POST");
   await run();
-  return (await request).postDataJSON() as { kind: string; subject_ids: string[]; config: Record<string, unknown> };
+  return (await request).postDataJSON() as { kind: string; subject_ids: string[]; overwrite?: boolean; config: Record<string, unknown> };
 }
 
 test.afterEach(async () => {
@@ -246,4 +246,53 @@ test("a simulation with no network outputs says where they come from and cannot 
   await page.getByRole("option", { name: /^(?!Thalamus$)/ }).first().click();
   await expect(page.getByTestId("ve-networks-empty")).toContainText("tract job's assess stage");
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", /assess stage/);
+});
+
+async function openNetworksOf(subject: string, simulation: string): Promise<void> {
+  await launchApp(true);
+  await connect();
+  await openPanel();
+  await page.locator("#ve-subject").click();
+  await page.getByRole("option", { name: subject, exact: true }).click();
+  await page.locator("#ve-simulation").click();
+  await page.getByRole("option", { name: simulation, exact: true }).click();
+  await page.getByRole("radio", { name: "Networks" }).click();
+}
+
+test("Assess networks queues the tract job, the terminal follows it, and its finish lists the network", async () => {
+  await openNetworksOf("ernie", "L_Insula");
+  const job = await submittedJob(() => page.getByTestId("ve-assess-networks").click());
+  expect(job).toMatchObject({ kind: "tract", subject_ids: ["ernie"], overwrite: false });
+  expect(job.config).toEqual({
+    _type: "TractConfig",
+    subject_id: "ernie",
+    stages: ["assess"],
+    assess: { simulations: ["L_Insula"], selections: [{ name: "all", kind: "all" }] },
+  });
+  await expect(page.getByTestId("ve-assess-networks")).toContainText("Assessing");
+  await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal-identity")).toContainText("tract", { timeout: 20_000 });
+  // No reload and no page change: the job's finish alone turns the empty state into the form.
+  await expect(page.locator("#ve-network")).toContainText("all", { timeout: 30_000 });
+  await expect(page.getByTestId("ve-networks-empty")).toHaveCount(0);
+});
+
+test("Assess networks over an existing tract folder asks first, and only Replace overwrites", async () => {
+  await openNetworksOf("ernie", "docs_example");
+  await page.getByTestId("ve-assess-networks").click();
+  await page.getByTestId("existing-outputs-skip").click();
+  await expect(page.getByTestId("existing-outputs-skip")).toHaveCount(0);
+  await expect(page.getByTestId("ve-networks-empty")).toBeVisible();
+
+  await page.getByTestId("ve-assess-networks").click();
+  const job = await submittedJob(() => page.getByTestId("existing-outputs-replace").click());
+  expect(job).toMatchObject({ kind: "tract", overwrite: true });
+});
+
+test("Assess networks without a tractogram says what to run, and offers no button", async () => {
+  await openNetworksOf("101", "Thalamus");
+  const reason = page.getByTestId("ve-assess-missing");
+  await expect(reason).toContainText("tractogram for sub-101");
+  await expect(reason).toContainText("network for sub-101");
+  await expect(reason).toContainText("Run Tractography for sub-101 first");
+  await expect(page.getByTestId("ve-assess-networks")).toHaveCount(0);
 });

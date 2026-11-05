@@ -45,6 +45,7 @@ const SIMULATIONS: readonly QueryKey[] = [
   ["results-simulation-figures"],
   ["results-file-text"],
   ["export-montage"],
+  ["simulation-networks"],
   ["viewer-tree"],
   ["viewer-candidates"],
   ["viewer-resolution"],
@@ -117,9 +118,10 @@ export const BY_KIND: Readonly<Record<string, readonly QueryKey[]>> = {
   nifti_average: GROUP_OUTPUTS,
   nilearn: GROUP_OUTPUTS,
   source: GROUP_OUTPUTS,
-  // A rebuilt network changes what a target can name; a ranking is a result of an ex run.
-  tract: [["tract-manifest"], ["tract-manifests"], ["tract-edges"], ["tract-masks"], ["tract-rankings"], ["tract-streamlines"]],
-  blender: GROUP_OUTPUTS,
+  // A rebuilt network changes what a target can name; a ranking is a result of an ex run; an
+  // assess writes a simulation's network outputs, and track or network what the next assess needs.
+  tract: [["tract-manifest"], ["tract-manifests"], ["tract-edges"], ["tract-masks"], ["tract-rankings"], ["tract-streamlines"], ["simulation-networks"], ["tract-preflight"]],
+  blender: [...GROUP_OUTPUTS, ["simulation-networks"]],
   tools: [],
 };
 

@@ -71,7 +71,8 @@ const reports = loadJson("reports.json");
 const groupCatalog = loadJson("group_catalog.json");
 const groupStatsDetail = loadJson("group_stats_detail.json");
 const simulationFigures = loadJson("simulation_figures.json");
-const simulationNetworks = loadJson("simulation_networks.json");
+// Mutable: a finished assess job adds its simulation; `/api/__mock/reset` restores the fixture.
+let simulationNetworks = loadJson("simulation_networks.json");
 const overviewSmall = loadJson("overview.json");
 const roisSeed = loadJson("rois_seed.json");
 const freehandSeed = loadJson("freehand_seed.json");
@@ -718,7 +719,7 @@ function outputDirFor(kind, subject, config) {
     case "source":
       return `${base}/forward`;
     case "tract":
-      return `${base}/tractography`;
+      return isTractAssess(cfg) ? `${base}/Simulations/${cfg.assess.simulations?.[0]}/tract` : `${base}/tractography`;
     // The 3D visual exporter's four modes are all kind="blender", discriminated by the config's
     // own `_type` -- and each writes somewhere different under visual_exports
     // (tit/blender/*_exporter.py). One "blender/NewRun" for all four would have made the Plan card
@@ -751,6 +752,10 @@ function outputDirFor(kind, subject, config) {
   }
 }
 /** `stats` is one kind for two classes; without a `_type` the server builds GroupComparisonConfig. */
+/** `_plan_tract`: an assess-only job plans `Simulations/<sim>/tract` and replaces it when it exists. */
+function isTractAssess(cfg) {
+  return Array.isArray(cfg?.stages) && cfg.stages.includes("assess") && !!cfg.assess;
+}
 function statsTypeDir(cfg) {
   return cfg._type === "CorrelationConfig" ? "correlation" : "group_comparison";
 }
@@ -775,6 +780,8 @@ function existsForFixture(kind, subject, config) {
   }
   // One leadfield per subject and net: the catalog fixture says which exist.
   if (kind === "leadfield") return (leadfields[subject] ?? []).some((l) => l.net === cfg.eeg_net && l.exists);
+  // A `simulation_networks.json` entry is a simulation with a `tract/` folder, listed bundles or not.
+  if (kind === "tract") return isTractAssess(cfg) && `${subject}/${cfg.assess.simulations?.[0]}` in simulationNetworks;
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -1047,7 +1054,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
     // `_plan_leadfield`: a leadfield is replaced when its config asks to compute (`overwrite`).
-    const replaces = kind === "leadfield" ? !!cfg.overwrite : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
+    const replaces = kind === "leadfield" ? !!cfg.overwrite : REPLACES_WHEN_EXISTS_KINDS.has(kind) || kind === "tract" || !!overwrite;
     return { kind, subject, output_dir, exists, will_overwrite: exists && replaces };
   });
   const lock_conflicts = [];
@@ -1586,6 +1593,10 @@ function finishJob(job) {
     emitEvent(job, { type: "exit", code: 0 });
     job.status.exit_code = 0;
     job.status.state = "succeeded";
+    if (job.status.kind === "tract" && isTractAssess(cfg)) {
+      const networks = (cfg.assess.selections ?? []).map((s) => s.name);
+      for (const sim of cfg.assess.simulations ?? []) simulationNetworks[`${cfg.subject_id}/${sim}`] = { networks, renders: [] };
+    }
   }
   job.status.finished_at = nowIso();
   job.status.progress = { stage: "done", i: 1, n: 1, pct: 100 };
@@ -1614,7 +1625,7 @@ function sampleResources(job) {
 }
 function runTimeline(job) {
   const cfg = job.spec.config && typeof job.spec.config === "object" ? job.spec.config : {};
-  const stages = stagesFor(job.status.kind);
+  const stages = (job.status.kind === "tract" && cfg.stages) || stagesFor(job.status.kind);
   const totalMs = cfg.__mock_fast === true ? 300 + Math.random() * 200 : 6000 + Math.random() * 4000;
   const perStage = totalMs / stages.length;
   const timers = [];
@@ -3742,6 +3753,7 @@ route("POST", "/api/__mock/reset", (ctx) => {
   capsWarped.clear();
   capsProject.clear();
   project.host_path = FIXTURE_HOST_PATH;
+  simulationNetworks = loadJson("simulation_networks.json");
   json(ctx.res, 200, { jobs_cleared: cleared });
 });
 // Mock-only: switch the project the overview routes describe (3 or 30 subjects). See
@@ -3781,12 +3793,25 @@ route("GET", "/api/jobs", (ctx) => {
   json(ctx.res, 200, list);
 });
 // The submission-time input sweep (tit.jobs.preflight) as a dry run. The mock's project has
-// every input its fixtures describe, so this answers "nothing absent" for a known kind; an
-// unknown kind is the contract's 422.
+// every input its fixtures describe, so this answers "nothing absent" for a known kind, except the
+// network only `ernie` has (`_check_tract`, for a job that does not track); an unknown kind is the
+// contract's 422.
 route("POST", "/api/jobs/preflight", async (ctx) => {
   const body = await ctx.body();
   if (!body || typeof body.kind !== "string" || !(body.kind in SCHEMA_DEF_FOR_KIND)) {
     return json(ctx.res, 422, { detail: `unknown kind ${JSON.stringify(body?.kind)}` });
+  }
+  const { config, kind } = body;
+  if (kind === "tract" && config?.subject_id !== "ernie" && !config?.stages?.includes("track")) {
+    const sid = config?.subject_id;
+    const how_to_fix = `Run Tractography for sub-${sid} first (Pre-processing page, Diffusion).`;
+    const tract = `${PROJECT_ROOT}/derivatives/SimNIBS/sub-${sid}/tractography`;
+    return json(ctx.res, 200, {
+      missing: [
+        { what: `tractogram for sub-${sid}`, expected_path: `${tract}/tractogram.trx`, how_to_fix },
+        { what: `network for sub-${sid}`, expected_path: `${tract}/network.npz`, how_to_fix },
+      ],
+    });
   }
   json(ctx.res, 200, { missing: [] });
 });
@@ -3798,7 +3823,7 @@ route("POST", "/api/jobs", async (ctx) => {
   }
   // `check_overwrite_permission`: the kinds whose runner replaces an existing folder need an
   // explicit overwrite. Other kinds' mock plans never set `will_overwrite` without one.
-  if ((REPLACES_WHEN_EXISTS_KINDS.has(body.kind) || body.kind === "leadfield") && !body.overwrite) {
+  if ((REPLACES_WHEN_EXISTS_KINDS.has(body.kind) || body.kind === "leadfield" || isTractAssess(body.config)) && !body.overwrite) {
     const conflicts = planFor(body.kind, body.config, body.subject_ids ?? [], false).jobs.filter((j) => j.will_overwrite);
     if (conflicts.length) {
       return json(ctx.res, 409, { detail: `Outputs of this ${body.kind} job already exist. Explicit overwrite confirmation is required: ${conflicts.map((j) => j.output_dir).join("; ")}` });

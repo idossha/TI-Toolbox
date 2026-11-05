@@ -117,7 +117,7 @@ import { defaultConfig as defaultPreConfig, plannedSteps, toSubmitConfig } from 
 import { buildCorrelationConfig, buildGroupComparisonConfig, type SharedStatsFields } from "../../src/renderer/pages/panels/cluster-permutation/config";
 import { buildNiftiAverageConfig } from "../../src/renderer/pages/panels/nifti-group-average/config";
 import { buildNilearnConfig } from "../../src/renderer/pages/panels/nilearn-visuals/config";
-import { buildMontageConfig, buildNetworkConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
+import { buildAssessConfig, buildMontageConfig, buildNetworkConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
 import { clearPageSession, sessionSlot, writeSession } from "../../src/renderer/app/pageSession";
 import * as statsApi from "../../src/renderer/pages/panels/cluster-permutation/api";
 import * as niftiApi from "../../src/renderer/pages/panels/nifti-group-average/api";
@@ -869,6 +869,7 @@ describe("desktop config corpus", () => {
       tractCase("track-network", "A subject with no tractogram: DK40", tractJobConfig("001", "DK40", false, false)),
       tractCase("network-only", "A subject with a tractogram: another atlas", tractJobConfig("001", "HCP_MMP1", false, true)),
       tractCase("retrack", "Track again over an existing tractogram", tractJobConfig("001", "DK40", true, true)),
+      tractCase("assess", "Assess one simulation from the Visual exporter's Networks tab", buildAssessConfig("001", "M1")),
       tractCase("rank", "Rank an ex run on a network mask", rankingConfig("001", "run1", "GSN-HydroCel-185_leadfield.hdf5", mask, 20)),
     ]);
   });
