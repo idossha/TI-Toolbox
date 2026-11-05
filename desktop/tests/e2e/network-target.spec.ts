@@ -179,6 +179,6 @@ test("Pre-processing: Diffusion lists QSIPrep, DTI, Tractography, QSIRecon, and 
   const body = (await request).postDataJSON();
   expect(body.kind).toBe("pre");
   expect(body.config).toMatchObject({ run_qsiprep: true, run_tractography: true, tractography_atlas: "DK40" });
-  const jobs = (await (await response).json()).jobs as { tags?: string[]; id: string; depends_on?: string[] }[];
-  expect(jobs.some((job) => job.tags?.includes("G7"))).toBe(true);
+  // The page's three default steps, QSIPrep and Tractography: its one run, one job per stage.
+  expect((await (await response).json()).jobs).toHaveLength(5);
 });
