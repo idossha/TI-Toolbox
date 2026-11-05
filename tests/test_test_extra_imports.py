@@ -69,7 +69,7 @@ _BROUGHT_BY = {
 _IMAGE_ONLY = {
     "bpy": "Blender's own module; the Blender exporters run inside Blender's Python",
     "mathutils": "Blender's own module; the Blender exporters run inside Blender's Python",
-    "dipy": "QSIRecon's DTI extraction (tit/pre/qsi) runs in the image",
+    "dipy": "the DTI extraction (tit/pre/qsi) and tractography (tit/tract) run in the image",
     "jupyter_client": "notebook kernels are started by the server in the image",
     "seaborn": "statistics figures are drawn in the image; host tests stub the plot",
     "stl": "numpy-stl writes nifti_to_mesh's STL output in the image",

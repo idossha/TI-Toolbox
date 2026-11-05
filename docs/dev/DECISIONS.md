@@ -4217,3 +4217,68 @@ one kind still accepted with a missing input: it queued, started and died with a
 that can disagree with argparse); checking every tool's positionals (inputs and outputs are not
 distinguishable without each tool's own parser); a readable error inside the tool (it would still
 queue a job that cannot run).
+
+## 2026-11-04 — White-matter networks: DIPY tractography in m2m world, fields at the containing element
+
+**Decision.** A new module `tit.tract` (ARCHITECTURE §15) adds tractography-defined white-matter
+targets: DIPY whole-brain tracking (single-shell CSD + ACT + probabilistic for QSIPrep DWI; EuDX on
+the DTI V1 when only the m2m tensor exists), endpoint-to-region association by a KD-tree of
+annotation vertices and label-volume voxel centres within 3 mm, TI fields sampled at the
+tetrahedron containing each streamline point, a TRX/JSON/NPZ output contract, and a tract-density
+mask that runs through the existing flex/ex ROI types unchanged. No new dependency: DIPY 1.12.1 and
+trx-python are already in the image. `TractConfig` gets a `_type` discriminator but stays out of
+`CONFIG_CLASS_REGISTRY` until it becomes a job kind, so the generated contract schema is unchanged.
+
+**Why.** The toolbox handled grey-matter ROIs only. The frame chain is the one the DTI extractor
+already uses: the QSIPrep ACPC -> T1 map rebuilt here equals the one `DTI_coregT1_qc.json` records
+to 5e-7 (the same code, so only self-consistency); the independent evidence that the map is right
+is that record's own NCC of 0.984 between QSIPrep's ACPC T1 and the m2m T1 under it. The 8-flip
+check makes a wrong frame fail the run: for the csd route the tangent/V1 coherence against the
+tensor's separate b <= 1500 fit (CHN: unflipped 0.985 median |cos| against 0.87-0.88 for the
+flips on the 48-voxel block; run 2026-11-04); for the tensor route, which follows that V1 and so
+cannot be scored against it, the mean streamline length (MRtrix `dwigradcheck`'s criterion).
+Synthetic volumes with a planted direction on LPS, PSR and oblique affines pin the frame code
+(`tests/numerical/test_tract_frames.py`). The element lookup is exact for SimNIBS's
+piecewise-constant field; SPR/linear interpolation is kept as the comparison method. Because that
+field is constant per tetrahedron, the activating function is the derivative of `E . t` smoothed
+over +/- 2 mm (its value otherwise grew as the step shrank: 15, 25, 40 V/m^2 at 1, 0.5, 0.25 mm on
+an ernie bundle, against 11.6, 13.0, 13.1 now). Alignment is reported with its baseline: `ti_avg`
+(the envelope averaged over directions) gives `ti_avg / ti_max`, what `ti_along / ti_max` is for
+a random direction (0.475 on that bundle), and `ti_along / ti_avg` above 1 means more envelope along
+the fibre than along a random direction.
+
+**Alternatives rejected.** Multi-shell CSD (DIPY's needs cvxpy, absent from the image); MRtrix3 or
+TractSeg inside the image (not installed; MRtrix stays the external reference, `tractogram_acpc.tck`
+is written for it); STREAM-4D's code (non-commercial licence, incompatible with GPL-3; its method is
+re-implemented and cited); union-of-vertices association (gives several labels per end, which a
+connectome cannot use); a default stimulation threshold or a designated metric (see the 2026-11-02
+"Field metrics are described" entry); RecoBundles/HCP842 named bundles (a 300 MB download and an
+emulated whole-brain SLR; left for later).
+
+**Revisit if.** cvxpy enters the image (multi-shell CSD), or the module becomes a job kind (register
+the config, regenerate the contract).
+
+## 2026-11-05 — DIPY ACT accepts the inferior brain-stem exit
+
+**Decision.** `tit.tract`'s csd route marks brain-stem, cerebellar-WM and spinal-cord voxels
+(label volume 16, 7, 46, charm 512) that have no fitted fibre orientation as a valid ACT end
+(`tracking.inferior_exit`, ARCHITECTURE §15). Ending in CSF stays invalid. Pinned by
+`tests/numerical/test_tract_frames.py::test_act_keeps_a_tract_leaving_the_mask_through_the_brain_stem_only`.
+
+**Why.** The DIPY-vs-MRtrix3 comparison found almost no corticospinal streamlines in CHN's DIPY
+tractogram. Read back with `return_all` (2026-11-05): the DWI brain mask, and so the FOD, stops at
+z -62 mm ACPC inside charm's spinal cord, which charm calls WM; descending streamlines stopped
+there with no direction, and DIPY's ACT dropped them (no kept streamline reached below -55 mm).
+MRtrix ACT accepts streamlines that leave this way. With the exit, on the comparison agent's own
+measures (`validation/v1_compare/scripts/12_brainstem_check.py`, re-typed): cortex to lower brain
+stem 0.005 % to 0.46 % of streamlines, entering the brain stem 3.1 % to 5.0 %, and 37 % of those
+end within 5 mm of its bottom (0 % before); MRtrix iFOD2 with ACT on a 5TT from the same charm
+tissues gives 0.54 %, 10.2 % and 24 %.
+
+**Alternatives rejected.** Treating every WM voxel outside the DWI mask as a valid end (accepts
+streamlines cut off at susceptibility drop-outs anywhere); `return_all=True` for the tractogram
+(keeps streamlines ending in CSF); particle-filtering tractography (backtracking; heavier, and the
+missing streamlines were not CSF endings). Changing the tracker defaults for tortuosity: on CHN,
+probabilistic max_angle 20 / pmf 0.2 raises mean |t . V1| from 0.878 to 0.905 but keeps 32 % fewer
+streamlines, and PTT (now `algorithm: "ptt"`) gives 0.890 at 4.4x the run time; not enough to
+change the default.

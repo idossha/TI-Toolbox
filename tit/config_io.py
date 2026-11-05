@@ -75,6 +75,8 @@ _TYPE_DISCRIMINATED_BY_NAME: dict[str, str] = {
     # server and the lock table tell a correlation from a group comparison.
     "GroupComparisonConfig": "GroupComparisonConfig",
     "CorrelationConfig": "CorrelationConfig",
+    # tit.tract's runner config (not yet a job kind, so not in CONFIG_CLASS_REGISTRY).
+    "TractConfig": "TractConfig",
 }
 
 

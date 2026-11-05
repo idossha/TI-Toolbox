@@ -1321,3 +1321,96 @@ Sources: [`tit/reporting/html/`](../../tit/reporting/html/), [`qc_rules.py`](../
 [`pre/charm.py`](../../tit/pre/charm.py).
 Verified by `tests/test_reporting_dti_qc.py`, `tests/test_reporting_runs.py`, `tests/test_pre_charm.py`, `tests/test_plotting_slices.py`,
 `tests/numerical/test_dti_advisories.py` and `desktop/tests/unit/cssRules.test.ts`.
+
+## 15. White-matter networks from tractography (`tit.tract`)
+
+**A research module with a scripting and runner surface only.** `tit.tract` targets, assesses and
+exports TI on tractography-defined white-matter networks. It has no job kind, desktop page or
+server route yet, so `TractConfig` carries a `_type` discriminator in `tit/config_io.py` but is not
+in `CONFIG_CLASS_REGISTRY` (that would change the generated contract schema). Entry point:
+`simnibs_python -m tit.tract config.json` runs the configured stages in the order
+track -> network -> assess -> target; each stage is also a public function (`run_track`,
+`run_network`, `run_assess`, `run_target`).
+
+**Tractography is DIPY, written in m2m T1 world.** The `csd` route (QSIPrep ACPC DWI) fits
+single-shell CSD on b0 + the highest shell (`MultiShellDeconvModel` needs cvxpy, which the image
+lacks), constrains tracking with charm's WM/GM/CSF labels mapped into the DWI grid through the
+exact QSIPrep chain (`tensor_math.acpc_to_t1_world`) and tracks probabilistically; streamlines are
+then mapped through the same 4x4 to m2m T1 world, and also written in ACPC world as
+`tractogram_acpc.tck` for comparison with MRtrix3. The `tensor` route (m2m DTI tensor only) runs
+EuDX on the principal eigenvector with FA stopping inside charm WM; it cannot resolve crossing fibres.
+DIPY tracks in voxel index space, so gradient and peak directions are converted with
+`d_vox = M^-1 d_world`, `M = A[:3, :3] / column norms`. `qc.json` holds an 8-axis-flip frame
+check and the run fails when a flipped frame wins: for the csd route the median `|t . e1|` between
+streamline tangents and the m2m tensor's principal eigenvector where FA > 0.4 (also reported for
+the whole tractogram), on a central 48-voxel block per flip; for the tensor route, which follows
+that eigenvector, the mean streamline length per flip (`dwigradcheck`'s criterion). The csd
+route's ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
+pallidum, hippocampus, amygdala, accumbens) as grey matter, since charm's tissue map calls the
+pallidum WM, and treats brain-stem, cerebellar-WM and spinal-cord voxels that have no fitted
+fibre orientation (below the DWI brain mask) as a valid end: MRtrix ACT's convention for the
+inferior exit, without which DIPY drops corticospinal streamlines that run out of the mask while
+still tracking. A streamline that ends in CSF is still rejected. The csd tracker is DIPY's
+probabilistic one (`algorithm: "ptt"` selects parallel transport tractography); `max_angle` and
+`pmf_threshold` are config fields. No home-grown tracking, no MRtrix3/FSL/ANTs.
+
+**Endpoints are matched to the nearest labelled point within a radius.** A KD-tree holds the
+subject's annotation labels on an m2m surface (`segmentation/{lh,rh}.*_<atlas>.annot`, default
+`DK40` on `central`) and the voxel centres of the label volume's grey-matter labels (charm
+`segmentation/labeling.nii.gz`, else FastSurfer `aparc.DKTatlas+aseg.deep.nii.gz`; without an
+annotation every region comes from the volume). An end further than `radius_mm` (default 3) from
+every labelled point is unassigned. This re-implements the method of STREAM-4D (Atalay et al.
+2025, doi:10.1016/j.brs.2025.06.015) without its code, whose non-commercial licence is not
+GPL-compatible; it differs in taking the nearest point (one label per end) rather than the union of
+all vertices within the radius.
+
+**Fields are sampled at the element containing each point.** A SimNIBS carrier field is constant per
+tetrahedron, so the default `tet` method (`Msh.find_tetrahedron_with_points` on the brain tissues of
+each `high_Frequency/mesh/<sid>_TDCS_<k>_<cond>.msh`) is exact; `linear`
+(`ElementData.interpolate_scattered`) is the comparison method. Every streamline is assessed and
+first oriented: `region_a` -> `region_b` (lower region index first) when its ends differ, else from
+the end with the lower x, y, z, so `E_c . t`, the activating function and the profiles have one sign
+convention per edge. Streamlines are resampled to a uniform arc step (`step_mm`, default 0.5)
+before sampling. Per point: `E_c . t`, `ti_along = envelope(fields, t)`, `ti_max =
+envelope_max(fields)`, `ti_avg = envelope_mean(fields)`, `ti_along / ti_max`, its random-direction
+baseline `ti_avg / ti_max` and the alignment index `ti_along / ti_avg` (above 1: more envelope
+along the streamline than along a random direction), `sum |E_c . t|`, `1/2 sum (E_c . t)^2`, and
+the activating function `-d(E_c . t)/ds` with its envelope. The derivative is taken of `E . t`
+smoothed by a triangle of half-width `af_scale_mm` (default 2, recorded in `summary.json`): the
+field is constant per tetrahedron, so a pointwise derivative grows as the step shrinks. Any number
+of pairs goes through `tit.calc`. These are field descriptors, not activation predictions, and no
+metric is designated over another. Threshold fractions are reported only for thresholds the user
+supplies; there is no default threshold.
+
+**Output contract (consumed by the visualisation exporters).** `derivatives/SimNIBS/sub-<id>/tractography/`
+holds `tractogram.trx` (whole brain, m2m T1 world RAS mm), `qc.json`, `network.npz` (`labels` (S, 2),
+`edge_id`, `pairs`, `names`, `counts`), `network.json` and `connectome_count.npz`. Each assessed
+simulation's `Simulations/<sim>/tract/` holds, per selection, `<name>.trx` (resampled streamlines, same
+space) with data_per_vertex `ti_along`, `ti_max`, `ti_avg`, `e1_par`, `e2_par` (`e<2K>_par` for
+mTI; float32, V/m) and data_per_streamline `length_mm`, `ti_along_max`, `ti_along_mean`, `edge_id`
+(int, -1 = unassigned); `edges.json` (every edge: `region_a`, `region_b`, `n_streamlines`,
+`share`, median/IQR/p5/p95 summaries); `connectome_<metric>.npz` (`matrix`, `labels`, `definition`) for `count`,
+`ti_along_mean`, `ti_along_max`; `summary.json` (bundles, and `top_edges` among edges with at least
+`min_streamlines`, default 5, each with its count, its share of the assigned streamlines and the
+IQR of its streamlines' mean `ti_along`, because edge rankings depend on the tractography tool while
+bundle-level values agree across tools); `streamline_metrics.npz` (every per-streamline
+metric, keyed by `tractogram_index`); and `profiles.npz` (per-edge node medians, node 0 at
+`region_a`). Edges, connectomes and per-streamline metrics cover every streamline whatever the
+selections. Edges are unordered region pairs numbered by descending streamline count; counts are
+unweighted and are not a connection strength. Selections: `all`, `between`, `from`, `through` (a
+mask), `to_cortex` (seed regions to any cortical label; thalamocortical) and `top_edges` (the most
+populated edges of a seed).
+
+**Targeting reuses the optimizers unchanged.** The target stage writes a tract-density mask
+(voxels crossed by >= `min_count` streamlines of a selection) on the m2m T1 grid as
+`m2m_<id>/masks/tract-<name>.nii.gz`, where the ROI pickers already find custom masks; it is used as
+`FlexConfig.SubcorticalROI(atlas_path=mask, label=None, tissues="WM")` or
+`ExConfig.AtlasROI(atlas_path=mask, label=None)`. With a leadfield, it also ranks candidate montages
+(explicit, from an electrode pool, or the top rows of an ex-search run) by the statistic `assess`
+reports, the median over streamlines of each streamline's arc-mean `ti_along`, loading the leadfield
+through `ExSearchEngine`; the pooled point mean, the same statistics of `ti_max` and `ti_avg`, the
+alignment index and both ranks are reported beside it.
+
+Sources: [`tit/tract/`](../../tit/tract/). Verified by `tests/test_tract_geometry.py`,
+`tests/numerical/test_tract_association.py`, `tests/numerical/test_tract_fields.py` and
+`tests/numerical/test_tract_frames.py`.
