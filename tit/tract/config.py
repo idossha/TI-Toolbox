@@ -146,9 +146,6 @@ class AssessConfig:
         af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is
             smoothed over before differentiating (a piecewise-constant field has no
             pointwise derivative at a finite scale otherwise).
-        method: ``"tet"`` (the element containing each point: exact for SimNIBS's
-            piecewise-constant element field) or ``"linear"`` (SimNIBS
-            ``ElementData.interpolate_scattered``, node-averaged then barycentric).
         thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.
         profile_points: Nodes of the along-tract profiles.
         min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``
@@ -159,7 +156,6 @@ class AssessConfig:
     selections: list[Selection] = field(default_factory=lambda: [Selection()])
     step_mm: float = 0.5
     af_scale_mm: float = 2.0
-    method: Literal["tet", "linear"] = "tet"
     thresholds: list[float] = field(default_factory=list)
     profile_points: int = 100
     min_streamlines: int = 5
@@ -167,8 +163,6 @@ class AssessConfig:
     def __post_init__(self) -> None:
         _positive(self.step_mm, "step_mm")
         _positive(self.af_scale_mm, "af_scale_mm")
-        if self.method not in ("tet", "linear"):
-            raise ValueError("method must be 'tet' or 'linear'")
         if self.profile_points < 2:
             raise ValueError("profile_points must be >= 2")
         names = [s.name for s in self.selections]

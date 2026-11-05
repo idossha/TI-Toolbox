@@ -10,15 +10,17 @@ Pins (2026-11-04):
   exceeds ``envelope_max``. (SimNIBS ``get_dirTI`` with one direction per point is already
   pinned in ``test_calc_vs_simnibs.py``.)
 * **V2, mesh sampling (synthetic SimNIBS mesh).** On a tetrahedral cube mesh built with
-  SimNIBS ``mesh_io`` (Kuhn subdivision, 6 tets per 2 mm cell), ``sample_carriers("tet")`` at
-  element barycentres returns exactly the element values written to the ``.msh``; a point
-  outside is flagged and gets 0; for a uniform field both ``"tet"`` and ``"linear"`` return
-  the field; for a linear field the two differ by at most |grad E| x the cell diagonal, and
-  ``"linear"`` is closer to the exact field than the element value.
+  SimNIBS ``mesh_io`` (Kuhn subdivision, 6 tets per 2 mm cell), ``sample_carriers`` (the element
+  containing each point) at element barycentres returns exactly the element values written
+  to the ``.msh``; a point outside is flagged and gets 0; for a uniform field both it and
+  SimNIBS's ``ElementData.interpolate_scattered(method="linear")`` (called directly here as
+  the comparison) return the field; for a linear field the two differ by at most
+  |grad E| x the cell diagonal, and the linear interpolation is closer to the exact field
+  than the element value.
 * **V2, real carrier mesh (gated on ``TIT_DATASET_000``, read-only).** On sub-101
   ``L_Insula``'s two carrier meshes, 300 straight 40 mm streamlines centred on random WM
-  element barycentres: ``"tet"`` and ``"linear"`` find the same points outside the brain
-  tissues, and their ``ti_along`` agrees in distribution (correlation > 0.8, median
+  element barycentres: ``sample_carriers`` and SimNIBS's linear interpolation find the same
+  points outside the brain tissues, and their ``ti_along`` agrees in distribution (correlation > 0.8, median
   difference < 10 % of the local ``ti_max``): properties, not pinned numbers (the measured
   values are printed).
 
@@ -130,6 +132,20 @@ tmp = sys.argv[1]
 mesh = cube_mesh()
 bary = mesh.elements_baricenters().value
 rng = np.random.default_rng(2)
+""" + """
+def linear(paths, points):
+    # SimNIBS's own node-averaged linear interpolation, the V2 comparison (not a tit option)
+    from tit.tract.fields import BRAIN_TAGS
+    out, bad_any = [], np.zeros(len(points), bool)
+    for p in paths:
+        field = mesh_io.read_msh(str(p)).crop_mesh(tags=list(BRAIN_TAGS)).field["E"]
+        v = np.asarray(field.interpolate_scattered(points, method="linear", squeeze=False),
+                       dtype=np.float64)
+        bad = ~np.isfinite(v).all(axis=1)
+        v[bad] = 0.0
+        out.append(v)
+        bad_any |= bad
+    return out, bad_any
 """
 
 
@@ -138,10 +154,10 @@ def test_v2_tet_sampling_returns_element_values(tmp_path):
         _CUBE + """
 values = rng.normal(size=(mesh.elm.nr, 3))
 path = write(mesh, values, tmp + "/toy_TDCS_1_scalar.msh")
-(got,), outside = sample_carriers([path], bary, "tet")
+(got,), outside = sample_carriers([path], bary)
 assert not outside.any()
 np.testing.assert_allclose(got, values, rtol=1e-12)
-(got,), outside = sample_carriers([path], np.array([[50.0, 50.0, 50.0]]), "tet")
+(got,), outside = sample_carriers([path], np.array([[50.0, 50.0, 50.0]]))
 assert outside.all() and np.all(got == 0)
 print("ok", mesh.elm.nr)
 """,
@@ -155,14 +171,14 @@ def test_v2_uniform_and_linear_fields(tmp_path):
 pts = rng.uniform(1.0, 11.0, size=(300, 3))
 e0 = np.array([0.3, -0.2, 0.1])
 uni = write(mesh, np.tile(e0, (mesh.elm.nr, 1)), tmp + "/u_TDCS_1_scalar.msh")
-for method in ("tet", "linear"):
-    (got,), outside = sample_carriers([uni], pts, method)
+for sampler in (sample_carriers, linear):
+    (got,), outside = sampler([uni], pts)
     assert not outside.any()
     np.testing.assert_allclose(got, np.tile(e0, (len(pts), 1)), rtol=1e-9)
 grad = np.array([[0.02, 0.0, 0.01], [0.0, -0.03, 0.0], [0.01, 0.0, 0.02]])
 lin = write(mesh, bary @ grad.T, tmp + "/l_TDCS_1_scalar.msh")
-(tet,), _ = sample_carriers([lin], pts, "tet")
-(smooth,), _ = sample_carriers([lin], pts, "linear")
+(tet,), _ = sample_carriers([lin], pts)
+(smooth,), _ = linear([lin], pts)
 bound = np.linalg.norm(grad, 2) * 2.0 * np.sqrt(3.0)  # 2 mm cell diagonal bounds a tet
 diff = np.linalg.norm(tet - smooth, axis=1)
 assert diff.max() <= bound, (diff.max(), bound)
@@ -191,6 +207,20 @@ from simnibs.mesh_tools import mesh_io
 from tit.paths import get_path_manager
 from tit.tract import geometry
 from tit.tract.fields import carrier_meshes, sample_carriers
+
+def linear(paths, points):
+    # SimNIBS's own node-averaged linear interpolation, the V2 comparison (not a tit option)
+    from tit.tract.fields import BRAIN_TAGS
+    out, bad_any = [], np.zeros(len(points), bool)
+    for p in paths:
+        field = mesh_io.read_msh(str(p)).crop_mesh(tags=list(BRAIN_TAGS)).field["E"]
+        v = np.asarray(field.interpolate_scattered(points, method="linear", squeeze=False),
+                       dtype=np.float64)
+        bad = ~np.isfinite(v).all(axis=1)
+        v[bad] = 0.0
+        out.append(v)
+        bad_any |= bad
+    return out, bad_any
 pm = get_path_manager(root)
 paths = carrier_meshes(pm, "101", "L_Insula")
 # 300 straight 40 mm streamlines centred on random WM barycentres, random directions
@@ -203,8 +233,8 @@ sl = [c + np.outer(np.linspace(-20, 20, 41), d) for c, d in zip(centres, dirs)]
 del wm
 pts, off, h = geometry.resample(sl, 1.0)
 t = geometry.tangents(pts, off, h)
-tet, out_t = sample_carriers(paths, pts, "tet")
-lin, out_l = sample_carriers(paths, pts, "linear")
+tet, out_t = sample_carriers(paths, pts)
+lin, out_l = linear(paths, pts)
 ok = ~(out_t | out_l)
 assert out_t.sum() == out_l.sum(), (out_t.sum(), out_l.sum())  # one search, two readings
 assert ok.mean() > 0.8, ok.mean()  # straight lines leave the brain; those points drop

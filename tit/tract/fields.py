@@ -4,16 +4,12 @@ Carrier fields come from ``Simulations/<sim>/high_Frequency/mesh/<sid>_TDCS_<k>_
 (element field ``E``, V/m, constant per tetrahedron, full head); 2 meshes for TI, 2K for
 mTI, paired in name order as the simulator writes them.
 
-Sampling methods (spec V2):
-
-* ``"tet"`` -- the tetrahedron containing each point
-  (``Msh.find_tetrahedron_with_points``) and its element value: exact for a
-  piecewise-constant element field;
-* ``"linear"`` -- SimNIBS ``ElementData.interpolate_scattered(method="linear")``: element
-  values averaged to the nodes of each tissue, then barycentric interpolation.
-
-Both search only the brain tissues (WM, GM, CSF); a point outside them gets a zero field
-and is counted in ``summary.json`` (``points_outside_brain_mesh``).
+Sampling (spec V2): the tetrahedron containing each point
+(``Msh.find_tetrahedron_with_points``) and its element value, exact for SimNIBS's
+piecewise-constant element field. The search covers only the brain tissues (WM, GM, CSF); a
+point outside them gets a zero field and is counted in ``summary.json``
+(``points_outside_brain_mesh``). SimNIBS's node-averaged linear interpolation is the
+comparison in ``tests/numerical/test_tract_fields.py``, not an option.
 
 Output, per simulation, in ``Simulations/<sim>/tract/`` (the data contract):
 
@@ -100,45 +96,36 @@ def carrier_meshes(pm, subject_id: str, simulation: str) -> list[Path]:
     return paths
 
 
-def sample_carriers(paths, points: np.ndarray, method: str = "tet", cache=None):
-    """Each carrier's ``E`` (P, 3) at *points*; returns ``(fields, outside (P,) bool)``.
+def sample_carriers(paths, points: np.ndarray, cache=None):
+    """Each carrier's element ``E`` (P, 3) at *points*; returns ``(fields, outside (P,) bool)``.
 
-    *cache* (a dict, ``"tet"`` only) keeps the point -> element lookup for the next call
-    on the same points (hashed) and the same mesh (several simulations of one head model).
+    *cache* (a dict) keeps the point -> element lookup for the next call on the same points
+    (hashed) and the same mesh (several simulations of one head model).
     """
     import hashlib
 
     from simnibs.mesh_tools import mesh_io
 
-    fields, th, outside = [], None, None
+    fields, th = [], None
     cache = {} if cache is None else cache
     points = np.ascontiguousarray(points, dtype=np.float64)
     digest = hashlib.sha1(points.tobytes()).hexdigest()
     for path in paths:
         mesh = mesh_io.read_msh(str(path)).crop_mesh(tags=list(BRAIN_TAGS))
         field = mesh.field["E"]
-        if method == "tet":
-            nodes = np.ascontiguousarray(mesh.nodes.node_coord)
-            key = (digest, mesh.elm.nr, hashlib.sha1(nodes.tobytes()).hexdigest())
-            if cache.get("key") != key:
-                if th is not None:
-                    raise ValueError(f"{path.name} is not on the first carrier's mesh")
-                cache["key"] = key
-                cache["th"] = mesh.find_tetrahedron_with_points(
-                    points, compute_baricentric=False
-                )
-            th = cache["th"]
-            outside = th < 1
-            values = np.zeros((len(points), 3))
-            values[~outside] = field.value[th[~outside] - 1]
-        else:
-            values = np.asarray(
-                field.interpolate_scattered(points, method="linear", squeeze=False),
-                dtype=np.float64,
+        nodes = np.ascontiguousarray(mesh.nodes.node_coord)
+        key = (digest, mesh.elm.nr, hashlib.sha1(nodes.tobytes()).hexdigest())
+        if cache.get("key") != key:
+            if th is not None:
+                raise ValueError(f"{path.name} is not on the first carrier's mesh")
+            cache["key"] = key
+            cache["th"] = mesh.find_tetrahedron_with_points(
+                points, compute_baricentric=False
             )
-            bad = ~np.isfinite(values).all(axis=1)
-            outside = bad if outside is None else outside | bad
-            values[bad] = 0.0
+        th = cache["th"]
+        outside = th < 1
+        values = np.zeros((len(points), 3))
+        values[~outside] = field.value[th[~outside] - 1]
         fields.append(values)
         del mesh, field
     return fields, outside
@@ -264,7 +251,7 @@ def assess_simulation(
     out_dir = pm.ensure(pm.sim_tract(subject_id, simulation))
     t0 = time.time()
     paths = carrier_meshes(pm, subject_id, simulation)
-    fields, outside = sample_carriers(paths, pts, cfg.method, cache)
+    fields, outside = sample_carriers(paths, pts, cache)
     sample_s = time.time() - t0
     m = geometry.point_metrics(fields, t, off, h, cfg.af_scale_mm)
     del fields
@@ -322,7 +309,7 @@ def assess_simulation(
         "space": "m2m T1 world, RAS mm",
         "carriers": [p.name for p in paths],
         "n_pairs": len(paths) // 2,
-        "method": cfg.method,
+        "method": "tet",
         "step_mm": cfg.step_mm,
         "af_scale_mm": cfg.af_scale_mm,
         "orientation": "region_a -> region_b (lower region index first) when the ends "
