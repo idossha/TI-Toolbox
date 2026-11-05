@@ -177,6 +177,65 @@ class AttributionTests(unittest.TestCase):
         self.assertEqual(self.guard.check(sample)[0], 1)
 
 
+class ForeignStartupTests(unittest.TestCase):
+    """What a shared Mac starts during a run: launchd jobs and children of root daemons.
+
+    Measured 2026-11-05 with ``e2e-quiet-check.sh sleep 180``, no test at all: exit 2 on the user's
+    03:17 cron job (parent root's cron, unreadable without privileges) and a launchd job. Native
+    shapes come from libproc on real processes: launchd jobs lead their group with parent unique
+    id 1, and every detached orphan shape read a different group or a real parent id.
+    """
+
+    def setUp(self):
+        self.base = [proc(20, 1, 20), proc(30, 1, 30)]
+        self.guard = monitor.Attribution(self.base, 100)
+        self.root = proc(100, 30, 100)
+
+    def inventory(self, *records, **sample):
+        return {
+            **snapshot([*self.base, self.root, *records], **sample),
+            "restricted": [364],
+        }
+
+    def test_a_launchd_job_and_its_children_need_not_drain(self):
+        job = {**proc(110, 1, 110), "launchd_job": True}
+        status, _ = self.guard.check(self.inventory(job, proc(111, 110, 110)))
+        self.assertEqual(status, 0)
+        self.assertEqual(self.guard.pending, [])
+
+    def test_a_child_of_a_root_daemon_and_its_children_need_not_drain(self):
+        cron_job = proc(110, 364, 364)
+        status, _ = self.guard.check(self.inventory(cron_job, proc(111, 110, 111)))
+        self.assertEqual(status, 0)
+        self.assertEqual(self.guard.pending, [])
+
+    def test_their_windows_stay_inconclusive_because_a_test_can_open_an_app(self):
+        for record in ({**proc(110, 1, 110), "launchd_job": True}, proc(110, 364, 364)):
+            with self.subTest(record=record):
+                sample = self.inventory(record, windows=[window(110)])
+                self.assertEqual(self.guard.check(sample)[0], 2)
+
+    def test_a_window_of_another_users_process_is_not_a_test_window(self):
+        # WindowServer's cursor-layer window, seen 2026-11-05: its owner is unreadable, and it
+        # failed the baseline before any test ran.
+        sample = self.inventory(windows=[window(364, layer=2147483630)])
+        self.assertEqual(self.guard.check(sample)[0], 0)
+
+    def test_an_orphan_not_born_of_launchd_must_still_drain(self):
+        self.guard.check(self.inventory(proc(110, 1, 110)))
+        self.assertEqual(self.guard.pending, [(110, "unknown")])
+
+    def test_a_parent_merely_absent_is_not_a_root_daemon(self):
+        self.guard.check(self.inventory(proc(110, 999, 110)))
+        self.assertEqual(self.guard.pending, [(110, "unknown")])
+
+    def test_a_test_descendant_is_never_excused(self):
+        self.guard.check(
+            self.inventory({**proc(110, 100, 100), "launchd_job": True})
+        )
+        self.assertEqual(self.guard.pending, [(110, "test")])
+
+
 class LauncherTests(unittest.TestCase):
     """CLI fixtures prove exit status and that observation precedes command release."""
 
