@@ -1044,7 +1044,9 @@ def render_turntable(manifest, base, out_dir) -> str:
     if manifest.get("crossfade"):  # direction for the first half, then the metric
         a, b = n // 2 - CROSSFADE_FRAMES // 2, n // 2 + CROSSFADE_FRAMES // 2
         crossfade = [(a, 0.0), (b, 1.0)]
-        swap = ([(a, 1.0), (b, 0.0)], crossfade)
+        # The keys share one place: the direction key leaves before the colour bar arrives.
+        mid = (a + b) // 2
+        swap = ([(a, 1.0), (mid, 0.0)], [(mid, 0.0), (b, 1.0)])
     cloud, _head = build_scene(manifest, base, animated=False, crossfade=crossfade)
     side = manifest["lateral_side"]
     pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
