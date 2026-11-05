@@ -1936,6 +1936,7 @@ const SCHEMA_DEF_FOR_KIND = {
   flex_pareto: "FlexConfig",
   ex: "ExConfig",
   mex: "MExConfig",
+  tract: "TractConfig",
 };
 
 /**
