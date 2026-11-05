@@ -279,12 +279,9 @@ def track_sh(
     return_all=False,
     exit_mask=None,
 ):
-    """ACT tracking on SH coefficients; streamlines in the affine's world.
-
-    ``cfg.algorithm``: ``"prob"`` (probabilistic) or ``"ptt"`` (parallel transport).
-    """
+    """ACT probabilistic tracking on SH coefficients; streamlines in the affine's world."""
     from dipy.data import default_sphere
-    from dipy.tracking.tracker import probabilistic_tracking, ptt_tracking
+    from dipy.tracking.tracker import probabilistic_tracking
     from dipy.tracking.utils import random_seeds_from_mask
 
     sc = act_criterion(wm, gm, csf, exit_mask)
@@ -295,8 +292,7 @@ def track_sh(
         seed_count_per_voxel=False,
         random_seed=cfg.random_seed,
     )
-    track = ptt_tracking if cfg.algorithm == "ptt" else probabilistic_tracking
-    gen = track(
+    gen = probabilistic_tracking(
         seeds,
         sc,
         affine,

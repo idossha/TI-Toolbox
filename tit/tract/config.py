@@ -71,11 +71,9 @@ class TrackConfig:
     """Whole-brain tractography (the ``track`` stage).
 
     QSIPrep-preprocessed DWI, single-shell CSD on b0 + the highest shell, ACT on charm
-    tissues, DIPY tracking. A subject without QSIPrep output is refused.
+    tissues, DIPY probabilistic tracking. A subject without QSIPrep output is refused.
 
     Attributes:
-        algorithm: Tracker, ``"prob"`` (DIPY probabilistic) or ``"ptt"`` (DIPY parallel
-            transport tractography).
         pmf_threshold: Fibre-ODF values below this fraction are not followed.
         n_seeds: Random seeds placed in white matter.
         step_mm: Tracking step.
@@ -89,7 +87,6 @@ class TrackConfig:
         overwrite: Replace an existing tractogram.
     """
 
-    algorithm: Literal["prob", "ptt"] = "prob"
     pmf_threshold: float = 0.1
     n_seeds: int = 200_000
     step_mm: float = 0.5
@@ -104,8 +101,6 @@ class TrackConfig:
     overwrite: bool = False
 
     def __post_init__(self) -> None:
-        if self.algorithm not in ("prob", "ptt"):
-            raise ValueError("algorithm must be 'prob' or 'ptt'")
         for name in ("n_seeds", "step_mm", "max_angle", "min_length_mm"):
             _positive(getattr(self, name), name)
         if self.max_length_mm <= self.min_length_mm:
