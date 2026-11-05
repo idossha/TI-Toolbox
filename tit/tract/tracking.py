@@ -1,7 +1,7 @@
 """Whole-brain tractography with DIPY, written in m2m T1 world (the SimNIBS mesh frame).
 
 One route (method spec section 3): QSIPrep ACPC DWI, single-shell single-tissue CSD
-(Tournier 2007) on b0 + the highest shell, anatomically constrained (Smith 2012) by charm's
+(Tournier 2007) on b0 + one shell (:func:`pick_shell`), anatomically constrained (Smith 2012) by charm's
 WM/GM/CSF labels mapped into the DWI grid, probabilistic tracking. Streamlines come out in
 ACPC world and are mapped to m2m T1 world with the exact QSIPrep chain
 (:func:`tit.pre.qsi.tensor_math.acpc_to_t1_world`). A subject without QSIPrep output is
@@ -50,6 +50,14 @@ WM, GM, CSF = 1, 2, 3
 COHERENCE_FA = 0.4
 #: Shell half-width when picking the CSD shell (s/mm^2): b2950 joins b3000.
 SHELL_TOLERANCE = 100.0
+#: Default CSD shell: the one closest to this b (s/mm^2) among shells with at least
+#: CSD_SHELL_MIN_DIRS volumes; ties go to the shell with more volumes.
+CSD_SHELL_TARGET_B = 3000.0
+CSD_SHELL_MIN_DIRS = 30
+CSD_SHELL_RULE = (
+    f"closest to b{CSD_SHELL_TARGET_B:g} among shells with >= {CSD_SHELL_MIN_DIRS} "
+    "directions; ties to more directions"
+)
 #: Side of the central block the flip test fits and tracks in (voxels).
 FLIP_BLOCK = 48
 FLIP_SEEDS = 4000
@@ -163,10 +171,40 @@ def csd_inputs(pm, subject_id: str) -> dict:
     }
 
 
-def load_shell(dwi_path, grad_path, shell: float | None = None):
-    """DWI volumes of b0 + one shell (default the highest) and their world-RAS table.
+def pick_shell(bvals, shell: float | None = None) -> tuple[float, int, str]:
+    """The CSD shell, its direction (volume) count and the rule that chose it.
 
-    Returns ``(data (X, Y, Z, n) float32, affine, bvals (n,), bvecs_world (n, 3), shell)``.
+    Default :data:`CSD_SHELL_RULE`; an explicit ``shell`` overrides it. Shells are the
+    diffusion-weighted b-values rounded to 100 s/mm^2; a volume belongs to a shell within
+    :data:`SHELL_TOLERANCE`.
+    """
+    b = np.asarray(bvals, dtype=float)
+    weighted = b[b >= const.QSI_B0_THRESHOLD]
+
+    def count(s: float) -> int:
+        return int((np.abs(weighted - s) <= SHELL_TOLERANCE).sum())
+
+    if shell is not None:
+        n = count(float(shell))
+        if not n:
+            raise TrackingError(f"no volume at the configured shell b{float(shell):g}")
+        return float(shell), n, "configured"
+    shells = [(float(s), count(s)) for s in np.unique(np.round(weighted, -2))]
+    eligible = [(s, n) for s, n in shells if n >= CSD_SHELL_MIN_DIRS]
+    if not eligible:
+        raise TrackingError(
+            f"no shell has >= {CSD_SHELL_MIN_DIRS} directions ({shells}); "
+            "set track.shell explicitly"
+        )
+    s, n = min(eligible, key=lambda sn: (abs(sn[0] - CSD_SHELL_TARGET_B), -sn[1]))
+    return s, n, CSD_SHELL_RULE
+
+
+def load_shell(dwi_path, grad_path, shell: float | None = None):
+    """DWI volumes of b0 + one shell (:func:`pick_shell`) and their world-RAS table.
+
+    Returns ``(data (X, Y, Z, n) float32, affine, bvals (n,), bvecs_world (n, 3),
+    (shell, n_directions, rule))``.
     """
     import nibabel as nib
 
@@ -174,11 +212,11 @@ def load_shell(dwi_path, grad_path, shell: float | None = None):
     if table.shape[1] != 4:
         raise TrackingError(f"{grad_path} is not an MRtrix gradient table (x y z b)")
     b = table[:, 3]
-    shell = float(b.max()) if shell is None else float(shell)
-    keep = (b < const.QSI_B0_THRESHOLD) | (np.abs(b - shell) <= SHELL_TOLERANCE)
+    picked = pick_shell(b, shell)
+    keep = (b < const.QSI_B0_THRESHOLD) | (np.abs(b - picked[0]) <= SHELL_TOLERANCE)
     img = nib.load(str(dwi_path))
     data = np.asarray(img.dataobj, dtype=np.float32)[..., keep]
-    return data, img.affine, b[keep], table[keep, :3], shell
+    return data, img.affine, b[keep], table[keep, :3], picked
 
 
 def fit_csd(
@@ -368,7 +406,9 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     from scipy.ndimage import binary_dilation
 
     inp = csd_inputs(pm, subject_id)
-    data, affine, bvals, bvecs, shell = load_shell(inp["dwi"], inp["grad"])
+    data, affine, bvals, bvecs, (shell, shell_dirs, shell_rule) = load_shell(
+        inp["dwi"], inp["grad"], cfg.shell
+    )
     brain = np.asanyarray(nib.load(str(inp["dwi_mask"])).dataobj) > 0
     labels = labels_on_grid(inp["labels"], data.shape[:3], affine, inp["chain"])
     wm, gm, csf = (labels == WM), (labels == GM), (labels == CSF)
@@ -413,6 +453,8 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
             k: str(inp[k]) for k in ("dwi", "grad", "dwi_mask", "xfm", "labels")
         },
         "shell": shell,
+        "shell_directions": shell_dirs,
+        "shell_rule": shell_rule,
         "n_volumes": int(len(bvals)),
         "fit_voxels": int(fit_mask.sum()),
         "act_deep_grey_from_wm_voxels": deep_moved,

@@ -4365,3 +4365,21 @@ same data is the independent low-shell estimate the check needs (CSD runs on the
 
 **Alternatives rejected.** Keeping the m2m tensor as an optional reference (two references, two
 code paths); dropping the frame check (it is what catches a wrong gradient frame).
+
+## 2026-11-05 — Tractography's CSD shell defaults to the one closest to b3000, not the highest
+
+**Decision.** With no `TrackConfig.shell`, `tit.tract`'s track stage fits single-shell CSD on the
+shell whose b-value is closest to 3000 s/mm^2 among shells with >= 30 directions, ties to the shell
+with more directions (`tracking.pick_shell`); `qc.json` records `shell`, `shell_directions` and
+`shell_rule`; an explicit `TrackConfig.shell` overrides it (ARCHITECTURE §15). Pinned by
+`tests/test_tract_shell.py`.
+
+**Why.** The highest shell is the noisiest. The 43-participant study acquires b300/1000/2000/4100
+with 32/44/72/95 directions (acquisition protocol), where b4100 is noisy; the rule picks b2000
+(|2000 - 3000| = 1000 < |4100 - 3000| = 1100). CHN's b1200/3000 still gives b3000, unchanged. The
+30-direction floor (the maintainer's rule) keeps a sparse shell from winning on b-value alone; a scan
+with no shell above it is refused with the override named.
+
+**Alternatives rejected.** The highest shell (the old default; b4100 on the study scan); the
+shell with the most directions (b4100 again); multi-shell CSD (`MultiShellDeconvModel` needs cvxpy,
+which the image lacks).

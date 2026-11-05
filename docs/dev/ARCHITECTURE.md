@@ -1360,8 +1360,11 @@ track -> network -> assess -> target; each stage is also a public function (`run
 **Tractography is DIPY, one route, written in m2m T1 world.** It needs only QSIPrep-preprocessed
 ACPC DWI and the charm m2m folder: a subject without QSIPrep output is refused before any work,
 with the missing path and the `tit.pre` step that makes it (`run_qsiprep`); the m2m DTI tensor is
-not read. The tracker fits single-shell CSD on b0 + the highest shell
-(`MultiShellDeconvModel` needs cvxpy, which the image lacks), constrains tracking with charm's
+not read. The tracker fits single-shell CSD on b0 + one shell
+(`MultiShellDeconvModel` needs cvxpy, which the image lacks): by default the shell whose b-value is
+closest to 3000 s/mm^2 among shells with at least 30 directions, ties to the shell with more
+directions (`tracking.pick_shell`; b1200/3000 -> b3000, b300/1000/2000/4100 -> b2000), unless
+`TrackConfig.shell` names one; `qc.json` records `shell`, `shell_directions` and `shell_rule`. It constrains tracking with charm's
 WM/GM/CSF labels mapped into the DWI grid through the exact QSIPrep chain
 (`tensor_math.acpc_to_t1_world`) and tracks with DIPY's probabilistic direction getter;
 streamlines are then mapped through the same 4x4 to m2m T1 world, and also written in ACPC world

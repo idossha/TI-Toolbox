@@ -70,7 +70,7 @@ class Selection:
 class TrackConfig:
     """Whole-brain tractography (the ``track`` stage).
 
-    QSIPrep-preprocessed DWI, single-shell CSD on b0 + the highest shell, ACT on charm
+    QSIPrep-preprocessed DWI, single-shell CSD on b0 + one shell, ACT on charm
     tissues, DIPY probabilistic tracking. A subject without QSIPrep output is refused.
 
     Attributes:
@@ -80,6 +80,8 @@ class TrackConfig:
         max_angle: Maximum turning angle per step, degrees.
         min_length_mm, max_length_mm: Streamline length window.
         sh_order: CSD spherical-harmonic order.
+        shell: CSD shell b-value; ``None`` = the shell closest to b3000 among shells with
+            >= 30 directions (``tracking.pick_shell``).
         random_seed: Tracking and seeding RNG seed (> 0 is reproducible).
         n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.
         flip_test: Run the 8 gradient-axis-flip frame check (coherence with the DTI V1).
@@ -94,6 +96,7 @@ class TrackConfig:
     min_length_mm: float = 20.0
     max_length_mm: float = 250.0
     sh_order: int = 8
+    shell: float | None = None
     random_seed: int = 1
     n_jobs: int = -1
     flip_test: bool = True
