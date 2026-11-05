@@ -360,7 +360,7 @@ class TestBlenderExports:
             "run_vectors",
             "run_regions",
             "run_subcortical",
-            "TractConfig",
+            "TractVisualConfig",
             "run_tract",
         }
         assert set(tit.blender.__all__) == expected

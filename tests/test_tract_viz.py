@@ -220,9 +220,9 @@ def _sphere(n=12):
 
 def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, three):
     from tit.blender import tract_publication as tp
-    from tit.blender.config import TractConfig
+    from tit.blender.config import TractVisualConfig
 
-    cfg = TractConfig(subject_id="x", simulation_name="s", roi_center_mm=[1, 2, 3])
+    cfg = TractVisualConfig(subject_id="x", simulation_name="s", roi_center_mm=[1, 2, 3])
     electrodes = [{"name": "F7", "xyz": [-60.0, 30.0, 10.0], "channel": 0}]
     sphere = _sphere()
     edges = {
@@ -348,16 +348,16 @@ def test_simulation_electrodes_pairs_names_with_coordinates(tmp_path):
 
 
 def test_tract_config_validates_and_round_trips():
-    from tit.blender.config import TractConfig
+    from tit.blender.config import TractVisualConfig
     from tit.config_io import deserialize_config, serialize_config
 
-    cfg = TractConfig(subject_id="ernie", simulation_name="L_Insula", metric="ti_ratio")
-    assert cfg.metric is TractConfig.Metric.TI_RATIO
+    cfg = TractVisualConfig(subject_id="ernie", simulation_name="L_Insula", metric="ti_ratio")
+    assert cfg.metric is TractVisualConfig.Metric.TI_RATIO
     data = serialize_config(cfg)
-    assert data["_type"] == "TractConfig"
-    assert deserialize_config(TractConfig, data) == cfg
+    assert data["_type"] == "TractVisualConfig"
+    assert deserialize_config(TractVisualConfig, data) == cfg
     assert (
-        TractConfig(subject_id="e", simulation_name="s", vmax_v_per_m=0.3).vmax_v_per_m
+        TractVisualConfig(subject_id="e", simulation_name="s", vmax_v_per_m=0.3).vmax_v_per_m
         == 0.3
     )
     for bad in (
@@ -368,7 +368,20 @@ def test_tract_config_validates_and_round_trips():
         {"width": 10},
     ):
         with pytest.raises(ValueError):
-            TractConfig(subject_id="e", simulation_name="s", **bad)
+            TractVisualConfig(subject_id="e", simulation_name="s", **bad)
+
+
+def test_render_and_runner_tract_configs_carry_distinct_type_tags():
+    """The render config and tit.tract's runner config once both tagged ``"TractConfig"``."""
+    from tit.blender.config import TractVisualConfig
+    from tit.config_io import _discriminator_for
+    from tit.server.routes.validate import AMBIGUOUS_KIND_CLASSES
+    from tit.tract.config import TractConfig
+
+    assert _discriminator_for(TractVisualConfig) == "TractVisualConfig"
+    assert _discriminator_for(TractConfig) == "TractConfig"
+    # A tit.tract runner config posted as a blender job must not resolve to a render.
+    assert "TractConfig" not in AMBIGUOUS_KIND_CLASSES["blender"]
 
 
 # -- web viewer ---------------------------------------------------------------------------------

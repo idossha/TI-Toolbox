@@ -9,7 +9,7 @@ Modules
 -------
 config
     Dataclass configurations: `MontageConfig`, `VectorConfig`,
-    `RegionConfig`, `SubcorticalConfig`, `TractConfig`.
+    `RegionConfig`, `SubcorticalConfig`, `TractVisualConfig`.
 montage_publication
     Build scalp + GM + electrode Blender scene for publication.
 vector_field_exporter
@@ -43,7 +43,7 @@ _EXPORTS = {
     "VectorConfig": "config",
     "RegionConfig": "config",
     "SubcorticalConfig": "config",
-    "TractConfig": "config",
+    "TractVisualConfig": "config",
     "MontageResult": "montage_publication",
     "run_montage": "montage_publication",
     "run_vectors": "vector_field_exporter",

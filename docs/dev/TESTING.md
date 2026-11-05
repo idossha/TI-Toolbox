@@ -396,7 +396,7 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   `tests/numerical/test_tract_viz_real.py` reads a TRX written by the standard-library writer in
   `dev/tract_synthetic.py` back through trx-python and checks the endpoint patches against brute
   force. Renders are judged by eye: `python3 dev/tract_synthetic.py <m2m> <out>` makes a tractogram
-  in a real brain, a `TractConfig` job with `tractogram` pointing at it renders, and
+  in a real brain, a `TractVisualConfig` job with `tractogram` pointing at it renders, and
   `blender --background --python tit/blender/tract_scene.py -- <out>/tract_scene/manifest.json
   turntable,propagation` re-renders the bundle in another Blender.
 - An isolated `tests/test_scene_guide.py` pass diagnoses order-dependent state leakage; it never

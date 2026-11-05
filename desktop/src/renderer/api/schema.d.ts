@@ -9337,7 +9337,7 @@ export interface components {
             _type: "SubcorticalConfig";
         };
         /**
-         * TractConfig
+         * TractVisualConfig
          * @description Tractography renders of one simulation's ``tract/`` outputs.
          *
          *     Streamlines become emissive tubes in a glass brain, coloured by a field metric along
@@ -9388,7 +9388,7 @@ export interface components {
          *     seed : int
          *         Subsampling seed.
          */
-        TractConfig: {
+        TractVisualConfig: {
             /** Subject Id */
             subject_id: string;
             /** Simulation Name */
@@ -9506,7 +9506,7 @@ export interface components {
              */
             seed: number;
             /** @constant */
-            _type: "TractConfig";
+            _type: "TractVisualConfig";
         };
         /**
          * NiftiAverageConfig
@@ -9659,7 +9659,7 @@ export interface components {
             glass_brain_cmap: string;
         };
         /** @description Union of every config dataclass a job/validate/plan "config" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema. */
-        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["TractConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
+        PipelineConfig: components["schemas"]["SimulationConfig"] | components["schemas"]["Montage"] | components["schemas"]["FlexConfig"] | components["schemas"]["ExConfig"] | components["schemas"]["MExConfig"] | components["schemas"]["AnalyzerConfig"] | components["schemas"]["PreprocessConfig"] | components["schemas"]["QSIPrepConfig"] | components["schemas"]["QSIReconConfig"] | components["schemas"]["GroupComparisonConfig"] | components["schemas"]["CorrelationConfig"] | components["schemas"]["SourceConfig"] | components["schemas"]["LeadfieldConfig"] | components["schemas"]["MontageConfig"] | components["schemas"]["VectorConfig"] | components["schemas"]["RegionConfig"] | components["schemas"]["SubcorticalConfig"] | components["schemas"]["TractVisualConfig"] | components["schemas"]["NiftiAverageConfig"] | components["schemas"]["NilearnConfig"];
         /** ActivityDay */
         ActivityDay: {
             /** Date */

@@ -210,7 +210,7 @@ class MontageConfig:
 
 
 @dataclass
-class TractConfig:
+class TractVisualConfig:
     """Tractography renders of one simulation's ``tract/`` outputs.
 
     Streamlines become emissive tubes in a glass brain, coloured by a field metric along
@@ -302,7 +302,7 @@ class TractConfig:
             raise ValueError("subject_id is required")
         if not (self.simulation_name or "").strip():
             raise ValueError("simulation_name is required")
-        self.metric = TractConfig.Metric(self.metric)
+        self.metric = TractVisualConfig.Metric(self.metric)
         if self.max_streamlines <= 0:
             raise ValueError("max_streamlines must be > 0")
         if self.vmax_v_per_m is not None and not self.vmax_v_per_m > 0:

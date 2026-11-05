@@ -1331,10 +1331,11 @@ after the 2026-09-03 removal of the Freeview launch routes; no client read it. `
 `tit.viewspec.to_freeview_args` and `freeview_command` are deleted with it. Regenerated
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
 
-## 2026-11-04 — `TractConfig`, a fifth `blender` config
+## 2026-11-04 — `TractVisualConfig`, a fifth `blender` config
 
-`PipelineConfig` gains `TractConfig` (placeholder `x-tit-config: TractConfig`): a `blender` job with
-`_type: "TractConfig"` renders a simulation's tractography outputs (stills, web viewer, connectome
-figure; turntable and propagation videos opt-in). Additive: the other four `blender` configs and
-every other kind are unchanged. Regenerated `contracts/generated/config.schema.json`,
+`PipelineConfig` gains `TractVisualConfig` (placeholder `x-tit-config: TractVisualConfig`): a
+`blender` job with `_type: "TractVisualConfig"` renders a simulation's tractography outputs (stills,
+web viewer, connectome figure; turntable and propagation videos opt-in). Additive: the other four
+`blender` configs and every other kind are unchanged. The name is not `TractConfig` because that
+`_type` belongs to `tit.tract`'s runner config. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.

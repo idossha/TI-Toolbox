@@ -4283,12 +4283,12 @@ probabilistic max_angle 20 / pmf 0.2 raises mean |t . V1| from 0.878 to 0.905 bu
 streamlines, and PTT (now `algorithm: "ptt"`) gives 0.890 at 4.4x the run time; not enough to
 change the default.
 
-## 2026-11-04 — Tract renders join the `blender` job kind as `TractConfig`
+## 2026-11-04 — Tract renders join the `blender` job kind as `TractVisualConfig`
 
-**Decision.** `tit.blender.__main__` dispatches a fifth `_type`, `TractConfig`, to
+**Decision.** `tit.blender.__main__` dispatches a fifth `_type`, `TractVisualConfig`, to
 `tit.blender.tract_publication.run_tract`; the config is registered in `tit.config_io`, the server's
 ambiguous-kind table and the plan's output-directory table, and `contracts/openapi.yaml` gains its
-`x-tit-config: TractConfig` placeholder and `PipelineConfig` member (additive: a client that never
+`x-tit-config: TractVisualConfig` placeholder and `PipelineConfig` member (additive: a client that never
 sends it is unaffected). ARCHITECTURE §8 *Tract renders are a `blender` job* describes the outputs.
 Pinned by `tests/test_tract_viz.py`, `tests/numerical/test_tract_viz_real.py`,
 `tests/test_config_schema.py` and `tests/test_config_registry_guards.py`.
@@ -4300,6 +4300,14 @@ stills, videos, an interactive view and a connectome figure; every other visual 
 **Alternatives rejected.** A new job kind (the boundary, locks and costs are the montage export's);
 a hand-authored HTML viewer (data must be generated per run); matplotlib-only 3-D (no tubes, glow or
 transparency at publication quality); STREAM-4D's code or scene file (non-commercial licence).
+
+**Named `TractVisualConfig`, not `TractConfig`** (renamed 2026-11-04 when `feat/tract-network` and
+`feat/tract-viz` were integrated): both branches registered `"TractConfig"` in
+`tit.config_io._TYPE_DISCRIMINATED_BY_NAME`, so `tit.tract`'s runner config and this render config
+would have written the same `_type` and a dict literal would have kept only one entry. The render
+config, the only one of the two on the wire contract, took the new name; `tit.tract.TractConfig`
+keeps its name for the day it becomes a job kind. Pinned by
+`tests/test_tract_viz.py::test_render_and_runner_tract_configs_carry_distinct_type_tags`.
 
 **Measured** (2026-11-04, synthetic 8 092-streamline tractogram in sub-ernie, this machine): one
 2400×1600 still at 48 EEVEE samples took 893 s in the image's Blender 4.4.3 under amd64 emulation

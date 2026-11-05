@@ -6108,10 +6108,10 @@ components:
       additionalProperties: true
       x-tit-config: SubcorticalConfig
       description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
-    TractConfig:
+    TractVisualConfig:
       type: object
       additionalProperties: true
-      x-tit-config: TractConfig
+      x-tit-config: TractVisualConfig
       description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
     NiftiAverageConfig:
       type: object
@@ -6147,7 +6147,7 @@ components:
         - $ref: "#/components/schemas/VectorConfig"
         - $ref: "#/components/schemas/RegionConfig"
         - $ref: "#/components/schemas/SubcorticalConfig"
-        - $ref: "#/components/schemas/TractConfig"
+        - $ref: "#/components/schemas/TractVisualConfig"
         - $ref: "#/components/schemas/NiftiAverageConfig"
         - $ref: "#/components/schemas/NilearnConfig"
 

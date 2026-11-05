@@ -11,7 +11,7 @@ Kind -> config-class resolution
 --------------------------------
 Most kinds map to exactly one dataclass in :data:`tit.config_io.CONFIG_CLASS_REGISTRY`
 (:data:`SIMPLE_KIND_CLASS`). Two kinds do not: ``stats`` (``GroupComparisonConfig`` or
-``CorrelationConfig``) and ``blender`` (``MontageConfig``/``VectorConfig``/``RegionConfig``/``SubcorticalConfig``/``TractConfig``) --
+``CorrelationConfig``) and ``blender`` (``MontageConfig``/``VectorConfig``/``RegionConfig``/``SubcorticalConfig``/``TractVisualConfig``) --
 the frozen ``PipelineConfig`` union in ``contracts/openapi.yaml`` lists all of them under the
 same ``kind``/path parameter with no other discriminant on the object itself. This module resolves
 the ambiguity with a ``config["_type"]`` key (see :data:`AMBIGUOUS_KIND_CLASSES`), the same
@@ -84,7 +84,7 @@ AMBIGUOUS_KIND_CLASSES: dict[str, dict[str, str]] = {
         "VectorConfig": "VectorConfig",
         "RegionConfig": "RegionConfig",
         "SubcorticalConfig": "SubcorticalConfig",
-        "TractConfig": "TractConfig",
+        "TractVisualConfig": "TractVisualConfig",
     },
 }
 

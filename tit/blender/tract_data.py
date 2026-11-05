@@ -5,9 +5,10 @@ read a ``tit.tract`` output directory through this module, so the data contract 
 place:
 
 ``<bundle_or_all>.trx``
-    streamlines in m2m world RAS mm, ``data_per_vertex`` ``ti_along``, ``ti_max``, ``e1_par``,
-    ``e2_par`` (V/m) and ``data_per_streamline`` ``length_mm``, ``ti_along_max``,
-    ``ti_along_mean``, ``edge_id`` (-1 unassigned).
+    streamlines in m2m world RAS mm, ``data_per_vertex`` ``ti_along``, ``ti_max``, ``ti_avg``,
+    ``e1_par``, ``e2_par`` (V/m; ``e<c>_par`` signed region_a -> region_b) and
+    ``data_per_streamline`` ``length_mm``, ``ti_along_max``, ``ti_along_mean``, ``edge_id``
+    (-1 unassigned).
 ``edges.json``
     ``edge_id -> {region_a, region_b, n_streamlines, stats}``.
 ``connectome_<metric>.npz``

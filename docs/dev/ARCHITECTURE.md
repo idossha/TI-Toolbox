@@ -807,7 +807,7 @@ output by `tests/numerical/test_caps_warp_realdata.py`. Excluded alternative: re
 (minutes, and it rebuilds the head model) or a `caps` job kind (a warp is 2.4 s plus a 0.8 s mesh
 read on ernie; a job would add queueing and a lock for no benefit).
 
-**Tract renders are a `blender` job, `_type: TractConfig`.** [`tract_publication.py`](../../tit/blender/tract_publication.py)
+**Tract renders are a `blender` job, `_type: TractVisualConfig`.** [`tract_publication.py`](../../tit/blender/tract_publication.py)
 reads a simulation's `tract/` directory (`<bundle_or_all>.trx` with per-vertex `ti_along`/`ti_max`
 in m2m world mm, `edges.json`, `connectome_<metric>.npz`; the reader is
 [`tract_data.py`](../../tit/blender/tract_data.py)), subsamples to `max_streamlines` with odds rising
