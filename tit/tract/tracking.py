@@ -16,10 +16,18 @@ DIPY tracks in voxel index space (a voxel-frame direction ``d`` steps
 directions, peak directions -- is converted from world with ``d_vox = M^-1 d_world``,
 ``M = A[:3, :3] / column norms``.
 
-The QC record carries the tangent-vs-DTI-V1 coherence (spec V4): the median ``|t . e1|``
-over streamline points where the m2m tensor's FA > 0.4, and for the csd route the same
-number for all 8 gradient-axis sign flips on a central block of the brain; the unflipped
-frame must score highest.
+The QC record carries an 8-axis-flip frame check; the unflipped frame must score highest:
+
+* csd route: the tangent-vs-DTI-V1 coherence (spec V4), the median ``|t . e1|`` over
+  streamline points where the m2m tensor's FA > 0.4 (CSD on the high shell against the
+  tensor's own b <= 1500 fit), for each gradient-axis sign flip on a central block of the
+  brain, and for the whole-brain tractogram;
+* tensor route: the mean streamline length for each eigenvector-axis sign flip (MRtrix
+  ``dwigradcheck``'s criterion). Its coherence against the V1 it followed would be
+  circular, so it is not reported.
+
+The csd route's ACT treats the label volume's deep grey nuclei as grey matter
+(:data:`DEEP_GREY`; charm's tissue map calls the pallidum WM).
 """
 
 from __future__ import annotations
@@ -50,6 +58,12 @@ SHELL_TOLERANCE = 100.0
 #: Side of the central block the flip test fits and tracks in (voxels).
 FLIP_BLOCK = 48
 FLIP_SEEDS = 4000
+#: Seeds per flip for the tensor route's whole-brain length check.
+TENSOR_FLIP_SEEDS = 20_000
+#: aseg deep grey nuclei (thalamus, caudate, putamen, pallidum, hippocampus, amygdala,
+#: accumbens). charm's final_tissues calls the pallidum WM; ACT treats them all as grey
+#: matter (a valid end). Brain stem and ventral DC stay WM: tracts run through them.
+DEEP_GREY = (10, 11, 12, 13, 17, 18, 26, 49, 50, 51, 52, 53, 54, 58)
 
 
 class TrackingError(RuntimeError):
@@ -269,7 +283,12 @@ def flip_test(
         )
         sl = [apply_affine(chain, s.astype(np.float64)) for s in sl if len(s) > 2]
         rows.append(
-            {"flip": list(flip), "n_streamlines": len(sl), **coherence(sl, *tensor)}
+            {
+                "flip": list(flip),
+                "n_streamlines": len(sl),
+                **coherence(sl, *tensor),
+                **_mean_length(sl),
+            }
         )
         logger.info(f"flip test {flip}: {rows[-1]}")
     return rows
@@ -285,6 +304,15 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     brain = np.asanyarray(nib.load(str(inp["dwi_mask"])).dataobj) > 0
     labels = labels_on_grid(inp["labels"], data.shape[:3], affine, inp["chain"])
     wm, gm, csf = (labels == WM), (labels == GM), (labels == CSF)
+    deep_moved = 0
+    if os.path.isfile(pm.tissue_labeling(subject_id)):
+        aseg = labels_on_grid(
+            pm.tissue_labeling(subject_id), data.shape[:3], affine, inp["chain"]
+        )
+        deep = np.isin(aseg, DEEP_GREY) & (wm | gm)
+        deep_moved = int((deep & wm).sum())
+        gm |= deep
+        wm &= ~deep
     fit_mask = brain & binary_dilation(wm | gm, iterations=1)
     logger.info(
         f"CSD on b0 + b{shell:g} ({len(bvals)} volumes), {int(fit_mask.sum())} voxels, "
@@ -308,6 +336,7 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
         "shell": shell,
         "n_volumes": int(len(bvals)),
         "fit_voxels": int(fit_mask.sum()),
+        "act_deep_grey_from_wm_voxels": deep_moved,
         "acpc_to_t1": inp["chain"].round(6).tolist(),
         "acpc_to_t1_vs_dti_qc_max_abs": inp["chain_vs_dti_qc"],
         "csd": resp,
@@ -329,6 +358,7 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
             cfg,
             n_jobs,
         )
+        info["flip_test_score"] = "median_abs_cos"
         info["seconds"]["flip_test"] = round(time.time() - t0, 1)
     return sl, info
 
@@ -354,19 +384,21 @@ def tensor_peaks(t6: np.ndarray, affine: np.ndarray, mask: np.ndarray):
     return vecs[:, :, 0], fa
 
 
-def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
-    """The tensor route; returns streamlines in m2m T1 world and the QC fields."""
-    import nibabel as nib
+def eudx_on_tensor(
+    t6, affine, wm, cfg, n_jobs, *, n_seeds, flip=None, return_all=False
+) -> tuple[list, int, dict]:
+    """EuDX on the principal eigenvector of a stored (SimNIBS frame) tensor field.
+
+    FA stopping at ``cfg.fa_threshold`` inside *wm*; seeds where FA >= threshold in *wm*.
+    *flip* multiplies the voxel-frame eigenvector components (the frame check). Returns
+    ``(streamlines in the affine's world, seeds used, {"wm_fa_median": ...})``.
+    """
     from dipy.data import get_sphere
     from dipy.direction.peaks import PeaksAndMetrics
     from dipy.tracking.stopping_criterion import ThresholdStoppingCriterion
     from dipy.tracking.tracker import eudx_tracking
     from dipy.tracking.utils import random_seeds_from_mask
 
-    t6, affine = m2m_tensor(pm, subject_id)
-    labels_path = os.path.join(pm.m2m(subject_id), "final_tissues.nii.gz")
-    labels = labels_on_grid(labels_path, t6.shape[:3], affine, np.eye(4))
-    wm = labels == WM
     nonzero = np.any(t6 != 0, axis=-1)
     e1, fa_vals = tensor_peaks(t6, affine, nonzero)
     fa = np.zeros(t6.shape[:3])
@@ -374,11 +406,13 @@ def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     sphere = get_sphere(name="repulsion724")
     idx = np.zeros(len(e1), dtype=np.int32)
     e1_vox = world_to_voxel_dirs(e1, affine)
+    if flip is not None:
+        e1_vox = e1_vox * np.asarray(flip, dtype=np.float64)
     for lo in range(0, len(e1), 100_000):
         idx[lo : lo + 100_000] = np.argmax(
             np.abs(e1_vox[lo : lo + 100_000] @ sphere.vertices.T), axis=1
         )
-    del t6, e1, e1_vox
+    del e1, e1_vox
     pam = PeaksAndMetrics()
     pam.sphere = sphere
     pam.peak_indices = np.full(fa.shape + (1,), -1, dtype=np.int32)
@@ -393,11 +427,10 @@ def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     seeds = random_seeds_from_mask(
         seed_mask,
         affine,
-        seeds_count=int(cfg.n_seeds),
+        seeds_count=int(n_seeds),
         seed_count_per_voxel=False,
         random_seed=cfg.random_seed,
     )
-    t0 = time.time()
     gen = eudx_tracking(
         seeds,
         sc,
@@ -410,18 +443,64 @@ def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
         max_len=cfg.max_length_mm,
         random_seed=cfg.random_seed,
         nbr_threads=n_jobs,
-        return_all=False,
+        return_all=return_all,
     )
     sl = [np.asarray(s, np.float32) for s in gen]
+    return sl, len(seeds), {"wm_fa_median": float(np.median(fa[wm & nonzero]))}
+
+
+def tensor_flip_test(t6, affine, wm, cfg, n_jobs) -> list[dict]:
+    """Mean streamline length for each of the 8 eigenvector-axis sign flips.
+
+    The check MRtrix's ``dwigradcheck`` makes: with the frame right, neighbouring voxels'
+    directions join up and streamlines run longest; a flipped axis breaks oblique and
+    curved tracts. It does not score streamlines against the field they followed.
+    """
+    rows = []
+    for flip in itertools.product((1, -1), repeat=3):
+        sl, _, _ = eudx_on_tensor(
+            t6,
+            affine,
+            wm,
+            cfg,
+            n_jobs,
+            n_seeds=TENSOR_FLIP_SEEDS,
+            flip=flip,
+            return_all=True,
+        )
+        rows.append({"flip": list(flip), "n_streamlines": len(sl), **_mean_length(sl)})
+        logger.info(f"tensor flip test {flip}: {rows[-1]}")
+    return rows
+
+
+def _mean_length(streamlines) -> dict:
+    lengths = [np.linalg.norm(np.diff(s, axis=0), axis=1).sum() for s in streamlines]
+    return {"mean_length_mm": float(np.mean(lengths)) if lengths else 0.0}
+
+
+def track_tensor(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
+    """The tensor route; returns streamlines in m2m T1 world and the QC fields."""
+    t6, affine = m2m_tensor(pm, subject_id)
+    labels_path = os.path.join(pm.m2m(subject_id), "final_tissues.nii.gz")
+    wm = labels_on_grid(labels_path, t6.shape[:3], affine, np.eye(4)) == WM
+    t0 = time.time()
+    sl, n_seeds, extra = eudx_on_tensor(
+        t6, affine, wm, cfg, n_jobs, n_seeds=cfg.n_seeds
+    )
     info = {
         "inputs": {
             "tensor": os.path.join(pm.m2m(subject_id), const.FILE_DTI_TENSOR),
             "labels": labels_path,
         },
-        "n_seeds": int(len(seeds)),
+        "n_seeds": int(n_seeds),
         "seconds": {"tracking": round(time.time() - t0, 1)},
-        "wm_fa_median": float(np.median(fa[wm & nonzero])),
+        **extra,
     }
+    if cfg.flip_test:
+        t0 = time.time()
+        info["flip_test"] = tensor_flip_test(t6, affine, wm, cfg, n_jobs)
+        info["flip_test_score"] = "mean_length_mm"
+        info["seconds"]["flip_test"] = round(time.time() - t0, 1)
     return sl, info
 
 
@@ -485,9 +564,8 @@ def resolve_route(pm, subject_id: str, route: str) -> str:
 def run_track(subject_id: str, cfg) -> dict:
     """The ``track`` stage: write ``tractogram.trx`` (m2m T1 world) and ``qc.json``.
 
-    Returns the QC record. With the csd route and ``cfg.flip_test``, raises
-    :class:`TrackingError` (after writing ``qc.json``) when the unflipped gradient frame
-    does not give the highest coherence.
+    Returns the QC record. With ``cfg.flip_test``, raises :class:`TrackingError` (after
+    writing ``qc.json``) when a flipped frame beats the unflipped one.
     """
     from tit.cpu import resolve_n_jobs
     from tit.paths import get_path_manager
@@ -517,7 +595,6 @@ def run_track(subject_id: str, cfg) -> dict:
     else:
         sl, info = track_tensor(pm, subject_id, cfg, n_jobs)
     save_tractogram(trx_path, sl, pm.t1(subject_id))
-    tensor = m2m_tensor(pm, subject_id)
     qc = {
         "subject_id": subject_id,
         "route": route,
@@ -526,12 +603,16 @@ def run_track(subject_id: str, cfg) -> dict:
         "n_workers": n_jobs,
         "n_streamlines": len(sl),
         "length_mm": _length_stats(sl),
-        "coherence_vs_dti_v1": coherence(sl, *tensor),
         **info,
     }
+    if route == "csd":
+        # CSD on the high shell vs the m2m tensor's own fit (b <= 1500): two estimates
+        qc["coherence_vs_dti_v1"] = coherence(sl, *m2m_tensor(pm, subject_id))
+    else:
+        qc["coherence_vs_dti_v1"] = "not measured: the tensor route follows this V1"
     qc["seconds"]["total"] = round(time.time() - t0, 1)
     if qc.get("flip_test"):
-        qc.update(flip_verdict(qc["flip_test"]))
+        qc.update(flip_verdict(qc["flip_test"], qc["flip_test_score"]))
     Path(out_dir, "qc.json").write_text(json.dumps(qc, indent=1) + "\n")
     if qc.get("flip_test") and not qc["flip_test_passed"]:
         raise TrackingError(
@@ -541,15 +622,16 @@ def run_track(subject_id: str, cfg) -> dict:
     return qc
 
 
-def flip_verdict(rows: list[dict]) -> dict:
-    """Did the unflipped frame win the 8-flip test, and by how much?
+def flip_verdict(rows: list[dict], key: str = "median_abs_cos") -> dict:
+    """Did the unflipped frame win the 8-flip test on *key*, and by how much?
 
     Flipping all three axes reflects every direction through the origin, which leaves an
-    antipodally symmetric ODF unchanged, so ``(-1, -1, -1)`` is the unflipped frame again and
-    the 8 flips are 4 distinct frames. Passed when the best score belongs to the unflipped
-    pair; the margin is its lower score minus the best of the other three frames.
+    antipodally symmetric ODF (or a tensor's eigenvector axis) unchanged, so
+    ``(-1, -1, -1)`` is the unflipped frame again and the 8 flips are 4 distinct frames.
+    Passed when the best score belongs to the unflipped pair; the margin is its lower
+    score minus the best of the other three frames.
     """
-    score = {tuple(r["flip"]): r["median_abs_cos"] or 0.0 for r in rows}
+    score = {tuple(r["flip"]): r[key] or 0.0 for r in rows}
     same = [(1, 1, 1), (-1, -1, -1)]
     best = max(score, key=score.get)
     others = [v for k, v in score.items() if k not in same]
