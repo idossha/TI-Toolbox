@@ -75,6 +75,9 @@ class TrackConfig:
             charm tissues, probabilistic tracking), ``"tensor"`` (the m2m DTI tensor:
             deterministic EuDX on V1, FA stopping inside charm WM), or ``"auto"`` (csd
             when the subject has QSIPrep DWI, else tensor).
+        algorithm: csd route tracker, ``"prob"`` (DIPY probabilistic) or ``"ptt"``
+            (DIPY parallel transport tractography).
+        pmf_threshold: csd route: fibre-ODF values below this fraction are not followed.
         n_seeds: Random seeds placed in white matter.
         step_mm: Tracking step.
         max_angle: Maximum turning angle per step, degrees.
@@ -89,6 +92,8 @@ class TrackConfig:
     """
 
     route: Literal["auto", "csd", "tensor"] = "auto"
+    algorithm: Literal["prob", "ptt"] = "prob"
+    pmf_threshold: float = 0.1
     n_seeds: int = 200_000
     step_mm: float = 0.5
     max_angle: float = 30.0
@@ -105,6 +110,8 @@ class TrackConfig:
     def __post_init__(self) -> None:
         if self.route not in ("auto", "csd", "tensor"):
             raise ValueError("route must be 'auto', 'csd' or 'tensor'")
+        if self.algorithm not in ("prob", "ptt"):
+            raise ValueError("algorithm must be 'prob' or 'ptt'")
         for name in ("n_seeds", "step_mm", "max_angle", "min_length_mm"):
             _positive(getattr(self, name), name)
         if self.max_length_mm <= self.min_length_mm:

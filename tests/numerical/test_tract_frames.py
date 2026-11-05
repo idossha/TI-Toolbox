@@ -111,3 +111,51 @@ for name, m in lin.items():
     print(name, len(cos), round(float(np.median(cos)), 5))
 """)
     print(out)
+
+
+def test_act_keeps_a_tract_leaving_the_mask_through_the_brain_stem_only():
+    # A WM slab with fibres along z, grey matter on top (z >= 34), and a DWI brain mask
+    # that stops at z = 10, the way CHN's mask stops above the bottom of the brain stem.
+    # Below the mask: brain stem (aseg 16), or CSF. Streamlines must be kept in the first
+    # case only, and only with the inferior exit (without it, the old behaviour, none are).
+    out = _child("""
+rng = np.random.default_rng(1)
+g = rng.normal(size=(60, 3)); g /= np.linalg.norm(g, axis=1, keepdims=True)
+bvecs = np.vstack([np.zeros((6, 3)), g]); bvals = np.r_[np.zeros(6), np.full(60, 3000.0)]
+dz = np.array([0.0, 0.0, 1.0])
+Dz = l1 * np.outer(dz, dz) + l2 * (np.eye(3) - np.outer(dz, dz))
+signal = 1000.0 * np.exp(-bvals * np.einsum("ni,ij,nj->n", bvecs, Dz, bvecs))
+shape = (16, 16, 40)
+data = np.broadcast_to(signal, shape + (66,)).astype(np.float32)
+A = affine(lin["LPS"])
+i, j, k = np.indices(shape)
+side = (i < 2) | (i > 13) | (j < 2) | (j > 13)  # CSF walls: no escape sideways
+brain = k >= 10
+gm = (k >= 34) & ~side
+aseg = np.where(k < 10, 16, 2)
+cfg2 = TrackConfig(n_seeds=200, step_mm=0.5, min_length_mm=5.0, max_length_mm=250.0)
+shm, _ = tr.fit_csd(data, A, bvals, bvecs, brain, brain & ~gm & ~side, n_jobs=1)
+seeds = brain & ~gm & ~side & (k < 30)
+results = {}
+for case, wm, csf in (
+    ("brainstem", ~gm & ~side, side),            # WM continues below the mask
+    ("csf", ~gm & ~side & brain, side | ~brain),  # the tract ends in CSF below the mask
+):
+    for use_exit in (False, True):
+        ex = tr.inferior_exit(np.where(csf & ~side, 24, aseg), brain) if use_exit else None
+        sl, _ = tr.track_sh(shm, wm, gm, csf, A, seeds, cfg2, n_seeds=200, n_jobs=1,
+                            exit_mask=ex)
+        lowest = min((s[:, 2].min() for s in sl), default=np.nan)
+        results[(case, use_exit)] = len(sl)
+        if sl:  # kept streamlines end where ACT says they may: ENDPOINT at both ends
+            # (end_states reads the state back one step along the last segment; the step
+            # that stopped DIPY may turn, so a few per cent are misread)
+            st = tr.end_states(sl, tr.act_criterion(wm, gm, csf, ex), A)
+            assert np.mean(st == "ENDPOINT") > 0.95, np.unique(st, return_counts=True)
+        print(case, use_exit, len(sl), lowest)
+assert results[("brainstem", True)] > 100   # kept: they leave through the brain-stem exit
+assert results[("brainstem", False)] == 0   # the defect: dropped at the mask edge
+assert results[("csf", True)] == 0          # still rejected: ending in CSF is invalid
+assert results[("csf", False)] == 0
+""")
+    print(out)

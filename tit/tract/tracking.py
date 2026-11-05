@@ -64,6 +64,22 @@ TENSOR_FLIP_SEEDS = 20_000
 #: accumbens). charm's final_tissues calls the pallidum WM; ACT treats them all as grey
 #: matter (a valid end). Brain stem and ventral DC stay WM: tracts run through them.
 DEEP_GREY = (10, 11, 12, 13, 17, 18, 26, 49, 50, 51, 52, 53, 54, 58)
+#: Label-volume labels through which a streamline leaves the brain inferiorly: brain stem
+#: (16), cerebellar WM (7, 46) and charm's spinal cord (512).
+EXIT_LABELS = (16, 7, 46, 512)
+
+
+def inferior_exit(aseg: np.ndarray, fod_mask: np.ndarray) -> np.ndarray:
+    """Brain-stem, cerebellar-WM and spinal-cord voxels with no fibre orientation: a valid end.
+
+    The DWI brain mask (and so the fitted FOD) stops above the bottom of the image (CHN:
+    z -62 mm ACPC, inside charm's spinal cord), and charm labels the tissue below it WM. A
+    corticospinal streamline running down the brain stem then finds no orientation, stops
+    while still "tracking", and DIPY's ACT drops it. MRtrix ACT accepts a streamline that
+    leaves this way; marking these voxels as include does the same, and a streamline that
+    ends in CSF is still rejected.
+    """
+    return np.isin(aseg, EXIT_LABELS) & ~fod_mask
 
 
 class TrackingError(RuntimeError):
@@ -200,18 +216,70 @@ def fit_csd(
     return np.asarray(fit.shm_coeff, dtype=np.float64), info
 
 
-def track_sh(
-    shm, wm, gm, csf, affine, seeds_mask, cfg, *, n_seeds, n_jobs, return_all=False
-):
-    """ACT probabilistic tracking on SH coefficients; streamlines in the affine's world."""
-    from dipy.data import default_sphere
+def act_criterion(wm, gm, csf, exit_mask=None):
+    """DIPY's ACT criterion from binary tissue maps (``ActStoppingCriterion.from_pve``'s
+    rule: include = GM + background, exclude = CSF), plus *exit_mask* as include.
+
+    *exit_mask* marks where a streamline may legitimately end in white matter because the
+    data end there -- MRtrix ACT's convention for the inferior brain-stem exit. Without it,
+    a streamline running out of the DWI brain mask in the brain stem finds no fibre
+    orientation, stops still "tracking" and DIPY drops it as invalid.
+    """
     from dipy.tracking.stopping_criterion import ActStoppingCriterion
-    from dipy.tracking.tracker import probabilistic_tracking
+
+    include = gm.astype(np.float64)
+    include[~(wm | gm | csf)] = 1.0
+    if exit_mask is not None:
+        include[exit_mask] = 1.0
+    return ActStoppingCriterion(include, csf.astype(np.float64))
+
+
+#: DIPY ``StreamlineStatus`` values -> names; ``NODIRECTION`` is a streamline whose next
+#: point would still be ``TRACKPOINT`` (no direction found, or the length limit).
+_STATES = {2: "ENDPOINT", 0: "INVALIDPOINT", -1: "OUTSIDEIMAGE", 1: "NODIRECTION"}
+
+
+def end_states(streamlines, sc, affine) -> np.ndarray:
+    """How each end of each streamline (world coordinates) stopped, (S, 2) of state names.
+
+    DIPY does not return the terminal state, so it is read back: *sc* is checked one step
+    beyond each end, along the last segment (the point that made DIPY stop is not stored).
+    Approximate: the stopping step may turn, and on a synthetic tract about 2 % of ends
+    are misread. A diagnostic, not a filter.
+    """
+    inv = np.linalg.inv(affine)
+    out = np.empty((len(streamlines), 2), dtype=object)
+    for k, s in enumerate(streamlines):
+        s = np.asarray(s, np.float64)
+        for j, (end, prev) in enumerate(((s[0], s[1]), (s[-1], s[-2]))):
+            p = apply_affine(inv, 2 * end - prev)
+            out[k, j] = _STATES.get(int(sc.check_point(np.ascontiguousarray(p))), "?")
+    return out
+
+
+def track_sh(
+    shm,
+    wm,
+    gm,
+    csf,
+    affine,
+    seeds_mask,
+    cfg,
+    *,
+    n_seeds,
+    n_jobs,
+    return_all=False,
+    exit_mask=None,
+):
+    """ACT tracking on SH coefficients; streamlines in the affine's world.
+
+    ``cfg.algorithm``: ``"prob"`` (probabilistic) or ``"ptt"`` (parallel transport).
+    """
+    from dipy.data import default_sphere
+    from dipy.tracking.tracker import probabilistic_tracking, ptt_tracking
     from dipy.tracking.utils import random_seeds_from_mask
 
-    sc = ActStoppingCriterion.from_pve(
-        wm.astype(np.float64), gm.astype(np.float64), csf.astype(np.float64)
-    )
+    sc = act_criterion(wm, gm, csf, exit_mask)
     seeds = random_seeds_from_mask(
         seeds_mask,
         affine,
@@ -219,13 +287,15 @@ def track_sh(
         seed_count_per_voxel=False,
         random_seed=cfg.random_seed,
     )
-    gen = probabilistic_tracking(
+    track = ptt_tracking if cfg.algorithm == "ptt" else probabilistic_tracking
+    gen = track(
         seeds,
         sc,
         affine,
         sh=shm,
         sphere=default_sphere,
         max_angle=cfg.max_angle,
+        pmf_threshold=cfg.pmf_threshold,
         step_size=cfg.step_mm,
         min_len=cfg.min_length_mm,
         max_len=cfg.max_length_mm,
@@ -304,7 +374,7 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     brain = np.asanyarray(nib.load(str(inp["dwi_mask"])).dataobj) > 0
     labels = labels_on_grid(inp["labels"], data.shape[:3], affine, inp["chain"])
     wm, gm, csf = (labels == WM), (labels == GM), (labels == CSF)
-    deep_moved = 0
+    deep_moved, exit_mask, aseg = 0, None, None
     if os.path.isfile(pm.tissue_labeling(subject_id)):
         aseg = labels_on_grid(
             pm.tissue_labeling(subject_id), data.shape[:3], affine, inp["chain"]
@@ -314,6 +384,8 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
         gm |= deep
         wm &= ~deep
     fit_mask = brain & binary_dilation(wm | gm, iterations=1)
+    if aseg is not None:
+        exit_mask = inferior_exit(aseg, fit_mask)
     logger.info(
         f"CSD on b0 + b{shell:g} ({len(bvals)} volumes), {int(fit_mask.sum())} voxels, "
         f"{n_jobs} worker(s)"
@@ -326,7 +398,16 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
     logger.info(f"CSD fit {fit_s:.0f} s; tracking {cfg.n_seeds} seeds")
     t0 = time.time()
     sl, n_seeds = track_sh(
-        shm, wm, gm, csf, affine, wm, cfg, n_seeds=cfg.n_seeds, n_jobs=n_jobs
+        shm,
+        wm,
+        gm,
+        csf,
+        affine,
+        wm,
+        cfg,
+        n_seeds=cfg.n_seeds,
+        n_jobs=n_jobs,
+        exit_mask=exit_mask,
     )
     del shm
     info = {
@@ -337,6 +418,9 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
         "n_volumes": int(len(bvals)),
         "fit_voxels": int(fit_mask.sum()),
         "act_deep_grey_from_wm_voxels": deep_moved,
+        "act_inferior_exit_voxels": (
+            int(exit_mask.sum()) if exit_mask is not None else 0
+        ),
         "acpc_to_t1": inp["chain"].round(6).tolist(),
         "acpc_to_t1_vs_dti_qc_max_abs": inp["chain_vs_dti_qc"],
         "csd": resp,
@@ -536,6 +620,7 @@ def coherence(
         return {"median_abs_cos": None, "n_points": 0}
     return {
         "median_abs_cos": float(np.median(cos)),
+        "mean_abs_cos": float(np.mean(cos)),
         "frac_abs_cos_ge_0.9": float(np.mean(cos >= 0.9)),
         "n_points": int(len(cos)),
     }
