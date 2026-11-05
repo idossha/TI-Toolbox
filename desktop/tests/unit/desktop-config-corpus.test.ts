@@ -869,7 +869,7 @@ describe("desktop config corpus", () => {
       tractCase("track-network", "A subject with no tractogram: DK40", tractJobConfig("001", "DK40", false, false)),
       tractCase("network-only", "A subject with a tractogram: another atlas", tractJobConfig("001", "HCP_MMP1", false, true)),
       tractCase("retrack", "Track again over an existing tractogram", tractJobConfig("001", "DK40", true, true)),
-      tractCase("assess", "Assess one simulation from the Visual exporter's Networks tab", buildAssessConfig("001", "M1")),
+      tractCase("assess", "Assess one simulation from the Visual exporter's Networks tab", buildAssessConfig("001", "M1") as { stages: string[] }),
       tractCase("rank", "Rank an ex run on a network mask", rankingConfig("001", "run1", "GSN-HydroCel-185_leadfield.hdf5", mask, 20)),
     ]);
   });
