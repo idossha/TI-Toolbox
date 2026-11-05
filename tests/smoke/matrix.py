@@ -775,7 +775,7 @@ ROWS: tuple[Row, ...] = (
         budget_s=120.0,
         refusal=(r"QSIPrep-preprocessed DWI for sub-101",),
         notes="A completed run takes hours: tracking CHN (200 000 seeds, 8 workers) is the "
-        "measured case in tract_network_dev/logs/tract. The target and ranking stages are "
+        "measured case. The target and ranking stages are "
         "exercised by the real-app run recorded in docs/dev/TESTING.md.",
     ),
     Row(

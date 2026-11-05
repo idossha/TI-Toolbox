@@ -37,27 +37,91 @@ Missing inputs produce a preview message; the preview does not substitute anothe
 
 ### Networks
 
-This mode renders a simulation's white-matter network outputs (`Simulations/<sim>/tract/*.trx`, written
-by the tract job's `assess` stage) as PNG stills and MP4 videos under
-`visual_exports/sub-<id>/<sim>/tract/`. A simulation with no network outputs says so and cannot run
-until it has them: **Assess networks** queues that stage for the simulation, and the tab fills in
-when the job finishes. It samples the simulation's fields along every streamline of the subject's
-tractogram and writes `all.trx`, about 0.4 GB per simulation at 200,000 seeds. It needs the subject's
-tractogram and network; without them the tab names what is missing and how to make it
-(**Pre-processing ▸ Diffusion ▸ Tractography**). Existing outputs are replaced only if you choose
-**Replace and rerun**.
+This mode renders white-matter networks of a simulation as PNG stills and MP4 videos under
+`visual_exports/sub-<id>/<sim>/tract/`. It needs the subject's tractogram and network; without them the
+tab says what to run (**Pre-processing ▸ Diffusion ▸ Tractography**).
 
-- **Network:** one `.trx` file. `all` draws the run's strongest edges; any other file draws that
-  network alone.
+**Choosing a network.** Four ways, all ending in the same list of region pairs, which the 3D pane
+draws as you go, with a streamline count beside it. The name follows the choice until you type your
+own.
+
+- **Preset:** a set of atlas regions on the subject's own labels: frontal, posterior and temporal
+  thalamocortical, hippocampal-cortical, cingulate-cortical, precentral-brainstem, insular-cortical,
+  amygdala-cortical, basal ganglia-cortical and interhemispheric cortical. A preset is a set of
+  regions, not an anatomical claim, and what it holds depends on the tractography. One whose labels
+  this network does not have, or with no streamline in it, is shown disabled with the reason.
+- **By region:** **From** regions and, optionally, **To** regions. With no To, every edge the From
+  regions have.
+- **By connection:** seed regions, then edges from their table or by clicking lines in the 3D pane.
+- **Strongest here:** the top N connections of this simulation in a metric you name. None is
+  preselected and none is recommended. It reads the simulation's edge table, which **Assess
+  connections** writes if the simulation has none yet.
+- **Existing file** draws a `.trx` already in `Simulations/<sim>/tract/`.
+
+The same choosing appears in the Optimizer's Network target, apart from Strongest here, so a mask and a
+render can come from one definition.
+
+**Same-side thalamocortical networks.** Thalamocortical networks keep same-hemisphere connections by
+default, following common tractography practice, because crossed streamlines are often artefactual;
+this is a specificity choice, since modest crossed projections exist in the macaque, and the removed
+count is reported and can be turned off. Same-side is decided by the subject's own atlas labels
+(`Left-Thalamus-Proper` with `lh.*`, `Right-Thalamus-Proper` with `rh.*`), not by a midline plane. The
+picker's count line, the Plan and the render's caption state what was left out, for example
+`1,407 of 1,598; 191 opposite-hemisphere removed (right thalamus to left cortex 167, left thalamus to
+right cortex 24)`. The render's `manifest.json` also records how many kept streamlines reach more than
+5 mm past the midline and back, which labels cannot catch.
+
+Same-side filtering may remove real connections for medial, orbital and limbic frontal targets:
+**Include opposite-hemisphere connections** is the way to check. It adds the crossed edges and adds
+`_with_opposite` to the network's name, so both versions sit side by side. Only thalamocortical presets
+are filtered: **By region**, **By connection**, **Strongest here** and every other preset draw what they
+select.
+
+References: Behrens et al. 2003, *Nat Neurosci*, [doi:10.1038/nn1075](https://doi.org/10.1038/nn1075);
+Akram et al. 2018, *NeuroImage Clin*,
+[doi:10.1016/j.nicl.2018.01.008](https://doi.org/10.1016/j.nicl.2018.01.008); Warrington et al. 2020,
+*NeuroImage*, [doi:10.1016/j.neuroimage.2020.116923](https://doi.org/10.1016/j.neuroimage.2020.116923);
+Dermon & Barbas 1994, *J Comp Neurol*,
+[doi:10.1002/cne.903440403](https://doi.org/10.1002/cne.903440403); Preuss & Goldman-Rakic 1987,
+*J Comp Neurol*, [doi:10.1002/cne.902570211](https://doi.org/10.1002/cne.902570211).
+
+**Running.** **Run export** on a network the simulation cannot draw yet queues the tract job's `assess`
+stage first (about 3 min under emulation; fields along every streamline, one small `<name>.trx`), and the
+render waits for it. A simulation with `all.trx` needs no assess. Files carry the network's name
+(`<sid>_<sim>_<network>_tract_<metric>_<view>.png`, bundle under `tract_scene/<network>_<metric>/`), so
+networks of one simulation sit side by side. The Plan says **will overwrite** only when this network in
+this colouring has files already, or when a bundle of this name holds other edges; you are asked before
+anything is queued.
+
+**Automatic setup.** The Plan lists what the render will use, with a reason for each, and the render
+records it in `manifest.json`. **Advanced** replaces any one value.
+
+| Setting | Automatic rule |
+|---|---|
+| Title | Two regions are named; a longer list goes by the network's name |
+| Lit regions | The regions it was chosen by, else its two busiest ends |
+| Views | Lateral and oblique; superior and posterior too when each hemisphere holds at least a quarter of its ends |
+| Side shown | The hemisphere holding more of its ends; left on a tie |
+| Region names | Drawn up to 6 regions, each only on a view that faces it |
+| Streamlines drawn | All up to 8,000, then an even sample, and the caption says how many |
+| Tube radius | 0.09 mm from about 1,600 streamlines up, wider below it, up to four times |
+| Colour window | 99.5th percentile along the drawn fibres |
+| TI_max shell | Brain p95, off only below 10 streamlines, which a shell would hide |
+
+Other options:
+
 - **Colour by:** **Fibre direction (RGB)**, the local tangent, or **TI_max**, the field magnitude
-  along each fibre averaged over ±3 mm for display.
-- **Stills** in the lateral, superior and oblique views, and a **Turntable video**.
-- **Quality:** **Fast preview** (960x640 stills, a 2 s turntable at 960x540) checks a choice before
+  along each fibre averaged over ±3 mm for display. A turntable in TI_max opens in fibre direction and
+  crossfades.
+- **Stills** and a **Turntable video**.
+- **Quality:** **Fast preview** (960x640 stills, a 4 s turntable at 960x540) checks a choice before
   **Final** (2400x1600 stills, a 5 s turntable at 1920x1080).
 - **Thalamocortical sequence:** one video of `all.trx` in which the frontal, then the posterior
   thalamocortical network goes from fibre direction to TI_max on one colour window, is pruned to the
   strongest 15 % of its streamlines by mean TI_max, and names the cortical regions those fibres reach
-  in their own colours, inside a translucent thalamus. Region names use DK40 parcels.
+  in their own colours, inside a translucent thalamus. Region names use DK40 parcels. It draws every
+  thalamocortical edge and needs `all.trx`, which **Assess networks** writes (about 0.4 GB per
+  simulation at 200,000 seeds).
 
 Every colour shows a field descriptor along the fibres, not a prediction of activation.
 

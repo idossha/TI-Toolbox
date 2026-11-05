@@ -844,12 +844,38 @@ fibres project, not evoked activity. Excluded alternative: STREAM-4D's code and 
 (non-commercial licence, incompatible with GPL-3); one curve object per streamline keyframed per
 frame (their design) instead of one polyline mesh whose shader reads the frame.
 
-**The Visual exporter's Networks tab submits those jobs.** It lists a simulation's `tract/*.trx`
-stems through `GET /api/catalog/simulations/{name}/networks`, which also lists the PNG and MP4 files
-in the output folder for the tab's Scene pane, and refuses to run on a simulation with none, naming
-the tract job's `assess` stage. A bundle is read as its own tractogram with `network_top_edges: 0`, so
-its streamlines are not drawn twice; `all` keeps the top-edges default. `views` picks the stills,
-`quality: preview` spends 8 samples per still and 960x540 at 6 samples per video frame, and absent
+**A named network is one `Selection`, set up by one pure function.** `TractVisualConfig.selection` is
+`tit.tract.config.Selection(kind="edges")`, the definition the mask sidecar and the ranking also read; no
+other format exists. `regions` holds its seeds. `tit/blender/network_setup.py::resolve_network_setup`
+(selection, streamlines per edge, overrides) decides title, caption, lit regions, views, side, names,
+budget, tube radius, colour window and shell, one commented rule each, with a reason per automatic value.
+It reads counts only, so `POST /api/plan/blender` (`resolved.network_setup`, from `network.npz`) and the
+render (`manifest.json` `setup`, from the bundle) agree and no field decides what is drawn; a key of
+`TractVisualConfig.overrides` replaces any one value, unknown keys refused. Excluded alternative: a camera
+or threshold search over renders, which would be neither explainable nor testable.
+Applying the setup draws what `network_from` draws, the approved glass-thalamus look. An existing bundle
+(`network_bundle`, `network_top_edges: 0`) is first read as the Selection of the edges it holds.
+`network_from`/`network_to` stay for scripts and the sequence.
+
+**Outputs coexist.** `<sid>_<sim>[_<network>]_tract_<metric>_<view>.png` and
+`tract_scene/<network>_<metric>/`, in the flat folder the catalog already lists, so renders without a
+network in their name still list. The Plan's `will_overwrite` is `replaced_outputs`, the files of this
+network and metric; an assess plans an overwrite only over its own `<name>.trx`, or `edges.json` when it
+writes no bundle, because the rest of that folder covers every streamline whichever selections ran. Two
+queued jobs conflict (`refuse_outputs_of_active_jobs`) only over the same network. `summary.json`'s
+`bundles` keeps other networks' records and now holds `pairs` and `n_selected`, which
+`GET /api/catalog/simulations/{name}/networks` returns as `assessed` beside `has_edges`.
+
+**The Visual exporter's Networks tab submits those jobs.** `NetworkChooser`
+(`pages/_shared/roi/`, also the Optimizer's Network target) offers a preset (`GET /api/tract/presets`,
+`tit/tract/presets.py`), by region, by connection and, with a simulation, the top N in a metric the user
+must name (`GET /api/tract/connections`). Thalamocortical presets (`Preset.same_side`) resolve to
+same-hemisphere pairs by atlas label, not a midline plane, so nothing downstream knows about it;
+`TractVisualConfig.preset` lets the Plan and caption state what was left out, and the manifest holds a QC
+count of kept streamlines more than 5 mm past the plane midway between the hemispheres' mean x and back.
+By-region, by-connection, strongest and other presets are unfiltered. A network this simulation cannot
+draw (no matching `<name>.trx`, no `all.trx`) is assessed first by a `tract` job the render names in
+`after`; there is no other chaining. `quality: preview` spends 8 samples per still and 960x540 at 6 samples per video frame, and absent
 fields reproduce the previous render. `thalamocortical_sequence` promotes the approved video into the
 config: `run_tract` exports one bundle per network under `tract_scene/{frontal,posterior}/` on one
 TI_max window (p99 over both) and runs `tract_scene.py -- sequence`, with the thalami flat-shaded glass
@@ -1470,7 +1496,7 @@ as `m2m_<id>/masks/tract-<name>.nii.gz` with a sidecar `tract-<name>.json` (`sel
 refuse a mask whose sidecar names another (a rebuilt network), and a mask with no sidecar is not
 checked. `Selection(kind="edges")` is the union of region-name `pairs`. With a leadfield, the target
 stage also ranks candidate montages (explicit, from an electrode pool, or the top rows of a two-pair
-ex-search run, refused for any other run) by the statistic `assess` reports, the median over
+ex-search run or all of them, `top_n: null`, refused for any other run) by the statistic `assess` reports, the median over
 streamlines of each streamline's arc-mean `ti_along`, loading the leadfield through `ExSearchEngine`;
 the pooled point mean, the same statistics of `ti_max` and `ti_avg`, the alignment index and both
 ranks are reported beside it, and `ranking.ex_run` names the run. It keeps a mask already current for
@@ -1495,6 +1521,8 @@ renumber on rebuild:
 | `POST /api/tract/mask` `{subject, name, pairs, min_count=1, min_n=5, overwrite=false}` | 201 `{name, path, fingerprint, stale, pairs, min_count, n_edges, n_streamlines, n_voxels, volume_mm3}`; 409 an existing name without `overwrite`, 422 a bad name, unknown region or pair, an edge below `min_n`, or an empty mask |
 | `GET /api/tract/masks?subject=` | `{masks: [...]}` of the same shape, `stale` when the network was rebuilt |
 | `GET /api/tract/rankings?subject=&ex_run=` | `{rankings: [{name, ex_run, n_streamlines, current_mA, n_points, n_points_in_leadfield_mesh, montages: [...]}]}` |
+| `GET /api/tract/presets?subject=` | `{presets: [{id, label, seeds, same_side, pairs, n_edges, n_streamlines, opposite_pairs, n_opposite, right_thalamus_to_left_cortex, left_thalamus_to_right_cortex, missing, reason}]}`; 404 no network |
+| `GET /api/tract/connections?subject=&simulation=` | `{connections: [{region_a, region_b, n, ti_along_mean, ti_max_mean, ti_avg_mean, align_index}]}`, medians per edge from `edges.json`; 404 not assessed |
 
 The streamlines route is the scene service's cold-cache grammar: one per-subject subsample, built on
 a background thread and stored under `.ti-toolbox/cache/scene/`, keyed by the tractogram and network;

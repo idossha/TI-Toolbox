@@ -305,7 +305,15 @@ synthetic streamlines' midpoint pixels equal their swatches and picks return eac
 is `desktop/tests/e2e/network-target.spec.ts`. `desktop/tests/e2e/real/network-target.spec.ts` runs the
 whole path on a project holding sub-CHN's tractography (rebuild the network, mask, one flex and one ex
 job, rank); Dataset 000 has no network, so its smoke row `tract_track` only proves the refusal at
-submission.
+submission. `desktop/tests/e2e/real/network-chain.spec.ts` runs the chain end to end through the app on
+a disposable subject (`TIT_E2E_CHAIN_SUBJECT`: QSIPrep output, m2m, leadfield, no tractography):
+tractography from the Pre-processing row, a posterior preset's mask in both same-side states, an
+ex-search, All-montage ranking, one simulation, then the Networks tab's automatic assess and render of
+two networks. It writes `chain-results.json` beside its screenshots; comparing the tractogram and mask
+with a reference is the operator's step. `tests/test_network_setup.py` pins each automatic-setup rule,
+preset resolution and the same-side counts, the file names, and the caption's mean against
+`streamline_stats`; `desktop/tests/unit/network-target.test.ts` and
+`visual-exporter-network-run.test.tsx` pin the picker's pure functions and Run's assess-then-render.
 
 ### Documentation screenshots
 

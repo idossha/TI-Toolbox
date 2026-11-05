@@ -4390,7 +4390,7 @@ which the image lacks).
 `TractVisualConfig` gains `views`, `quality` and `thalamocortical_sequence`, and
 `GET /api/catalog/simulations/{name}/networks` lists a simulation's `tract/*.trx` stems and rendered
 PNG and MP4 files (`contracts/CHANGES.md`, additive; ARCHITECTURE §8). The sequence's region lists and
-parameters move from `tract_network_dev/renders/configs/make_tc_configs.py` into
+parameters move from a development script into
 `tract_publication.py`, so the approved video (8db67690) is one option rather than a script.
 Pinned by `tests/test_tract_viz.py`, `tests/test_catalog_metadata_boundaries.py`,
 `desktop/tests/unit/visual-exporter-defaults.test.ts`, `visual-exporter-gates.test.ts` and the corpus.
@@ -4407,7 +4407,7 @@ stay `web: false, connectome: false` there because the tab shows PNG and MP4 fil
 
 **Measured** (2026-11-05, this machine, sub-CHN thalamus, the sequence's frame 300 at 960x540 and 6
 samples, `docker run` of `idossha/ti-toolbox:v3.1.3` against the bundles in
-`tract_network_dev/renders/CHN_thalamus_TC`): 76 s including the scene build in Blender 4.4.3 under
+that render): 76 s including the scene build in Blender 4.4.3 under
 amd64 emulation, against about 2.3 s per frame in a host Blender 5.1, with the same picture by eye.
 Through the app in the same emulated image: a 960x640 oblique still of `cst_lh` (103 streamlines) in
 53 s and its 48-frame preview turntable in 8.9 min. The app's sequence bundles re-rendered as a preview
@@ -4469,4 +4469,43 @@ QSIPrep is the mandatory first step. A row with its own submit path was a second
 the kind's locks and cost, which the `tract` kind already has); the separate "Build…" job button (the
 maintainer's reason above). The optimizer's empty state keeps a direct `tract` job, because no
 Pre-processing Run is in progress there.
+
+## 2026-11-05 — A named network is one Selection, set up by one pure function, and outputs coexist
+
+**Decision.** `TractVisualConfig` gains `selection`, `preset` and `overrides`, and `views` gains
+`posterior`. `resolve_network_setup` decides every render setting from a Selection and its edge counts. File
+names and the scene folder carry the network. Rendering a network not assessed queues a `tract` job and a
+render `after` it. Ranking offers every montage of a run by default (`top_n: null`). Pinned by
+`tests/test_network_setup.py`, `tests/test_tract_routes.py`, `desktop/tests/unit/network-target.test.ts`,
+`desktop/tests/unit/visual-exporter-network-run.test.tsx`, `desktop/tests/e2e/visual-exporter.spec.ts` and
+`desktop/tests/e2e/real/network-chain.spec.ts`.
+
+**Why.** The maintainer asked (2026-11-05) to visualize any network with no manual tuning and to do the
+proof-of-concept chain in the app. Every export from one simulation overwrote the last, and the top-20 default
+ranked by composite index filtered out the direction-aware winner, about the 94.5th percentile on mask mean.
+
+**Alternatives rejected.** A saved-network store (`pairs` in a Selection already travels through the mask
+sidecar and `summary.json`); a per-network folder (the catalog's flat listing would change, and existing
+outputs would need a second code path); a `dict` of region sets on the client (the server already validates
+against the network, and scripts get the same presets); pruning by field in a render (it would favour a
+metric, so the budget is an even sample).
+
+## 2026-11-05 — Thalamocortical presets keep same-side connections by default
+
+**Decision.** Frontal, posterior and temporal thalamocortical presets resolve to same-hemisphere pairs, by
+atlas label, with a visible **Include opposite-hemisphere connections**. Removed counts per direction appear in
+the picker, Plan, caption and manifest. Other presets, by-region, by-connection and strongest are unfiltered.
+This supersedes the first brief's "no contralateral filter", on the maintainer's decision after a literature
+check. The sequence keeps every thalamocortical edge: its work is closed, and it stays as it was.
+
+**Why.** Follows common tractography practice (doi:10.1038/nn1075, doi:10.1016/j.nicl.2018.01.008,
+doi:10.1016/j.neuroimage.2020.116923), because crossed streamlines are often artefactual. It is a specificity
+choice: modest crossed projections exist in the macaque (doi:10.1002/cne.903440403, doi:10.1002/cne.902570211),
+so it is reported and can be turned off. On sub-CHN's posterior set 191 of 1,598 streamlines are left out, a
+proportion MRtrix also reports (13-14 %); the midline band in that render belonged largely to them.
+
+**Alternatives rejected.** A new Selection kind (pairs carry it to the mask, assess, ranking and render with
+nothing new downstream); a midline-plane test (the head is not aligned to it, and labels are native-space; a
+plane is used only for the QC count of same-side streamlines crossing twice, which labels cannot catch); a
+filter on every selection (the user picked those edges by hand).
 

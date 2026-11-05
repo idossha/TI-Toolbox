@@ -1366,3 +1366,14 @@ ignores `tract` sees nothing new. Regenerated `contracts/generated/config.schema
 Additive: absent means no such stage. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-05 — One network definition in the render, presets, connections
+
+`TractVisualConfig` gains `selection` (a `Selection` of kind `edges`), `preset` and `overrides`; `views` accepts
+`posterior`. `TargetConfig.top_n` may be `null`, every montage of the run. New `GET /api/tract/presets` and
+`GET /api/tract/connections`, with `TractPreset(s)` and `TractConnection(s)`. `SimulationNetworks` gains
+`assessed` and `has_edges`. `POST /api/plan/blender` returns `resolved.network_setup` for a selection. Additive:
+absent fields reproduce the previous render. Behaviour that moves: a render's `will_overwrite` and an assess's
+`will_overwrite` now name their own files rather than the folder. Regenerated
+`contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
