@@ -1342,7 +1342,7 @@ web viewer, connectome figure; turntable and propagation videos opt-in). Additiv
 
 ## 2026-11-05 — `tract` job kind and `/api/tract/*`
 
-`JobKind` and `PipelineKind` gain `tract`; `PipelineConfig` gains `TractConfig` (registered in
+`JobKind`, `PipelineKind` and `JobGroupRequest.kind` gain `tract`; `PipelineConfig` gains `TractConfig` (registered in
 `CONFIG_CLASS_REGISTRY`, placeholder `x-tit-config: TractConfig`); `Selection.kind` gains `edges`
 with a `pairs` field. New paths `GET /api/tract/{manifest,edges,streamlines,masks,rankings}` and
 `POST /api/tract/mask`, new schemas `TractManifest`, `TractRegion`, `TractEdge(s)`,

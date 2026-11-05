@@ -86,7 +86,7 @@ export function TractJobDialog({ open, onOpenChange, subjects }: {
         </>
       }
     >
-      <div className="form-grid form-grid--single" data-testid="tract-job-form">
+      <div data-testid="tract-job-form" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", minWidth: 360 }}>
         <Field label="Atlas" help="Streamline ends are labelled with this cortical parcellation and the subject's subcortical labels. The network's regions are fixed when it is built.">
           <Select
             aria-label="Network atlas"

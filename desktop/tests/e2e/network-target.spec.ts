@@ -123,6 +123,12 @@ test("the pane draws the listed edges and a click on a line toggles that edge", 
   });
   expect(pick).toEqual({ kind: "edge", index: 0 });
   await expect(page.getByTestId("scene-pane-atlas-locked")).toHaveText("Atlas: DK40");
+
+  // A real click on group 1, the unselected edge, adds it: the row is edited, its mask goes stale.
+  const canvas = await page.getByTestId("scene-canvas").boundingBox();
+  const at = await page.evaluate(() => window.__scene!.project([0, 0, 20]));
+  await page.mouse.click(canvas!.x + at.x, canvas!.y + at.y);
+  await expect(page.getByRole("button", { name: "Run search", exact: true })).toHaveAttribute("title", /Create the mask again/);
 });
 
 test("Results: ranking is an action, and every statistic is a column with none preferred", async () => {
