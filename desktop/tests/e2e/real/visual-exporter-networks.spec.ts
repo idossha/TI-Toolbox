@@ -77,6 +77,7 @@ test.beforeAll(async () => {
   await shot("01-networks-no-simulation");
   await page.locator("#ve-simulation").click();
   await page.getByRole("option", { name: SIMULATION!, exact: true }).click();
+  await page.getByRole("radio", { name: "Existing file" }).click();
   await expect(page.locator("#ve-network")).toBeVisible();
   await page.locator("#ve-network").click();
   await page.getByRole("option", { name: NETWORK, exact: true }).click();
@@ -89,12 +90,14 @@ test.afterAll(async () => {
 
 test("one low-resolution still renders from the tab", async () => {
   test.setTimeout(45 * 60_000);
-  await page.getByRole("checkbox", { name: "Lateral" }).click();
-  await page.getByRole("checkbox", { name: "Superior" }).click();
+  // One view is an override of the automatic setup.
+  await page.getByTestId("network-advanced").locator("summary").click();
+  await page.getByRole("checkbox", { name: "Automatic", exact: true }).click();
+  for (const view of ["Lateral", "Superior", "Posterior"]) await page.getByRole("checkbox", { name: view, exact: true }).click();
   await shot("02-networks-still-options");
   await runAndWait(40);
   await page.getByRole("radio", { name: "Scene" }).or(page.getByRole("tab", { name: "Scene" })).first().click();
-  const still = page.getByTestId("network-renders").getByRole("img", { name: /_direction_oblique\.png/ });
+  const still = page.getByTestId("network-renders").getByRole("img", { name: new RegExp(`_${NETWORK}_tract_direction_oblique\\.png`) });
   await expect(still).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
   await shot("03-networks-still-rendered");

@@ -6,12 +6,13 @@ import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, 
 
 /**
  * The Networks tab's Assess networks against a real server: the real preflight's reason for a subject
- * with no tractogram, then the real plan's Replace question, one real assess job, and its finish
- * listing the network without a reload.
+ * with no tractogram, one real assess job writing all.trx into a tract folder without a question
+ * (it replaces no other network's file), its finish listing the network without a reload, then the
+ * real plan's Replace question over that all.trx.
  *
- * Needs a copied project: TIT_E2E_ASSESS_SUBJECT has a tractogram and network, and its
- * TIT_E2E_ASSESS_SIMULATION has a `tract/` folder with no `.trx` in it (delete them in the copy; this
- * spec replaces that folder). TIT_E2E_ASSESS_NO_TRACT_SUBJECT has a simulation and no tractogram.
+ * Needs a disposable subject: TIT_E2E_ASSESS_SUBJECT has a tractogram and network, and its
+ * TIT_E2E_ASSESS_SIMULATION has a `tract/` folder with no `.trx` in it (this spec writes all.trx
+ * there). TIT_E2E_ASSESS_NO_TRACT_SUBJECT has a simulation and no tractogram.
  *   TIT_E2E_ASSESS_SUBJECT=CHN TIT_E2E_ASSESS_SIMULATION=LH2 TIT_E2E_ASSESS_NO_TRACT_SUBJECT=ernie \
  *   TIT_E2E_ASSESS_SHOTS=<dir> npx playwright test --project=real tests/e2e/real/visual-exporter-assess.spec.ts
  */
@@ -57,23 +58,25 @@ test.afterAll(async () => {
 test("a subject with no tractogram gets the server's reason, not a button", async () => {
   await choose("#ve-subject", NO_TRACT!);
   await choose("#ve-simulation", /./);
+  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
   const reason = page.getByTestId("ve-assess-missing");
   await expect(reason).toContainText(`tractogram for sub-${NO_TRACT}`, { timeout: 30_000 });
   await expect(reason).toContainText("Tractography");
   await expect(page.getByTestId("ve-assess-networks")).toHaveCount(0);
   await page.screenshot({ path: join(SHOTS, "01-assess-missing.png") });
+  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
 });
 
-test("an existing tract folder asks first, Replace runs the job, and its finish lists the network", async () => {
+test("all.trx is written beside what the folder holds with no question, and its finish lists it", async () => {
   test.setTimeout(45 * 60_000);
   await choose("#ve-subject", SUBJECT!);
   await choose("#ve-simulation", SIMULATION!);
+  await page.getByRole("radio", { name: "Existing file" }).click();
   const assess = page.getByTestId("ve-assess-networks");
   await expect(assess).toBeEnabled({ timeout: 30_000 });
   await page.screenshot({ path: join(SHOTS, "02-assess-offered.png") });
-  await assess.click();
   const accepted = page.waitForResponse((r) => r.url().endsWith("/api/jobs") && r.request().method() === "POST");
-  await page.getByTestId("existing-outputs-replace").click();
+  await assess.click();
   const job = (await (await accepted).json()) as { id: string; kind: string };
   expect(job.kind).toBe("tract");
   await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal-identity")).toContainText("tract", { timeout: 60_000 });

@@ -2,8 +2,8 @@
  * The Network target end to end against a real server with real data, offscreen: rebuild a network
  * through the job form, choose thalamocortical edges, create the mask, run one flex and one ex job
  * on it, and rank the ex run. Needs a project with sub-CHN (m2m, QSIPrep, tractography, its
- * Cutini leadfield) and sub-ernie (a head model and no DWI, for the empty state); not Dataset 000,
- * whose network does not exist. Numbers are read from the server, not pinned: this subject is not
+ * Cutini leadfield), or another subject with those named by TIT_E2E_TARGET_SUBJECT, and sub-ernie (a
+ * head model and no DWI, for the empty state). Every job writes under that subject. Numbers are read from the server, not pinned: this subject is not
  * committed. `TIT_E2E_SCREENS` receives one PNG per state.
  *
  * Run: lockf /tmp/tit-e2e.lock env TIT_E2E_OFFSCREEN=1 TIT_E2E_SERVER_URL=... TIT_E2E_TOKEN=... \
@@ -19,6 +19,7 @@ import { addOptRow, clearOptRows, closeOptEditor, openOptEditor, setOptCell, set
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const SCREENS = process.env.TIT_E2E_SCREENS ?? join(tmpdir(), "tit-network-screens");
+const SUBJECT = process.env.TIT_E2E_TARGET_SUBJECT ?? "CHN";
 const LEADFIELD_NET = "EEG10-10_Cutini_2011";
 const RUN = `ui-network-${Date.now().toString(36)}`;
 const MASK = "thalamocortical_lh";
@@ -69,10 +70,10 @@ async function expectSucceeded(id: string, timeoutMs = JOB_TIMEOUT): Promise<voi
 
 test("Pre-processing runs Tractography as a row of its own run, without QSIRecon", async () => {
   test.setTimeout(900_000);
-  await selectSubject(page, "CHN");
+  await selectSubject(page, SUBJECT);
   await gotoPage(page, "preprocess", "Pre-processing");
   await expectPage(page, "preprocess");
-  const row = page.getByRole("option", { name: /CHN/ }).first();
+  const row = page.getByRole("option", { name: new RegExp(SUBJECT) }).first();
   if ((await row.getAttribute("aria-selected")) !== "true") await row.click();
   for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
     await page.getByRole("checkbox", { name: label }).uncheck();
@@ -109,7 +110,7 @@ test("a click on a cortical region in the pane adds it as a seed, by the network
   await gotoPage(page, "optimizer", "Optimizer");
   await clearOptRows(page);
   const row = await addOptRow(page);
-  await setOptSubject(page, row, "CHN");
+  await setOptSubject(page, row, SUBJECT);
   const dialog = await openOptEditor(page, row);
   await dialog.getByRole("radio", { name: "Network", exact: true }).click();
   await closeOptEditor(page);
@@ -139,7 +140,7 @@ test("S1-S4, flex: thalamocortical edges, a mask, the pane's lines, one flex job
   test.setTimeout(JOB_TIMEOUT + 300_000);
   await clearOptRows(page);
   const row = await addOptRow(page);
-  await setOptSubject(page, row, "CHN");
+  await setOptSubject(page, row, SUBJECT);
   const dialog = await openOptEditor(page, row);
   await dialog.getByRole("radio", { name: "Network", exact: true }).click();
   const panel = dialog.getByTestId("network-panel");
@@ -219,7 +220,7 @@ test("ex: the same mask, one job", async () => {
   test.setTimeout(JOB_TIMEOUT);
   await clearOptRows(page);
   const row = await addOptRow(page);
-  await setOptSubject(page, row, "CHN");
+  await setOptSubject(page, row, SUBJECT);
   await setOptCell(page, row, "method", "Ex");
   const netCell = row.locator('td[data-cell="net"]').getByRole("combobox");
   await netCell.click();
@@ -264,13 +265,14 @@ test("ex: the same mask, one job", async () => {
 test("Results: rank the ex run on the network; every statistic side by side", async () => {
   test.setTimeout(JOB_TIMEOUT);
   await gotoPage(page, "results", "Results");
-  await page.getByTestId("results-subject-CHN").click();
-  await page.locator(`[data-testid="results-node-ex:CHN:${RUN}-ex"]`).click();
+  await page.getByTestId(`results-subject-${SUBJECT}`).click();
+  await page.locator(`[data-testid="results-node-ex:${SUBJECT}:${RUN}-ex"]`).click();
   const ranking = page.getByTestId("network-ranking");
   await expect(ranking).toBeVisible();
   // The preview re-renders as the run's files load, which can detach the panel mid-scroll.
   await expect(() => ranking.scrollIntoViewIfNeeded({ timeout: 5_000 })).toPass({ timeout: 30_000 });
   await expect(ranking.getByRole("combobox", { name: "Network mask" })).toContainText(MASK);
+  await expect(ranking.getByRole("radio", { name: /All montages in the run/ })).toBeChecked();
   const id = await groupJobId(() => ranking.getByTestId("network-rank").click());
   await expectSucceeded(id);
   const table = ranking.getByTestId("network-ranking-table");
