@@ -311,6 +311,18 @@ class SimulationList(BaseModel):
     simulations: list[Simulation]
 
 
+class NetworkRender(BaseModel):
+    path: str
+    name: str
+    kind: Literal["image", "video"]
+    modified_at: str
+
+
+class SimulationNetworks(BaseModel):
+    networks: list[str]
+    renders: list[NetworkRender]
+
+
 class MemoryInfo(BaseModel):
     total: int
     available: int

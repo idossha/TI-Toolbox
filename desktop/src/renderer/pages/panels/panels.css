@@ -148,3 +148,9 @@
 .caps-electrodes .data-table td {
   padding: 0 var(--space-4);
 }
+
+/* Visual exporter, Networks: the rendered stills and videos, in the Scene tab. */
+.network-renders { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); padding: var(--space-3); overflow: auto; height: 100%; align-content: start; }
+.network-renders figure { margin: 0; min-width: 0; }
+.network-renders img, .network-renders video { display: block; width: 100%; background: #000; border-radius: var(--radius-1, 4px); }
+.network-renders figcaption { margin-top: var(--space-1); font-size: var(--text-xs, 11px); color: var(--text-secondary, inherit); overflow-wrap: anywhere; }

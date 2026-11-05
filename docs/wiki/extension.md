@@ -25,8 +25,8 @@ type; see the [export preview guide]({{ site.baseurl }}/wiki/blender/#preview-an
 
 <div class="image-row">
   <div class="image-container">
-    <img src="{{ site.baseurl }}/assets/imgs/v3/extension-visual-exporter.png" alt="The 3D visual exporter panel: subject and simulation, the four export modes, and the cortical-regions options">
-    <em>The 3D visual exporter covers cortical regions, field vectors, montages and sub-cortical structures.</em>
+    <img src="{{ site.baseurl }}/assets/imgs/v3/extension-visual-exporter.png" alt="The 3D visual exporter panel: subject and simulation, the export modes, and the cortical-regions options">
+    <em>The 3D visual exporter covers cortical regions, field vectors, montages, sub-cortical structures and white-matter networks.</em>
   </div>
   <div class="image-container">
     <img src="{{ site.baseurl }}/assets/imgs/v3/extension-cluster-permutation.png" alt="The Cluster permutation panel: classification or correlation, a subject table with responses, and the test and cluster settings">

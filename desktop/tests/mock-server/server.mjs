@@ -71,6 +71,7 @@ const reports = loadJson("reports.json");
 const groupCatalog = loadJson("group_catalog.json");
 const groupStatsDetail = loadJson("group_stats_detail.json");
 const simulationFigures = loadJson("simulation_figures.json");
+const simulationNetworks = loadJson("simulation_networks.json");
 const overviewSmall = loadJson("overview.json");
 const roisSeed = loadJson("rois_seed.json");
 const freehandSeed = loadJson("freehand_seed.json");
@@ -454,6 +455,9 @@ function registerArtifact(virtualPath, file, contentType) {
 for (const list of Object.values(simulationFigures)) {
   for (const f of list) registerArtifact(f.path, fixturePath("artifacts", "sample.png"), "image/png");
 }
+for (const { renders } of Object.values(simulationNetworks)) {
+  for (const r of renders) registerArtifact(r.path, fixturePath("artifacts", "sample.png"), "image/png");
+}
 for (const a of groupStatsDetail.artifacts) {
   if (a.kind === "pdf") registerArtifact(a.path, fixturePath("artifacts", "sample.pdf"), "application/pdf");
   if (a.kind === "text") registerArtifact(a.path, fixturePath("artifacts", "sample.txt"), "text/plain; charset=utf-8");
@@ -731,6 +735,7 @@ function outputDirFor(kind, subject, config) {
       const sim = String(cfg.simulation_name ?? "").trim();
       if (!sim) return "";
       if (type === "VectorConfig") return `${veBase}/${sim}/vectors`;
+      if (type === "TractVisualConfig") return `${veBase}/${sim}/tract`;
       if (type === "RegionConfig") return `${veBase}/${sim}/${String(cfg.format ?? "stl").toLowerCase()}`;
       return "";
     }
@@ -2396,6 +2401,12 @@ route("GET", "/api/catalog/simulations/:name/figures", (ctx) => {
   if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
   json(ctx.res, 200, simulationFigures[`${subject}/${ctx.params.name}`] ?? []);
 });
+route("GET", "/api/catalog/simulations/:name/networks", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  const sim = (simulations[subject] ?? []).find((s) => s.name === ctx.params.name);
+  if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
+  json(ctx.res, 200, simulationNetworks[`${subject}/${ctx.params.name}`] ?? { networks: [], renders: [] });
+});
 route("GET", "/api/catalog/analyses", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const simulation = ctx.url.searchParams.get("simulation");
@@ -3089,7 +3100,7 @@ route("POST", "/api/plan/:kind", async (ctx) => {
   // has no default, so the real plan route answers 422 for a blender config without one.
   if (ctx.params.kind === "blender" && !body.config?._type) {
     return json(ctx.res, 422, {
-      detail: `kind='blender' config._type is required, one of ['MontageConfig', 'RegionConfig', 'SubcorticalConfig', 'VectorConfig']: the runner picks the export by it and has no default`,
+      detail: `kind='blender' config._type is required, one of ['MontageConfig', 'RegionConfig', 'SubcorticalConfig', 'TractVisualConfig', 'VectorConfig']: the runner picks the export by it and has no default`,
     });
   }
   json(ctx.res, 200, planFor(ctx.params.kind, body.config, body.subject_ids, body.overwrite, body.montage_sources));

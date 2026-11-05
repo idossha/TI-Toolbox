@@ -21,6 +21,7 @@ const MODE_FOR_TYPE: Record<string, Mode> = {
   VectorConfig: "vectors",
   MontageConfig: "montage",
   SubcorticalConfig: "subcortical",
+  TractVisualConfig: "networks",
 };
 const FORMATS = ["stl", "ply"];
 

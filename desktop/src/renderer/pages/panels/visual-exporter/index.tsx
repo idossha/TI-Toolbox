@@ -42,17 +42,21 @@ import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
-import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
+import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationNetworks, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
 import {
   buildMontageConfig,
+  buildNetworkConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
+  NO_NETWORK_OUTPUTS,
   NO_RECORDED_NET,
   outputHint,
   PERCENTILE_ORDER,
   parseLabels,
+  SEQUENCE_NEEDS_ALL,
   type Mode,
+  type NetworksForm,
 } from "./config";
 
 const MODE_OPTIONS: { value: Mode; label: string }[] = [
@@ -60,7 +64,18 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
   { value: "vectors", label: "Field vectors" },
   { value: "montage", label: "Montage visualizer" },
   { value: "subcortical", label: "Sub-cortical" },
+  { value: "networks", label: "Networks" },
 ];
+
+const NETWORK_METRIC_OPTIONS = [
+  { value: "direction", label: "Fibre direction (RGB)" },
+  { value: "ti_max", label: "TI_max" },
+];
+const NETWORK_QUALITY_OPTIONS = [
+  { value: "preview", label: "Fast preview" },
+  { value: "final", label: "Final" },
+];
+const NETWORK_VIEWS = ["lateral", "superior", "oblique"];
 
 /** The two atlases the Qt combo offered (`const.ATLAS_DK40`, `const.ATLAS_A2009S`). */
 const ATLAS_OPTIONS = [
@@ -128,6 +143,15 @@ function VisualExporterPanel() {
   const [cleanComponents, setCleanComponents] = usePageSession("cleanComponents", false);
   const [subcortField, setSubcortField] = usePageSession("subcortField", "TI_max");
 
+  // Networks
+  const [network, setNetwork] = usePageSession("network", "");
+  const [networkMetric, setNetworkMetric] = usePageSession<NetworksForm["metric"]>("networkMetric", "direction");
+  const [networkViews, setNetworkViews] = usePageSession<string[]>("networkViews", NETWORK_VIEWS);
+  const [networkStills, setNetworkStills] = usePageSession("networkStills", true);
+  const [networkTurntable, setNetworkTurntable] = usePageSession("networkTurntable", false);
+  const [networkQuality, setNetworkQuality] = usePageSession<NetworksForm["quality"]>("networkQuality", "preview");
+  const [networkSequence, setNetworkSequence] = usePageSession("networkSequence", false);
+
   const [submitting, setSubmitting] = useState(false);
   /** The jobs a 409 left unqueued, awaiting the existing-outputs decision. */
   const [refused, setRefused] = useState<BlenderConfig[] | null>(null);
@@ -142,6 +166,15 @@ function VisualExporterPanel() {
     queryFn: () => getAtlasRegions(subjectId, atlas),
     enabled: mode === "regions" && !!subjectId,
   });
+  const networksQuery = useQuery({
+    queryKey: ["simulation-networks", subjectId, simulationName],
+    queryFn: () => getSimulationNetworks(subjectId, simulationName),
+    enabled: mode === "networks" && !!subjectId && !!simulationName,
+    // A render lands while the page is open: keep the list current once this page queued one.
+    refetchInterval: jobs.startedJobIds.length > 0 ? 15_000 : false,
+  });
+  const networks = networksQuery.data?.networks ?? [];
+  const chosenNetwork = networks.includes(network) ? network : networks.includes("all") ? "all" : (networks[0] ?? "");
   const simulationPath = simulationsQuery.data?.find((simulation) => simulation.name === simulationName)?.path;
   // The simulation's own record: the preview draws its montage from it, and Run refuses a
   // montage export of a simulation that recorded no net (montage_publication refuses it too).
@@ -196,6 +229,14 @@ function VisualExporterPanel() {
   // VectorConfig refuses a ramp whose thresholds do not rise; say so before the server does.
   if (mode === "vectors" && color === "magscale" && !((bluePct ?? 50) <= (greenPct ?? 80) && (greenPct ?? 80) <= (redPct ?? 95)))
     clientErrors.push(PERCENTILE_ORDER);
+  if (mode === "networks" && clientErrors.length === 0) {
+    if (networksQuery.isPending) clientErrors.push("Reading this simulation's network outputs…");
+    else if (networksQuery.error) clientErrors.push(networksQuery.error.message);
+    else if (networks.length === 0) clientErrors.push(NO_NETWORK_OUTPUTS);
+    else if (networkSequence && !networks.includes("all")) clientErrors.push(SEQUENCE_NEEDS_ALL);
+    else if (!networkSequence && !networkStills && !networkTurntable) clientErrors.push("Choose stills, a turntable or both.");
+    else if (!networkSequence && networkStills && networkViews.length === 0) clientErrors.push("Choose at least one view.");
+  }
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
     if (labelsBrowsable) {
@@ -251,6 +292,20 @@ function VisualExporterPanel() {
         ];
       case "subcortical":
         return [buildSubcorticalConfig({ subjectId, simulationName, niftiPath, labels: labelsKey ? labelsKey.split(",").map(Number) : [], cleanComponents, fieldName: subcortField })];
+      case "networks":
+        return [
+          buildNetworkConfig({
+            subjectId,
+            simulationName,
+            network: chosenNetwork,
+            metric: networkMetric,
+            views: networkViews,
+            stills: networkStills,
+            turntable: networkTurntable,
+            quality: networkQuality,
+            sequence: networkSequence,
+          }),
+        ];
     }
   }, [
     clientErrors.length,
@@ -280,6 +335,13 @@ function VisualExporterPanel() {
     labelsKey,
     cleanComponents,
     subcortField,
+    chosenNetwork,
+    networkMetric,
+    networkViews,
+    networkStills,
+    networkTurntable,
+    networkQuality,
+    networkSequence,
   ]);
 
   // The plan and the validation speak for the first config; the regions mode submits two jobs
@@ -354,6 +416,7 @@ function VisualExporterPanel() {
             labels={subcorticalLabels} niftiPath={niftiPath}
             onLabelsChange={(labels) => { setLabelIds(labels.map(String)); setLabelsText(labels.join(",")); }}
             fieldName={mode === "subcortical" ? subcortField : regionField}
+            networkRenders={networksQuery.data?.renders ?? []}
           />}
         />
       }
@@ -383,7 +446,7 @@ function VisualExporterPanel() {
               <CardHeader
                 title="Selection"
                 actions={
-                  <HelpIcon title="Visual exporter" label="About this page" text="Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering." />
+                  <HelpIcon title="Visual exporter" label="About this page" text="Export STL/PLY cortical regions, vector clouds, montage visualizations and white-matter network renders." />
                 }
               />
               <CardBody>
@@ -399,6 +462,7 @@ function VisualExporterPanel() {
                         setLabelIds([]);
                         setLabelsText("");
                         setNiftiPath("");
+                        setNetwork("");
                       }}
                       options={subjectOptions}
                       placeholder="Subject"
@@ -605,6 +669,74 @@ function VisualExporterPanel() {
                 </CardBody>
               </Card>
             )}
+            {mode === "networks" && (
+              <Card>
+                <CardHeader title="Networks" />
+                <CardBody>
+                  {!simulationName ? (
+                    <p className="field-help">Choose a simulation to list its network outputs.</p>
+                  ) : networks.length === 0 && !networksQuery.isPending ? (
+                    <div data-testid="ve-networks-empty">
+                      <p className="field-help">{NO_NETWORK_OUTPUTS}</p>
+                      {/* shortcut: the "Assess networks" action goes here once the tract job kind exists (BRIEF_NETWORK_TARGETING_UI.md). */}
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                      <Checkbox
+                        checked={networkSequence}
+                        onCheckedChange={setNetworkSequence}
+                        label="Thalamocortical sequence: frontal, then posterior"
+                      />
+                      {networkSequence ? (
+                        <p className="field-help">
+                          One video of all.trx: each network goes from fibre direction to TI_max on one colour window, is pruned to its strongest 15 % by mean
+                          TI_max, and names the regions those fibres reach. Takes many hours inside the emulated container; re-render its bundle in a local Blender to
+                          finish sooner.
+                        </p>
+                      ) : (
+                        <>
+                          <div className="form-grid">
+                            <Field label="Network" htmlFor="ve-network" help="Simulations/<sim>/tract/<name>.trx. all draws the run's strongest edges.">
+                              <Select id="ve-network" value={chosenNetwork || undefined} onValueChange={setNetwork} options={networks.map((name) => ({ value: name, label: name }))} />
+                            </Field>
+                            <Field label="Colour by" htmlFor="ve-network-metric">
+                              <Select
+                                id="ve-network-metric"
+                                value={networkMetric}
+                                onValueChange={(v) => setNetworkMetric(v === "ti_max" ? "ti_max" : "direction")}
+                                options={NETWORK_METRIC_OPTIONS}
+                              />
+                            </Field>
+                          </div>
+                          <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Stills" />
+                          {networkStills && (
+                            <div style={{ display: "flex", gap: "var(--space-3)" }}>
+                              {NETWORK_VIEWS.map((view) => (
+                                <Checkbox
+                                  key={view}
+                                  checked={networkViews.includes(view)}
+                                  onCheckedChange={(on) => setNetworkViews(NETWORK_VIEWS.filter((v) => (v === view ? on : networkViews.includes(v))))}
+                                  label={view[0]!.toUpperCase() + view.slice(1)}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />
+                        </>
+                      )}
+                      <Field label="Quality" htmlFor="ve-network-quality" help="Fast preview samples and sizes less, to check a choice before a long render.">
+                        <Select
+                          id="ve-network-quality"
+                          value={networkQuality}
+                          onValueChange={(v) => setNetworkQuality(v === "final" ? "final" : "preview")}
+                          options={NETWORK_QUALITY_OPTIONS}
+                        />
+                      </Field>
+                    </div>
+                  )}
+                </CardBody>
+              </Card>
+            )}
           </div>
 
 
@@ -631,7 +763,7 @@ function VisualExporterPanel() {
 const page: PageDef = {
   id: "panel-visual-exporter",
   title: "3D visual exporter",
-  purpose: "Export STL/PLY cortical regions, vector clouds, and montage visualizations for 3D rendering.",
+  purpose: "Export STL/PLY cortical regions, vector clouds, montage visualizations and white-matter network renders.",
   navGroup: "panels",
   order: 130,
   icon: Boxes,

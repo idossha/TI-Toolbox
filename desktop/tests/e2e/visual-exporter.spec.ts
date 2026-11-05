@@ -189,3 +189,61 @@ test("the label browser falls back to the typed field when the volume cannot be 
   const job = await submittedJob(() => page.getByTestId("run-button").click());
   expect(job.config).toMatchObject({ _type: "SubcorticalConfig", labels: [10, 49], simulation_name: "" });
 });
+
+test("networks mode lists the simulation's outputs, submits a TractVisualConfig and shows renders", async () => {
+  await launchApp(true);
+  await connect();
+  await openPanel();
+  await page.locator("#ve-subject").click();
+  await page.getByRole("option", { name: "ernie", exact: true }).click();
+  await page.locator("#ve-simulation").click();
+  await page.getByRole("option", { name: "Thalamus", exact: true }).click();
+  await page.getByRole("radio", { name: "Networks" }).click();
+
+  await expect(page.locator("#ve-network")).toContainText("all");
+  await page.locator("#ve-network").click();
+  await page.getByRole("option", { name: "thalamocortical_lh", exact: true }).click();
+  await page.locator("#ve-network-metric").click();
+  await page.getByRole("option", { name: "TI_max", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Superior" }).click();
+  await page.getByRole("checkbox", { name: "Turntable video" }).click();
+  const job = await submittedJob(() => page.getByTestId("run-button").click());
+  expect(job).toMatchObject({ kind: "blender", subject_ids: ["ernie"] });
+  expect(job.config).toMatchObject({
+    _type: "TractVisualConfig",
+    simulation_name: "Thalamus",
+    tractogram: "thalamocortical_lh.trx",
+    network_bundle: "thalamocortical_lh",
+    metric: "ti_max",
+    views: ["lateral", "oblique"],
+    stills: true,
+    turntable: true,
+    quality: "preview",
+  });
+
+  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
+  const sequence = await submittedJob(async () => {
+    await expect(page.locator("#ve-network")).toHaveCount(0);
+    await page.getByTestId("run-button").click();
+    const replace = page.getByRole("button", { name: /Replace/ });
+    await replace.click({ timeout: 2_000 }).catch(() => undefined);
+  });
+  expect(sequence.config).toMatchObject({ thalamocortical_sequence: true, stills: false, turntable: false });
+
+  await page.getByRole("tab", { name: "Scene" }).or(page.getByRole("radio", { name: "Scene" })).first().click();
+  const renders = page.getByTestId("network-renders");
+  await expect(renders.getByRole("img", { name: /_lateral\.png/ })).toBeVisible();
+  await page.screenshot({ path: join(ARTIFACTS, "panel-visual-exporter-networks.png") });
+});
+
+test("a simulation with no network outputs says where they come from and cannot run", async () => {
+  await launchApp(true);
+  await connect();
+  await openPanel();
+  await chooseSubjectAndSimulation();
+  await page.getByRole("radio", { name: "Networks" }).click();
+  await page.locator("#ve-simulation").click();
+  await page.getByRole("option", { name: /^(?!Thalamus$)/ }).first().click();
+  await expect(page.getByTestId("ve-networks-empty")).toContainText("tract job's assess stage");
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", /assess stage/);
+});
