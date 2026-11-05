@@ -1350,12 +1350,19 @@ Regenerated `contracts/generated/config.schema.json`, `contracts/generated/opena
 
 ## 2026-11-05 — `tract` job kind and `/api/tract/*`
 
-`JobKind` and `PipelineKind` gain `tract`; `PipelineConfig` gains `TractConfig` (registered in
+`JobKind`, `PipelineKind` and `JobGroupRequest.kind` gain `tract`; `PipelineConfig` gains `TractConfig` (registered in
 `CONFIG_CLASS_REGISTRY`, placeholder `x-tit-config: TractConfig`); `Selection.kind` gains `edges`
 with a `pairs` field. New paths `GET /api/tract/{manifest,edges,streamlines,masks,rankings}` and
 `POST /api/tract/mask`, new schemas `TractManifest`, `TractRegion`, `TractEdge(s)`,
 `TractMaskRequest`, `TractMask(s)`, `TractRanking(s)` and `TractRankingMontage`, and the `TVSL1`
 binary format (`tit/scene/tvsl.py`). Additive: every other kind and route is unchanged, a client that
 ignores `tract` sees nothing new. Regenerated `contracts/generated/config.schema.json`,
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-11-05 — `PreprocessConfig` plans tractography
+
+`PreprocessConfig` gains `run_tractography`, `tractography_atlas` and `tractography_seeds`;
+`TractConfig` gains `skip_existing`. A `pre` group with the flag gains a `tract` job tagged `G7`.
+Additive: absent means no such stage. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
 

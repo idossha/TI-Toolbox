@@ -43,6 +43,7 @@ STEP_TISSUE = "tissue"
 STEP_QSIPREP = "qsiprep"
 STEP_QSIRECON = "qsirecon"
 STEP_DTI = "dti"
+STEP_TRACTOGRAPHY = "tractography"
 
 STEP_LABELS = {
     STEP_DICOM: "DICOM conversion",
@@ -55,6 +56,7 @@ STEP_LABELS = {
     STEP_QSIPREP: "QSIPrep",
     STEP_QSIRECON: "QSIRecon",
     STEP_DTI: "DTI tensor extraction",
+    STEP_TRACTOGRAPHY: "Tractography",
 }
 
 
@@ -242,6 +244,37 @@ def missing_inputs_for_step(
                     )
                 )
         return problems
+    if step == STEP_TRACTOGRAPHY:
+        problems = []
+        qsiprep_ok, qsiprep_error = validate_qsiprep_output(project_dir, subject_id)
+        if not qsiprep_ok:
+            problems.append(
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"Tractography tracks QSIPrep output: {qsiprep_error}. "
+                        f"Run QSIPrep for sub-{subject_id} first."
+                    ),
+                    path=Path(pm.qsiprep_subject(subject_id)),
+                )
+            )
+        t1 = Path(pm.m2m(subject_id)) / const.FILE_T1
+        if not t1.is_file():
+            problems.append(
+                PreprocessingInputProblem(
+                    subject_id=subject_id,
+                    step=step,
+                    label=STEP_LABELS[step],
+                    message=(
+                        f"Tractography is constrained by charm's tissues. "
+                        f"Run charm for sub-{subject_id} first."
+                    ),
+                    path=t1,
+                )
+            )
+        return problems
     if step == STEP_DTI:
         problems = []
         qsiprep_ok, qsiprep_error = validate_qsiprep_output(project_dir, subject_id)
@@ -372,6 +405,7 @@ def find_missing_preprocessing_inputs(
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
+    run_tractography: bool = False,
     skip_existing_outputs: bool = False,
     qsiprep_config: Mapping[str, Any] | None = None,
     qsi_recon_config: Mapping[str, Any] | None = None,
@@ -405,6 +439,7 @@ def find_missing_preprocessing_inputs(
             run_qsiprep=run_qsiprep,
             run_qsirecon=run_qsirecon,
             extract_dti=extract_dti,
+            run_tractography=run_tractography,
         )
     )
 
@@ -462,7 +497,7 @@ def find_missing_preprocessing_inputs(
                     if atlases
                     else []
                 )
-            if step == STEP_DTI:
+            if step in (STEP_DTI, STEP_TRACTOGRAPHY):
                 # Stages selected in the same run produce these inputs first.
                 produced = [
                     (
@@ -711,6 +746,21 @@ def existing_outputs_for_step(
                 missing=() if tensor.stat().st_size else ("tensor data",),
             )
         ]
+    if step == STEP_TRACTOGRAPHY:
+        folder = Path(pm.tractography(subject_id))
+        trx, network = folder / "tractogram.trx", folder / "network.npz"
+        if not trx.exists():
+            return []
+        return [
+            PreprocessingOutput(
+                subject_id,
+                step,
+                STEP_LABELS[step],
+                folder,
+                tuple(p for p in (trx, network) if p.exists()),
+                missing=() if network.exists() else ("network.npz",),
+            )
+        ]
     raise ValueError(f"Unknown preprocessing step: {step}")
 
 
@@ -740,6 +790,7 @@ def selected_preprocessing_steps(
     run_qsiprep: bool = False,
     run_qsirecon: bool = False,
     extract_dti: bool = False,
+    run_tractography: bool = False,
 ) -> list[str]:
     """Return output-producing steps enabled by the current run options."""
     steps: list[str] = []
@@ -764,6 +815,8 @@ def selected_preprocessing_steps(
         steps.append(STEP_QSIRECON)
     if extract_dti:
         steps.append(STEP_DTI)
+    if run_tractography:
+        steps.append(STEP_TRACTOGRAPHY)
     return steps
 
 

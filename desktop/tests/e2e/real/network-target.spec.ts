@@ -13,7 +13,7 @@ import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
-import { connectReal, expectPage, gotoPage, launchElectronApp, selectSubject, waitForJobTerminal } from "../_helpers";
+import { answerExistingOutputs, connectReal, expectPage, gotoPage, launchElectronApp, selectSubject, waitForJobTerminal } from "../_helpers";
 import { addOptRow, clearOptRows, closeOptEditor, openOptEditor, setOptCell, setOptSubject } from "../_jobs";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
@@ -30,6 +30,8 @@ let page: Page;
 test.describe.configure({ mode: "serial" });
 
 const shot = (name: string) => page.screenshot({ path: join(SCREENS, `${name}.png`) });
+// Every run page stays mounted, so the Optimizer's button is named rather than found by test id.
+const runSearch = () => page.getByRole("button", { name: "Run search", exact: true });
 const field = (label: string, root: Locator) => root.locator(".field", { hasText: label }).first();
 
 async function setNumber(root: Locator, label: string, value: string): Promise<void> {
@@ -44,6 +46,9 @@ test.beforeAll(async () => {
   page = await app.firstWindow();
   await page.setViewportSize({ width: 1440, height: 1000 });
   await connectReal(page, { url: SERVER_URL, token: TOKEN });
+  // A project with no example data asks once; this spec brings its own subject.
+  const offer = page.getByRole("dialog").filter({ hasText: "Add example data?" });
+  await offer.waitFor({ timeout: 10_000 }).then(() => offer.getByRole("button", { name: "Close dialog" }).click()).catch(() => undefined);
 });
 test.afterAll(async () => {
   await app?.close();
@@ -62,19 +67,28 @@ async function expectSucceeded(id: string, timeoutMs = JOB_TIMEOUT): Promise<voi
   expect(status.state, `job ${id}`).toBe("succeeded");
 }
 
-test("Pre-processing offers the job for a subject with QSIPrep; the network rebuilds", async () => {
+test("Pre-processing runs Tractography as a row of its own run, without QSIRecon", async () => {
   test.setTimeout(900_000);
   await selectSubject(page, "CHN");
   await gotoPage(page, "preprocess", "Pre-processing");
   await expectPage(page, "preprocess");
   const row = page.getByRole("option", { name: /CHN/ }).first();
   if ((await row.getAttribute("aria-selected")) !== "true") await row.click();
-  await page.getByTestId("open-tract-job").click();
-  const form = page.getByTestId("tract-job-form");
-  await expect(form.getByRole("combobox", { name: "Network atlas" })).toContainText("DK40");
-  await expect(form).toContainText("only its network is rebuilt");
-  await shot("preprocess_job");
-  const id = await groupJobId(() => page.getByTestId("tract-job-run").click());
+  for (const label of ["Convert DICOM to NIfTI", "SimNIBS charm (m2m + subject atlas)", "FastSurfer segmentation"]) {
+    await page.getByRole("checkbox", { name: label }).uncheck();
+  }
+  await page.getByRole("checkbox", { name: "Tractography" }).check();
+  await page.getByTestId("open-tractography-config").click();
+  const form = page.getByTestId("tractography-form");
+  await expect(form.getByRole("combobox", { name: "Tractography atlas" })).toContainText("DK40");
+  await shot("preprocess_tractography_config");
+  await page.getByTestId("tractography-save").click();
+  await shot("preprocess_diffusion");
+  // CHN has a tractogram: the page's one existing-outputs question, answered skip, keeps it.
+  const id = await groupJobId(async () => {
+    await page.getByRole("button", { name: "Run preprocessing", exact: true }).click();
+    await answerExistingOutputs(page, "skip");
+  });
   await expectSucceeded(id, 800_000);
 });
 
@@ -87,6 +101,34 @@ test("S0: a subject with no tractography says what it needs", async () => {
   await dialog.getByRole("radio", { name: "Network", exact: true }).click();
   await expect(dialog.getByTestId("network-unavailable")).toContainText("No tractography for sub-ernie");
   await shot("S0_unavailable");
+  await closeOptEditor(page);
+});
+
+// Before the flex job, whose start takes the run pane over to its terminal.
+test("a click on a cortical region in the pane adds it as a seed, by the network's own name", async () => {
+  await gotoPage(page, "optimizer", "Optimizer");
+  await clearOptRows(page);
+  const row = await addOptRow(page);
+  await setOptSubject(page, row, "CHN");
+  const dialog = await openOptEditor(page, row);
+  await dialog.getByRole("radio", { name: "Network", exact: true }).click();
+  await closeOptEditor(page);
+  await page.waitForFunction(() => window.__scene?.ready === true && window.__scene.camera.settled, null, { timeout: 120_000 });
+  const point = await page.evaluate(() => {
+    const scene = window.__scene!;
+    const { widthCss, heightCss } = scene.canvas;
+    const points: [number, number][] = [];
+    for (let y = 40; y < heightCss; y += 20) for (let x = 40; x < widthCss; x += 20) points.push([x, y]);
+    return points[scene.sampleRegions(points).findIndex((r) => r !== null)]!;
+  });
+  const box = await page.getByTestId("scene-canvas").boundingBox();
+  await page.mouse.click(box!.x + point[0], box!.y + point[1]);
+  const reopened = await openOptEditor(page, row);
+  const panel = reopened.getByTestId("network-panel");
+  await expect(panel).toHaveAttribute("data-state", "S2");
+  await expect(panel.getByTestId("network-seeds")).toHaveText(/^(lh|rh)\./);
+  await expect(panel.getByTestId("network-edges").getByRole("option").first()).toBeVisible();
+  console.log(`real/network: seed from the pane = ${await panel.getByTestId("network-seeds").textContent()}`);
   await closeOptEditor(page);
 });
 
@@ -161,9 +203,9 @@ test("S1-S4, flex: thalamocortical edges, a mask, the pane's lines, one flex job
   });
   expect(hit, "a click somewhere on the pane lands on a line").toBe(true);
 
-  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 60_000 });
+  await expect(runSearch()).toBeEnabled({ timeout: 60_000 });
   const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
-  const id = await groupJobId(() => page.getByTestId("run-button").click());
+  const id = await groupJobId(() => runSearch().click());
   const config = (await request).postDataJSON().subject_configs[0].config;
   expect(config.roi).toMatchObject({ _type: "SubcorticalROI", label: null, tissues: "WM", atlas_space: "subject" });
   expect(String(config.roi.atlas_path)).toContain(`masks/tract-${MASK}.nii.gz`);
@@ -207,9 +249,9 @@ test("ex: the same mask, one job", async () => {
   await list.getByRole("button", { name: "Done" }).click();
   await closeOptEditor(page);
 
-  await expect(page.getByTestId("run-button")).toBeEnabled({ timeout: 60_000 });
+  await expect(runSearch()).toBeEnabled({ timeout: 60_000 });
   const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
-  const id = await groupJobId(() => page.getByTestId("run-button").click());
+  const id = await groupJobId(() => runSearch().click());
   const config = (await request).postDataJSON().subject_configs[0].config;
   expect(config.roi_atlas[0]).toMatchObject({ label: null, atlas_space: "subject" });
   expect(config.roi_names).toEqual([]);

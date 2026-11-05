@@ -128,6 +128,7 @@ export const RUN_STEPS: Record<PlanKind, RunStep[]> = {
     { id: "G4", label: "QSIPrep", detail: "Dockerised diffusion preprocessing: denoise, distortion and motion correction.", minutes: 120 },
     { id: "G5", label: "QSIRecon", detail: "Optional Dockerised reconstruction: tractography, scalar maps, connectivity.", minutes: 60 },
     { id: "G6", label: "Extract DTI tensor", detail: "Fits the tensor (DIPY) from QSIPrep output and writes the anisotropic conductivity tensor SimNIBS reads.", minutes: 6 },
+    { id: "G7", label: "Tractography", detail: "Tracks the whole brain from QSIPrep output and builds the region connectome.", minutes: 5 },
     // No report step: the combined preprocessing report was removed in v3.0.2. charm (G2a) copies
     // SimNIBS's charm_report.html into the subject's reports and G6 writes the DTI QC report, each
     // inside its own step, so a report is never a step, a plan row or a job of its own.

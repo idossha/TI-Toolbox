@@ -8,7 +8,7 @@ import { FreeSurferLicenseNotice } from "../settings/FreeSurferLicense";
 import type { PreprocessConfig } from "./api";
 import "./preprocess.css";
 
-export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon, onTract}: {values: PreprocessConfig; onChange: (patch: Partial<PreprocessConfig>)=>void; onQsiPrep:()=>void; onQsiRecon:()=>void; onTract?:()=>void}) {
+export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon, onTractography}: {values: PreprocessConfig; onChange: (patch: Partial<PreprocessConfig>)=>void; onQsiPrep:()=>void; onQsiRecon:()=>void; onTractography:()=>void}) {
   const setValue = <K extends keyof PreprocessConfig>(key: K, value: PreprocessConfig[K]) => onChange({[key]:value});
   return <>
         <div data-tier="1">
@@ -30,22 +30,16 @@ export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon, onTrac
 
         <div data-tier="1">
           <FormSection
-            title="DWI (docker)"
+            title="Diffusion"
             helpSlot={<StepHelpIcon id="dwi" />}
           >
+            {/* QSIPrep first: every row below it starts from its output. */}
             <div className="run-checkbox-row preprocess-step-row">
               <Checkbox checked={values.run_qsiprep} onCheckedChange={(v) => setValue("run_qsiprep", v)} label="QSIPrep" />
               <Button size="sm" variant="secondary" onClick={() => onQsiPrep()} data-testid="open-qsiprep-config">
                 Configure…
               </Button>
               <StepHelpIcon id="run_qsiprep" />
-            </div>
-            <div className="run-checkbox-row preprocess-step-row">
-              <Checkbox checked={values.run_qsirecon} onCheckedChange={(v) => setValue("run_qsirecon", v)} label="QSIRecon" />
-              <Button size="sm" variant="secondary" onClick={() => onQsiRecon()} data-testid="open-qsirecon-config">
-                Configure…
-              </Button>
-              <StepHelpIcon id="run_qsirecon" />
             </div>
             <div className="run-checkbox-row preprocess-step-row">
               <Checkbox
@@ -55,13 +49,19 @@ export function PreprocessSteps({values, onChange, onQsiPrep, onQsiRecon, onTrac
               />
               <StepHelpIcon id="extract_dti" />
             </div>
-            {/* Its own job, not a stage of this page's Run: it runs once QSIPrep output exists. */}
             <div className="run-checkbox-row preprocess-step-row">
-              <span>White-matter network</span>
-              <Button size="sm" variant="secondary" disabled={!onTract} onClick={() => onTract?.()} data-testid="open-tract-job">
-                Build…
+              <Checkbox checked={values.run_tractography} onCheckedChange={(v) => setValue("run_tractography", v)} label="Tractography" />
+              <Button size="sm" variant="secondary" onClick={() => onTractography()} data-testid="open-tractography-config">
+                Configure…
               </Button>
-              <StepHelpIcon id="tract" />
+              <StepHelpIcon id="run_tractography" />
+            </div>
+            <div className="run-checkbox-row preprocess-step-row">
+              <Checkbox checked={values.run_qsirecon} onCheckedChange={(v) => setValue("run_qsirecon", v)} label="QSIRecon" />
+              <Button size="sm" variant="secondary" onClick={() => onQsiRecon()} data-testid="open-qsirecon-config">
+                Configure…
+              </Button>
+              <StepHelpIcon id="run_qsirecon" />
             </div>
           </FormSection>
         </div>

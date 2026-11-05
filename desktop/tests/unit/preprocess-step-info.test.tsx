@@ -20,7 +20,7 @@ import {
   stepPaths,
 } from "../../src/renderer/pages/preprocess/stepInfo";
 
-/** The seven `G1`-`G6` stage rows, keyed by their `PreprocessConfig` flag. */
+/** The `G1`-`G7` stage rows, keyed by their `PreprocessConfig` flag. */
 const STAGE_IDS = [
   "convert_dicom",
   "create_m2m",
@@ -30,10 +30,11 @@ const STAGE_IDS = [
   "run_qsiprep",
   "run_qsirecon",
   "extract_dti",
+  "run_tractography",
 ] as const;
 
 /** The two `FormSection` headers on the page. */
-const SECTION_IDS = ["tract", "structural", "dwi"] as const;
+const SECTION_IDS = ["structural", "dwi"] as const;
 
 /**
  * A path this project really writes. Roots come from `tit/paths.py`:
@@ -79,7 +80,7 @@ describe("STEP_INFO", () => {
 
   it.each(STAGE_IDS.filter((id) => id !== "run_freesurfer"))("%s: carries its G-stage tag and a duration from tit/jobs/eta.py", (id) => {
     const info = STEP_INFO[id]!;
-    expect(info.stage).toMatch(/^G[1-6][ab]?$/);
+    expect(info.stage).toMatch(/^G[1-7][ab]?$/);
     expect(info.nativeMinutes).toBeGreaterThan(0);
     // PRE_STAGE_MIN's constants are the emulated figures divided by EMULATION_FACTOR, so every
     // stored value has to be an exact 1/3 of a whole number of measured minutes.

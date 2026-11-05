@@ -39,7 +39,7 @@ import {
 } from "./api";
 import { defaultQsiPrepConfig, defaultQsiReconConfig, qsiPrepPreferences, qsiReconPreferences } from "./qsi";
 import { QsiPrepDialog } from "./QsiPrepDialog";
-import { TractJobDialog } from "../_shared/roi/TractJobDialog";
+import { TractographyDialog } from "./TractographyDialog";
 import { QsiReconDialog } from "./QsiReconDialog";
 import { PreprocessSteps } from "./PreprocessSteps";
 import { defaultConfig } from "./config";
@@ -112,6 +112,7 @@ export function plannedStageIds(v: PreprocessConfig): string[] {
   if (v.run_qsiprep) ids.push("G4");
   if (v.run_qsirecon) ids.push("G5");
   if (v.extract_dti) ids.push("G6");
+  if (v.run_tractography) ids.push("G7");
   // No "report" id: a report is an attachment of the stage job that wrote it (charm: G2a, DTI:
   // G6), so it is neither a stage column nor a job (maintainer, 2026-09-07).
   return ids;
@@ -127,6 +128,7 @@ const PRE_STAGE_HEADING: Record<string, string> = {
   G4: "qsiprep",
   G5: "qsirecon",
   G6: "dti",
+  G7: "tractography",
 };
 
 export function plannedSteps(v: PreprocessConfig): string[] {
@@ -139,6 +141,7 @@ export function plannedSteps(v: PreprocessConfig): string[] {
   if (v.run_qsiprep) steps.push("QSIPrep");
   if (v.run_qsirecon) steps.push("QSIRecon");
   if (v.extract_dti) steps.push("Extract DTI tensor for SimNIBS");
+  if (v.run_tractography) steps.push("Tractography");
   return steps;
 }
 
@@ -196,7 +199,7 @@ function PreprocessPage() {
   const policy: ExistingOutputPolicy = "skip";
   const [qsiPrepOpen, setQsiPrepOpen] = useState(false);
   const [qsiReconOpen, setQsiReconOpen] = useState(false);
-  const [tractOpen, setTractOpen] = useState(false);
+  const [tractographyOpen, setTractographyOpen] = useState(false);
   const [existingOpen, setExistingOpen] = useState(false);
   const [pinnedJobId, setPinnedJobId] = usePageSession<string | null>("pinnedJob", null);
   // The jobs this Run press started: they keep their log and final status line in the terminal
@@ -384,11 +387,23 @@ function PreprocessPage() {
           )}
         </div>
 
-        <PreprocessSteps values={values} onChange={(patch) => Object.entries(patch).forEach(([key,value]) => form.setValue(key as keyof PreprocessConfig, value))} onQsiPrep={() => setQsiPrepOpen(true)} onQsiRecon={() => setQsiReconOpen(true)} onTract={selected.length > 0 ? () => setTractOpen(true) : undefined} />
+        <PreprocessSteps values={values} onChange={(patch) => Object.entries(patch).forEach(([key,value]) => form.setValue(key as keyof PreprocessConfig, value))} onQsiPrep={() => setQsiPrepOpen(true)} onQsiRecon={() => setQsiReconOpen(true)} onTractography={() => setTractographyOpen(true)} />
 
       </RunWork>
 
-      <TractJobDialog open={tractOpen} onOpenChange={setTractOpen} subjects={selected} />
+      {tractographyOpen && (
+        <TractographyDialog
+          open
+          onOpenChange={setTractographyOpen}
+          subject={selected[0]}
+          atlas={values.tractography_atlas ?? "DK40"}
+          seeds={values.tractography_seeds ?? 200_000}
+          onSave={(atlas, seeds) => {
+            form.setValue("tractography_atlas", atlas);
+            form.setValue("tractography_seeds", seeds);
+          }}
+        />
+      )}
       <QsiPrepDialog
         open={qsiPrepOpen}
         onOpenChange={setQsiPrepOpen}

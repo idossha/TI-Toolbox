@@ -373,7 +373,10 @@ def _science_patches(kind: str, rec: Recorder) -> list:
             rec.record("run_pipeline", kwargs)
             return 0
 
-        return [patch("tit.pre.__main__.run_pipeline", run_pipeline)]
+        return [
+            patch("tit.pre.__main__.run_pipeline", run_pipeline),
+            patch("tit.pre.__main__._run_tractography", lambda _config: None),
+        ]
     if kind == "blender":
 
         def target(name):
@@ -761,7 +764,14 @@ def _assert_dispatch(kind: str, config: dict, rec: Recorder) -> None:
         # keep every value the client set; run_pipeline then takes config.json's fields by
         # their own names.
         _set_values_kept(rec.written, _plain(config), "config.json")
-        on_file = {k: v for k, v in rec.written.items() if k != "project_dir"}
+        # Tractography is not run_pipeline's: the job route plans it as a `tract` stage (G7), and
+        # tit.pre.__main__ runs it after the pipeline for a script (recorded below).
+        on_file = {
+            k: v
+            for k, v in rec.written.items()
+            if k != "project_dir"
+            and not k.startswith(("run_tractography", "tractography_"))
+        }
         kwargs = _plain(typed)
         _subset_equal(kwargs, on_file, "run_pipeline")
     else:
@@ -935,7 +945,10 @@ def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
     elif page == "visual-exporter":
         assert [type(c).__name__ for _, c in calls] == exp["blender_types"]
     elif page == "preprocess":
-        flags = calls[0][1]
+        flags = {
+            **calls[0][1],
+            "run_tractography": recs[0][1].written.get("run_tractography", False),
+        }
         tags = {
             "convert_dicom": "G1",
             "create_m2m": "G2a",
@@ -945,6 +958,7 @@ def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
             "run_qsiprep": "G4",
             "run_qsirecon": "G5",
             "extract_dti": "G6",
+            "run_tractography": "G7",
         }
         assert [t for f, t in tags.items() if flags[f]] == exp["stages_per_subject"]
         assert flags["skip_existing_outputs"] is exp["skip_existing_outputs"]

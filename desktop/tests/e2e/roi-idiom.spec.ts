@@ -79,7 +79,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(picker.locator(".segmented").first()).toBeVisible();
   await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   const optimizerModes = await picker.locator(".segmented").first().getByRole("radio").allTextContents();
-  expect(optimizerModes).toEqual(["Cortical", "Subcortical", "Spherical", "NIfTI mask"]);
+  expect(optimizerModes).toEqual(["Cortical", "Subcortical", "Spherical", "NIfTI mask", "Network"]);
 
   // Spherical and subcortical each carry a Subject/MNI "Space" choice — the same small exclusive
   // choice, and the place the two idioms used to sit 40 px apart inside one component.
@@ -87,7 +87,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
   await expect(picker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   await expect(field("Space", picker).locator(".segmented")).toHaveCount(1);
 
-  // Ex/mEx offer saved, subcortical and mask targets through the same control.
+  // Ex/mEx offer saved, subcortical, mask and network targets through the same control.
   await closeOptEditor(page);
   await pickMethod("Ex");
   dialog = await openOptEditor(page, optRows(page).first());
@@ -96,6 +96,7 @@ test("defect 1: the ROI type is the same control on the Optimizer and the Analyz
     "Saved",
     "Subcortical",
     "NIfTI mask",
+    "Network",
   ]);
   await expect(exPicker.locator(".radio-group, .radio-group-cards")).toHaveCount(0);
   await closeOptEditor(page);

@@ -669,6 +669,7 @@ def _pre_stage_output_dir(pm: PathManager, sid: str, stage: str) -> str:
         "G4": pm.qsiprep_subject(sid),
         "G5": pm.qsirecon_subject(sid),
         "G6": pm.m2m(sid),
+        "G7": pm.tractography(sid),
     }.get(stage, "")
 
 
@@ -699,6 +700,7 @@ def _plan_pre(
         "G4": preflight.STEP_QSIPREP,
         "G5": preflight.STEP_QSIRECON,
         "G6": preflight.STEP_DTI,
+        "G7": preflight.STEP_TRACTOGRAPHY,
     }
     planned = plan_preprocessing(config, subjects)
     jobs: list[PlanJob] = []
@@ -825,7 +827,9 @@ def _plan_tract(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob],
                 subject=sid,
                 output_dir=tract_dir,
                 exists=_dir_exists(tract_dir),
-                will_overwrite=any(os.path.isfile(p) for p in written),
+                # Under the Pre-processing page's skip policy an existing output is kept.
+                will_overwrite=not config.skip_existing
+                and any(os.path.isfile(p) for p in written),
             )
         )
     if "assess" in config.stages:

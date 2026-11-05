@@ -302,6 +302,13 @@ class PreprocessConfig:
     extract_dti : bool
         Fit the DTI tensor for SimNIBS anisotropic conductivity from QSIPrep
         output (DIPY; needs QSIPrep and charm).
+    run_tractography : bool
+        Track the whole brain and build the region connectome (stage ``G7``, a ``tract`` job,
+        needs QSIPrep output and charm).
+    tractography_atlas : str
+        Cortical annotation the streamline ends are labelled with.
+    tractography_seeds : int
+        Random seeds placed in white matter.
     skip_existing_outputs : bool
         Skip selected steps when their output already exists.
     replace_existing_outputs : bool
@@ -364,6 +371,9 @@ class PreprocessConfig:
     qsiprep_config: QSIPrepSettings | None = None
     qsi_recon_config: QSIReconSettings | None = None
     extract_dti: bool = False
+    run_tractography: bool = False
+    tractography_atlas: str = "DK40"
+    tractography_seeds: int = 200_000
     skip_existing_outputs: bool = False
     replace_existing_outputs: bool = False
 

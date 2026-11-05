@@ -123,6 +123,12 @@ test("the pane draws the listed edges and a click on a line toggles that edge", 
   });
   expect(pick).toEqual({ kind: "edge", index: 0 });
   await expect(page.getByTestId("scene-pane-atlas-locked")).toHaveText("Atlas: DK40");
+
+  // A real click on group 1, the unselected edge, adds it: the row is edited, its mask goes stale.
+  const canvas = await page.getByTestId("scene-canvas").boundingBox();
+  const at = await page.evaluate(() => window.__scene!.project([0, 0, 20]));
+  await page.mouse.click(canvas!.x + at.x, canvas!.y + at.y);
+  await expect(page.getByRole("button", { name: "Run search", exact: true })).toHaveAttribute("title", /Create the mask again/);
 });
 
 test("Results: ranking is an action, and every statistic is a column with none preferred", async () => {
@@ -152,3 +158,27 @@ async function openFirstExRun(target: Page): Promise<Locator> {
   await expect(ranking).toBeVisible();
   return ranking;
 }
+
+test("Pre-processing: Diffusion lists QSIPrep, DTI, Tractography, QSIRecon, and Tractography joins the run after QSIPrep", async () => {
+  await gotoPage(page, "preprocess");
+  const section = page.locator('[data-tier="1"]').filter({ hasText: "Diffusion" });
+  await expect(page.getByText("DWI (docker)")).toHaveCount(0);
+  await expect(section.getByRole("checkbox")).toHaveCount(4);
+  const labels = await section.getByRole("checkbox").evaluateAll((boxes) => boxes.map((box) => box.closest("label")?.textContent?.trim() ?? box.getAttribute("aria-label")));
+  expect(labels).toEqual(["QSIPrep", "Extract DTI tensor", "Tractography", "QSIRecon"]);
+
+  await page.getByRole("checkbox", { name: "QSIPrep" }).check();
+  await page.getByRole("checkbox", { name: "Tractography" }).check();
+  await page.getByTestId("open-tractography-config").click();
+  await expect(page.getByTestId("tractography-form").getByRole("combobox", { name: "Tractography atlas" })).toContainText("DK40");
+  await page.getByTestId("tractography-save").click();
+  const request = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
+  const response = page.waitForResponse((r) => r.url().endsWith("/api/jobs/groups"));
+  await page.getByRole("button", { name: /Run preprocessing|Queue/ }).click();
+  await page.getByTestId("existing-outputs-skip").click({ timeout: 3000 }).catch(() => undefined);
+  const body = (await request).postDataJSON();
+  expect(body.kind).toBe("pre");
+  expect(body.config).toMatchObject({ run_qsiprep: true, run_tractography: true, tractography_atlas: "DK40" });
+  // The page's three default steps, QSIPrep and Tractography: its one run, one job per stage.
+  expect((await (await response).json()).jobs).toHaveLength(5);
+});

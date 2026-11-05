@@ -21,10 +21,13 @@
     "run_qsiprep": false,
     "run_qsirecon": false,
     "run_tissue_analysis": false,
+    "run_tractography": false,
     "skip_existing_outputs": true,
     "subject_ids": [
       "001"
-    ]
+    ],
+    "tractography_atlas": "DK40",
+    "tractography_seeds": 200000
   },
   "flags": {
     "convert_dicom": true,
@@ -34,7 +37,8 @@
     "run_freesurfer": false,
     "run_qsiprep": false,
     "run_qsirecon": false,
-    "run_tissue_analysis": false
+    "run_tissue_analysis": false,
+    "run_tractography": false
   },
   "id": "defaults",
   "policy": "skip",

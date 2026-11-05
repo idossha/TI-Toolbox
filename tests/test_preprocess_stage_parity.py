@@ -33,6 +33,7 @@ DOCSTRING_GROUPS = (
     ("run_qsiprep", "G4"),
     ("run_qsirecon", "G5"),
     ("extract_dti", "G6"),
+    ("run_tractography", "G7"),
 )
 
 
@@ -54,7 +55,7 @@ def test_fixture_is_what_the_planner_plans_today() -> None:
 def test_every_flag_combination_is_its_set_flags_groups_in_docstring_order() -> None:
     entries = json.loads(FIXTURE.read_text())
     combos = {tuple(sorted(e["flags"].items())) for e in entries}
-    assert len(entries) == 256 and len(combos) == 256
+    assert len(entries) == 512 and len(combos) == 512
     for entry in entries:
         want = [group for flag, group in DOCSTRING_GROUPS if entry["flags"][flag]]
         assert entry["stages"] == want, entry["flags"]

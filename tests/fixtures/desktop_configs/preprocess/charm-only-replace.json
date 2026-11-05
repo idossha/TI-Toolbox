@@ -25,11 +25,14 @@
         "run_qsiprep": false,
         "run_qsirecon": false,
         "run_tissue_analysis": false,
+        "run_tractography": false,
         "skip_existing_outputs": false,
         "subject_ids": [
           "001",
           "002"
-        ]
+        ],
+        "tractography_atlas": "DK40",
+        "tractography_seeds": 200000
       },
       "kind": "pre",
       "subject_ids": [

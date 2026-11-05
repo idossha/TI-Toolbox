@@ -1,6 +1,6 @@
 """Write ``tests/fixtures/pre_stages.json``: the server planner's stage columns per flag combination.
 
-For each of the 256 combinations of ``PreprocessConfig``'s eight step flags, the ordered unique
+For each of the 512 combinations of ``PreprocessConfig``'s nine step flags, the ordered unique
 ``tags[0]`` of :func:`tit.jobs.plans.plan_preprocessing` for one subject -- the stage ids the
 Pre-processing page's plan matrix must show as columns (``plannedStageIds`` in
 ``desktop/src/renderer/pages/preprocess/index.tsx``). The planner is the source of truth; the
@@ -72,6 +72,7 @@ FLAGS = (
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti",
+    "run_tractography",
 )
 
 

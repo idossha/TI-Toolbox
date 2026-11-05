@@ -8569,6 +8569,13 @@ export interface components {
          *     extract_dti : bool
          *         Fit the DTI tensor for SimNIBS anisotropic conductivity from QSIPrep
          *         output (DIPY; needs QSIPrep and charm).
+         *     run_tractography : bool
+         *         Track the whole brain and build the region connectome (stage ``G7``, a ``tract`` job,
+         *         needs QSIPrep output and charm).
+         *     tractography_atlas : str
+         *         Cortical annotation the streamline ends are labelled with.
+         *     tractography_seeds : int
+         *         Random seeds placed in white matter.
          *     skip_existing_outputs : bool
          *         Skip selected steps when their output already exists.
          *     replace_existing_outputs : bool
@@ -8686,6 +8693,21 @@ export interface components {
              * @default false
              */
             extract_dti: boolean;
+            /**
+             * Run Tractography
+             * @default false
+             */
+            run_tractography: boolean;
+            /**
+             * Tractography Atlas
+             * @default DK40
+             */
+            tractography_atlas: string;
+            /**
+             * Tractography Seeds
+             * @default 200000
+             */
+            tractography_seeds: number;
             /**
              * Skip Existing Outputs
              * @default false
@@ -10129,6 +10151,8 @@ export interface components {
          *     Attributes:
          *         subject_id: Subject (without ``sub-``).
          *         stages: Any of :data:`STAGES`; run in that order.
+         *         skip_existing: A track or network stage whose output exists is skipped (a network only
+         *             when it was built with this atlas), the Pre-processing page's "skip" policy.
          */
         TractConfig: {
             /** Subject Id */
@@ -10139,6 +10163,11 @@ export interface components {
             network?: components["schemas"]["NetworkConfig"];
             assess?: components["schemas"]["AssessConfig"];
             target?: components["schemas"]["TargetConfig"];
+            /**
+             * Skip Existing
+             * @default false
+             */
+            skip_existing: boolean;
             /** @constant */
             _type: "TractConfig";
         };

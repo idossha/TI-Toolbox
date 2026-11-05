@@ -209,6 +209,8 @@ def test_every_stage_config_carries_the_users_choices(server, path):
         (kwargs,) = calls
         assert kwargs["subject_ids"] == [sid]
         for name, value in body.items():
+            if name.startswith(("run_tractography", "tractography_")):
+                continue  # not run_pipeline's: planned as its own `tract` stage (G7)
             assert kwargs[name] == value, (key, name)
 
 

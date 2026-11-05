@@ -42,6 +42,7 @@ const STEP_FLAGS = [
   "run_qsiprep",
   "run_qsirecon",
   "extract_dti",
+  "run_tractography",
 ] as const;
 type Flags = Partial<Record<(typeof STEP_FLAGS)[number], boolean>>;
 const NONE: Flags = Object.fromEntries(STEP_FLAGS.map((f) => [f, false]));

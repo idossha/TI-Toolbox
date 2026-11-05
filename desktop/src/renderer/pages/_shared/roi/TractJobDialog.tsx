@@ -1,6 +1,7 @@
 /**
- * The form of the `tract` job's first two stages, offered from Pre-processing and from a network
- * target's empty state. The atlas is chosen here: a network's regions are fixed when it is built.
+ * The Tractography step offered from a network target's empty state, the same `tract` job that
+ * Pre-processing plans as its stage G7. The atlas is chosen here: a network's regions are fixed
+ * when it is built.
  */
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -75,7 +76,7 @@ export function TractJobDialog({ open, onOpenChange, subjects }: {
     <Dialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Build the white-matter network"
+      title="Tractography"
       description={subjects.join(", ")}
       footer={
         <>
@@ -86,7 +87,7 @@ export function TractJobDialog({ open, onOpenChange, subjects }: {
         </>
       }
     >
-      <div className="form-grid form-grid--single" data-testid="tract-job-form">
+      <div data-testid="tract-job-form" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)", minWidth: 360 }}>
         <Field label="Atlas" help="Streamline ends are labelled with this cortical parcellation and the subject's subcortical labels. The network's regions are fixed when it is built.">
           <Select
             aria-label="Network atlas"

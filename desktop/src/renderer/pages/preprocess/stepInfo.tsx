@@ -58,7 +58,7 @@ export interface StepInfo {
   /** The `PreprocessConfig` flag this row toggles, or the section id for a header. */
   id: string;
   /** The `G1`-`G6` tag `tit/jobs/plans.py` emits. Absent on the two section headers. */
-  stage?: "G1" | "G2a" | "G2b" | "G2c" | "G3" | "G4" | "G5" | "G6";
+  stage?: "G1" | "G2a" | "G2b" | "G2c" | "G3" | "G4" | "G5" | "G6" | "G7";
   title: string;
   /** Mini-markdown (see `ui/HelpPopover`): one or two sentences on what the step does. */
   text: string;
@@ -80,6 +80,7 @@ const MEASURED_EMULATED_MIN: Record<string, number> = {
   G4: 120,
   G5: 60,
   G6: 6,
+  G7: 5,
 };
 
 const native = (stage: keyof typeof MEASURED_EMULATED_MIN) => (MEASURED_EMULATED_MIN[stage] ?? 0) / EMULATION_FACTOR;
@@ -107,13 +108,14 @@ export const STEP_INFO: Record<string, StepInfo> = {
   },
   dwi: {
     id: "dwi",
-    title: "DWI (docker)",
+    title: "Diffusion",
     text:
-      "Optional. Turns diffusion-weighted images into the anisotropic conductivity tensor SimNIBS can " +
-      "use instead of the isotropic default.\n\n" +
-      "QSIPrep runs in **its own container** (Docker socket access, x86-64 host only); the tensor is " +
-      "then fitted with DIPY from QSIPrep output and needs `charm`. QSIRecon is an optional extra " +
-      "for tractography, scalar maps and connectivity.",
+      "Optional. **QSIPrep** comes first: everything below it starts from its output. It runs in " +
+      "**its own container** (Docker socket access, x86-64 host only).\n\n" +
+      "From there, **Extract DTI tensor** fits the anisotropic conductivity tensor SimNIBS can use " +
+      "instead of the isotropic default, **Tractography** tracks the whole brain and builds the " +
+      "connectome the Optimizer's Network target chooses from, and **QSIRecon** is an optional extra " +
+      "for its own reconstructions. All but QSIRecon also need `charm`.",
     // Five columns at 640px leave ~100px each, so this row's labels are deliberately the short
     // forms — the long names live on the individual stage rows below.
     inputs: [{ label: "Raw DWI", path: "sub-<id>/dwi/" }],
@@ -250,24 +252,27 @@ export const STEP_INFO: Record<string, StepInfo> = {
     nativeMinutes: native("G5"),
     docsHref: DWI_DOCS,
   },
-  tract: {
-    id: "tract",
-    title: "White-matter network",
+  run_tractography: {
+    id: "run_tractography",
+    stage: "G7",
+    title: "Tractography",
     text:
-      "Tracks the whole brain from the QSIPrep diffusion data (constrained spherical deconvolution, " +
-      "probabilistic tracking constrained by charm's tissues), labels each streamline's two ends with " +
-      "an atlas and counts the streamlines between each pair of regions. The Optimizer's **Network** " +
-      "target chooses among these. Runs as its own job once QSIPrep output exists, for one or more " +
-      "selected subjects.",
+      "Tracks the whole brain from QSIPrep's preprocessed DWI (constrained spherical deconvolution, " +
+      "probabilistic tracking constrained by charm's tissues), then builds the **connectome**: it " +
+      "labels each streamline's two ends with an atlas and counts the streamlines between each pair " +
+      "of regions. The Optimizer's **Network** target chooses among these. **Configure…** sets the " +
+      "atlas and the number of seeds. It needs no QSIRecon.",
     inputs: [
       { label: "Preprocessed DWI", path: "derivatives/qsiprep/sub-<id>/" },
       { label: "Head model", path: "derivatives/SimNIBS/sub-<id>/m2m_<id>/" },
     ],
     process: [{ label: "tit.tract (DIPY)" }],
     outputs: [
-      { label: "Tractogram and network", path: "derivatives/SimNIBS/sub-<id>/tractography/" },
+      { label: "Tractogram", path: "derivatives/SimNIBS/sub-<id>/tractography/tractogram.trx" },
+      { label: "Connectome", path: "derivatives/SimNIBS/sub-<id>/tractography/network.npz" },
     ],
-    docsHref: `${DOCS_SITE}wiki/diffusion-processing/#white-matter-networks`,
+    nativeMinutes: native("G7"),
+    docsHref: `${DOCS_SITE}wiki/diffusion-processing/#tractography`,
   },
   extract_dti: {
     id: "extract_dti",

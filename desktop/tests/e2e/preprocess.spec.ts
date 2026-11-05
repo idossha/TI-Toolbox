@@ -302,6 +302,7 @@ test("a stage's (i) opens a click popover with the step's inputs → outputs dia
     "run_qsiprep",
     "run_qsirecon",
     "extract_dti",
+    "run_tractography",
   ]) {
     await expect(page.getByTestId(`step-help-${id}`), id).toBeVisible();
   }
@@ -351,6 +352,7 @@ const FLOW_IDS = [
   "run_qsiprep",
   "run_qsirecon",
   "extract_dti",
+  "run_tractography",
 ];
 
 test("every step's flow is aligned: one box size, one caption baseline, one arrow line", async () => {

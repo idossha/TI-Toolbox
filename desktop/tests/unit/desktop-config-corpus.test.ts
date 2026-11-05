@@ -534,7 +534,7 @@ function preCase(slug: string, title: string, flags: Record<string, boolean>, su
   const values = { ...defaultPreConfig(), ...flags };
   const config = toSubmitConfig(values, subjects, policy, undefined);
   const reason = subjectsBlockedReason(subjects, []) ?? (plannedSteps(values).length === 0 ? "Select at least one processing step." : null);
-  const stages = Object.entries({ convert_dicom: "G1", create_m2m: "G2a", run_fastsurfer: "G2b", run_freesurfer: "G2c", run_tissue_analysis: "G3", run_qsiprep: "G4", run_qsirecon: "G5", extract_dti: "G6" })
+  const stages = Object.entries({ convert_dicom: "G1", create_m2m: "G2a", run_fastsurfer: "G2b", run_freesurfer: "G2c", run_tissue_analysis: "G3", run_qsiprep: "G4", run_qsirecon: "G5", extract_dti: "G6", run_tractography: "G7" })
     .filter(([flag]) => (values as unknown as Record<string, boolean>)[flag])
     .map(([, tag]) => tag);
   return {
@@ -548,11 +548,12 @@ function preCase(slug: string, title: string, flags: Record<string, boolean>, su
 }
 
 function preprocessCases(): CorpusCase[] {
-  const none = { convert_dicom: false, create_m2m: false, run_fastsurfer: false, run_freesurfer: false, run_tissue_analysis: false, run_qsiprep: false, run_qsirecon: false, extract_dti: false };
+  const none = { convert_dicom: false, create_m2m: false, run_fastsurfer: false, run_freesurfer: false, run_tissue_analysis: false, run_qsiprep: false, run_qsirecon: false, extract_dti: false, run_tractography: false };
   return [
     preCase("defaults", "The page's default steps for one subject", {}, ["001"], "skip"),
     preCase("charm-only-replace", "Head model only, replacing existing outputs", { ...none, create_m2m: true }, ["001", "002"], "replace"),
     preCase("dwi-chain", "QSIPrep, QSIRecon and DTI extraction", { ...none, run_qsiprep: true, run_qsirecon: true, extract_dti: true }, ["001"], "skip"),
+    preCase("dwi-tractography", "QSIPrep and Tractography, QSIRecon off", { ...none, run_qsiprep: true, run_tractography: true }, ["001"], "skip"),
     preCase("no-steps", "No step ticked", none, ["001"], "skip"),
   ];
 }

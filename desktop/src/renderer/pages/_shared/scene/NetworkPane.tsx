@@ -68,7 +68,9 @@ export function NetworkPane({ subject, value, onChange, openMask }: {
       ? "Preparing this network's streamlines…"
       : listed > drawn.length
         ? `Showing the ${drawn.length} largest of ${listed} edges. A selected edge is always shown.`
-        : undefined;
+        : lines
+          ? "Click a region to add or remove a seed, or a line to select or clear its edge."
+          : "Click a region to add or remove a seed.";
 
   return (
     <div className="scene-pane-wrap" data-testid="scene-pane-wrap" data-target="network">

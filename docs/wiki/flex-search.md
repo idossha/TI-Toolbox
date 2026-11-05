@@ -57,7 +57,7 @@ The **Target** picker has four modes:
 - **Subcortical**: labels from a volumetric atlas in subject or MNI space, restricted to GM, WM or both.
 - **Spherical**: one or more spheres (X/Y/Z and radius, mm) in subject or MNI coordinates.
 - **NIfTI mask**: a local `.nii` / `.nii.gz`; positive voxels are the target, in subject or MNI space.
-- **Network**: edges of the subject's white-matter network, written to a mask and evaluated on white matter, in subject space. See [White-matter networks](diffusion-processing.md#white-matter-networks).
+- **Network**: edges of the subject's white-matter network, written to a mask and evaluated on white matter, in subject space. See [Tractography](diffusion-processing.md#tractography).
 
 A sphere is evaluated on the cortical surface unless **Volumetric evaluation** is checked. For a deep target (amygdala, hippocampus, thalamus) leave it unchecked and the sphere scores the overlying cortex instead of the structure, so check it and pick the tissue for anything off the cortical ribbon.
 

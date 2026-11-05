@@ -1477,8 +1477,10 @@ ranks are reported beside it, and `ranking.ex_run` names the run. It keeps a mas
 that selection rather than rewriting one an optimizer may be reading.
 
 **The `tract` job and route contract (additive to every other kind).** One job per subject.
-`TractConfig` = `{subject_id, stages, track, network, assess, target}`; `stages` is any of track,
-network, assess, target. Locks: `subject:<id>:tract` (write for track, network or target; read for
+`TractConfig` = `{subject_id, stages, track, network, assess, target, skip_existing}`; `stages` is any of
+track, network, assess, target. The Pre-processing page plans track + network as stage `G7` of its one
+run (`run_tractography`), after `G4` and `G2a`; the optimizer's empty state submits the same job
+directly. Locks: `subject:<id>:tract` (write for track, network or target; read for
 assess alone), `subject:<id>:m2m` read, `subject:<id>:sim:<sim>` write per assessed simulation, and,
 for a ranking, `subject:<id>:leadfields` and `subject:<id>:ex:<run>` read. A plan names
 `tractography/` and each `Simulations/<sim>/tract/`; replacing an existing output needs the job's

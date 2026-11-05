@@ -110,6 +110,9 @@ def main() -> None:
                 skip_existing_outputs=config.skip_existing_outputs,
                 replace_existing_outputs=config.replace_existing_outputs,
             )
+            if exit_code == 0 and config.run_tractography:
+                # Run from a script: the job route plans this as its own `tract` stage (G7).
+                _run_tractography(config)
             events.emit_result({"exit_code": exit_code})
     except PreprocessError as exc:
         logger.error(str(exc))
@@ -119,6 +122,19 @@ def main() -> None:
         events.emit_exit(exit_code)
 
     sys.exit(exit_code)
+
+
+def _run_tractography(config) -> None:
+    from tit.jobs.plans import _tractography_config
+    from tit.tract import run_network, run_track
+    from tit.tract.config import NetworkConfig, TrackConfig
+
+    for sid in config.subject_ids:
+        built = _tractography_config(config, sid)
+        built["track"].pop("_type", None)
+        built["network"].pop("_type", None)
+        run_track(sid, TrackConfig(**built["track"]))
+        run_network(sid, NetworkConfig(**built["network"]))
 
 
 if __name__ == "__main__":

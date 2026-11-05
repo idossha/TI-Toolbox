@@ -91,11 +91,11 @@ export function NetworkPanel({ value, onChange, subject, disabled }: {
         <Callout kind="info">
           No tractography for sub-{subject}.{" "}
           {canRun
-            ? "Build its white-matter network to target one."
-            : "It needs QSIPrep output first (Pre-processing page, DWI)."}
+            ? "Run tractography to target its network."
+            : "It needs QSIPrep output first (Pre-processing page, Diffusion)."}
         </Callout>
         <Button variant="secondary" size="sm" disabled={!canRun || disabled} onClick={() => setJobOpen(true)} data-testid="network-build">
-          Build network…
+          Run tractography…
         </Button>
         <TractJobDialog open={jobOpen} onOpenChange={setJobOpen} subjects={[subject]} />
       </div>

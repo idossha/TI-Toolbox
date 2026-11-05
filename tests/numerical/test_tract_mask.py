@@ -34,8 +34,9 @@ class _Pm:
 
 
 def _bundle(y):
+    # No coordinate is a half-voxel tie on the 2 mm grid, where rint and DIPY's rounding differ.
     return np.column_stack(
-        [np.arange(2.0, 8.0, 0.5), np.full(12, float(y)), np.full(12, 5.0)]
+        [np.arange(2.1, 8.0, 0.5), np.full(12, float(y)), np.full(12, 6.0)]
     ).astype(np.float32)
 
 
