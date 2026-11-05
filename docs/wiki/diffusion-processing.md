@@ -151,3 +151,60 @@ QSIPrep and QSIRecon run as sibling Docker containers spawned from the TI-Toolbo
 
 - [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)
 - [Simulator]({{ site.baseurl }}/wiki/simulator/) — anisotropic conductivity
+
+## White-matter networks
+
+From QSIPrep output, TI-Toolbox can build a white-matter network for a subject and target it in the
+optimizers. On the **Pre-processing** page, under **DWI (docker)**, **White-matter network** opens
+the job for the selected subjects; the Optimizer's **Network** target offers the same job when a
+subject has none.
+
+The job tracks the whole brain (constrained spherical deconvolution, probabilistic tracking, with
+charm's tissues constraining where a streamline may go), labels each streamline's two ends with an
+atlas you choose (DK40 by default, plus the subject's subcortical labels) and counts the streamlines
+between each pair of regions. Each such pair is an **edge**. The outputs are in
+`derivatives/SimNIBS/sub-<id>/tractography/`. A count depends on the tractography and is not a
+connection strength.
+
+### Targeting a network
+
+In an Optimizer row (flex-search, ex-search or mEx-search), set **Target** to **Network**:
+
+1. **Seed regions.** Click cortical regions in the 3D pane, or choose any region in the list.
+2. **Edges.** The table lists every edge touching a seed, with `n` (its streamlines) and `share`
+   (their fraction of all labelled streamlines). Each row's swatch is the colour of its streamlines
+   in the 3D pane, where clicking a line selects that edge. The pane draws up to 64 edges, each
+   up to 100 streamlines drawn uniformly. An edge below **Minimum streamlines per edge** (default 5)
+   stays listed and cannot be chosen.
+3. **Mask.** Name it, set the **Voxel density threshold** (a voxel is in the mask when at least this
+   many of the chosen streamlines cross it) and press **Create mask**. It is written to
+   `m2m_<id>/masks/tract-<name>.nii.gz`, with a `.json` beside it recording the selection.
+
+A network target is always in subject space, and flex-search evaluates it on white matter. Changing
+the selection after creating a mask disables **Run** until you create the mask again. A mask made
+before its tractogram or network was rebuilt is refused when you run, with the same instruction.
+
+### Ranking an ex-search run on a network
+
+On the **Results** page, a two-channel ex-search run has **Rank on a network**: choose one of the
+subject's current network masks and how many of the run's montages to score, then press **Rank
+montages**. This is a separate job. The table reports for each montage, side by side: the median over
+streamlines of each streamline's mean, and the mean over all points, of the TI envelope along the
+fibre (`ti_along`), of `TI_max` (`ti_max`) and of the random-direction average (`ti_avg`); the
+alignment index (`ti_along / ti_avg`, median over streamlines); and its rank by `ti_along` and by
+`ti_max`. These are field descriptors, not activation predictions, and none is marked as preferred.
+Select a column to sort by it.
+
+### Scripting
+
+The same steps run from a config, one job per subject:
+
+```python
+from tit.tract import NetworkConfig, Selection, TargetConfig, TractConfig
+# simnibs_python -m tit.tract config.json runs the stages a TractConfig names, in order:
+# track, network, assess (TI fields on the streamlines of a simulation), target.
+```
+
+Assessing simulations and rendering their streamlines are covered in
+[3D Visual Exporter](blender.md).
+

@@ -1,0 +1,11 @@
+{
+  "kind": "tract",
+  "config": {
+    "_type": "TractConfig",
+    "subject_id": "101",
+    "stages": ["track", "network"],
+    "track": { "overwrite": false },
+    "network": { "atlas": "DK40" }
+  },
+  "subject_ids": ["101"]
+}

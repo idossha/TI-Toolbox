@@ -3,7 +3,7 @@
   "info": {
     "title": "TI-Toolbox job server (tit.server)",
     "version": "1.0.0",
-    "description": "The contract of record for the v3 Electron GUI -- the only hand-written API contract in the repository (the real server's own OpenAPI document must be a superset of it; CI gate `dev/contracts_check.py`). It covers the job engine, catalog CRUD, ViewSpec viewers, jailed file access, validate/plan preflight, settings, the `/ws/jobs` live-job stream, and the Phase-0 skeleton routes it grew out of. Auth: the launcher passes `?token=<TIT_SERVER_TOKEN>` exactly once; the server mints a random session id (never the token), keeps it in memory, sets it as an HttpOnly, SameSite=Strict `tit_session` cookie and redirects to `/`. A server restart forgets every session (401 -> back to the launcher). API routes accept either that cookie or `Authorization: Bearer <token>` (scripts). Unauthenticated requests to any route other than `/api/health` and `/auth/session` get 401. `POST /auth/logout` forgets the session and clears the cookie.\nConfig request bodies (`config` fields below) are `dict[str, Any]`, validated server-side with `tit.config_io.deserialize_config`. Their real shapes are the `contracts/generated/config.schema.json` `$defs` (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `AnalyzerConfig`, `PreprocessConfig`, `QSIPrepConfig`, `QSIReconConfig`, `GroupComparisonConfig`, `CorrelationConfig`, `SourceConfig`, `LeadfieldConfig`, `MontageConfig`, `VectorConfig`, `RegionConfig`) merged into this document's `components.schemas` by `dev/build_contract.py`, which replaces every schema below carrying `x-tit-config` with the generated one. Until that merge runs, each is a permissive placeholder (`additionalProperties: true`) so the frontend can build against `openapi-typescript` output today.\nEvents: one line of `<job>/events.jsonl` is one `Event` object; `contracts/events.schema.json` is the standalone JSON Schema 2020-12 for that line and mirrors the `Event` component here.\n`/ws/jobs`: a client connects once and multiplexes every job it cares about over one socket. Client -> server messages are a `JobsWsClientMessage`: `{\"subscribe\": {\"<job_id>\": <since_seq>}}` to start (or resume, from `since_seq` inclusive) streaming a job's events, or `{\"unsubscribe\": [\"<job_id>\", ...]}` to stop. Server -> client messages are a `JobsWsServerMessage`: `{\"type\": \"job\", \"job\": <JobStatus>}` is pushed for *every* job on every state transition (queued/running/succeeded/... ) regardless of subscription, so the jobs rail can render every live job without subscribing to each one individually; `{\"type\": \"event\", \"job_id\": \"...\", \"event\": <Event>}` is pushed only for jobs the client has subscribed to, in `seq` order, starting at `since_seq` itself (`since_seq: 0` replays the whole log); `{\"type\": \"proposal\", \"proposal\": <Proposal>}` is pushed whenever an agent proposal is created, edited, decided or advances. Auth via the `tit_session` cookie or `?token=` (checked once at connect, same-origin rule as `/ws/system`).\nPath parameters are named `id` uniformly wherever this document has one resource-scoped path (`/api/jobs/{id}`, `/api/jobs/{id}/...`, `/api/files/report/{id}`) even though the server's own route functions use kind-specific parameter names internally (`job_id`, `report_id`) for readability; `dev/contracts_check.py` normalises `{id}` / `{job_id}` / `{report_id}` as the same parameter when comparing this contract against a live `--dump-openapi`, so that internal naming difference is never reported as drift.\n`/ws/jobs` and `/ws/system` are required in this document (they are real, documented routes) but are exempt from the `--dump-openapi` superset check: FastAPI does not describe WebSocket routes in its generated OpenAPI document at all, so a dump can never \"contain\" them regardless of whether the server implements them correctly.\nResponse codes 401 (no/invalid session or token), 403 (path escapes the project's file jail), and 404 (unknown resource) are implied by this global auth/jail note for every protected route and are not repeated on every operation below (nor required in the `--dump-openapi` superset check, which treats them as covered by this note rather than requiring FastAPI to have documented an explicit response model for each). Each tag's own description below repeats this in one line as the router-level pointer back to this paragraph.\n`info.version` is the contract's own version, bumped when this document's shape changes; the live server's `/api/version.tit_version` is the installed `tit` package version at build time (e.g. \"2.4.0\") and will normally differ from it -- that is expected, not drift, and is not checked by `dev/contracts_check.py` (which only compares `paths` and `components.schemas`)."
+    "description": "The contract of record for the v3 Electron GUI -- the only hand-written API contract in the repository (the real server's own OpenAPI document must be a superset of it; CI gate `dev/contracts_check.py`). It covers the job engine, catalog CRUD, ViewSpec viewers, jailed file access, validate/plan preflight, settings, the `/ws/jobs` live-job stream, and the Phase-0 skeleton routes it grew out of. Auth: the launcher passes `?token=<TIT_SERVER_TOKEN>` exactly once; the server mints a random session id (never the token), keeps it in memory, sets it as an HttpOnly, SameSite=Strict `tit_session` cookie and redirects to `/`. A server restart forgets every session (401 -> back to the launcher). API routes accept either that cookie or `Authorization: Bearer <token>` (scripts). Unauthenticated requests to any route other than `/api/health` and `/auth/session` get 401. `POST /auth/logout` forgets the session and clears the cookie.\nConfig request bodies (`config` fields below) are `dict[str, Any]`, validated server-side with `tit.config_io.deserialize_config`. Their real shapes are the `contracts/generated/config.schema.json` `$defs` (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `AnalyzerConfig`, `PreprocessConfig`, `QSIPrepConfig`, `QSIReconConfig`, `GroupComparisonConfig`, `CorrelationConfig`, `SourceConfig`, `TractConfig`, `LeadfieldConfig`, `MontageConfig`, `VectorConfig`, `RegionConfig`) merged into this document's `components.schemas` by `dev/build_contract.py`, which replaces every schema below carrying `x-tit-config` with the generated one. Until that merge runs, each is a permissive placeholder (`additionalProperties: true`) so the frontend can build against `openapi-typescript` output today.\nEvents: one line of `<job>/events.jsonl` is one `Event` object; `contracts/events.schema.json` is the standalone JSON Schema 2020-12 for that line and mirrors the `Event` component here.\n`/ws/jobs`: a client connects once and multiplexes every job it cares about over one socket. Client -> server messages are a `JobsWsClientMessage`: `{\"subscribe\": {\"<job_id>\": <since_seq>}}` to start (or resume, from `since_seq` inclusive) streaming a job's events, or `{\"unsubscribe\": [\"<job_id>\", ...]}` to stop. Server -> client messages are a `JobsWsServerMessage`: `{\"type\": \"job\", \"job\": <JobStatus>}` is pushed for *every* job on every state transition (queued/running/succeeded/... ) regardless of subscription, so the jobs rail can render every live job without subscribing to each one individually; `{\"type\": \"event\", \"job_id\": \"...\", \"event\": <Event>}` is pushed only for jobs the client has subscribed to, in `seq` order, starting at `since_seq` itself (`since_seq: 0` replays the whole log); `{\"type\": \"proposal\", \"proposal\": <Proposal>}` is pushed whenever an agent proposal is created, edited, decided or advances. Auth via the `tit_session` cookie or `?token=` (checked once at connect, same-origin rule as `/ws/system`).\nPath parameters are named `id` uniformly wherever this document has one resource-scoped path (`/api/jobs/{id}`, `/api/jobs/{id}/...`, `/api/files/report/{id}`) even though the server's own route functions use kind-specific parameter names internally (`job_id`, `report_id`) for readability; `dev/contracts_check.py` normalises `{id}` / `{job_id}` / `{report_id}` as the same parameter when comparing this contract against a live `--dump-openapi`, so that internal naming difference is never reported as drift.\n`/ws/jobs` and `/ws/system` are required in this document (they are real, documented routes) but are exempt from the `--dump-openapi` superset check: FastAPI does not describe WebSocket routes in its generated OpenAPI document at all, so a dump can never \"contain\" them regardless of whether the server implements them correctly.\nResponse codes 401 (no/invalid session or token), 403 (path escapes the project's file jail), and 404 (unknown resource) are implied by this global auth/jail note for every protected route and are not repeated on every operation below (nor required in the `--dump-openapi` superset check, which treats them as covered by this note rather than requiring FastAPI to have documented an explicit response model for each). Each tag's own description below repeats this in one line as the router-level pointer back to this paragraph.\n`info.version` is the contract's own version, bumped when this document's shape changes; the live server's `/api/version.tit_version` is the installed `tit` package version at build time (e.g. \"2.4.0\") and will normally differ from it -- that is expected, not drift, and is not checked by `dev/contracts_check.py` (which only compares `paths` and `components.schemas`)."
   },
   "servers": [
     {
@@ -5012,6 +5012,332 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          }
+        }
+      }
+    },
+    "/api/tract/manifest": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "Whether a subject has a network to target, and its regions",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The manifest; `available` false when the job has not run.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractManifest"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "The project has no such subject."
+          }
+        }
+      }
+    },
+    "/api/tract/edges": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "Every edge touching any seed region, most streamlines first",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "seed",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 500,
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The edges. `edge_id` is transient; it renumbers when the network is rebuilt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractEdges"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No such subject, or no network yet."
+          },
+          "422": {
+            "description": "A seed the network does not name."
+          }
+        }
+      }
+    },
+    "/api/tract/streamlines": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "A bounded subsample of the given edges' streamlines as TVSL1 binary",
+        "description": "At most 64 edges, each at most 100 streamlines drawn uniformly, about one point per 2 mm. `group` of a streamline is the position of its edge in the `pair` list. A cold cache answers 202 and the client polls.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pair",
+            "required": true,
+            "description": "`region_a|region_b`, repeated.",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          {
+            "in": "query",
+            "name": "wait",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "default": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TVSL1 bytes (`tit/scene/tvsl.py`).",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Cold cache; poll after Retry-After."
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No such subject, or no network yet."
+          },
+          "422": {
+            "description": "An unknown region or pair, or more than 64 pairs."
+          }
+        }
+      }
+    },
+    "/api/tract/mask": {
+      "post": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "Write the tract-density mask of the given region pairs",
+        "description": "Writes `m2m_<id>/masks/tract-<name>.nii.gz` and its `.json` sidecar (selection, counts, fingerprint). Region-name pairs, never edge ids or client paths.",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TractMaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The mask.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractMask"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "No such subject, or no network yet."
+          },
+          "409": {
+            "description": "A mask of this name exists and `overwrite` is false."
+          },
+          "422": {
+            "description": "Bad name, unknown region or pair, an edge below `min_n`, or an empty mask."
+          }
+        }
+      }
+    },
+    "/api/tract/masks": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "This subject's masks made from its network",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The masks; `stale` when the network was rebuilt since.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractMasks"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "The project has no such subject."
+          }
+        }
+      }
+    },
+    "/api/tract/rankings": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "Montage rankings of an ex-search run on this subject's networks",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "subject",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "ex_run",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every ranking made from this run; every statistic side by side.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractRankings"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "The project has no such subject."
           }
         }
       }
@@ -10563,6 +10889,7 @@
           "analyzer",
           "stats",
           "source",
+          "tract",
           "blender",
           "nifti_average",
           "nilearn"
@@ -10835,6 +11162,7 @@
           "analyzer",
           "stats",
           "source",
+          "tract",
           "blender",
           "nifti_average",
           "nilearn",
@@ -11247,7 +11575,8 @@
               "flex_adaptive",
               "flex_pareto",
               "ex",
-              "mex"
+              "mex",
+              "tract"
             ],
             "description": "Every kind that runs one independent job per subject. The whole group is created queued and runs one job at a time: the scheduler runs one job per product (Preprocess, Simulator, Optimizer, Analyzer) whatever was submitted. A `parallel_subjects` field sent by an older client is ignored. `pre` expands into the per-subject G1-G6 stage DAG (tit.jobs.plans.plan_preprocessing) -- the charm and DTI reports are written by their own stage jobs, never a job of their own; the others expand into one job per (subject, config) entry (tit.jobs.plans.plan_per_subject). Cohort kinds (a grouped `analyzer` run, `stats`) are one job over the whole selection and are submitted through POST /api/jobs instead."
           },
@@ -15037,6 +15366,379 @@
         "type": "object",
         "additionalProperties": false
       },
+      "TractConfig": {
+        "description": "One ``tit.tract`` run for one subject.\n\nAttributes:\n    subject_id: Subject (without ``sub-``).\n    stages: Any of :data:`STAGES`; run in that order.",
+        "properties": {
+          "subject_id": {
+            "title": "Subject Id",
+            "type": "string"
+          },
+          "stages": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "track": {
+            "$ref": "#/components/schemas/TrackConfig"
+          },
+          "network": {
+            "$ref": "#/components/schemas/NetworkConfig"
+          },
+          "assess": {
+            "$ref": "#/components/schemas/AssessConfig"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TargetConfig"
+          },
+          "_type": {
+            "const": "TractConfig"
+          }
+        },
+        "required": [
+          "subject_id",
+          "_type"
+        ],
+        "title": "TractConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TractRegion": {
+        "type": "object",
+        "required": [
+          "name",
+          "cortical"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "cortical": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TractManifest": {
+        "type": "object",
+        "required": [
+          "available",
+          "qsiprep_available",
+          "tractogram_available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "qsiprep_available": {
+            "type": "boolean"
+          },
+          "tractogram_available": {
+            "type": "boolean"
+          },
+          "atlas": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "n_streamlines": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "n_edges": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "frac_both_ends_assigned": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "qc_passed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "fingerprint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "regions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractRegion"
+            }
+          }
+        }
+      },
+      "TractEdge": {
+        "type": "object",
+        "required": [
+          "edge_id",
+          "region_a",
+          "region_b",
+          "n",
+          "share"
+        ],
+        "properties": {
+          "edge_id": {
+            "type": "integer"
+          },
+          "region_a": {
+            "type": "string"
+          },
+          "region_b": {
+            "type": "string"
+          },
+          "n": {
+            "type": "integer"
+          },
+          "share": {
+            "type": "number"
+          }
+        }
+      },
+      "TractEdges": {
+        "type": "object",
+        "required": [
+          "edges"
+        ],
+        "properties": {
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractEdge"
+            }
+          }
+        }
+      },
+      "TractMaskRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "subject",
+          "name",
+          "pairs"
+        ],
+        "properties": {
+          "subject": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "pairs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5000,
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "min_count": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 1
+          },
+          "min_n": {
+            "type": "integer",
+            "minimum": 1,
+            "default": 5
+          },
+          "overwrite": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "TractMask": {
+        "type": "object",
+        "required": [
+          "name",
+          "path",
+          "fingerprint",
+          "stale",
+          "pairs",
+          "min_count",
+          "n_edges",
+          "n_streamlines",
+          "n_voxels",
+          "volume_mm3"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "pairs": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "min_count": {
+            "type": "integer"
+          },
+          "n_edges": {
+            "type": "integer"
+          },
+          "n_streamlines": {
+            "type": "integer"
+          },
+          "n_voxels": {
+            "type": "integer"
+          },
+          "volume_mm3": {
+            "type": "number"
+          }
+        }
+      },
+      "TractMasks": {
+        "type": "object",
+        "required": [
+          "masks"
+        ],
+        "properties": {
+          "masks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractMask"
+            }
+          }
+        }
+      },
+      "TractRankingMontage": {
+        "type": "object",
+        "required": [
+          "montage",
+          "median_sl_mean_ti_along",
+          "pooled_mean_ti_along",
+          "median_sl_mean_ti_max",
+          "pooled_mean_ti_max",
+          "median_sl_mean_ti_avg",
+          "pooled_mean_ti_avg",
+          "align_index",
+          "rank_by_ti_along",
+          "rank_by_ti_max"
+        ],
+        "properties": {
+          "montage": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "median_sl_mean_ti_along": {
+            "type": "number"
+          },
+          "pooled_mean_ti_along": {
+            "type": "number"
+          },
+          "median_sl_mean_ti_max": {
+            "type": "number"
+          },
+          "pooled_mean_ti_max": {
+            "type": "number"
+          },
+          "median_sl_mean_ti_avg": {
+            "type": "number"
+          },
+          "pooled_mean_ti_avg": {
+            "type": "number"
+          },
+          "align_index": {
+            "type": "number"
+          },
+          "rank_by_ti_along": {
+            "type": "integer"
+          },
+          "rank_by_ti_max": {
+            "type": "integer"
+          }
+        }
+      },
+      "TractRanking": {
+        "type": "object",
+        "required": [
+          "name",
+          "ex_run",
+          "n_streamlines",
+          "current_mA",
+          "n_points",
+          "n_points_in_leadfield_mesh",
+          "montages"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "ex_run": {
+            "type": "string"
+          },
+          "n_streamlines": {
+            "type": "integer"
+          },
+          "current_mA": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "n_points": {
+            "type": "integer"
+          },
+          "n_points_in_leadfield_mesh": {
+            "type": "integer"
+          },
+          "montages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractRankingMontage"
+            }
+          }
+        }
+      },
+      "TractRankings": {
+        "type": "object",
+        "required": [
+          "rankings"
+        ],
+        "properties": {
+          "rankings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractRanking"
+            }
+          }
+        }
+      },
       "PipelineConfig": {
         "description": "Union of every config dataclass a job/validate/plan \"config\" body can carry. The real discriminant is the `kind`/path parameter alongside it, not a field on the object itself; this union exists so generated TS types cover every shape before dev/build_contract.py replaces each placeholder member with its generated schema.",
         "oneOf": [
@@ -15075,6 +15777,9 @@
           },
           {
             "$ref": "#/components/schemas/SourceConfig"
+          },
+          {
+            "$ref": "#/components/schemas/TractConfig"
           },
           {
             "$ref": "#/components/schemas/LeadfieldConfig"
@@ -16449,6 +17154,312 @@
           "simulation_name"
         ],
         "title": "NilearnSubjectSimulation",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "AssessConfig": {
+        "description": "TI fields along streamlines (the ``assess`` stage).\n\nAttributes:\n    simulations: Simulation folder names under ``Simulations/``.\n    selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.\n        Edges, connectomes and per-streamline metrics always cover every streamline.\n    step_mm: Uniform arc-length step the streamlines are resampled to before sampling.\n        The activating function converges once the step is at most a quarter of\n        ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).\n    af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is\n        smoothed over before differentiating (a piecewise-constant field has no\n        pointwise derivative at a finite scale otherwise).\n    thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.\n    profile_points: Nodes of the along-tract profiles.\n    min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``\n        ranking in ``summary.json`` (they stay in every raw output).",
+        "properties": {
+          "simulations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Simulations",
+            "type": "array"
+          },
+          "selections": {
+            "items": {
+              "$ref": "#/components/schemas/Selection"
+            },
+            "title": "Selections",
+            "type": "array"
+          },
+          "step_mm": {
+            "default": 0.5,
+            "title": "Step Mm",
+            "type": "number"
+          },
+          "af_scale_mm": {
+            "default": 2.0,
+            "title": "Af Scale Mm",
+            "type": "number"
+          },
+          "thresholds": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Thresholds",
+            "type": "array"
+          },
+          "profile_points": {
+            "default": 100,
+            "title": "Profile Points",
+            "type": "integer"
+          },
+          "min_streamlines": {
+            "default": 5,
+            "title": "Min Streamlines",
+            "type": "integer"
+          }
+        },
+        "title": "AssessConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "Selection": {
+        "description": "A named subset of the whole-brain tractogram.\n\nAttributes:\n    name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.\n    kind: ``\"all\"``; ``\"between\"`` (one end in ``regions[0]``, the other in\n        ``regions[1]``); ``\"edges\"`` (the union of the region pairs in ``pairs``);\n        ``\"from\"`` (either end in any of ``regions``); ``\"through\"``\n        (any point inside ``mask_path``, or inside label ``label`` of it);\n        ``\"to_cortex\"`` (one end in any of ``regions``, the other in a cortical label:\n        ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);\n        ``\"top_edges\"`` (the ``k`` edges of ``regions[0]`` with most streamlines).\n    regions: Region names as the network stage names them (``\"lh.insula\"`` for a\n        cortical annotation label, the label table name such as ``\"Left-Thalamus-Proper\"``\n        for a volume label).\n    mask_path: NIfTI in m2m T1 space, for ``\"through\"``.\n    label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.\n    k: Edge count for ``\"top_edges\"``.\n    pairs: Region-name pairs ``[[a, b], ...]`` for ``\"edges\"``; order inside a pair does\n        not matter. Names, not edge ids: ids renumber when the network is rebuilt.",
+        "properties": {
+          "name": {
+            "default": "all",
+            "title": "Name",
+            "type": "string"
+          },
+          "kind": {
+            "default": "all",
+            "enum": [
+              "all",
+              "between",
+              "edges",
+              "from",
+              "through",
+              "to_cortex",
+              "top_edges"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "regions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Regions",
+            "type": "array"
+          },
+          "mask_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Mask Path"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label"
+          },
+          "k": {
+            "default": 5,
+            "title": "K",
+            "type": "integer"
+          },
+          "pairs": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Pairs",
+            "type": "array"
+          }
+        },
+        "title": "Selection",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "NetworkConfig": {
+        "description": "Endpoint-to-region association (the ``network`` stage).\n\nAttributes:\n    atlas: Cortical annotation name in ``m2m/segmentation`` (``\"DK40\"`` ->\n        ``lh.<sid>_DK40.annot``). Without annotations every region comes from the\n        label volume.\n    label_volume: Volume atlas for subcortical (and, without annotations, cortical)\n        labels; default: charm ``segmentation/labeling.nii.gz``, else FastSurfer\n        ``aparc.DKTatlas+aseg.deep.nii.gz``.\n    surface: m2m surface the annotation labels sit on (``central``, ``white``, ``pial``).\n    radius_mm: An endpoint takes the nearest labelled vertex or voxel within this\n        distance, else it is unassigned (-1).",
+        "properties": {
+          "atlas": {
+            "default": "DK40",
+            "title": "Atlas",
+            "type": "string"
+          },
+          "label_volume": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Label Volume"
+          },
+          "surface": {
+            "default": "central",
+            "title": "Surface",
+            "type": "string"
+          },
+          "radius_mm": {
+            "default": 3.0,
+            "title": "Radius Mm",
+            "type": "number"
+          }
+        },
+        "title": "NetworkConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TargetConfig": {
+        "description": "Tract-density ROI and direction-aware ranking (the ``target`` stage).\n\nAttributes:\n    selection: The bundle the mask is made from.\n    min_count: Voxels crossed by at least this many streamlines are in the mask.\n    leadfield_hdf: Leadfield for the ranking (name under ``leadfields/`` or a path);\n        ``None`` skips the ranking.\n    ex_run: ex-search run whose ``final_output.csv`` montages are ranked.\n    montages: Explicit montages ``[e1+, e1-, e2+, e2-]`` to rank.\n    pool: Electrodes whose every two-pair montage is ranked.\n    top_n: Montages read from ``ex_run`` (its top rows by composite index).\n    current_mA: Channel currents for the ranking.",
+        "properties": {
+          "selection": {
+            "$ref": "#/components/schemas/Selection"
+          },
+          "min_count": {
+            "default": 1,
+            "title": "Min Count",
+            "type": "integer"
+          },
+          "leadfield_hdf": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Leadfield Hdf"
+          },
+          "ex_run": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ex Run"
+          },
+          "montages": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Montages",
+            "type": "array"
+          },
+          "pool": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Pool",
+            "type": "array"
+          },
+          "top_n": {
+            "default": 20,
+            "title": "Top N",
+            "type": "integer"
+          },
+          "current_mA": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Current Ma",
+            "type": "array"
+          }
+        },
+        "title": "TargetConfig",
+        "type": "object",
+        "additionalProperties": false
+      },
+      "TrackConfig": {
+        "description": "Whole-brain tractography (the ``track`` stage).\n\nQSIPrep-preprocessed DWI, single-shell CSD on b0 + one shell, ACT on charm\ntissues, DIPY probabilistic tracking. A subject without QSIPrep output is refused.\n\nAttributes:\n    pmf_threshold: Fibre-ODF values below this fraction are not followed.\n    n_seeds: Random seeds placed in white matter.\n    step_mm: Tracking step.\n    max_angle: Maximum turning angle per step, degrees.\n    min_length_mm, max_length_mm: Streamline length window.\n    sh_order: CSD spherical-harmonic order.\n    shell: CSD shell b-value; ``None`` = the shell closest to b3000 among shells with\n        >= 30 directions (``tracking.pick_shell``).\n    random_seed: Tracking and seeding RNG seed (> 0 is reproducible).\n    n_jobs: Worker threads/processes; ``-1`` = the job CPU budget.\n    flip_test: Run the 8 gradient-axis-flip frame check (coherence with the DTI V1).\n    export_acpc_tck: Also write ``tractogram_acpc.tck`` in QSIPrep ACPC world.\n    overwrite: Replace an existing tractogram.",
+        "properties": {
+          "pmf_threshold": {
+            "default": 0.1,
+            "title": "Pmf Threshold",
+            "type": "number"
+          },
+          "n_seeds": {
+            "default": 200000,
+            "title": "N Seeds",
+            "type": "integer"
+          },
+          "step_mm": {
+            "default": 0.5,
+            "title": "Step Mm",
+            "type": "number"
+          },
+          "max_angle": {
+            "default": 30.0,
+            "title": "Max Angle",
+            "type": "number"
+          },
+          "min_length_mm": {
+            "default": 20.0,
+            "title": "Min Length Mm",
+            "type": "number"
+          },
+          "max_length_mm": {
+            "default": 250.0,
+            "title": "Max Length Mm",
+            "type": "number"
+          },
+          "sh_order": {
+            "default": 8,
+            "title": "Sh Order",
+            "type": "integer"
+          },
+          "shell": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Shell"
+          },
+          "random_seed": {
+            "default": 1,
+            "title": "Random Seed",
+            "type": "integer"
+          },
+          "n_jobs": {
+            "default": -1,
+            "title": "N Jobs",
+            "type": "integer"
+          },
+          "flip_test": {
+            "default": true,
+            "title": "Flip Test",
+            "type": "boolean"
+          },
+          "export_acpc_tck": {
+            "default": true,
+            "title": "Export Acpc Tck",
+            "type": "boolean"
+          },
+          "overwrite": {
+            "default": false,
+            "title": "Overwrite",
+            "type": "boolean"
+          }
+        },
+        "title": "TrackConfig",
         "type": "object",
         "additionalProperties": false
       }

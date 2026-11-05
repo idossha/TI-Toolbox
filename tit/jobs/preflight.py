@@ -194,6 +194,44 @@ def _subject_atlas_files(
     ] + _atlas_files([p for p in paths if p not in foreign], what, fix)
 
 
+def _stale_tract_masks(
+    pm: PathManager, sid: str, roi: dict[str, Any]
+) -> list[MissingInput]:
+    """A network mask whose tractogram or network was rebuilt since it was made.
+
+    The mask still exists and still loads, so nothing downstream would notice that it no longer
+    describes this subject's network. A mask with no sidecar (made by hand) has nothing to check,
+    and neither has a mask whose neighbouring ``.json`` is not ours (a BIDS sidecar, say).
+    """
+    names = [
+        p
+        for p in dict.fromkeys(_as_list(roi.get("atlas_path")))
+        if isinstance(p, str) and Path(p).name.startswith("tract-")
+    ]
+    if not names:
+        return []
+    from tit.tract.network import network_fingerprint
+    from tit.tract.target import read_mask_sidecar
+
+    out = []
+    for path in names:
+        if _not_own(pm, sid, path):
+            continue
+        record = read_mask_sidecar(path) or {}
+        if "fingerprint" in record and record["fingerprint"] != network_fingerprint(
+            pm, sid
+        ):
+            out.append(
+                MissingInput(
+                    f"a network mask made from sub-{sid}'s current tractogram and network",
+                    path,
+                    "The tractogram or network was rebuilt after this mask was made. "
+                    "Create the mask again (Target, Network).",
+                )
+            )
+    return out
+
+
 def _subject_ids(config: dict[str, Any]) -> list[str]:
     sid = config.get("subject_id")
     if isinstance(sid, str) and sid:
@@ -348,6 +386,7 @@ def _check_flex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
             missing.extend(
                 _subject_atlas_files(pm, sid, roi, f"{label} atlas/mask file")
             )
+            missing.extend(_stale_tract_masks(pm, sid, roi))
     return missing
 
 
@@ -477,6 +516,7 @@ def _check_ex(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
             missing.extend(
                 _subject_atlas_files(pm, sid, entry, f"roi_atlas[{i}] atlas/mask file")
             )
+            missing.extend(_stale_tract_masks(pm, sid, entry))
     sym = config.get("symmetry_eeg_csv")
     if isinstance(sym, str) and sym and not Path(sym).is_file():
         missing.append(
@@ -879,6 +919,81 @@ def _check_source(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]
     return missing
 
 
+# -- tract -----------------------------------------------------------------------------------
+
+
+def _check_tract(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
+    sid = config.get("subject_id")
+    if not isinstance(sid, str) or not sid:
+        return []
+    missing = _head_model(pm, sid)
+    if missing:
+        return missing
+    stages = config.get("stages") or ("track", "network", "assess")
+    tract_dir = Path(pm.tractography(sid))
+    fix = f"Run the tract job's track and network stages for sub-{sid} first."
+    if "track" in stages:
+        # tit.tract.tracking's own refusal (qsiprep_inputs), reached at submission instead.
+        qsi = pm.qsiprep_subject(sid)
+        if not Path(qsi).is_dir():
+            missing.append(
+                MissingInput(
+                    f"QSIPrep-preprocessed DWI for sub-{sid}",
+                    qsi,
+                    f"Run QSIPrep for sub-{sid} first (Pre-processing page, DWI).",
+                )
+            )
+    elif not (tract_dir / "tractogram.trx").is_file():
+        missing.append(
+            MissingInput(
+                f"tractogram for sub-{sid}", str(tract_dir / "tractogram.trx"), fix
+            )
+        )
+    if {"assess", "target"} & set(stages) and "network" not in stages:
+        if not (tract_dir / "network.npz").is_file():
+            missing.append(
+                MissingInput(
+                    f"network for sub-{sid}", str(tract_dir / "network.npz"), fix
+                )
+            )
+    assess = config.get("assess")
+    if "assess" in stages and isinstance(assess, dict):
+        for sim in assess.get("simulations") or []:
+            if isinstance(sim, str) and not Path(pm.simulation(sid, sim)).is_dir():
+                missing.append(
+                    MissingInput(
+                        f"simulation {sim!r} for sub-{sid}",
+                        pm.simulation(sid, sim),
+                        _simulation_fix(sid, sim),
+                    )
+                )
+    target = config.get("target")
+    if "target" in stages and isinstance(target, dict):
+        hdf = target.get("leadfield_hdf")
+        if isinstance(hdf, str) and hdf:
+            path = Path(pm.leadfields(sid)) / hdf
+            if _not_own(pm, sid, path) or not path.is_file():
+                missing.append(
+                    MissingInput(
+                        f"sub-{sid}'s own leadfield {hdf!r}",
+                        str(path),
+                        f"Use a leadfield from {pm.leadfields(sid)}.",
+                    )
+                )
+        run = target.get("ex_run")
+        if isinstance(run, str) and run:
+            path = Path(pm.ex_search(sid)) / run / "final_output.csv"
+            if _not_own(pm, sid, path) or not path.is_file():
+                missing.append(
+                    MissingInput(
+                        f"ex-search run {run!r} for sub-{sid}",
+                        str(path),
+                        f"Run this ex-search for sub-{sid} first (Optimizer page).",
+                    )
+                )
+    return missing
+
+
 # -- pre -------------------------------------------------------------------------------------
 
 
@@ -1213,6 +1328,7 @@ _CHECKERS: dict[str, Checker] = {
     "leadfield": _check_leadfield,
     "analyzer": _check_analyzer,
     "source": _check_source,
+    "tract": _check_tract,
     "pre": _check_pre,
     "stats": _check_stats,
     "nifti_average": _check_nifti_average,

@@ -12,6 +12,7 @@
  * | `target`  | Optimizer | add/remove that atlas region from the ROI         | the ROI picker's region list IS the pane's selection |
  * | `target`  | Optimizer (Ex/mEx, **Electrodes** gesture) | toggle that electrode into the active bucket | editing a bucket re-colours its dots |
  * | `inspect` | Analyzer  | add/remove that atlas region from the analysis ROI | the analysis ROI is drawn where it will be measured |
+ * | `target`  | Optimizer (Network) | add/remove that region from the seeds; a line toggles its edge | the seed and edge lists ARE the pane's selection |
  *
  * An Ex/mEx row names a leadfield, and a leadfield is an EEG net: the pane draws that net's cap on
  * the head exactly as the Simulator does, and a **Target | Electrodes** segmented control in the
@@ -48,6 +49,7 @@ import {
   type LegendEntry,
   type PickTarget,
   type ScenePick,
+  type SceneLines,
   type ScenePart,
   type SceneSelection,
   type Vec3,
@@ -205,6 +207,14 @@ export interface ScenePaneProps {
   /** `target`/`inspect`: the form's region list. The same array `<RoiPicker>` holds. */
   regions?: SceneRegionRef[];
   onRegionsChange?: (regions: SceneRegionRef[], atlas?: string) => void;
+  /** Streamlines over the head, coloured by the page's own rows (a network target's edge table). */
+  lines?: SceneLines | null;
+  /** A click on a line, by its group: the page's row, which the page toggles. */
+  onLinePick?: (group: number) => void;
+  /** What the cursor is over when it is over a line, by group. */
+  lineLabel?: (group: number) => string | null;
+  /** The page has fixed the atlas (a network's own), so the pane offers no atlas selector. */
+  atlasLocked?: boolean;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
   /**
@@ -311,6 +321,10 @@ export function ScenePane({
   onRequestPairs,
   regions,
   onRegionsChange,
+  lines = null,
+  onLinePick,
+  lineLabel,
+  atlasLocked = false,
   note,
   showing = null,
   className,
@@ -607,6 +621,10 @@ export function ScenePane({
   const onPick = useCallback(
     (target: PickTarget | null) => {
       if (!target) return;
+      if (target.kind === "edge") {
+        onLinePick?.(target.index);
+        return;
+      }
       if (gesture === "place" && target.kind === "marker") {
         onPlacedPick?.(target.index);
         return;
@@ -637,7 +655,7 @@ export function ScenePane({
       // Deliberately nothing else. A pick on the guide names an electrode or a region; it can never
       // produce a coordinate, because these millimetres are `guide-ras`.
     },
-    [mode, gesture, electrodeMarkers, onElectrodePick, onPairsChange, onRequestPairs, activePairs, cursor, setCursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas],
+    [mode, gesture, electrodeMarkers, onElectrodePick, onPairsChange, onRequestPairs, activePairs, cursor, setCursor, legend, formRegions, onRegionsChange, onPlacedPick, effectiveAtlas, onLinePick],
   );
 
   /**
@@ -668,11 +686,12 @@ export function ScenePane({
         return setHovered(target?.kind === "marker" ? (placedMarkers?.[target.index]?.label ?? null) : null);
       }
       if (!target) return setHovered(null);
+      if (target.kind === "edge") return setHovered(lineLabel?.(target.index) ?? null);
       if (target.kind === "marker") return setHovered(electrodeMarkers[target.index]?.label ?? null);
       const row = legend.find((entry) => entry.label === target.index);
       setHovered(row ? `${row.name}${row.hemi ? ` · ${row.hemi}` : ""}` : null);
     },
-    [gesture, onPlacedHover, placedMarkers, electrodeMarkers, legend],
+    [gesture, onPlacedHover, placedMarkers, electrodeMarkers, legend, lineLabel],
   );
 
   // ---- states --------------------------------------------------------------------------------
@@ -893,12 +912,16 @@ export function ScenePane({
               ]}
             />
           ) : null}
-          <Select
-            aria-label="Atlas"
-            value={effectiveAtlas ?? ""}
-            onValueChange={chooseAtlas}
-            options={atlasOptions}
-          />
+          {atlasLocked ? (
+            <span className="field-help" data-testid="scene-pane-atlas-locked">Atlas: {effectiveAtlas}</span>
+          ) : (
+            <Select
+              aria-label="Atlas"
+              value={effectiveAtlas ?? ""}
+              onValueChange={chooseAtlas}
+              options={atlasOptions}
+            />
+          )}
           {onRegionsChange ? (
             <Button
               disabled={formRegions.length === 0}
@@ -907,7 +930,7 @@ export function ScenePane({
               Clear selection
             </Button>
           ) : null}
-          {canExplode ? <ExplodeButton exploded={exploded} onToggle={() => setExploded((value) => !value)} /> : null}
+          {canExplode && !lines ? <ExplodeButton exploded={exploded} onToggle={() => setExploded((value) => !value)} /> : null}
           <span className="scene-pane-hovered" data-testid="scene-pane-hovered">
             {hovered ?? ""}
           </span>
@@ -919,6 +942,7 @@ export function ScenePane({
             mode={CANVAS_MODE[gesture]}
             parts={parts}
             markers={markers}
+            lines={lines}
             connections={displacements}
             /*
              * Electrodes lie on the scalp, so the scalp hides the ones round the back — except the
@@ -953,7 +977,7 @@ export function ScenePane({
             focus={focus}
             legend={paneLegend}
             labelColors={labelColors}
-            exploded={canExplode && exploded}
+            exploded={canExplode && !lines && exploded}
             label={`${drawnSubject ?? guideId ?? "guide"} head model`}
           />
         ) : (

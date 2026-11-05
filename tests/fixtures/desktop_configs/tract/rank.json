@@ -1,0 +1,45 @@
+{
+  "id": "tract/rank",
+  "page": "tract",
+  "title": "Rank an ex run on a network mask",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "stages": [
+          "target"
+        ],
+        "subject_id": "001",
+        "target": {
+          "ex_run": "run1",
+          "leadfield_hdf": "GSN-HydroCel-185_leadfield.hdf5",
+          "min_count": 2,
+          "selection": {
+            "kind": "edges",
+            "name": "thalamocortical",
+            "pairs": [
+              [
+                "lh.insula",
+                "Left-Thalamus-Proper"
+              ]
+            ]
+          },
+          "top_n": 20
+        }
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "target"
+    ]
+  }
+}

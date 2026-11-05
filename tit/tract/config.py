@@ -17,7 +17,15 @@ from typing import Literal
 
 #: Stages, in the order the runner executes them.
 STAGES = ("track", "network", "assess", "target")
-SELECTION_KINDS = ("all", "between", "from", "through", "to_cortex", "top_edges")
+SELECTION_KINDS = (
+    "all",
+    "between",
+    "edges",
+    "from",
+    "through",
+    "to_cortex",
+    "top_edges",
+)
 
 
 def _positive(value: float, name: str) -> None:
@@ -32,7 +40,8 @@ class Selection:
     Attributes:
         name: Output stem (``<name>.trx``); letters, digits, ``_`` and ``-``.
         kind: ``"all"``; ``"between"`` (one end in ``regions[0]``, the other in
-            ``regions[1]``); ``"from"`` (either end in any of ``regions``); ``"through"``
+            ``regions[1]``); ``"edges"`` (the union of the region pairs in ``pairs``);
+            ``"from"`` (either end in any of ``regions``); ``"through"``
             (any point inside ``mask_path``, or inside label ``label`` of it);
             ``"to_cortex"`` (one end in any of ``regions``, the other in a cortical label:
             ``lh.``/``rh.`` annotation or ``ctx-`` volume names; e.g. thalamocortical);
@@ -43,14 +52,19 @@ class Selection:
         mask_path: NIfTI in m2m T1 space, for ``"through"``.
         label: Integer label inside ``mask_path``; ``None`` means every voxel > 0.
         k: Edge count for ``"top_edges"``.
+        pairs: Region-name pairs ``[[a, b], ...]`` for ``"edges"``; order inside a pair does
+            not matter. Names, not edge ids: ids renumber when the network is rebuilt.
     """
 
     name: str = "all"
-    kind: Literal["all", "between", "from", "through", "to_cortex", "top_edges"] = "all"
+    kind: Literal[
+        "all", "between", "edges", "from", "through", "to_cortex", "top_edges"
+    ] = "all"
     regions: list[str] = field(default_factory=list)
     mask_path: str | None = None
     label: int | None = None
     k: int = 5
+    pairs: list[list[str]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.kind not in SELECTION_KINDS:
@@ -64,6 +78,10 @@ class Selection:
             raise ValueError(f"{self.kind!r} needs {need} region(s)")
         if self.kind == "through" and not self.mask_path:
             raise ValueError("'through' needs mask_path")
+        if self.kind == "edges" and (
+            not self.pairs or any(len(p) != 2 for p in self.pairs)
+        ):
+            raise ValueError("'edges' needs pairs: [[region_a, region_b], ...]")
 
 
 @dataclass

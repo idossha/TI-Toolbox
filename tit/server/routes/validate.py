@@ -68,6 +68,7 @@ SIMPLE_KIND_CLASS: dict[str, str] = {
     "leadfield": "LeadfieldConfig",
     "analyzer": "AnalyzerConfig",
     "source": "SourceConfig",
+    "tract": "TractConfig",
     "nifti_average": "NiftiAverageConfig",
     "nilearn": "NilearnConfig",
 }

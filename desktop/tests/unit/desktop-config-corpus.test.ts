@@ -102,6 +102,8 @@ import { currentValues, rowCurrentsCount } from "../../src/renderer/pages/simula
 import { simStepRows } from "../../src/renderer/pages/simulator/planStep";
 import { candidateRow } from "../../src/renderer/pages/simulator/candidateHandoff";
 import { automaticRunName, flexOutputFolder, jobsForRow, rowFormReason } from "../../src/renderer/pages/optimizer/plan";
+import { tractJobConfig } from "../../src/renderer/pages/_shared/roi/TractJobDialog";
+import { rankingConfig } from "../../src/renderer/pages/results/NetworkRanking";
 import { emptyOptimizerRow, isRunnableOptimizerRow, type OptimizerRow } from "../../src/renderer/pages/optimizer/rows";
 import { defaultFlexFormState, type FlexFormState } from "../../src/renderer/pages/optimizer/flexConfig";
 import { defaultExFormState, defaultMExFormState } from "../../src/renderer/pages/optimizer/exConfig";
@@ -304,6 +306,10 @@ const corticalUnion: RoiValue = { mode: "cortical", space: "subject", atlas: "DK
 const corticalOne: RoiValue = { mode: "cortical", space: "subject", atlas: "DKTatlas", regions: [{ id: 35, name: "insula", hemi: "lh" }] };
 const subcortical: RoiValue = { mode: "subcortical", space: "subject", atlas: "labeling.nii.gz", regions: [{ id: 10, name: "Left-Thalamus" }], tissues: "GM" };
 const subjectMask: RoiValue = { mode: "mask", path: SUBJECT_MASK, space: "subject", tissues: "GM" };
+const NETWORK_MASK = `${sub("001")}/m2m_001/masks/tract-thalamocortical.nii.gz`;
+const networkSelection = { space: "subject" as const, mode: "network" as const, seeds: ["Left-Thalamus-Proper"], pairs: [["lh.insula", "Left-Thalamus-Proper"] as [string, string]], minN: 5, minCount: 1, name: "thalamocortical" };
+const network: RoiValue = { ...networkSelection, mask: { path: NETWORK_MASK, fingerprint: "f", nEdges: 1, nStreamlines: 300, nVoxels: 900, volumeMm3: 900 } };
+const networkStale: RoiValue = { ...networkSelection, stale: true };
 
 /** What the page submits: `jobsForRow`, then the flex run folder resolved the way index.tsx does. */
 function optimizerJobs(row: OptimizerRow): CorpusJob[] {
@@ -347,6 +353,8 @@ function optimizerFlexCases(): CorpusCase[] {
     flexCase("max-cortical-union", "Goal max, lh+rh insula (atlas union)", { goal: "max" }, corticalUnion, { kind: "flex" }),
     flexCase("mean-subcortical", "Goal mean, subject labeling.nii.gz thalamus", { goal: "mean" }, subcortical, { kind: "flex" }),
     flexCase("mean-mask", "Goal mean, an imported subject mask", { goal: "mean" }, subjectMask, { kind: "flex" }),
+    flexCase("mean-network", "Goal mean, a network mask", { goal: "mean" }, network, { kind: "flex" }),
+    flexCase("mean-network-stale", "Goal mean, a network whose selection changed after its mask", { goal: "mean" }, networkStale, { kind: "flex" }),
     flexCase("mean-ratio", "Goal mean with the current ratio optimised", { goal: "mean", optimizeCurrentRatio: true }, sphere, { kind: "flex" }),
     flexCase("focality-manual", "Focality, manual thresholds 0.1,0.3", { goal: "focality", focalityMode: "manual", manualThresholds: "0.1,0.3" }, sphere, { kind: "flex" }),
     flexCase("focality-manual-ratio", "Focality, manual thresholds, ratio optimised", { goal: "focality", focalityMode: "manual", manualThresholds: "0.1,0.3", optimizeCurrentRatio: true }, sphere, { kind: "flex" }),
@@ -393,6 +401,7 @@ function optimizerExCases(): CorpusCase[] {
     exCase("bucketed-saved-separate", "Ex, two saved ROIs run separately (two jobs)", exRow("bucketed-saved-separate", { ex: ex({}), roi: saved(["L_Insula", "R_Insula"], false) }), { runner: "run_ex_search", roiNames: ["L_Insula", "R_Insula"] }),
     exCase("bucketed-subcortical", "Ex, subject labeling.nii.gz thalamus", exRow("bucketed-subcortical", { ex: ex({}), roi: subcortical }), { runner: "run_ex_search", roiNames: ["labeling.nii.gz_1region"] }),
     exCase("bucketed-mask", "Ex, imported subject mask", exRow("bucketed-mask", { ex: ex({}), roi: subjectMask }), { runner: "run_ex_search", roiNames: ["target"] }),
+    exCase("bucketed-network", "Ex, a network mask", exRow("bucketed-network", { ex: ex({}), roi: network }), { runner: "run_ex_search", roiNames: ["tract-thalamocortical"] }),
     exCase("pool-too-small", "Ex, electrode pool of three", exRow("pool-too-small", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012"] }), roi: saved(["L_Insula"], false) }), { runner: "run_ex_search", roiNames: ["L_Insula"] }),
     exCase("pool-mask", "Ex, electrode pool of five, imported subject mask", exRow("pool-mask", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012", "E013", "E014"] }), roi: subjectMask }), { runner: "run_ex_search", roiNames: ["target"] }),
     exCase("pool-subcortical", "Ex, electrode pool of five, subject labeling.nii.gz thalamus", exRow("pool-subcortical", { ex: ex({ electrodeMode: "all", pool: ["E010", "E011", "E012", "E013", "E014"] }), roi: subcortical }), { runner: "run_ex_search", roiNames: ["labeling.nii.gz_1region"] }),
@@ -827,7 +836,7 @@ const OPTIMIZER_MIRROR = [
   // The whole refusal chain, in order: the corpus models every clause but the subject (m2m) one,
   // since every corpus subject has a head model, the transient "Resolving…" one, and the two that
   // need the server's plan (a refused plan, two jobs writing one folder: run-output-collision.test.ts).
-  "if (rows.length === 0) return \"Add a search job.\"; if (runnableRows.length === 0) return \"Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.\"; if (subjectsBlocked) return subjectsBlocked; for (const [i, row] of runnableRows.entries()) { const reason = rowFormReason(row); if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`; void i; } if (jobs.length === 0) return \"No job resolves to a target yet.\"; if (jobsSig === debouncedSig && planFailure) return planFailure; if (jobsSig !== debouncedSig || !allPlanned) return \"Resolving the run folders…\"; if (outputCollision) return outputCollision; return null;",
+  "if (rows.length === 0) return \"Add a search job.\"; const staleNetwork = rows.findIndex((row) => row.roi.mode === \"network\" && row.roi.stale); if (staleNetwork >= 0) return `Job ${staleNetwork + 1}: the network selection changed. Create the mask again.`; if (runnableRows.length === 0) return \"Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.\"; if (subjectsBlocked) return subjectsBlocked; for (const [i, row] of runnableRows.entries()) { const reason = rowFormReason(row); if (reason) return `Job ${rows.indexOf(row) + 1}: ${reason}`; void i; } if (jobs.length === 0) return \"No job resolves to a target yet.\"; if (jobsSig === debouncedSig && planFailure) return planFailure; if (jobsSig !== debouncedSig || !allPlanned) return \"Resolving the run folders…\"; if (outputCollision) return outputCollision; return null;",
 ];
 
 // ---------------------------------------------------------------------------------------------
@@ -844,6 +853,24 @@ describe("desktop config corpus", () => {
   it("optimizer-ex", () => checkPage("optimizer-ex", optimizerExCases()));
   it("analyzer", () => checkPage("analyzer", analyzerCases()));
   it("preprocess", () => checkPage("preprocess", preprocessCases()));
+
+  it("tract", () => {
+    const tractCase = (slug: string, title: string, config: { stages: string[] }): CorpusCase => ({
+      id: `tract/${slug}`,
+      page: "tract",
+      title,
+      jobs: [{ kind: "tract", subject_ids: ["001"], config }],
+      desktop: { accepts: true, reason: null },
+      expect: { stages: config.stages },
+    });
+    const mask = { name: "thalamocortical", path: NETWORK_MASK, fingerprint: "f", stale: false, pairs: [["lh.insula", "Left-Thalamus-Proper"]], min_count: 2, n_edges: 1, n_streamlines: 300, n_voxels: 900, volume_mm3: 900 };
+    checkPage("tract", [
+      tractCase("track-network", "A subject with no tractogram: DK40", tractJobConfig("001", "DK40", false, false)),
+      tractCase("network-only", "A subject with a tractogram: another atlas", tractJobConfig("001", "HCP_MMP1", false, true)),
+      tractCase("retrack", "Track again over an existing tractogram", tractJobConfig("001", "DK40", true, true)),
+      tractCase("rank", "Rank an ex run on a network mask", rankingConfig("001", "run1", "GSN-HydroCel-185_leadfield.hdf5", mask, 20)),
+    ]);
+  });
 
   it("panels-stats", async () => {
     const r = (subjectId: string, response: 0 | 1, effectSize?: number): StatsRow => ({ subjectId, simulationName: "M1", response, effectSize, weight: effectSize === undefined ? undefined : 1 });

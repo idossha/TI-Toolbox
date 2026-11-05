@@ -15,6 +15,8 @@ import { useMemo, useState } from "react";
 import { Button } from "../ui/Button";
 import { SegmentedControl } from "../ui/SegmentedControl";
 import { SceneCanvas } from "../scene/SceneCanvas";
+import { categoricalColor } from "../scene/palette";
+import type { SceneLines } from "../scene/types";
 import { SCENE_PALETTE } from "../scene/palette";
 import { encodeTvsc1, parseTvsc1 } from "../scene/tvsc";
 import type { SceneMode, SceneSelection } from "../scene/selection";
@@ -65,11 +67,18 @@ function part(
   };
 }
 
+/** World mm; each line's middle point is the one a spec projects, and they share no pixel. */
+export const GALLERY_LINES: [number, number, number][][] = [
+  [[-60, 0, 30], [0, 0, 30], [60, 0, 30]],
+  [[-60, 0, -30], [0, 0, -30], [60, 0, -30]],
+];
+
 export function SceneGallery() {
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<SceneMode>("montage");
   const [size, setSize] = useState<FixtureSize>("small");
   const [selection, setSelection] = useState<SceneSelection>({ markers: [], regions: [] });
+  const [showLines, setShowLines] = useState(false);
 
   const parts = useMemo<ScenePart[]>(() => {
     if (!mounted) return [];
@@ -95,6 +104,20 @@ export function SceneGallery() {
     }));
   }, [mounted]);
 
+  /** Two straight streamlines across the fixture, one group each: what a spec reads a line off. */
+  const lines = useMemo<SceneLines | null>(
+    () =>
+      showLines
+        ? {
+            positions: new Float32Array(GALLERY_LINES.flat(2)),
+            offsets: new Uint32Array([0, 3, 6]),
+            groups: new Uint32Array([0, 1]),
+            colors: [categoricalColor(0), categoricalColor(1)],
+          }
+        : null,
+    [showLines],
+  );
+
   const triangles = parts.reduce((sum, p) => sum + p.indices.length / 3, 0);
 
   return (
@@ -111,6 +134,9 @@ export function SceneGallery() {
       <div style={{ display: "flex", gap: "var(--space-3)", alignItems: "center", marginBottom: "var(--space-3)", flexWrap: "wrap" }}>
         <Button size="sm" variant={mounted ? "secondary" : "primary"} onClick={() => setMounted((v) => !v)} data-testid="scene-mount">
           {mounted ? "Unmount scene" : "Mount scene"}
+        </Button>
+        <Button size="sm" variant="secondary" onClick={() => setShowLines((v) => !v)} data-testid="scene-gallery-lines">
+          {showLines ? "Hide lines" : "Show lines"}
         </Button>
         <SegmentedControl
           aria-label="Scene mode"
@@ -148,6 +174,7 @@ export function SceneGallery() {
             mode={mode}
             parts={parts}
             markers={markers}
+            lines={lines}
             labelColors={labelColors}
             selection={selection}
             onSelectionChange={setSelection}

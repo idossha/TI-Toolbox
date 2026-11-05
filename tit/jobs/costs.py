@@ -61,6 +61,11 @@ EX_MEM_PER_WORKER_GB = 0.5
 # looks like a defect of the forked mEx path, so find it before raising this for larger searches.
 MEX_FORKED_MEM_GB = 13
 
+# shortcut: not measured per stage; 13.5 M points load as float64 lists (~1 GB) on top of the
+# fields. Measure on a track + assess run before tightening.
+TRACT_MEM_GB = 8
+TRACT_TRACK_MEM_GB = 16
+
 _FLEX_ONE_RESTART = Cost(cpus=2, mem_gb=FLEX_BASE_MEM_GB + FLEX_MEM_PER_RESTART_GB)
 
 # kind -> Cost (flex kinds: one restart; default_cost adds the rest).
@@ -76,6 +81,8 @@ DEFAULT_COSTS: dict[str, Cost] = {
     "analyzer": Cost(cpus=1, mem_gb=4),
     "stats": Cost(cpus=1, mem_gb=4),
     "source": Cost(cpus=1, mem_gb=4),
+    # network, assess and target stages; a track stage claims more (default_cost).
+    "tract": Cost(cpus=1, mem_gb=TRACT_MEM_GB),
     # The 183-electrode montage exceeds 12 GiB with its existing subdivision modifiers.
     "blender": Cost(cpus=1, mem_gb=16),
     "nifti_average": Cost(cpus=1, mem_gb=2),
@@ -173,6 +180,16 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
     mem = _num(config.get("memory_gb"))
     if mem is None:
         mem = _num(config.get("mem_gb"))
+
+    if kind == "tract" and "track" in (config.get("stages") or ("track",)):
+        # TrackConfig.n_jobs < 1 means the whole budget this job is admitted with.
+        track = config.get("track")
+        n_jobs = _count(track.get("n_jobs")) if isinstance(track, dict) else None
+        limit = cpu_limit()
+        return Cost(
+            cpus=min(n_jobs, limit) if n_jobs is not None else limit,
+            mem_gb=TRACT_TRACK_MEM_GB,
+        )
 
     if kind in ("ex", "mex", "stats"):
         # These fork one worker per CPU (exhaustive searches; cluster-permutation stats):

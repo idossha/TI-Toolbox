@@ -4412,3 +4412,43 @@ amd64 emulation, against about 2.3 s per frame in a host Blender 5.1, with the s
 Through the app in the same emulated image: a 960x640 oblique still of `cst_lh` (103 streamlines) in
 53 s and its 48-frame preview turntable in 8.9 min. The app's sequence bundles re-rendered as a preview
 (216 frames, 36 s at 6 fps) in 87 s in the host Blender.
+
+## 2026-11-05 — Networks are chosen in the optimizers, through a `tract` job kind
+
+**Decision.** `tit.tract` becomes a job kind (`TractConfig` in `CONFIG_CLASS_REGISTRY`) with routes
+`/api/tract/{manifest,edges,streamlines,mask,masks,rankings}`, and a network mask gets a sidecar whose
+fingerprint flex and ex preflight compare with the current tractogram and network (ARCHITECTURE §15).
+Requests name edges by region pairs. Answers the design's open questions as the maintainer did: the
+job is offered from Pre-processing and from the optimizer's empty state, ranking is an explicit
+action, targets are WM only in subject space, and the atlas is chosen in the job form. Pinned by
+`tests/test_tract_routes.py` and `tests/numerical/test_tract_mask.py`.
+
+**Why.** The output is already a target the optimizers accept (`SubcorticalROI(label=None)`,
+`roi_atlas`), so `FlexConfig`, `ExConfig` and their runners do not change. The fingerprint is the one
+check the mask's existence cannot give: a mask from a replaced network still loads and optimizes.
+
+**Measured.** `load_trx` reads CHN's 163 MB tractogram (99 955 streamlines, 13.5 M points) in 0.13 s on
+this machine (2026-11-05), so the mask route answers synchronously and the pane's subsample needs one
+cold build per network, not one per selection.
+
+**Alternatives rejected.** Selection in TetraVox (a cross-process reply protocol, and no remote
+projects); edge ids on the wire (they renumber on rebuild); a cache per edge list (each new selection
+would rebuild); field-weighted subsampling for the pane (it would favour a metric); a streaming POST
+for masks (a held request is fine for one explicit, sub-minute action).
+
+## 2026-11-05 — The run-page pane draws streamlines as flat-coloured lines over the head
+
+**Decision.** `renderer/scene` gains one line pass (`setLines`, `TVSL1`, pick kind 3): about two device
+pixels (half-pixel offset draws, because one strip under MSAA fully covers no pixel), no depth test, one colour per edge row. A pick within 4 CSS px of a line wins. Pinned by
+`desktop/tests/e2e/scene-lines.spec.ts` (midpoint pixels equal the swatches, picks return each group),
+`desktop/tests/unit/tvsl.test.ts` and `desktop/tests/unit/network-target.test.ts`.
+
+**Why.** Choosing edges needs to see them, and the pane is already where targets are chosen. Colour
+by row keeps decision S1 (no colormaps and no field overlays on the panes): the swatch names a table
+row, not a value.
+
+**Alternatives rejected.** A depth-tested line (the cortex is opaque and hides almost all of them);
+ribbons or tubes (TetraVox and Blender own display quality; this is a form control); an exact-pixel
+line pick (a one-pixel target is not clickable); per-streamline colour from a metric (a viewer's job,
+and it would favour that metric while a target is being chosen).
+

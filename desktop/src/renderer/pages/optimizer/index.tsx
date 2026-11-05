@@ -384,6 +384,8 @@ function OptimizerPage() {
     // §4.7 rule 3: the disabled sentence states the TABLE being empty before it states anything
     // about subjects — an empty table is not a subject problem.
     if (rows.length === 0) return "Add a search job.";
+    const staleNetwork = rows.findIndex((row) => row.roi.mode === "network" && row.roi.stale);
+    if (staleNetwork >= 0) return `Job ${staleNetwork + 1}: the network selection changed. Create the mask again.`;
     if (runnableRows.length === 0) return "Complete a job: choose a subject, a target, and (for Ex/mEx) a leadfield.";
     if (subjectsBlocked) return subjectsBlocked;
     for (const [i, row] of runnableRows.entries()) {

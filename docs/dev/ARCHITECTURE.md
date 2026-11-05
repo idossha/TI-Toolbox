@@ -612,6 +612,18 @@ registration and a deep structure in mesh space fails with "does not overlap the
 surface". Output folders are `subcortical_<region>_<atlas>`;
 `tests/numerical/test_analyzer_subcortical.py` pins label membership.
 
+**A network target adds lines, not a viewer.** The Optimizer's `network` ROI mode draws the subject's
+grey matter in the network's own atlas (locked in the pane) and the listed edges' streamlines over it
+(`GlScene.setLines`, `SceneLines`). Lines are `LINE_STRIP` with primitive restart, about two device pixels (half-pixel offset draws, since `gl.lineWidth` is a no-op), no
+depth test, because a streamline runs inside the opaque cortex; each is one flat colour, its edge
+row's swatch (`scene/palette.ts`, dimmed when other rows are selected), so decision S1 still holds: no
+colormap and no field. A click within 4 CSS px of a line wins over the surface and reports pick kind
+3 with the line's group, its position in the page's edge list; the pane holds no selection, and the
+page toggles that pair. At most 64 edges are drawn, selected ones first. The value, table and mask
+form are `pages/_shared/roi/NetworkPanel.tsx`, the pane is `pages/_shared/scene/NetworkPane.tsx`.
+Editing seeds, edges, thresholds or name drops the mask and sets `stale`, which is what disables Run
+("Create the mask again").
+
 ### 7.3 Pipeline canvas (removed)
 
 The graphical pipeline feature was removed on 2026-09-13. Dedicated processing pages submit
@@ -1364,13 +1376,14 @@ Verified by `tests/test_reporting_dti_qc.py`, `tests/test_reporting_runs.py`, `t
 
 ## 15. White-matter networks from tractography (`tit.tract`)
 
-**A research module with a scripting and runner surface only.** `tit.tract` targets, assesses and
-exports TI on tractography-defined white-matter networks. It has no job kind, desktop page or
-server route yet, so `TractConfig` carries a `_type` discriminator in `tit/config_io.py` but is not
-in `CONFIG_CLASS_REGISTRY` (that would change the generated contract schema). Entry point:
-`simnibs_python -m tit.tract config.json` runs the configured stages in the order
-track -> network -> assess -> target; each stage is also a public function (`run_track`,
-`run_network`, `run_assess`, `run_target`).
+**A job kind and a form control, not a viewer.** `tit.tract` targets, assesses and exports TI on
+tractography-defined white-matter networks. Entry point: `simnibs_python -m tit.tract config.json`
+runs the configured stages in the order track -> network -> assess -> target; each stage is also a
+public function (`run_track`, `run_network`, `run_assess`, `run_target`). The desktop reaches it as
+the `tract` job kind (`TractConfig` in `CONFIG_CLASS_REGISTRY`), and `/api/tract/*`
+(`tit/server/routes/tract.py`) serves the optimizers' `network` target mode. TetraVox display of
+tractograms is outside this repository's scope for now; Blender and the HTML viewer stay the
+inspection routes.
 
 **Tractography is DIPY, one route, written in m2m T1 world.** It needs only QSIPrep-preprocessed
 ACPC DWI and the charm m2m folder: a subject without QSIPrep output is refused before any work,
@@ -1447,16 +1460,46 @@ unweighted and are not a connection strength. Selections: `all`, `between`, `fro
 mask), `to_cortex` (seed regions to any cortical label; thalamocortical) and `top_edges` (the most
 populated edges of a seed).
 
-**Targeting reuses the optimizers unchanged.** The target stage writes a tract-density mask
-(voxels crossed by >= `min_count` streamlines of a selection) on the m2m T1 grid as
-`m2m_<id>/masks/tract-<name>.nii.gz`, where the ROI pickers already find custom masks; it is used as
+**Targeting reuses the optimizers unchanged.** The target stage and `POST /api/tract/mask` write a
+tract-density mask (voxels crossed by >= `min_count` streamlines of a selection) on the m2m T1 grid
+as `m2m_<id>/masks/tract-<name>.nii.gz` with a sidecar `tract-<name>.json` (`selection`, counts,
+`fingerprint`), where the ROI pickers already find custom masks; it is used as
 `FlexConfig.SubcorticalROI(atlas_path=mask, label=None, tissues="WM")` or
-`ExConfig.AtlasROI(atlas_path=mask, label=None)`. With a leadfield, it also ranks candidate montages
-(explicit, from an electrode pool, or the top rows of an ex-search run) by the statistic `assess`
-reports, the median over streamlines of each streamline's arc-mean `ti_along`, loading the leadfield
-through `ExSearchEngine`; the pooled point mean, the same statistics of `ti_max` and `ti_avg`, the
-alignment index and both ranks are reported beside it.
+`ExConfig.AtlasROI(atlas_path=mask, label=None)`. `fingerprint` is
+`tit.tract.network.network_fingerprint`, over the tractogram and `network.npz`; flex and ex preflight
+refuse a mask whose sidecar names another (a rebuilt network), and a mask with no sidecar is not
+checked. `Selection(kind="edges")` is the union of region-name `pairs`. With a leadfield, the target
+stage also ranks candidate montages (explicit, from an electrode pool, or the top rows of a two-pair
+ex-search run, refused for any other run) by the statistic `assess` reports, the median over
+streamlines of each streamline's arc-mean `ti_along`, loading the leadfield through `ExSearchEngine`;
+the pooled point mean, the same statistics of `ti_max` and `ti_avg`, the alignment index and both
+ranks are reported beside it, and `ranking.ex_run` names the run. It keeps a mask already current for
+that selection rather than rewriting one an optimizer may be reading.
+
+**The `tract` job and route contract (additive to every other kind).** One job per subject.
+`TractConfig` = `{subject_id, stages, track, network, assess, target}`; `stages` is any of track,
+network, assess, target. Locks: `subject:<id>:tract` (write for track, network or target; read for
+assess alone), `subject:<id>:m2m` read, `subject:<id>:sim:<sim>` write per assessed simulation, and,
+for a ranking, `subject:<id>:leadfields` and `subject:<id>:ex:<run>` read. A plan names
+`tractography/` and each `Simulations/<sim>/tract/`; replacing an existing output needs the job's
+`overwrite`. Routes, no client path anywhere, requests name edges by region pairs because edge ids
+renumber on rebuild:
+
+| Route | Answer |
+|---|---|
+| `GET /api/tract/manifest?subject=` | `{available, qsiprep_available, tractogram_available, atlas, n_streamlines, n_edges, frac_both_ends_assigned, qc_passed, fingerprint, regions: [{name, cortical}]}`; 200 with `available: false` before the job ran, 404 for an unknown subject |
+| `GET /api/tract/edges?subject=&seed=..` | `{edges: [{edge_id, region_a, region_b, n, share}]}`, most streamlines first; 404 no network, 422 unknown seed |
+| `GET /api/tract/streamlines?subject=&pair=A\|B..&wait=` | `TVSL1` (`tit/scene/tvsl.py`) of at most 64 edges, each at most 100 uniformly drawn streamlines, about one point per 2 mm; `group` = position in `pair`; 202 + `Retry-After` on a cold cache, 422 on a bad pair |
+| `POST /api/tract/mask` `{subject, name, pairs, min_count=1, min_n=5, overwrite=false}` | 201 `{name, path, fingerprint, stale, pairs, min_count, n_edges, n_streamlines, n_voxels, volume_mm3}`; 409 an existing name without `overwrite`, 422 a bad name, unknown region or pair, an edge below `min_n`, or an empty mask |
+| `GET /api/tract/masks?subject=` | `{masks: [...]}` of the same shape, `stale` when the network was rebuilt |
+| `GET /api/tract/rankings?subject=&ex_run=` | `{rankings: [{name, ex_run, n_streamlines, current_mA, n_points, n_points_in_leadfield_mesh, montages: [...]}]}` |
+
+The streamlines route is the scene service's cold-cache grammar: one per-subject subsample, built on
+a background thread and stored under `.ti-toolbox/cache/scene/`, keyed by the tractogram and network;
+a request is a slice of it. The subsample is uniform, seeded by edge id, so the pane does not favour
+any field.
 
 Sources: [`tit/tract/`](../../tit/tract/). Verified by `tests/test_tract_geometry.py`,
+`tests/test_tract_routes.py`, `tests/numerical/test_tract_mask.py`,
 `tests/numerical/test_tract_association.py`, `tests/numerical/test_tract_fields.py` and
 `tests/numerical/test_tract_frames.py`.

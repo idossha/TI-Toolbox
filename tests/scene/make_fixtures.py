@@ -42,7 +42,7 @@ import numpy as np
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 
-from tit.scene import tvsc  # noqa: E402
+from tit.scene import tvsc, tvsl  # noqa: E402
 
 OUT_DIR = REPO / "desktop" / "tests" / "fixtures" / "scene"
 
@@ -80,6 +80,15 @@ def build() -> tuple[dict[str, bytes], dict]:
         "tri-surface.tvsc": tvsc.encode(pos, tri),
         "labels-only.tvsc": tvsc.encode(pos, None, lab),
         "labelled-surface.tvsc": tvsc.encode(pos, tri, lab),
+        # Two streamlines of unequal length (3 and 2 points), tractogram indices far apart, in
+        # groups 1 and 0: a reader that assumes equal lengths or takes the index for the group
+        # lands wrong. Asserted against the literal arrays in desktop/tests/unit/tvsl.test.ts.
+        "two-lines.tvsl": tvsl.encode(
+            [[1.5, -2.0, 3.0], [4.0, 5.5, -6.0], [7.0, 8.0, 9.5], [-10.0, 11.0, 12.0], [13.0, -14.0, 15.0]],
+            [0, 3, 5],
+            [99000, 7],
+            [1, 0],
+        ),
     }
 
     common = {

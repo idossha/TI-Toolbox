@@ -293,6 +293,17 @@ A quiet monitor exit 2 is inconclusive, not a pass. Keep functional assertions a
 visibility/focus certification separate. Do not rerun solely to replace unresolved shared-host
 process attribution with a more convenient result.
 
+### Network targets
+
+`tests/test_tract_routes.py` pins `/api/tract/*`, the job kind and `TVSL1` on a tractogram written
+byte by byte; `tests/numerical/test_tract_mask.py` pins the mask against the known coordinates with
+real DIPY (image leg). `desktop/tests/e2e/scene-lines.spec.ts` is the analytic pane check: two
+synthetic streamlines' midpoint pixels equal their swatches and picks return each group. The mock flow
+is `desktop/tests/e2e/network-target.spec.ts`. `desktop/tests/e2e/real/network-target.spec.ts` runs the
+whole path on a project holding sub-CHN's tractography (rebuild the network, mask, one flex and one ex
+job, rank); Dataset 000 has no network, so its smoke row `tract_track` only proves the refusal at
+submission.
+
 ### Documentation screenshots
 
 The app screenshots in `docs/assets/imgs/v3/` come from

@@ -121,6 +121,10 @@ export function exTargets(
   atlasLookup: (atlas: string) => AtlasLookup | undefined,
   allowCombine = true,
 ): ExTarget[] {
+  if (roi.mode === "network") {
+    if (!roi.mask) return [];
+    return [{ roiName: `tract-${roi.name}`, roiNames: [], roiAtlas: [{ atlas_path: roi.mask.path, label: null, atlas_space: "subject" }], radius: 3, space: "subject" }];
+  }
   if (roi.mode === "mask") {
     const path = roi.path.trim();
     if (!/\.nii(\.gz)?$/i.test(path)) return [];

@@ -69,6 +69,22 @@ export interface SceneMarker {
   hidden?: boolean;
 }
 
+/**
+ * Streamlines drawn as thin lines over the head, coloured per group. A group is one row of the
+ * page's edge list, so a line's colour is that row's swatch and a pick reports that row. No colour
+ * map, no scalar: decision S1 keeps fields on the Viewer.
+ */
+export interface SceneLines {
+  /** `3 * P` floats, world-RAS mm. */
+  positions: Float32Array;
+  /** `S + 1` entries: streamline i is points `offsets[i]..offsets[i + 1]`. */
+  offsets: Uint32Array;
+  /** `S` entries, each an index into `colors`. */
+  groups: Uint32Array;
+  /** At most `MAX_LINE_GROUPS`. */
+  colors: Rgb[];
+}
+
 /** One row of the legend. The legend is DOM, not painted into the canvas: a painted legend cannot
  *  be read by a test, translated, or selected, and it has to be re-implemented for every theme. */
 export interface LegendEntry {

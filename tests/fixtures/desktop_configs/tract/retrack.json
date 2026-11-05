@@ -1,0 +1,37 @@
+{
+  "id": "tract/retrack",
+  "page": "tract",
+  "title": "Track again over an existing tractogram",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "network": {
+          "atlas": "DK40"
+        },
+        "stages": [
+          "track",
+          "network"
+        ],
+        "subject_id": "001",
+        "track": {
+          "overwrite": true
+        }
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "track",
+      "network"
+    ]
+  }
+}

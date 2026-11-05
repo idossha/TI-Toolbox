@@ -250,6 +250,25 @@ export const STEP_INFO: Record<string, StepInfo> = {
     nativeMinutes: native("G5"),
     docsHref: DWI_DOCS,
   },
+  tract: {
+    id: "tract",
+    title: "White-matter network",
+    text:
+      "Tracks the whole brain from the QSIPrep diffusion data (constrained spherical deconvolution, " +
+      "probabilistic tracking constrained by charm's tissues), labels each streamline's two ends with " +
+      "an atlas and counts the streamlines between each pair of regions. The Optimizer's **Network** " +
+      "target chooses among these. Runs as its own job once QSIPrep output exists, for one or more " +
+      "selected subjects.",
+    inputs: [
+      { label: "Preprocessed DWI", path: "derivatives/qsiprep/sub-<id>/" },
+      { label: "Head model", path: "derivatives/SimNIBS/sub-<id>/m2m_<id>/" },
+    ],
+    process: [{ label: "tit.tract (DIPY)" }],
+    outputs: [
+      { label: "Tractogram and network", path: "derivatives/SimNIBS/sub-<id>/tractography/" },
+    ],
+    docsHref: `${DOCS_SITE}wiki/diffusion-processing/#white-matter-networks`,
+  },
   extract_dti: {
     id: "extract_dti",
     stage: "G6",

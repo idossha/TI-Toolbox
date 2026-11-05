@@ -25,6 +25,8 @@ import { emptyAnalyzerRow } from "../../src/renderer/pages/analyzer/JobRows";
 /** A complete target of each mode in each space. */
 function complete(mode: RoiMode, space: RoiSpace): RoiValue {
   switch (mode) {
+    case "network":
+      return { mode, space: "subject", seeds: ["lh.insula"], pairs: [["lh.insula", "Left-Thalamus-Proper"]], minN: 5, minCount: 1, name: "net", mask: { path: "/proj/masks/tract-net.nii.gz", fingerprint: "f", nEdges: 1, nStreamlines: 9, nVoxels: 9, volumeMm3: 9 } };
     case "spherical":
       return { mode, space, volumetric: false, tissues: "GM", spheres: [{ x: -42, y: -20, z: 55, radius: 10 }] };
     case "mask":

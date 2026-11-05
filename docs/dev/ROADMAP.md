@@ -34,7 +34,7 @@ source before scheduling them; remove a row when it ships.
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |
 | Notebooks | Detect outdated seeded examples without overwriting user edits; variable explorer and interactive plots |
 | Viewer | TetraVox 0.6.0 (2026-09-20) released PR #44's [generic scene API](../../dev/upstream/tetravox-live-scene/README.md); validate edited native snapshot/reopen, existing-file refusal, unchanged originals and macOS minimized/no-window activation. A TetraVox older than 0.6.0 cannot save live scenes through TI. |
-| White-matter networks (`tit.tract`, ARCHITECTURE §15) | Make it a job kind with a desktop page (register `TractConfig`, regenerate the contract); named bundles (RecoBundles + HCP842); compare against the MRtrix3 iFOD2 reference with the V1 metrics and a two-seed noise floor |
+| White-matter networks (`tit.tract`, ARCHITECTURE §15) | Wire the Visual Exporter's "Assess networks" to the `tract` job; TetraVox display of tractograms; named bundles (RecoBundles + HCP842); compare against the MRtrix3 iFOD2 reference with the V1 metrics and a two-seed noise floor |
 | Test harness | Avoid tracked smoke-payload churn while preserving UI/HTTP replay equivalence |
 | CI | Put the mock e2e suite back on every `main` push: `desktop-e2e-mock` is opt-in (`run_e2e_mock`) until it is sharded, has its fonts and its five Linux-only spec failures are fixed ([TESTING.md](TESTING.md)) |
 | Maintenance | Assess OpenSSF practices and extend integration coverage for selected colleague workflows |

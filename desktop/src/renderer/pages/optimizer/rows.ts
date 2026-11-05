@@ -123,8 +123,8 @@ export function newOptimizerRowId(): string {
 
 /** The ROI modes a method can express — Flex targets anatomy, Ex/mEx target saved CSVs or a
  *  volumetric atlas (there is no cortical ex-search target: the leadfield is volumetric). */
-export function roiModesFor(method: OptMethod): ("cortical" | "subcortical" | "spherical" | "saved" | "mask")[] {
-  return isFlexMethod(method) ? ["cortical", "subcortical", "spherical", "mask"] : ["subcortical", "saved", "mask"];
+export function roiModesFor(method: OptMethod): ("cortical" | "subcortical" | "spherical" | "saved" | "mask" | "network")[] {
+  return isFlexMethod(method) ? ["cortical", "subcortical", "spherical", "mask", "network"] : ["subcortical", "saved", "mask", "network"];
 }
 
 /** A blank row, seeded from the row before it (the "+ Add job" gesture 2.5.0's cards had). */
@@ -220,6 +220,7 @@ function joinNames(names: string[]): string {
  */
 export function optimizerTargetLabel(roi: RoiValue): string {
   if (!isRoiComplete(roi)) return "Choose a target…";
+  if (roi.mode === "network") return `${roi.name} · ${roi.pairs.length} edge${roi.pairs.length === 1 ? "" : "s"} · network`;
   if (roi.mode === "mask") return `${roi.path.split("/").pop()} · ${roi.space === "mni" ? "MNI" : "Subject"} mask`;
   if (roi.mode === "saved") return `${joinNames(roi.selected)}${roi.space === "mni" ? " MNI" : ""}`;
   if (roi.mode === "spherical") {

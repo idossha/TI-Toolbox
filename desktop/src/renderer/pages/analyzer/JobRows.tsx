@@ -149,7 +149,7 @@ export function analyzerTargetLabel(roi: RoiValue, combine = true): string {
     return spheres.length > 1 ? `${head} (separate jobs)` : head;
   }
   if (roi.mode === "mask") return `NIfTI mask · ${roi.path.split("/").pop()} · ${roi.space === "mni" ? "MNI" : "Subject"}`;
-  if (roi.mode === "saved") return "Choose a target…";
+  if (roi.mode === "saved" || roi.mode === "network") return "Choose a target…";
   const names = roi.regions.map(regionLabel);
   // Cortical and subcortical both name their atlas: a region name means little without the
   // parcellation it came from, and both panels choose one.

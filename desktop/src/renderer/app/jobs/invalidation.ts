@@ -117,6 +117,8 @@ export const BY_KIND: Readonly<Record<string, readonly QueryKey[]>> = {
   nifti_average: GROUP_OUTPUTS,
   nilearn: GROUP_OUTPUTS,
   source: GROUP_OUTPUTS,
+  // A rebuilt network changes what a target can name; a ranking is a result of an ex run.
+  tract: [["tract-manifest"], ["tract-manifests"], ["tract-edges"], ["tract-masks"], ["tract-rankings"], ["tract-streamlines"]],
   blender: GROUP_OUTPUTS,
   tools: [],
 };

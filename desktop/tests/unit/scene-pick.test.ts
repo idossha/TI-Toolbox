@@ -77,9 +77,9 @@ describe("decodePickId", () => {
   });
 
   it("ignores a kind this renderer does not draw", () => {
-    // Forward compatibility with a kind 3 some later version writes: unknown means "nothing here",
+    // Forward compatibility with a kind 4 some later version writes: unknown means "nothing here",
     // never "marker 12".
-    expect(decodePickId((3 << 20) | 12)).toBeNull();
+    expect(decodePickId((4 << 20) | 12)).toBeNull();
   });
 
   it("decodes a real pixel", () => {

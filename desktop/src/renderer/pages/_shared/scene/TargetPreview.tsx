@@ -2,7 +2,8 @@ import type { ReactNode } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "../../../ui/Button";
 import { openNativeScene, exportNativeScene } from "../../../viewer/native";
-import { RoiSpaceControl, type RoiValue } from "../roi";
+import { RoiSpaceControl, type NetworkRoiValue, type RoiValue } from "../roi";
+import { NetworkPane } from "./NetworkPane";
 import { targetPreviewRoi } from "./targetPreviewModel";
 import { ScenePane } from "./ScenePane";
 
@@ -62,6 +63,13 @@ export function TargetPreview({ subject, roi, onRoiChange, electrodes }: {
     <RoiSpaceControl value={roi} onChange={onRoiChange} label="Target space" id="scene-pane-space-control" />
   ) : null;
 
+  if (roi?.mode === "network") {
+    return <NetworkPane subject={subject} value={roi as NetworkRoiValue} onChange={onRoiChange}
+      openMask={roi.mask ? <>
+        <Button size="sm" disabled={!subject || !target || preview.isPending || !window.tit?.openNativeTetravox} onClick={() => preview.mutate()}>{preview.isPending ? "Preparing target…" : "Open mask in TetraVox"}</Button>
+        {preview.error && <span role="alert">{preview.error.message}</span>}
+      </> : null} />;
+  }
   if (!roi || roi.mode === "cortical" || roi.mode === "subcortical") {
     // Deliberately NOT `data-testid="target-preview"`: that id means "the modes with no anatomy
     // showed their TetraVox button instead of the pane", and specs assert it is absent here.

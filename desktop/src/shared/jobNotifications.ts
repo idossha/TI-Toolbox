@@ -75,6 +75,7 @@ export const JOB_KIND_LABELS: Record<string, string> = {
   analyzer: "Analysis",
   stats: "Group statistics",
   source: "Source forward model",
+  tract: "White-matter network",
   blender: "3D export",
   nifti_average: "NIfTI averaging",
   nilearn: "Nilearn visuals",

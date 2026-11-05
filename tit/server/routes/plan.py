@@ -61,6 +61,10 @@ Per-kind output-dir resolution
     :meth:`PathManager.sim_fsaverage` per ``(subject, simulation)`` pair; it exists when
     that spacing's projection does, and is overwritten with ``fsavg_map.overwrite`` or
     when it lacks a requested field.
+``tract``
+    :meth:`PathManager.tractography` when a stage writes there (track, network, target), and
+    ``Simulations/<sim>/tract/`` per assessed simulation; each replaces only what that stage
+    writes (:func:`_plan_tract`).
 ``stats``
     Project-level (``PlanJob.subject`` is ``""``): :meth:`PathManager.stats_output` with the
     literal ``analysis_type`` ``tit.stats.permutation`` itself uses (``"group_comparison"`` /
@@ -802,6 +806,44 @@ def _plan_source(
     return jobs, None
 
 
+def _plan_tract(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob], None]:
+    sid = config.subject_id
+    tract_dir = pm.tractography(sid)
+    jobs: list[PlanJob] = []
+    if {"track", "network", "target"} & set(config.stages):
+        written = []
+        if "track" in config.stages:
+            written.append(os.path.join(tract_dir, "tractogram.trx"))
+        if "network" in config.stages:
+            written.append(os.path.join(tract_dir, "network.npz"))
+        if "target" in config.stages:
+            name = config.target.selection.name
+            written.append(os.path.join(tract_dir, f"target_{name}.json"))
+        jobs.append(
+            PlanJob(
+                kind=kind,
+                subject=sid,
+                output_dir=tract_dir,
+                exists=_dir_exists(tract_dir),
+                will_overwrite=any(os.path.isfile(p) for p in written),
+            )
+        )
+    if "assess" in config.stages:
+        for sim in config.assess.simulations:
+            output_dir = os.path.join(pm.simulation(sid, sim), "tract")
+            exists = _dir_exists(output_dir)
+            jobs.append(
+                PlanJob(
+                    kind=kind,
+                    subject=sid,
+                    output_dir=output_dir,
+                    exists=exists,
+                    will_overwrite=exists,
+                )
+            )
+    return jobs, None
+
+
 def _plan_nifti_average(
     kind: str, pm: PathManager, config: Any
 ) -> tuple[list[PlanJob], None]:
@@ -1045,6 +1087,8 @@ def plan_jobs(
         jobs, resolved = _plan_analyzer(kind, pm, config, subject_ids, warnings)
     elif kind == "source":
         jobs, resolved = _plan_source(kind, pm, config, subject_ids, warnings)
+    elif kind == "tract":
+        jobs, resolved = _plan_tract(kind, pm, config)
     elif kind == "stats":
         jobs, resolved = _plan_stats(kind, pm, config)
     elif kind == "blender":

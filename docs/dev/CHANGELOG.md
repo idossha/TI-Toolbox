@@ -8,6 +8,12 @@ toc_group: major
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
 ---
+### Unreleased
+
+- **Added: target a white-matter network in the optimizers** — a flex-search, ex-search or mEx-search row can now aim at the fibres between chosen brain regions: choose seed regions, then edges from a table with their streamline counts, see their streamlines in the 3D pane and click them, and create a mask. **Optimizer ▸ Target ▸ Network**. A subject without a network gets the job from the same place, or from **Pre-processing ▸ DWI ▸ White-matter network**, once QSIPrep output exists; the atlas is chosen in that form, DK40 by default. A network target is subject space and evaluated on white matter. A mask made before its network was rebuilt is refused at submission. Existing targets, jobs and results are unchanged.
+- **Added: rank a two-channel ex-search run on a network** — **Results ▸ an ex-search run ▸ Rank on a network** scores the run's montages on a network mask and reports the TI envelope along the fibres, `TI_max`, the random-direction average and the alignment index side by side, with none marked preferred.
+
+---
 ### v3.1.3 — November 3, 2026 <span class="release-pill">Latest</span> {#v313--november-3-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.3/">Release notes →</a>

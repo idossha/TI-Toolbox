@@ -19,7 +19,7 @@ info:
     `tit.config_io.deserialize_config`. Their real shapes are the `contracts/generated/config.schema.json` `$defs`
     (`SimulationConfig`, `Montage`, `FlexConfig`, `ExConfig`, `MExConfig`, `AnalyzerConfig`,
     `PreprocessConfig`, `QSIPrepConfig`, `QSIReconConfig`, `GroupComparisonConfig`,
-    `CorrelationConfig`, `SourceConfig`, `LeadfieldConfig`, `MontageConfig`,
+    `CorrelationConfig`, `SourceConfig`, `TractConfig`, `LeadfieldConfig`, `MontageConfig`,
     `VectorConfig`, `RegionConfig`) merged into this document's `components.schemas`
     by `dev/build_contract.py`, which replaces every schema below carrying `x-tit-config` with the
     generated one. Until that merge runs, each is a permissive placeholder
@@ -2551,6 +2551,142 @@ paths:
   # docs/dev/DECISIONS.md § 2026-09-04 (Scene service and retained pages) §2, decisions S1-S3. Response bodies are plain dicts (the
   # pattern every /api/catalog route follows), so the shapes below are stated inline rather
   # than as named components -- there is no server-side Pydantic model for the dump to name.
+  /api/tract/manifest:
+    get:
+      tags: [tract]
+      summary: Whether a subject has a network to target, and its regions
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The manifest; `available` false when the job has not run.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractManifest" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The project has no such subject.
+  /api/tract/edges:
+    get:
+      tags: [tract]
+      summary: Every edge touching any seed region, most streamlines first
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+        - in: query
+          name: seed
+          required: true
+          schema: { type: array, minItems: 1, maxItems: 500, items: { type: string } }
+      responses:
+        "200":
+          description: The edges. `edge_id` is transient; it renumbers when the network is rebuilt.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractEdges" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such subject, or no network yet.
+        "422":
+          description: A seed the network does not name.
+  /api/tract/streamlines:
+    get:
+      tags: [tract]
+      summary: A bounded subsample of the given edges' streamlines as TVSL1 binary
+      description: >-
+        At most 64 edges, each at most 100 streamlines drawn uniformly, about one point per 2 mm.
+        `group` of a streamline is the position of its edge in the `pair` list. A cold cache
+        answers 202 and the client polls.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+        - in: query
+          name: pair
+          required: true
+          description: "`region_a|region_b`, repeated."
+          schema: { type: array, items: { type: string } }
+        - in: query
+          name: wait
+          required: false
+          schema: { type: number, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: TVSL1 bytes (`tit/scene/tvsl.py`).
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "202":
+          description: Cold cache; poll after Retry-After.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such subject, or no network yet.
+        "422":
+          description: An unknown region or pair, or more than 64 pairs.
+  /api/tract/mask:
+    post:
+      tags: [tract]
+      summary: Write the tract-density mask of the given region pairs
+      description: >-
+        Writes `m2m_<id>/masks/tract-<name>.nii.gz` and its `.json` sidecar (selection, counts,
+        fingerprint). Region-name pairs, never edge ids or client paths.
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TractMaskRequest" }
+      responses:
+        "201":
+          description: The mask.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractMask" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No such subject, or no network yet.
+        "409":
+          description: A mask of this name exists and `overwrite` is false.
+        "422":
+          description: Bad name, unknown region or pair, an edge below `min_n`, or an empty mask.
+  /api/tract/masks:
+    get:
+      tags: [tract]
+      summary: This subject's masks made from its network
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The masks; `stale` when the network was rebuilt since.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractMasks" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The project has no such subject.
+  /api/tract/rankings:
+    get:
+      tags: [tract]
+      summary: Montage rankings of an ex-search run on this subject's networks
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { in: query, name: subject, required: true, schema: { type: string } }
+        - { in: query, name: ex_run, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        "200":
+          description: Every ranking made from this run; every statistic side by side.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractRankings" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: The project has no such subject.
   /api/scene/target-preview:
     post:
       tags:
@@ -5084,6 +5220,7 @@ components:
           analyzer,
           stats,
           source,
+          tract,
           blender,
           nifti_average,
           nilearn,
@@ -5228,6 +5365,7 @@ components:
           analyzer,
           stats,
           source,
+          tract,
           blender,
           nifti_average,
           nilearn,
@@ -5420,7 +5558,7 @@ components:
       properties:
         kind:
           type: string
-          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex]
+          enum: [pre, sim, flex, flex_adaptive, flex_pareto, ex, mex, tract]
           description: >-
             Every kind that runs one independent job per subject. The whole group is created queued
             and runs one job at a time: the scheduler runs one job per product (Preprocess,
@@ -6167,6 +6305,120 @@ components:
       additionalProperties: true
       x-tit-config: NilearnConfig
       description: "injected from contracts/generated/config.schema.json by dev/build_contract.py"
+    TractConfig:
+      type: object
+      description: Replaced at build time by the generated dataclass schema.
+      x-tit-config: TractConfig
+    TractRegion:
+      type: object
+      required: [name, cortical]
+      properties:
+        name: { type: string }
+        cortical: { type: boolean }
+    TractManifest:
+      type: object
+      required: [available, qsiprep_available, tractogram_available]
+      properties:
+        available: { type: boolean }
+        qsiprep_available: { type: boolean }
+        tractogram_available: { type: boolean }
+        atlas: { type: [string, "null"] }
+        n_streamlines: { type: [integer, "null"] }
+        n_edges: { type: [integer, "null"] }
+        frac_both_ends_assigned: { type: [number, "null"] }
+        qc_passed: { type: [boolean, "null"] }
+        fingerprint: { type: [string, "null"] }
+        regions:
+          type: array
+          items: { $ref: "#/components/schemas/TractRegion" }
+    TractEdge:
+      type: object
+      required: [edge_id, region_a, region_b, n, share]
+      properties:
+        edge_id: { type: integer }
+        region_a: { type: string }
+        region_b: { type: string }
+        n: { type: integer }
+        share: { type: number }
+    TractEdges:
+      type: object
+      required: [edges]
+      properties:
+        edges:
+          type: array
+          items: { $ref: "#/components/schemas/TractEdge" }
+    TractMaskRequest:
+      type: object
+      additionalProperties: false
+      required: [subject, name, pairs]
+      properties:
+        subject: { type: string }
+        name: { type: string }
+        pairs:
+          type: array
+          minItems: 1
+          maxItems: 5000
+          items: { type: array, minItems: 2, maxItems: 2, items: { type: string } }
+        min_count: { type: integer, minimum: 1, default: 1 }
+        min_n: { type: integer, minimum: 1, default: 5 }
+        overwrite: { type: boolean, default: false }
+    TractMask:
+      type: object
+      required: [name, path, fingerprint, stale, pairs, min_count, n_edges, n_streamlines, n_voxels, volume_mm3]
+      properties:
+        name: { type: string }
+        path: { type: string }
+        fingerprint: { type: string }
+        stale: { type: boolean }
+        pairs:
+          type: array
+          items: { type: array, minItems: 2, maxItems: 2, items: { type: string } }
+        min_count: { type: integer }
+        n_edges: { type: integer }
+        n_streamlines: { type: integer }
+        n_voxels: { type: integer }
+        volume_mm3: { type: number }
+    TractMasks:
+      type: object
+      required: [masks]
+      properties:
+        masks:
+          type: array
+          items: { $ref: "#/components/schemas/TractMask" }
+    TractRankingMontage:
+      type: object
+      required: [montage, median_sl_mean_ti_along, pooled_mean_ti_along, median_sl_mean_ti_max, pooled_mean_ti_max, median_sl_mean_ti_avg, pooled_mean_ti_avg, align_index, rank_by_ti_along, rank_by_ti_max]
+      properties:
+        montage: { type: array, items: { type: string } }
+        median_sl_mean_ti_along: { type: number }
+        pooled_mean_ti_along: { type: number }
+        median_sl_mean_ti_max: { type: number }
+        pooled_mean_ti_max: { type: number }
+        median_sl_mean_ti_avg: { type: number }
+        pooled_mean_ti_avg: { type: number }
+        align_index: { type: number }
+        rank_by_ti_along: { type: integer }
+        rank_by_ti_max: { type: integer }
+    TractRanking:
+      type: object
+      required: [name, ex_run, n_streamlines, current_mA, n_points, n_points_in_leadfield_mesh, montages]
+      properties:
+        name: { type: string }
+        ex_run: { type: string }
+        n_streamlines: { type: integer }
+        current_mA: { type: array, items: { type: number } }
+        n_points: { type: integer }
+        n_points_in_leadfield_mesh: { type: integer }
+        montages:
+          type: array
+          items: { $ref: "#/components/schemas/TractRankingMontage" }
+    TractRankings:
+      type: object
+      required: [rankings]
+      properties:
+        rankings:
+          type: array
+          items: { $ref: "#/components/schemas/TractRanking" }
     PipelineConfig:
       description: >-
         Union of every config dataclass a job/validate/plan "config" body can carry. The real
@@ -6186,6 +6438,7 @@ components:
         - $ref: "#/components/schemas/GroupComparisonConfig"
         - $ref: "#/components/schemas/CorrelationConfig"
         - $ref: "#/components/schemas/SourceConfig"
+        - $ref: "#/components/schemas/TractConfig"
         - $ref: "#/components/schemas/LeadfieldConfig"
         - $ref: "#/components/schemas/MontageConfig"
         - $ref: "#/components/schemas/VectorConfig"

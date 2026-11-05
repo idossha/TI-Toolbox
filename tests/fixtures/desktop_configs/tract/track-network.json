@@ -1,0 +1,37 @@
+{
+  "id": "tract/track-network",
+  "page": "tract",
+  "title": "A subject with no tractogram: DK40",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "network": {
+          "atlas": "DK40"
+        },
+        "stages": [
+          "track",
+          "network"
+        ],
+        "subject_id": "001",
+        "track": {
+          "overwrite": false
+        }
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "track",
+      "network"
+    ]
+  }
+}

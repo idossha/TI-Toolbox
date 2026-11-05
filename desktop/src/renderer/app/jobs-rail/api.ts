@@ -37,6 +37,7 @@ export const JOB_KINDS: JobKind[] = [
   "analyzer",
   "stats",
   "source",
+  "tract",
   "blender",
   "nifti_average",
   "nilearn",
