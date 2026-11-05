@@ -4,6 +4,11 @@ The launcher uses a fresh session and a pipe gate: its root is observed before i
 can execute the command. Descendants are tracked by PID plus microsecond birth
 time, including detached/reparented descendants. An unseen orphan or a missing
 process record is unknown, never evidence that a window was unrelated.
+
+A shared Mac also starts things during a run: launchd jobs, and the children of
+root daemons such as cron. Those have an ancestry that does not reach the test,
+so they need not drain after exit, but a window of theirs stays inconclusive,
+because a test can start an app through launchd.
 """
 
 from __future__ import annotations
@@ -82,11 +87,14 @@ class Attribution:
         root_alive = (
             current_root is not None and _identity(current_root) == self.root_identity
         )
+        restricted = set(sample.get("restricted") or ())
         cache = {}
 
         def classify(pid, trail=frozenset()):
             if pid in cache:
                 return cache[pid]
+            if pid in restricted:
+                return "unrelated"
             process = processes.get(pid)
             if not process or pid in trail:
                 return "unknown"
@@ -102,7 +110,11 @@ class Attribution:
             elif process["ppid"] <= 1:
                 # launchd adoption is not an ancestry trace: an unobserved test
                 # child could have detached and lost its parent before sampling.
-                kind = "unknown"
+                # `launchd_job` is launchd's own spawn, read from the parent's unique id.
+                kind = "foreign" if process.get("launchd_job") else "unknown"
+            elif process["ppid"] in restricted:
+                # A child of another user's process, which only a sudo in a test could make ours.
+                kind = "foreign"
             else:
                 parent = processes.get(process["ppid"])
                 if parent and int(parent["start"]) <= int(process["start"]):
@@ -139,7 +151,7 @@ class Attribution:
         )
         for pid, detail in events:
             kind = classify(pid)
-            if kind == "unknown":
+            if kind in ("unknown", "foreign"):
                 status = 2
                 messages.append(f"ERROR: unknown ancestry pid={pid} {detail}")
             elif kind == "test":

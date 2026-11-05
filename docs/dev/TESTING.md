@@ -289,7 +289,10 @@ scene build can use `VITE_SCENE_HOOKS=1 npx electron-vite build`. Gallery tests 
 `VITE_INCLUDE_GALLERY=1`. `electron-vite build --mode` does not make `import.meta.env.DEV` true.
 Restore `npm run build` after tests so the shared server no longer serves the hook-enabled bundle.
 
-A quiet monitor exit 2 is inconclusive, not a pass. Keep functional assertions and native
+A quiet monitor exit 2 is inconclusive, not a pass. Launchd jobs and the children of root daemons
+(cron) started during a run need not drain after exit; an orphan from anywhere else must, and a
+window from either stays inconclusive; a window of another user's process, WindowServer's for one,
+is not a test's. Keep functional assertions and native
 visibility/focus certification separate. Do not rerun solely to replace unresolved shared-host
 process attribution with a more convenient result.
 
