@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
-from tit.server.schemas import EntityName, SubjectId
+from tit.server.schemas import EntityName, SimulationNetworks, SubjectId
 
 from tit import catalog
 from tit.paths import get_path_manager
@@ -59,6 +59,21 @@ def simulation_figures(
 ) -> list[dict]:
     return _or_404(
         catalog.simulation_figures(_pm(), subject, name),
+        f"Unknown subject or simulation: {subject}/{name}",
+    )
+
+
+@router.get(
+    "/api/catalog/simulations/{name}/networks",
+    response_model=SimulationNetworks,
+    summary="One simulation's white-matter network outputs and the renders made of them",
+    responses={404: {"description": "unknown subject or simulation"}},
+)
+def simulation_networks(
+    name: EntityName, subject: Annotated[SubjectId, Query()]
+) -> SimulationNetworks:
+    return _or_404(
+        catalog.simulation_networks(_pm(), subject, name),
         f"Unknown subject or simulation: {subject}/{name}",
     )
 

@@ -59,6 +59,7 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => Object.keys(RECORDS).map((name) => ({ name, path: `${SIM_ROOT}/${name}` }))),
   getAtlasRegions: vi.fn(async () => []),
   getNiftiLabels: vi.fn(async () => []),
+  getSimulationNetworks: vi.fn(async (_subject: string, name: string) => (name === "no_tracts" ? { networks: [], renders: [] } : name === "bundles_only" ? { networks: ["cst_lh"], renders: [] } : { networks: ["all"], renders: [] })),
   validateBlender: vi.fn(async () => ({ ok: true, errors: [] })),
   planBlender: vi.fn(async () => ({ jobs: [], lock_conflicts: [], cost: { cpus: 1, mem_gb: 1 }, warnings: [] })),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
@@ -118,6 +119,31 @@ async function render(session: Record<string, unknown>) {
 
 afterEach(() => {
   vi.useRealTimers();
+});
+
+describe("visual exporter networks gate", () => {
+  it("refuses a simulation with no network outputs and says where they come from", async () => {
+    const { title, submitted } = await render({ mode: "networks", subjectId: "101", simulationName: "no_tracts" });
+    expect(title).toBe("This simulation has no network outputs yet. They come from the tract job's assess stage.");
+    expect(submitted).toEqual([]);
+  });
+
+  it("refuses the sequence without all.trx, while that simulation's bundle still renders", async () => {
+    const base = { mode: "networks", subjectId: "101", simulationName: "bundles_only" };
+    const refused = await render({ ...base, networkSequence: true });
+    expect(refused.title).toBe("The thalamocortical sequence reads all.trx, which this simulation does not have.");
+    expect(refused.submitted).toEqual([]);
+    const bundle = await render(base);
+    expect(bundle.title).toBeNull();
+    expect(bundle.submitted).toEqual([expect.objectContaining({ _type: "TractVisualConfig", tractogram: "cst_lh.trx", network_bundle: "cst_lh" })]);
+  });
+
+  it("refuses a run that would render nothing", async () => {
+    const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula" };
+    expect((await render({ ...base, networkStills: false })).title).toBe("Choose stills, a turntable or both.");
+    expect((await render({ ...base, networkViews: [] })).title).toBe("Choose at least one view.");
+    expect((await render({ ...base, networkViews: [], networkTurntable: true, networkStills: false })).title).toBeNull();
+  });
 });
 
 describe("visual exporter montage gate", () => {

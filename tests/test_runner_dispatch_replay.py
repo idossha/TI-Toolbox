@@ -380,6 +380,7 @@ def _science_patches(kind: str, rec: Recorder) -> list:
                 "tit.blender.subcortical_exporter.run_subcortical",
                 target("run_subcortical"),
             ),
+            patch("tit.blender.tract_publication.run_tract", target("run_tract")),
         ]
     raise AssertionError(f"no recorder for kind {kind!r}")
 
@@ -408,6 +409,7 @@ EXPECTED_TARGET = {
         "VectorConfig": "run_vectors",
         "RegionConfig": "run_regions",
         "SubcorticalConfig": "run_subcortical",
+        "TractVisualConfig": "run_tract",
     }[c["_type"]],
 }
 

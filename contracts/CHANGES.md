@@ -1339,3 +1339,11 @@ web viewer, connectome figure; turntable and propagation videos opt-in). Additiv
 `blender` configs and every other kind are unchanged. The name is not `TractConfig` because that
 `_type` belongs to `tit.tract`'s runner config. Regenerated `contracts/generated/config.schema.json`,
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-11-05 — `TractVisualConfig` gains `views`, `quality` and `thalamocortical_sequence`; `GET /api/catalog/simulations/{name}/networks`
+
+Additive. `views` (empty: all three stills), `quality` (`final`, the previous behaviour, or `preview`)
+and `thalamocortical_sequence` (false) reproduce the previous renders when absent. The new read lists a
+simulation's `tract/*.trx` stems and rendered PNG and MP4 files for the Visual exporter's Networks tab.
+Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.

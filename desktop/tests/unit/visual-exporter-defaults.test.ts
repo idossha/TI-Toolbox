@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import {
   buildMontageConfig,
+  buildNetworkConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
@@ -122,5 +123,49 @@ describe("outputHint", () => {
     expect(outputHint("vectors", "ernie", "Thalamus")).toBe("visual_exports/sub-ernie/Thalamus/vectors");
     expect(outputHint("montage", "ernie", "Thalamus")).toBe("visual_exports/sub-ernie/montage_publication");
     expect(outputHint("subcortical", "ernie", "")).toBe("visual_exports/sub-ernie/sub-cortical");
+  });
+});
+
+describe("networks mode", () => {
+  const form = {
+    subjectId: "CHN",
+    simulationName: "thalamus",
+    network: "cst_lh",
+    metric: "ti_max" as const,
+    views: ["oblique"],
+    stills: true,
+    turntable: true,
+    quality: "preview" as const,
+    sequence: false,
+  };
+
+  it("validates in every shape it builds", () => {
+    for (const config of [buildNetworkConfig(form), buildNetworkConfig({ ...form, network: "all" }), buildNetworkConfig({ ...form, sequence: true })])
+      expect(validate("TractVisualConfig", config)).toMatchObject({ valid: true, errors: [] });
+  });
+
+  it("reads a bundle as its own tractogram and draws only it", () => {
+    expect(buildNetworkConfig(form)).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", views: ["oblique"], quality: "preview" });
+  });
+
+  it("all.trx keeps the config's default of foregrounding the strongest edges", () => {
+    const config = buildNetworkConfig({ ...form, network: "all" });
+    expect(config).toMatchObject({ tractogram: "all.trx" });
+    expect(config).not.toHaveProperty("network_bundle");
+    expect(config).not.toHaveProperty("network_top_edges");
+  });
+
+  it("the sequence turns the outputs off that it refuses to run beside", () => {
+    expect(buildNetworkConfig({ ...form, sequence: true })).toEqual({
+      _type: "TractVisualConfig",
+      subject_id: "CHN",
+      simulation_name: "thalamus",
+      quality: "preview",
+      web: false,
+      connectome: false,
+      thalamocortical_sequence: true,
+      stills: false,
+      turntable: false,
+    });
   });
 });

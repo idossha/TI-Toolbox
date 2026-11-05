@@ -1,0 +1,44 @@
+{
+  "id": "visual-exporter/networks-bundle",
+  "page": "visual-exporter",
+  "title": "Network stills and turntable of one bundle",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractVisualConfig",
+        "connectome": false,
+        "height": 640,
+        "metric": "ti_max",
+        "network_bundle": "cst_lh",
+        "network_top_edges": 0,
+        "quality": "preview",
+        "simulation_name": "M1",
+        "stills": true,
+        "subject_id": "001",
+        "tractogram": "cst_lh.trx",
+        "turntable": true,
+        "turntable_frames": 48,
+        "views": [
+          "lateral",
+          "superior",
+          "oblique"
+        ],
+        "web": false,
+        "width": 960
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "TractVisualConfig"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "id": "visual-exporter/networks-nothing-chosen",
+  "page": "visual-exporter",
+  "title": "Networks with neither stills nor a turntable",
+  "jobs": [],
+  "desktop": {
+    "accepts": false,
+    "reason": "Choose stills, a turntable or both."
+  },
+  "expect": {
+    "blender_types": []
+  }
+}

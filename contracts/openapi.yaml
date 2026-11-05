@@ -330,6 +330,29 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: unknown subject
+  /api/catalog/simulations/{name}/networks:
+    get:
+      tags: [catalog]
+      summary: One simulation's white-matter network outputs and the renders made of them
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema: { type: string }
+        - in: query
+          name: subject
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The simulation's tract/*.trx stems and its rendered PNG and MP4 files
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimulationNetworks"
+        "404":
+          description: unknown subject or simulation
   /api/catalog/simulations/{name}:
     get:
       tags: [catalog]
@@ -4573,6 +4596,27 @@ components:
       properties:
         path: { type: string }
         kind: { type: string }
+    SimulationNetworks:
+      type: object
+      required: [networks, renders]
+      properties:
+        networks:
+          type: array
+          items: { type: string }
+          description: >-
+            Stems of Simulations/<sim>/tract/*.trx, sorted; empty until the tract job's assess
+            stage has run.
+        renders:
+          type: array
+          description: PNG and MP4 files in visual_exports/sub-<id>/<sim>/tract/, newest first.
+          items:
+            type: object
+            required: [path, name, kind, modified_at]
+            properties:
+              path: { type: string }
+              name: { type: string }
+              kind: { type: string, enum: [image, video] }
+              modified_at: { type: string }
     SimulationDetail:
       description: v0 Simulation plus montages, fields, spaces, reports, niftis, meshes
       allOf:

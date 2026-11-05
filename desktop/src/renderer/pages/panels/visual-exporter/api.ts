@@ -1,7 +1,7 @@
 /**
  * Page-scoped API calls for the 3D Visual Exporter panel. Kept local — see `pages/simulator/api.ts`.
  *
- * All four modes are the one `blender` job kind, discriminated by the config's own `_type`
+ * All five modes are the one `blender` job kind, discriminated by the config's own `_type`
  * (`tit/server/routes/validate.py`'s `AMBIGUOUS_KIND_CLASSES["blender"]`, `tit/blender/__main__.py`'s
  * dispatch) — which is why every call below takes the union rather than one config type.
  */
@@ -16,11 +16,13 @@ export type MontageConfig = components["schemas"]["MontageConfig"];
 export type VectorConfig = components["schemas"]["VectorConfig"];
 export type RegionConfig = components["schemas"]["RegionConfig"];
 export type SubcorticalConfig = components["schemas"]["SubcorticalConfig"];
+export type TractVisualConfig = components["schemas"]["TractVisualConfig"];
+export type SimulationNetworks = components["schemas"]["SimulationNetworks"];
 export type Region = components["schemas"]["Region"];
 export type NiftiLabel = components["schemas"]["NiftiLabel"];
 type PipelineConfig = components["schemas"]["PipelineConfig"];
 
-export type BlenderConfig = MontageConfig | VectorConfig | RegionConfig | SubcorticalConfig;
+export type BlenderConfig = MontageConfig | VectorConfig | RegionConfig | SubcorticalConfig | TractVisualConfig;
 
 function asPipelineConfig(config: BlenderConfig): PipelineConfig {
   return config as unknown as PipelineConfig;
@@ -44,6 +46,12 @@ export async function getAtlasRegions(subject: string, atlas: string): Promise<R
 export async function getNiftiLabels(subject: string, path?: string): Promise<NiftiLabel[]> {
   const p = "/api/catalog/nifti/labels";
   return unwrap(await api.GET(p, { params: { query: { subject, path: path || undefined } } }), p);
+}
+
+/** The simulation's `tract/*.trx` stems and the PNG and MP4 files rendered from them. */
+export async function getSimulationNetworks(subject: string, name: string): Promise<SimulationNetworks> {
+  const path = "/api/catalog/simulations/{name}/networks";
+  return unwrap(await api.GET(path, { params: { path: { name }, query: { subject } } }), path);
 }
 
 export async function validateBlender(config: BlenderConfig): Promise<ValidateResult> {

@@ -101,6 +101,10 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
         f"/api/catalog/simulations?subject={SID}",
         _items("simulations"),
     ),
+    "/api/catalog/simulations/{name}/networks": (
+        f"/api/catalog/simulations/{SIM}/networks?subject={SID}",
+        None,
+    ),
     "/api/catalog/simulations/{name}": (
         f"/api/catalog/simulations/{SIM}?subject={SID}",
         _items("niftis"),

@@ -71,6 +71,7 @@ GLASS_COLOUR = (0.55, 0.68, 0.9)
 REGION_COLOUR = (1.0, 0.62, 0.28)
 ROI_COLOUR = (0.2, 0.95, 0.85)
 VIDEO_SIZE = (1920, 1080)
+PREVIEW_FRAME_STEP = 4
 CAPTION_4D = (
     "Fronts run from each fibre's field maximum to both ends; brightness = that fibre's peak "
     "TI envelope along the fibre.\nA depiction of where the stimulated fibres project, not a "
@@ -857,7 +858,7 @@ def _bloom(scene) -> None:
     tree.links.new(glare.outputs["Image"], out.inputs[0])
 
 
-def video_output(scene, path_stem: str) -> None:
+def video_output(scene, path_stem: str, fps: int = 24) -> None:
     settings = scene.render.image_settings
     if hasattr(settings, "media_type"):  # 5.x splits images from video
         settings.media_type = "VIDEO"
@@ -866,15 +867,15 @@ def video_output(scene, path_stem: str) -> None:
     scene.render.ffmpeg.codec = "H264"
     scene.render.ffmpeg.constant_rate_factor = "HIGH"
     scene.render.ffmpeg.ffmpeg_preset = "GOOD"
-    scene.render.fps = 24
+    scene.render.fps = fps
     scene.render.filepath = path_stem
 
 
-def _render_movie(scene, out_dir: str, name: str) -> str:
+def _render_movie(scene, out_dir: str, name: str, fps: int = 24) -> str:
     import bpy
 
     stem = os.path.join(out_dir, f".{name}_")
-    video_output(scene, stem)
+    video_output(scene, stem, fps)
     bpy.ops.render.render(animation=True)
     produced = [
         f
@@ -1093,9 +1094,8 @@ def render_stills(manifest, base, out_dir) -> list[str]:
 
     scene = bpy.context.scene
     size = manifest["still_size"]
-    configure(
-        scene, size, samples=32
-    )  # 32: smooth dithering; 48 took 15 min/still emulated
+    # 32: smooth dithering; 48 took 15 min/still emulated
+    configure(scene, size, samples=8 if manifest.get("preview") else 32)
     _brain, cloud = build_scene(manifest, base, animated=False)
     camera = bpy.data.objects.new("StillCamera", bpy.data.cameras.new("StillCamera"))
     scene.collection.objects.link(camera)
@@ -1149,7 +1149,8 @@ def render_turntable(manifest, base, out_dir) -> str:
     import bpy
 
     scene = bpy.context.scene
-    configure(scene, VIDEO_SIZE, samples=16)
+    size, samples = ((960, 540), 6) if manifest.get("preview") else (VIDEO_SIZE, 16)
+    configure(scene, size, samples=samples)
     n, degrees = manifest["turntable_frames"], manifest["turntable_degrees"]
     swap = crossfade = None
     if manifest.get("crossfade"):  # direction for the first half, then the metric
@@ -1451,7 +1452,10 @@ def render_sequence(
         return out_dir
     scene.frame_set(1)
     scene.frame_start, scene.frame_end = 1, end
-    return _render_movie(scene, out_dir, name)
+    if not preview:
+        return _render_movie(scene, out_dir, name)
+    scene.frame_step = PREVIEW_FRAME_STEP  # same running time, a quarter of the frames
+    return _render_movie(scene, out_dir, name, fps=24 // PREVIEW_FRAME_STEP)
 
 
 def render_propagation(manifest, base, out_dir) -> str:

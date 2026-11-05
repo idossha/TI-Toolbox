@@ -9,7 +9,7 @@
  * `vector_scale`/`vector_length` of 1.0). Change one and this panel stops producing the files the
  * Qt extension produced.
  */
-import type { MontageConfig, RegionConfig, SubcorticalConfig, VectorConfig } from "./api";
+import type { MontageConfig, RegionConfig, SubcorticalConfig, TractVisualConfig, VectorConfig } from "./api";
 
 /**
  * What `readExportMontage` (previewModel.ts) says of a simulation placed by coordinates, and the
@@ -20,7 +20,10 @@ export const NO_RECORDED_NET = "This simulation has no recorded EEG net.";
 /** `VectorConfig` (tit/blender/config.py) refuses magnitude-scale thresholds that do not rise. */
 export const PERCENTILE_ORDER = "Magnitude-scale percentiles must rise: blue ≤ green ≤ red.";
 
-export type Mode = "regions" | "vectors" | "montage" | "subcortical";
+export const NO_NETWORK_OUTPUTS = "This simulation has no network outputs yet. They come from the tract job's assess stage.";
+export const SEQUENCE_NEEDS_ALL = "The thalamocortical sequence reads all.trx, which this simulation does not have.";
+
+export type Mode = "regions" | "vectors" | "montage" | "subcortical" | "networks";
 
 export interface RegionsForm {
   subjectId: string;
@@ -154,6 +157,56 @@ export function buildSubcorticalConfig(form: SubcorticalForm): SubcorticalConfig
   } as SubcorticalConfig;
 }
 
+export interface NetworksForm {
+  subjectId: string;
+  simulationName: string;
+  /** A stem of `Simulations/<sim>/tract/*.trx`; ignored by the sequence, which reads `all.trx`. */
+  network: string;
+  metric: "direction" | "ti_max";
+  views: string[];
+  stills: boolean;
+  turntable: boolean;
+  quality: "preview" | "final";
+  sequence: boolean;
+}
+
+/** Resolution and video length of each quality; `quality` itself sets samples and video size. */
+const NETWORK_QUALITY = {
+  preview: { width: 960, height: 640, turntable_frames: 48 },
+  final: { width: 2400, height: 1600, turntable_frames: 120 },
+} as const;
+
+/**
+ * The tab draws PNG and MP4 renders only, so the web viewer and connectome figures stay off. A
+ * bundle file is its own tractogram, so only it is read and its top edges are not drawn twice;
+ * `all` foregrounds the run's strongest edges, the config's default.
+ */
+export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
+  const { width, height, turntable_frames } = NETWORK_QUALITY[form.quality];
+  const base = {
+    subject_id: form.subjectId,
+    simulation_name: form.simulationName,
+    quality: form.quality,
+    web: false,
+    connectome: false,
+    _type: "TractVisualConfig",
+  };
+  if (form.sequence) return { ...base, thalamocortical_sequence: true, stills: false, turntable: false } as TractVisualConfig;
+  const bundle = form.network === "all" ? {} : { network_bundle: form.network, network_top_edges: 0 };
+  return {
+    ...base,
+    ...bundle,
+    tractogram: `${form.network}.trx`,
+    metric: form.metric,
+    stills: form.stills,
+    views: form.views,
+    turntable: form.turntable,
+    width,
+    height,
+    turntable_frames,
+  } as TractVisualConfig;
+}
+
 /** The one-line "what this Run writes" the action bar and the toast both say. */
 export function outputHint(mode: Mode, subjectId: string, simulationName: string): string {
   const sub = `sub-${subjectId}`;
@@ -167,5 +220,7 @@ export function outputHint(mode: Mode, subjectId: string, simulationName: string
       return `visual_exports/${sub}/montage_publication`;
     case "subcortical":
       return `visual_exports/${sub}/sub-cortical`;
+    case "networks":
+      return `visual_exports/${sub}/${simulationName}/tract`;
   }
 }

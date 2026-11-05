@@ -2986,7 +2986,7 @@
       "additionalProperties": false
     },
     "TractVisualConfig": {
-      "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. Stills, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``\n    (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging\n    about 1) or ``direction``.\nfocus : bool\n    Network-focused stills and videos: the bundle and top edges as full tubes, the rest\n    of the tractogram as faint context, their endpoint regions lit from the subject's own\n    labels. ``False`` draws a subsample of the whole tractogram.\nnetwork_bundle : str\n    A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank\n    foregrounds the top edges only.\nnetwork_top_edges, network_min_streamlines : int\n    How many of ``summary.json``'s top edges join the foreground, and the streamline\n    count an edge needs to be one of them.\ncontext_streamlines : int\n    Faint context fibres drawn behind the network (0: none).\nnetwork_from, network_to, network_name : list of str, list of str, str\n    A network by its regions: every streamline whose edge joins a region of\n    ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,\n    none subsampled. Overrides ``network_bundle`` and the top edges.\nhighlight_regions : list of str\n    Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.\nregion_labels : bool\n    Name the lit regions on the still.\nlateral_side : int\n    -1 left, 1 right, 0 the side of the strongest field.\niso_shell_percentile : float or None\n    Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.\nprune_keep_fraction : float or None\n    In a named-network turntable sequence, sweep away all but this fraction of the\n    streamlines, the strongest by mean TI_max along each, then name where they end.\nlabel_regions : int\n    How many cortical regions the pruned network names.\nturntable_crossfade : bool\n    The turntable shows direction colours for its first half, crossfades over 2 s, then\n    shows ``metric`` (a scalar metric) for the second half.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nvmax_v_per_m : float or None\n    Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.\n    Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write.\nwidth, height : int\n    Still resolution in pixels (videos are 1920x1080).\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.\nseed : int\n    Subsampling seed.",
+      "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. Stills, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``\n    (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging\n    about 1) or ``direction``.\nfocus : bool\n    Network-focused stills and videos: the bundle and top edges as full tubes, the rest\n    of the tractogram as faint context, their endpoint regions lit from the subject's own\n    labels. ``False`` draws a subsample of the whole tractogram.\nnetwork_bundle : str\n    A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank\n    foregrounds the top edges only.\nnetwork_top_edges, network_min_streamlines : int\n    How many of ``summary.json``'s top edges join the foreground, and the streamline\n    count an edge needs to be one of them.\ncontext_streamlines : int\n    Faint context fibres drawn behind the network (0: none).\nnetwork_from, network_to, network_name : list of str, list of str, str\n    A network by its regions: every streamline whose edge joins a region of\n    ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,\n    none subsampled. Overrides ``network_bundle`` and the top edges.\nhighlight_regions : list of str\n    Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.\nregion_labels : bool\n    Name the lit regions on the still.\nlateral_side : int\n    -1 left, 1 right, 0 the side of the strongest field.\niso_shell_percentile : float or None\n    Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.\nprune_keep_fraction : float or None\n    In a named-network turntable sequence, sweep away all but this fraction of the\n    streamlines, the strongest by mean TI_max along each, then name where they end.\nlabel_regions : int\n    How many cortical regions the pruned network names.\nturntable_crossfade : bool\n    The turntable shows direction colours for its first half, crossfades over 2 s, then\n    shows ``metric`` (a scalar metric) for the second half.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nvmax_v_per_m : float or None\n    Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.\n    Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write.\nviews : list of str\n    The stills to render: ``lateral``, ``superior``, ``oblique``. Empty renders all three.\nquality : Quality\n    ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per\n    still; videos 960x540 at 6), for checking a choice before a long render.\nthalamocortical_sequence : bool\n    One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40\n    parcels), each going from direction colours to TI_max on one shared window, pruned to\n    its strongest 15 % by mean TI_max, with the regions those fibres reach named in their\n    own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,\n    ``turntable``, ``propagation`` and the network fields must be off or empty.\nwidth, height : int\n    Still resolution in pixels.\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/tract`` when ``None``.\nseed : int\n    Subsampling seed.",
       "properties": {
         "subject_id": {
           "title": "Subject Id",
@@ -3142,6 +3142,22 @@
           "title": "Connectome",
           "type": "boolean"
         },
+        "views": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Views",
+          "type": "array"
+        },
+        "quality": {
+          "$ref": "#/$defs/Quality",
+          "default": "final"
+        },
+        "thalamocortical_sequence": {
+          "default": false,
+          "title": "Thalamocortical Sequence",
+          "type": "boolean"
+        },
         "width": {
           "default": 2400,
           "title": "Width",
@@ -3227,6 +3243,15 @@
         "direction"
       ],
       "title": "Metric",
+      "type": "string"
+    },
+    "Quality": {
+      "description": "How much sampling and video resolution a render spends.",
+      "enum": [
+        "final",
+        "preview"
+      ],
+      "title": "Quality",
       "type": "string"
     },
     "VectorConfig": {

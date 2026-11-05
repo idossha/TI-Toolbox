@@ -8,7 +8,8 @@ import { markersFromElectrodes } from "../../_shared/scene/model";
 import { openView } from "../../viewer/api";
 import { Button } from "../../../ui/Button";
 import { openNativeScene, exportNativeScene } from "../../../viewer/native";
-import { getAtlasRegions } from "./api";
+import { getAtlasRegions, type SimulationNetworks } from "./api";
+import { NetworkRenders } from "./NetworkRenders";
 import type { Mode } from "./config";
 import {
   exportRegionKey,
@@ -34,6 +35,7 @@ export interface ExportPreviewProps {
   labels: number[];
   niftiPath: string;
   fieldName: string;
+  networkRenders: SimulationNetworks["renders"];
 }
 
 /** Each preview owns its channel: opening an export must not replace the retained Viewer scene. */
@@ -87,6 +89,7 @@ export function ExportPreview(props: ExportPreviewProps) {
         Choose a subject to preview its export inputs.
       </p>
     );
+  if (mode === "networks") return <NetworkRenders renders={props.networkRenders} />;
   if (mode === "subcortical" || mode === "vectors") {
     if (mode === "subcortical" && !volumePath)
       return (

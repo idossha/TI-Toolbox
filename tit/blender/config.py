@@ -268,8 +268,19 @@ class TractVisualConfig:
         Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).
     stills, turntable, propagation, web, connectome : bool
         Which outputs to write.
+    views : list of str
+        The stills to render: ``lateral``, ``superior``, ``oblique``. Empty renders all three.
+    quality : Quality
+        ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per
+        still; videos 960x540 at 6), for checking a choice before a long render.
+    thalamocortical_sequence : bool
+        One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40
+        parcels), each going from direction colours to TI_max on one shared window, pruned to
+        its strongest 15 % by mean TI_max, with the regions those fibres reach named in their
+        own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,
+        ``turntable``, ``propagation`` and the network fields must be off or empty.
     width, height : int
-        Still resolution in pixels (videos are 1920x1080).
+        Still resolution in pixels.
     turntable_frames, turntable_degrees : int, float
         Orbit length (24 fps) and sweep.
     front_speed_mm_per_frame : float
@@ -290,6 +301,12 @@ class TractVisualConfig:
         TI_RATIO = "ti_ratio"
         ALIGN_INDEX = "align_index"
         DIRECTION = "direction"
+
+    class Quality(StrEnum):
+        """How much sampling and video resolution a render spends."""
+
+        FINAL = "final"
+        PREVIEW = "preview"
 
     subject_id: str
     simulation_name: str
@@ -317,6 +334,9 @@ class TractVisualConfig:
     propagation: bool = False
     web: bool = True
     connectome: bool = True
+    views: list[str] = field(default_factory=list)
+    quality: Quality = Quality.FINAL
+    thalamocortical_sequence: bool = False
     width: int = 2400
     height: int = 1600
     turntable_frames: int = 120
@@ -333,6 +353,21 @@ class TractVisualConfig:
         if not (self.simulation_name or "").strip():
             raise ValueError("simulation_name is required")
         self.metric = TractVisualConfig.Metric(self.metric)
+        self.quality = TractVisualConfig.Quality(self.quality)
+        unknown = set(self.views) - {"lateral", "superior", "oblique"}
+        if unknown:
+            raise ValueError(f"unknown views: {sorted(unknown)}")
+        if self.thalamocortical_sequence and (
+            self.stills
+            or self.turntable
+            or self.propagation
+            or self.network_from
+            or self.network_bundle
+        ):
+            raise ValueError(
+                "thalamocortical_sequence runs alone: stills, turntable, propagation "
+                "and the network fields must be off or empty"
+            )
         if self.max_streamlines <= 0:
             raise ValueError("max_streamlines must be > 0")
         if self.vmax_v_per_m is not None and not self.vmax_v_per_m > 0:

@@ -927,6 +927,49 @@ def simulation_detail(pm: PathManager, sid: str, sim: str) -> dict | None:
     }
 
 
+def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
+    """A simulation's white-matter network outputs and the renders made of them.
+
+    ``networks`` are the stems of ``Simulations/<sim>/tract/*.trx`` (written by the tract job's
+    ``assess`` stage); ``renders`` the PNG and MP4 files in
+    ``visual_exports/sub-<id>/<sim>/tract/``, newest first. ``None`` if subject or simulation is
+    unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
+    ``GET /api/catalog/simulations`` is a :func:`simulation_detail`.
+    """
+    if sid not in subject_ids(pm) or sim not in _simulation_names(pm, sid):
+        return None
+    tract_dir = _jailed(pm, os.path.join(pm.simulation(sid, sim), "tract"))
+    render_dir = _jailed(
+        pm, os.path.join(pm.ti_toolbox(), "visual_exports", f"sub-{sid}", sim, "tract")
+    )
+    networks = (
+        sorted(
+            name[: -len(".trx")]
+            for name in os.listdir(tract_dir)
+            if name.endswith(".trx")
+        )
+        if tract_dir and os.path.isdir(tract_dir)
+        else []
+    )
+    renders = []
+    if render_dir and os.path.isdir(render_dir):
+        for name in os.listdir(render_dir):
+            kind = {".png": "image", ".mp4": "video"}.get(os.path.splitext(name)[1])
+            path = _jailed(pm, os.path.join(render_dir, name))
+            # A dot prefix is a movie Blender is still writing (tract_scene._render_movie).
+            if kind and path and not name.startswith(".") and os.path.isfile(path):
+                renders.append(
+                    {
+                        "path": path,
+                        "name": name,
+                        "kind": kind,
+                        "modified_at": _mtime_iso(path),
+                    }
+                )
+    renders.sort(key=lambda r: (r["modified_at"], r["name"]), reverse=True)
+    return {"networks": networks, "renders": renders}
+
+
 def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None:
     """Pictures a simulation run saved of itself; ``None`` if subject/simulation is unknown.
 

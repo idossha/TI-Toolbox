@@ -72,6 +72,7 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => []),
   getAtlasRegions: vi.fn(async () => []),
   getNiftiLabels: vi.fn(async () => []),
+  getSimulationNetworks: vi.fn(async () => ({ networks: ["all", "cst_lh"], renders: [] })),
   validateBlender: vi.fn(async () => okResult),
   planBlender: vi.fn(async () => planResult),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
@@ -114,7 +115,7 @@ import { defaultConfig as defaultPreConfig, plannedSteps, toSubmitConfig } from 
 import { buildCorrelationConfig, buildGroupComparisonConfig, type SharedStatsFields } from "../../src/renderer/pages/panels/cluster-permutation/config";
 import { buildNiftiAverageConfig } from "../../src/renderer/pages/panels/nifti-group-average/config";
 import { buildNilearnConfig } from "../../src/renderer/pages/panels/nilearn-visuals/config";
-import { buildMontageConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
+import { buildMontageConfig, buildNetworkConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
 import { clearPageSession, sessionSlot, writeSession } from "../../src/renderer/app/pageSession";
 import * as statsApi from "../../src/renderer/pages/panels/cluster-permutation/api";
 import * as niftiApi from "../../src/renderer/pages/panels/nifti-group-average/api";
@@ -896,6 +897,12 @@ describe("desktop config corpus", () => {
         buildRegionConfigs({ ...base, atlas: "DK40", fieldName: "TI_max", regions: [] }), { types: ["RegionConfig", "RegionConfig"] }),
       await blenderCase("montage-no-simulation", "Montage publication scene with no simulation picked", { subjectId: "001", simulationName: "", mode: "montage" },
         [buildMontageConfig({ subjectId: "001", simulationName: "", montageOnly: false, electrodeDiameterMm: 10, electrodeHeightMm: 6 })], { types: ["MontageConfig"] }),
+      await blenderCase("networks-bundle", "Network stills and turntable of one bundle", { ...base, mode: "networks", network: "cst_lh", networkMetric: "ti_max", networkTurntable: true },
+        [buildNetworkConfig({ ...base, network: "cst_lh", metric: "ti_max", views: ["lateral", "superior", "oblique"], stills: true, turntable: true, quality: "preview", sequence: false })], { types: ["TractVisualConfig"] }),
+      await blenderCase("networks-sequence", "The thalamocortical sequence", { ...base, mode: "networks", networkSequence: true, networkQuality: "final" },
+        [buildNetworkConfig({ ...base, network: "all", metric: "direction", views: ["lateral", "superior", "oblique"], stills: true, turntable: false, quality: "final", sequence: true })], { types: ["TractVisualConfig"] }),
+      await blenderCase("networks-nothing-chosen", "Networks with neither stills nor a turntable", { ...base, mode: "networks", networkStills: false },
+        [], { types: [] }),
     ]);
   });
 

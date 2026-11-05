@@ -136,6 +136,7 @@ _BLENDER = {
     "vector": {"_type": "VectorConfig", "simulation_name": "Thalamus"},
     "montage": {"_type": "MontageConfig", "simulation_name": "Thalamus"},
     "subcortical": {"_type": "SubcorticalConfig"},
+    "tract": {"_type": "TractVisualConfig", "simulation_name": "Thalamus"},
 }
 # No untyped blender case: ``tit.blender.__main__`` dispatches on ``_type`` alone, so the plan
 # route refuses a blender config without one (HTTP 422) and there is no folder to pin.
