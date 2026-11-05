@@ -235,7 +235,10 @@ def fibre_material(
     reach = m.math(
         "MULTIPLY", m.math("SUBTRACT", frame, front["start"]), front["speed"]
     )
-    d, gain = m.attr("d"), m.attr("gain")
+    d = m.attr("d")
+    # Cubed: in a whole-brain tractogram most fibres carry a fair peak, and a linear gain lit
+    # them all (sub-CHN left_insula_mean flooded white); the cube keeps the strongest apart.
+    gain = m.math("POWER", m.attr("gain"), 3.0)
     x = m.math("DIVIDE", m.math("SUBTRACT", d, reach), 5.0)
     glow = m.math(
         "MULTIPLY",
@@ -250,7 +253,7 @@ def fibre_material(
             m.emission(colour, m.math("MULTIPLY_ADD", lit, strength, resting)),
             m.emission(
                 (1.0, 0.93, 0.8),
-                m.math("MULTIPLY", m.math("MULTIPLY", glow, gain), 1.5),
+                m.math("MULTIPLY", glow, 1.2),
             ),
         )
     )
@@ -277,7 +280,7 @@ def glass_material(name, colour, strength, power, *, region_frames: int | None =
             "DIVIDE", m.math("SUBTRACT", frame, m.attr("frame")), 8.0, clamp=True
         )
         # Brightest where the surface faces away (rim), so a patch reads as cortex, not a decal.
-        lit = m.attr("lit")
+        lit = m.math("POWER", m.attr("lit"), 3.0)  # the fibres' cubed gain, as above
         glow = m.math(
             "MULTIPLY",
             m.math("MULTIPLY", on, lit),
