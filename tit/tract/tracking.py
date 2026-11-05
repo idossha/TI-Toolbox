@@ -14,9 +14,12 @@ directions, peak directions -- is converted from world with ``d_vox = M^-1 d_wor
 
 The QC record carries an 8-axis-flip frame check; the unflipped frame must score highest
 on the tangent-vs-DTI-V1 coherence (spec V4), the median ``|t . e1|`` over streamline
-points where the m2m tensor's FA > 0.4 (CSD on the high shell against the tensor's own
-b <= 1500 fit), for each gradient-axis sign flip on a central block of the brain; the same
-coherence is reported for the whole-brain tractogram.
+points where FA > 0.4, for each gradient-axis sign flip on a central block of the brain;
+the same coherence is reported for the whole-brain tractogram. The reference tensor is
+fitted here, on the same QSIPrep DWI and brain mask (:func:`dti_reference`: DIPY WLS on b0
++ the shells <= 1500, else the lowest shell), with the world-RAS table and no flip, so
+tracking needs only QSIPrep output and the charm m2m folder. Everything is compared in ACPC
+world, the frame both are fitted in.
 
 ACT treats the label volume's deep grey nuclei as grey matter
 (:data:`DEEP_GREY`; charm's tissue map calls the pallidum WM).
@@ -127,7 +130,7 @@ def csd_inputs(pm, subject_id: str) -> dict:
     """QSIPrep DWI, ``.b`` table, mask, ACPC->T1 chain and charm labels for *subject_id*.
 
     Raises:
-        TrackingError: no QSIPrep output, or no m2m DTI tensor (the frame check's reference).
+        TrackingError: no QSIPrep output.
     """
     import nibabel as nib
 
@@ -142,12 +145,6 @@ def csd_inputs(pm, subject_id: str) -> dict:
             f"Tractography needs QSIPrep-preprocessed DWI in {qsi} ({exc}). Run tit.pre's "
             "QSIPrep step (PreprocessConfig run_qsiprep=True) for this subject first."
         ) from exc
-    tensor = os.path.join(pm.m2m(subject_id), const.FILE_DTI_TENSOR)
-    if not os.path.isfile(tensor):
-        raise TrackingError(
-            f"Tractography's frame check needs the m2m DTI tensor at {tensor}. Run tit.pre's "
-            "DTI extraction (PreprocessConfig extract_dti=True) for this subject first."
-        )
     t1 = nib.load(pm.t1(subject_id))
     chain = tm.acpc_to_t1_world(
         t1.affine, t1.shape[:3], read_itk_transform(paths["xfm"])
@@ -314,14 +311,12 @@ def _crop(arr, lo, hi):
     return arr[lo[0] : hi[0], lo[1] : hi[1], lo[2] : hi[2]]
 
 
-def flip_test(
-    data, affine, bvals, bvecs, maps, chain, tensor, cfg, n_jobs
-) -> list[dict]:
+def flip_test(data, affine, bvals, bvecs, maps, reference, cfg, n_jobs) -> list[dict]:
     """Coherence of a small tractogram for each of the 8 gradient-axis sign flips.
 
     CSD is fitted and tracked in a :data:`FLIP_BLOCK`-voxel cube centred on the WM
-    centroid, :data:`FLIP_SEEDS` seeds, for each flip; the streamlines go to T1 world and
-    are scored with :func:`coherence` against the m2m tensor.
+    centroid, :data:`FLIP_SEEDS` seeds, for each flip; the streamlines (ACPC world) are
+    scored with :func:`coherence` against *reference* (:func:`dti_reference`).
     """
     wm, gm, csf, fit_mask = maps
     centre = np.rint(np.argwhere(wm).mean(axis=0)).astype(int)
@@ -355,12 +350,12 @@ def flip_test(
             n_jobs=n_jobs,
             return_all=True,
         )
-        sl = [apply_affine(chain, s.astype(np.float64)) for s in sl if len(s) > 2]
+        sl = [s for s in sl if len(s) > 2]
         rows.append(
             {
                 "flip": list(flip),
                 "n_streamlines": len(sl),
-                **coherence(sl, *tensor),
+                **coherence(sl, *reference),
             }
         )
         logger.info(f"flip test {flip}: {rows[-1]}")
@@ -431,17 +426,22 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
         "n_seeds": int(n_seeds),
         "dwi_affine": np.asarray(affine).tolist(),
     }
+    t0 = time.time()
+    reference, info["dti_reference"] = dti_reference(
+        inp["dwi"], inp["grad"], inp["dwi_mask"]
+    )
+    info["seconds"]["dti_reference"] = round(time.time() - t0, 1)
+    # CSD on the high shell against a tensor fitted on the low shell(s): two estimates
+    info["coherence_vs_dti_v1"] = coherence(sl, *reference)
     if cfg.flip_test:
         t0 = time.time()
-        tensor = m2m_tensor(pm, subject_id)
         info["flip_test"] = flip_test(
             data,
             affine,
             bvals,
             bvecs,
             (wm, gm, csf, fit_mask),
-            inp["chain"],
-            tensor,
+            reference,
             cfg,
             n_jobs,
         )
@@ -453,32 +453,68 @@ def track_csd(pm, subject_id: str, cfg, n_jobs: int) -> tuple[list, dict]:
 # ── QC ───────────────────────────────────────────────────────────────────
 
 
-def m2m_tensor(pm, subject_id: str) -> tuple[np.ndarray, np.ndarray]:
-    """The m2m DTI tensor as stored (SimNIBS frame 6-vectors) and its affine."""
-    import nibabel as nib
+def reference_bmax(bvals: np.ndarray) -> float:
+    """b cut-off of the reference tensor: the extractor's 1500 s/mm^2 when a shell lies
+    there, else the lowest shell (a single-shell b = 3000 scan)."""
+    from tit.pre.qsi.dti_extractor import DTI_BMAX
 
-    path = os.path.join(pm.m2m(subject_id), const.FILE_DTI_TENSOR)
-    if not os.path.isfile(path):
-        raise TrackingError(f"No DTI tensor at {path}")
-    img = nib.load(path)
-    return np.asarray(img.dataobj, dtype=np.float32), img.affine
+    weighted = np.asarray(bvals)[np.asarray(bvals) > const.QSI_B0_THRESHOLD]
+    if not len(weighted):
+        raise TrackingError("the DWI has no diffusion-weighted volume")
+    if weighted.min() <= DTI_BMAX:
+        return DTI_BMAX
+    return float(weighted.min()) + SHELL_TOLERANCE
 
 
-def tensor_peaks(t6: np.ndarray, affine: np.ndarray, mask: np.ndarray):
-    """``(e1_world (N, 3), fa (N,))`` of the voxels in *mask* (world-frame tensors)."""
-    vals, vecs = tm.eig_desc(tm.simnibs_to_world(t6[mask].astype(np.float64), affine))
-    fa, _ = tm.fa_md(vals)
-    return vecs[:, :, 0], fa
+def dti_reference(dwi_path, grad_path, mask_path) -> tuple[tuple, dict]:
+    """The frame check's reference: principal eigenvector and FA of a tensor fitted here.
+
+    DIPY ``TensorModel`` WLS (:func:`tit.pre.qsi.dti_extractor.fit_tensor`, the DTI
+    extractor's own fit) on b0 + the shells up to :func:`reference_bmax`, with QSIPrep's
+    world-RAS gradient table, so the eigenvectors are ACPC-world directions. Returns
+    ``((e1 (X, Y, Z, 3), fa (X, Y, Z), affine), record for qc.json)``.
+    """
+    from tit.pre.qsi.dti_extractor import fit_tensor
+    from tit.pre.utils import PreprocessError
+
+    b = np.loadtxt(str(grad_path), ndmin=2)[:, 3]
+    bmax = reference_bmax(b)
+    try:
+        tensors, affine, mask = fit_tensor(
+            Path(dwi_path), Path(grad_path), Path(mask_path), bmax
+        )
+    except PreprocessError as exc:
+        raise TrackingError(f"frame-check tensor: {exc}") from exc
+    e1 = np.zeros(mask.shape + (3,))
+    fa = np.zeros(mask.shape)
+    vals, vecs = tm.eig_desc(tensors[mask])
+    del tensors
+    e1[mask] = vecs[:, :, 0]
+    fa[mask], _ = tm.fa_md(vals)
+    used = b <= bmax
+    record = {
+        "fit": "DIPY TensorModel WLS on the tracked QSIPrep DWI and brain mask",
+        "bmax": bmax,
+        "shells_b": sorted(
+            {float(round(x, -2)) for x in b[used & (b > const.QSI_B0_THRESHOLD)]}
+        ),
+        "n_volumes": int(used.sum()),
+    }
+    return (e1, fa, affine), record
 
 
 def coherence(
-    streamlines, t6: np.ndarray, affine: np.ndarray, max_streamlines: int = 20_000
+    streamlines,
+    e1: np.ndarray,
+    fa: np.ndarray,
+    affine: np.ndarray,
+    max_streamlines: int = 20_000,
 ) -> dict:
-    """Median ``|t . e1|`` over streamline points where the tensor's FA > 0.4 (spec V4).
+    """Median ``|t . e1|`` over streamline points where FA > 0.4 (spec V4).
 
-    *streamlines* are in the tensor's world; tangents by central differences on a 1 mm
-    resampling; ``e1`` and FA of the nearest tensor voxel. Up to *max_streamlines*
-    (evenly spaced) are scored.
+    *streamlines* are in the reference's world (:func:`dti_reference`); tangents by
+    central differences on a 1 mm resampling; ``e1`` and FA of the nearest voxel. Up to
+    *max_streamlines* (evenly spaced) are scored.
     """
     if not len(streamlines):
         return {"median_abs_cos": None, "n_points": 0}
@@ -487,15 +523,10 @@ def coherence(
     pts, off, h = geometry.resample(sl, 1.0)
     t = geometry.tangents(pts, off, h)
     vox = np.rint(apply_affine(np.linalg.inv(affine), pts)).astype(np.intp)
-    ok = np.all((vox >= 0) & (vox < t6.shape[:3]), axis=1)
-    mask = np.zeros(t6.shape[:3], dtype=bool)
-    mask[tuple(vox[ok].T)] = True
-    e1, fa = tensor_peaks(t6, affine, mask)
-    lookup = np.full(t6.shape[:3], -1, dtype=np.intp)
-    lookup[mask] = np.arange(mask.sum())
-    j = lookup[tuple(vox[ok].T)]
-    keep = fa[j] > COHERENCE_FA
-    cos = np.abs(np.einsum("pk,pk->p", t[ok][keep], e1[j[keep]]))
+    ok = np.all((vox >= 0) & (vox < fa.shape), axis=1)
+    v = tuple(vox[ok].T)
+    keep = fa[v] > COHERENCE_FA
+    cos = np.abs(np.einsum("pk,pk->p", t[ok][keep], e1[v][keep]))
     if not len(cos):
         return {"median_abs_cos": None, "n_points": 0}
     return {
@@ -555,8 +586,6 @@ def run_track(subject_id: str, cfg) -> dict:
         "length_mm": _length_stats(sl),
         **info,
     }
-    # CSD on the high shell vs the m2m tensor's own fit (b <= 1500): two estimates
-    qc["coherence_vs_dti_v1"] = coherence(sl, *m2m_tensor(pm, subject_id))
     qc["seconds"]["total"] = round(time.time() - t0, 1)
     if qc.get("flip_test"):
         qc.update(flip_verdict(qc["flip_test"], qc["flip_test_score"]))

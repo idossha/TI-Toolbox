@@ -1357,10 +1357,10 @@ in `CONFIG_CLASS_REGISTRY` (that would change the generated contract schema). En
 track -> network -> assess -> target; each stage is also a public function (`run_track`,
 `run_network`, `run_assess`, `run_target`).
 
-**Tractography is DIPY, one route, written in m2m T1 world.** QSIPrep-preprocessed ACPC DWI is
-required: a subject without it (or without the m2m DTI tensor the frame check reads) is refused
-before any work, with the missing path and the `tit.pre` step that makes it (`run_qsiprep`,
-`extract_dti`). The tracker fits single-shell CSD on b0 + the highest shell
+**Tractography is DIPY, one route, written in m2m T1 world.** It needs only QSIPrep-preprocessed
+ACPC DWI and the charm m2m folder: a subject without QSIPrep output is refused before any work,
+with the missing path and the `tit.pre` step that makes it (`run_qsiprep`); the m2m DTI tensor is
+not read. The tracker fits single-shell CSD on b0 + the highest shell
 (`MultiShellDeconvModel` needs cvxpy, which the image lacks), constrains tracking with charm's
 WM/GM/CSF labels mapped into the DWI grid through the exact QSIPrep chain
 (`tensor_math.acpc_to_t1_world`) and tracks with DIPY's probabilistic direction getter;
@@ -1369,8 +1369,11 @@ as `tractogram_acpc.tck` for comparison with MRtrix3. There is no tensor-only ro
 of direction getter. DIPY tracks in voxel index space, so gradient and peak directions are
 converted with `d_vox = M^-1 d_world`, `M = A[:3, :3] / column norms`. `qc.json` holds an
 8-axis-flip frame check and the run fails when a flipped frame wins: the median `|t . e1|` between
-streamline tangents and the m2m tensor's principal eigenvector where FA > 0.4 (also reported for
-the whole tractogram), on a central 48-voxel block per flip. ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
+streamline tangents and the principal eigenvector of a reference tensor where FA > 0.4 (also
+reported for the whole tractogram), on a central 48-voxel block per flip, in ACPC world. The
+reference is fitted in the track stage on the same DWI and brain mask (DIPY `TensorModel` WLS, the
+DTI extractor's `fit_tensor`, on b0 + the shells up to 1500 s/mm^2, or the lowest shell when none
+lies there; `qc.json` `dti_reference` records the shells). ACT also treats the label volume's deep grey nuclei (thalamus, caudate, putamen,
 pallidum, hippocampus, amygdala, accumbens) as grey matter, since charm's tissue map calls the
 pallidum WM, and treats brain-stem, cerebellar-WM and spinal-cord voxels that have no fitted
 fibre orientation (below the DWI brain mask) as a valid end: MRtrix ACT's convention for the

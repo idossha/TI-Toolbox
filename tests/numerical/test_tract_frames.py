@@ -4,9 +4,11 @@ Pins (2026-11-04), on synthetic volumes built here, for an LPS, a PSR (ernie's t
 and an oblique anisotropic affine, with an oblique planted direction
 ``d = (0.48, -0.6, 0.64)``:
 
-* ``tensor_peaks`` of a stored (SimNIBS-frame) tensor ``l1 d d^T + l2 (I - d d^T)`` returns
-  ``+/- d`` and its FA (closed form for two equal minor eigenvalues); the frame check's
-  coherence reads the m2m tensor through it;
+* ``dti_reference``, the frame check's own tensor fit on QSIPrep-style files (DWI NIfTI,
+  world-RAS ``.b`` table, brain mask; no m2m tensor) of a tensor ``l1 d d^T + l2 (I - d d^T)``,
+  returns ``+/- d`` and its FA (closed form for two equal minor eigenvalues), on
+  b <= 1500 when such a shell exists and on the lowest shell for a b0 + b3000 scan, and a
+  straight streamline along ``d`` scores coherence 1;
 * the tracker (``fit_csd`` on DWI simulated in world coordinates as
   ``S0 exp(-b g^T D g)``, then ``track_sh``) runs along ``+/- d``.
 
@@ -66,19 +68,39 @@ def _child(code: str) -> str:
     return proc.stdout
 
 
-def test_tensor_peaks_return_the_planted_direction_and_fa():
+def test_frame_check_reference_is_the_planted_direction_from_the_dwi_alone():
+    # dti_reference fits its own tensor on the QSIPrep-style files (no m2m tensor): b0 +
+    # b1000 + b3000 uses b <= 1500; a b0 + b3000 scan falls back to the lowest shell.
     out = _child("""
-shape = (30, 30, 30)
+import tempfile, os
+import nibabel as nib
+rng = np.random.default_rng(2)
+g = rng.normal(size=(60, 3)); g /= np.linalg.norm(g, axis=1, keepdims=True)
 evals = np.array([l1, l2, l2])
 fa_exact = np.sqrt(0.5) * np.sqrt(2 * (l1 - l2) ** 2) / np.sqrt(np.sum(evals ** 2))
-for name, m in lin.items():
-    A = affine(m)
-    t6 = np.broadcast_to(tm.world_to_simnibs(D, A), shape + (6,)).astype(np.float32)
-    mask = np.ones(shape, bool)
-    e1, fa = tr.tensor_peaks(t6, A, mask)
-    assert np.allclose(np.abs(e1 @ d), 1.0, atol=1e-5), name
-    assert np.allclose(fa, fa_exact, rtol=1e-4), (name, fa[0], fa_exact)
-    print(name, round(float(fa[0]), 5))
+shape = (12, 12, 12)
+tmp = tempfile.mkdtemp()
+for shells, bmax, used in (((1000.0, 3000.0), 1500.0, [1000.0]), ((3000.0,), 3100.0, [3000.0])):
+    bvals = np.r_[np.zeros(4), np.repeat(shells, 30)]
+    bvecs = np.vstack([np.zeros((4, 3)), np.tile(g[:30], (len(shells), 1))])
+    signal = 1000.0 * np.exp(-bvals * np.einsum("ni,ij,nj->n", bvecs, D, bvecs))
+    np.savetxt(os.path.join(tmp, "dwi.b"), np.column_stack([bvecs, bvals]))
+    for name, m in lin.items():
+        A = affine(m)
+        nib.save(nib.Nifti1Image(np.broadcast_to(signal, shape + (len(bvals),)).astype(np.float32), A),
+                 os.path.join(tmp, "dwi.nii.gz"))
+        nib.save(nib.Nifti1Image(np.ones(shape, np.uint8), A), os.path.join(tmp, "mask.nii.gz"))
+        (e1, fa, aff), rec = tr.dti_reference(os.path.join(tmp, "dwi.nii.gz"),
+                                              os.path.join(tmp, "dwi.b"),
+                                              os.path.join(tmp, "mask.nii.gz"))
+        assert np.allclose(np.abs(e1.reshape(-1, 3) @ d), 1.0, atol=1e-5), name
+        assert np.allclose(fa, fa_exact, rtol=1e-4), (name, fa.flat[0], fa_exact)
+        assert rec["bmax"] == bmax and rec["shells_b"] == used, rec
+        # a straight streamline along d scores |t . e1| = 1
+        centre = aff[:3, :3] @ (np.array(shape) / 2) + aff[:3, 3]
+        line = centre + np.outer(np.linspace(-3, 3, 13), d)
+        assert tr.coherence([line], e1, fa, aff)["median_abs_cos"] > 0.9999
+        print(shells, name, round(float(fa.flat[0]), 5), rec["bmax"])
 """)
     print(out)
 
