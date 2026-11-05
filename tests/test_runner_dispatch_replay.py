@@ -40,6 +40,7 @@ contains every ``failure`` text of the gap file is expected. Reproduce:
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 import os
 import sys
 from contextlib import nullcontext
@@ -231,8 +232,15 @@ def _science_patches(kind: str, rec: Recorder) -> list:
             patch("tit.opt.mex.__main__.run_m_ex_search", opt_result("run_m_ex_search"))
         ]
     if kind == "tract":
+
+        def stage(name):
+            def run(_subject_id, config, *_args):
+                rec.record(name, config)
+
+            return run
+
         return [
-            patch(f"tit.tract.{name}", target(name))
+            patch(f"tit.tract.{name}", stage(name))
             for name in ("run_track", "run_network", "run_assess", "run_target")
         ]
     if kind == "analyzer":
@@ -408,7 +416,6 @@ EXPECTED_TARGET = {
         "_run_forward" if c.get("mode") == "forward" else "_run_fsavg_map"
     ),
     "pre": lambda c: "run_pipeline",
-    "tract": lambda c: f"run_{c['stages'][0]}",
     "blender": lambda c: {
         "MontageConfig": "run_montage",
         "VectorConfig": "run_vectors",
@@ -734,6 +741,12 @@ def _assert_dispatch(kind: str, config: dict, rec: Recorder) -> None:
     if kind == "analyzer":
         _assert_analyzer_dispatch(config, rec)
         return
+    if kind == "tract":
+        # One entry per stage, in the runner's order, each handed its own block of the config.
+        assert [name for name, _ in rec.calls] == [f"run_{s}" for s in config["stages"]]
+        for stage, (_, typed) in zip(config["stages"], rec.calls):
+            _subset_equal(_plain(asdict(typed)), config.get(stage, {}), stage)
+        return
     assert [name for name, _ in rec.calls] == [EXPECTED_TARGET[kind](config)]
     name, typed = rec.calls[0]
     if kind == "nifti_average":
@@ -853,6 +866,10 @@ def test_analyzer_argument_table_names_real_parameters() -> None:
 
 
 def _check_expect(case: dict, recs: list[tuple[dict, Recorder]]) -> None:
+    if case["page"] == "tract":
+        names = [name for _, rec in recs for name, _ in rec.calls]
+        assert names == [f"run_{s}" for s in case["expect"]["stages"]]
+        return
     exp = case["expect"]
     page = case["page"]
     calls = [(name, payload) for _, rec in recs for name, payload in rec.calls]

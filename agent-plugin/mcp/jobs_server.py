@@ -53,7 +53,16 @@ LABEL_HOST_DIR = "tit.host_project_dir"
 DEFAULT_PORT = "8765"
 CREATED_BY = "agent"
 TERMINAL_STATES = ("succeeded", "failed", "cancelled", "skipped", "lost")
-GROUP_KINDS = ("pre", "sim", "flex", "flex_adaptive", "flex_pareto", "ex", "mex")
+GROUP_KINDS = (
+    "pre",
+    "sim",
+    "flex",
+    "flex_adaptive",
+    "flex_pareto",
+    "ex",
+    "mex",
+    "tract",
+)
 FLEX_KINDS = ("flex", "flex_adaptive", "flex_pareto")
 SUBJECT_ID_RE = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"

@@ -65,6 +65,7 @@ from tit.server.settings import ServerSettings  # noqa: E402
 CORPUS = Path(__file__).parent / "fixtures" / "desktop_configs"
 PLACEHOLDER = "/corpus/project"
 PAGES = (
+    "tract",
     "simulator",
     "optimizer-flex",
     "optimizer-ex",
