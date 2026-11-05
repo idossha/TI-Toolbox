@@ -113,14 +113,17 @@ test("a click on a cortical region in the pane adds it as a seed, by the network
   const dialog = await openOptEditor(page, row);
   await dialog.getByRole("radio", { name: "Network", exact: true }).click();
   await closeOptEditor(page);
-  await page.waitForFunction(() => window.__scene?.ready === true && window.__scene.camera.settled, null, { timeout: 120_000 });
-  const point = await page.evaluate(() => {
-    const scene = window.__scene!;
+  // Waits for a region under the pointer, not only a ready scene: the pane is ready on the previous
+  // subject's head for a moment after the row changes subject, and that head has no atlas regions.
+  const handle = await page.waitForFunction(() => {
+    const scene = window.__scene;
+    if (scene?.ready !== true || !scene.camera.settled) return null;
     const { widthCss, heightCss } = scene.canvas;
     const points: [number, number][] = [];
     for (let y = 40; y < heightCss; y += 20) for (let x = 40; x < widthCss; x += 20) points.push([x, y]);
-    return points[scene.sampleRegions(points).findIndex((r) => r !== null)]!;
-  });
+    return points[scene.sampleRegions(points).findIndex((r) => r !== null)] ?? null;
+  }, null, { timeout: 120_000 });
+  const point = (await handle.jsonValue())!;
   const box = await page.getByTestId("scene-canvas").boundingBox();
   await page.mouse.click(box!.x + point[0], box!.y + point[1]);
   const reopened = await openOptEditor(page, row);
