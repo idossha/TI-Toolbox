@@ -39,17 +39,25 @@ import "../panels.css";
 import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
+import { emptyRoi, type NetworkRoiValue, type RoiValue } from "../../_shared/roi/types";
+import { NetworkChooser, NETWORK_NAME_RE, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
 import { AssessNetworks } from "./AssessNetworks";
+import { NetworkAdvanced, NetworkSetupPlan, type NetworkSetupRecord } from "./NetworkSetup";
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
-import { createBlenderJob, getAtlasRegions, getNiftiLabels, getSimulationNetworks, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
+import { createBlenderJob, createTractJob, getAtlasRegions, getNiftiLabels, getSimulationNetworks, getSimulationsFor, planBlender, validateBlender, type BlenderConfig } from "./api";
 import {
+  assessState,
   buildMontageConfig,
+  buildNetworkAssessConfig,
   buildNetworkConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
+  CHOOSE_A_NETWORK,
+  NAME_IS_RESERVED,
+  NAME_THE_NETWORK,
   NO_NETWORK_OUTPUTS,
   NO_RECORDED_NET,
   outputHint,
@@ -76,7 +84,9 @@ const NETWORK_QUALITY_OPTIONS = [
   { value: "preview", label: "Fast preview" },
   { value: "final", label: "Final" },
 ];
-const NETWORK_VIEWS = ["lateral", "superior", "oblique"];
+/** `all` is not a network with an automatic setup, so it alone is asked for its views. */
+const ALL_FILE_VIEWS = ["lateral", "superior", "oblique"];
+const FRESH_NETWORK: NetworkRoiValue = { ...(emptyRoi("network") as NetworkRoiValue), how: "preset" };
 
 /** The two atlases the Qt combo offered (`const.ATLAS_DK40`, `const.ATLAS_A2009S`). */
 const ATLAS_OPTIONS = [
@@ -145,9 +155,12 @@ function VisualExporterPanel() {
   const [subcortField, setSubcortField] = usePageSession("subcortField", "TI_max");
 
   // Networks
+  const [networkValue, setNetworkValue] = usePageSession<NetworkRoiValue>("networkValue", FRESH_NETWORK);
+  const [networkFromFile, setNetworkFromFile] = usePageSession("networkFromFile", false);
+  const [networkOverrides, setNetworkOverrides] = usePageSession<Record<string, unknown>>("networkOverrides", {});
   const [network, setNetwork] = usePageSession("network", "");
   const [networkMetric, setNetworkMetric] = usePageSession<NetworksForm["metric"]>("networkMetric", "direction");
-  const [networkViews, setNetworkViews] = usePageSession<string[]>("networkViews", NETWORK_VIEWS);
+  const [networkViews, setNetworkViews] = usePageSession<string[]>("networkViews", ALL_FILE_VIEWS);
   const [networkStills, setNetworkStills] = usePageSession("networkStills", true);
   const [networkTurntable, setNetworkTurntable] = usePageSession("networkTurntable", false);
   const [networkQuality, setNetworkQuality] = usePageSession<NetworksForm["quality"]>("networkQuality", "preview");
@@ -174,6 +187,24 @@ function VisualExporterPanel() {
   });
   const networks = networksQuery.data?.networks ?? [];
   const chosenNetwork = networks.includes(network) ? network : networks.includes("all") ? "all" : (networks[0] ?? "");
+  const onNetworkChange = (value: RoiValue) => setNetworkValue(value as NetworkRoiValue);
+  // A chosen network is what this tab renders, unless the sequence or an existing file was asked for.
+  const chooserActive = mode === "networks" && !networkSequence && !networkFromFile;
+  const selection = useMemo(() => (chooserActive && networkValue.pairs.length > 0 ? networkSelection(networkValue) : null), [chooserActive, networkValue]);
+  // The count an assessed bundle must hold to be this network, from the same answer the picker shows.
+  const countQuery = useQuery({
+    queryKey: ["ve-network-count", subjectId, simulationName, networkValue.how, networkValue.preset, networkValue.includeOpposite, networkValue.pairs],
+    enabled: chooserActive && networkValue.pairs.length > 0,
+    queryFn: async (): Promise<number> => {
+      if (networkValue.how === "preset") {
+        const found = (await getTractPresets(subjectId)).find((p: TractPreset) => p.id === networkValue.preset);
+        return found ? presetTotals(found, !!networkValue.includeOpposite).streamlines : 0;
+      }
+      const rows = networkValue.how === "strongest" ? await getTractConnections(subjectId, simulationName) : await getTractEdges(subjectId, networkValue.seeds);
+      return pairTotals(rows as (TractConnection | { region_a: string; region_b: string; n: number })[], networkValue.pairs).streamlines;
+    },
+  });
+  const assessing = selection && networksQuery.data && countQuery.data !== undefined ? assessState(selection, countQuery.data, networksQuery.data) : null;
   const simulationPath = simulationsQuery.data?.find((simulation) => simulation.name === simulationName)?.path;
   // The simulation's own record: the preview draws its montage from it, and Run refuses a
   // montage export of a simulation that recorded no net (montage_publication refuses it too).
@@ -231,10 +262,15 @@ function VisualExporterPanel() {
   if (mode === "networks" && clientErrors.length === 0) {
     if (networksQuery.isPending) clientErrors.push("Reading this simulation's network outputs…");
     else if (networksQuery.error) clientErrors.push(networksQuery.error.message);
-    else if (networks.length === 0) clientErrors.push(NO_NETWORK_OUTPUTS);
     else if (networkSequence && !networks.includes("all")) clientErrors.push(SEQUENCE_NEEDS_ALL);
+    else if (networkFromFile && networks.length === 0) clientErrors.push(NO_NETWORK_OUTPUTS);
+    else if (chooserActive && !selection) clientErrors.push(CHOOSE_A_NETWORK);
+    else if (chooserActive && !NETWORK_NAME_RE.test(networkValue.name)) clientErrors.push(NAME_THE_NETWORK);
+    else if (chooserActive && networkValue.name === "all") clientErrors.push(NAME_IS_RESERVED);
+    else if (chooserActive && countQuery.error) clientErrors.push(countQuery.error.message);
+    else if (chooserActive && assessing === null) clientErrors.push("Reading this network's streamline count…");
     else if (!networkSequence && !networkStills && !networkTurntable) clientErrors.push("Choose stills, a turntable or both.");
-    else if (!networkSequence && networkStills && networkViews.length === 0) clientErrors.push("Choose at least one view.");
+    else if (networkFromFile && chosenNetwork === "all" && networkStills && networkViews.length === 0) clientErrors.push("Choose at least one view.");
   }
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
@@ -296,6 +332,9 @@ function VisualExporterPanel() {
           buildNetworkConfig({
             subjectId,
             simulationName,
+            selection,
+            preset: networkValue.how === "preset" ? networkValue.preset : undefined,
+            overrides: networkOverrides,
             network: chosenNetwork,
             metric: networkMetric,
             views: networkViews,
@@ -334,6 +373,10 @@ function VisualExporterPanel() {
     labelsKey,
     cleanComponents,
     subcortField,
+    selection,
+    networkValue.how,
+    networkValue.preset,
+    networkOverrides,
     chosenNetwork,
     networkMetric,
     networkViews,
@@ -359,10 +402,16 @@ function VisualExporterPanel() {
   });
   const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
   const loading = head !== null && (validateQuery.isPending || planQuery.isFetching);
+  const networkSetup = planQuery.data?.resolved?.network_setup as NetworkSetupRecord | undefined;
 
   function handleRunClick() {
     if (configs.length === 0) {
       notify.error(clientErrors[0] ?? "Complete the configuration before running.");
+      return;
+    }
+    // The plan answers first, so the question comes before the assess job is queued.
+    if (selection && (assessing === "replace" || planQuery.data?.jobs.some((job) => job.will_overwrite))) {
+      setRefused(configs);
       return;
     }
     void run();
@@ -372,8 +421,15 @@ function VisualExporterPanel() {
     setSubmitting(true);
     let queued = 0;
     try {
+      // A network not assessed yet is assessed first, by a job the render waits for.
+      const after: string[] = [];
+      if (selection && assessing && assessing !== "ready") {
+        const assess = await createTractJob(buildNetworkAssessConfig(subjectId, simulationName, selection), subjectId, overwrite);
+        jobs.trackJob(assess);
+        after.push(assess.id);
+      }
       for (const config of batch) {
-        jobs.trackJob(await createBlenderJob(config, [subjectId], overwrite));
+        jobs.trackJob(await createBlenderJob(config, [subjectId], overwrite, after));
         queued += 1;
       }
       const n = batch.length;
@@ -396,7 +452,7 @@ function VisualExporterPanel() {
       paneController={scenePane}
       rightPane={
         <ExtensionRunPanel
-          kind="blender"
+          kind={mode === "networks" ? ["blender", "tract"] : "blender"}
           subjects={subjectId ? [subjectId] : []}
           {...jobs}
           paneControls={<PaneHeaderControls controller={scenePane} />}
@@ -404,6 +460,13 @@ function VisualExporterPanel() {
             <PlanSummary plan={planQuery.data} loading={loading}
               error={planQuery.error ? "Could not compute the plan." : undefined}
               serverErrors={serverErrors} idleMessage="Choose a subject and export type to see the plan." />
+            {selection && assessing && assessing !== "ready" && (
+              <p className="field-help" data-testid="ve-assess-first">
+                {assessing === "replace" ? `Replaces this simulation's ${selection.name}.trx, which holds other edges. ` : ""}
+                A tract job assesses this network first (about 3 min: fields along every streamline), and the render waits for it.
+              </p>
+            )}
+            {!loading && networkSetup && <NetworkSetupPlan setup={networkSetup} />}
             {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
           </>}
           scene={<ExportPreview
@@ -416,6 +479,8 @@ function VisualExporterPanel() {
             onLabelsChange={(labels) => { setLabelIds(labels.map(String)); setLabelsText(labels.join(",")); }}
             fieldName={mode === "subcortical" ? subcortField : regionField}
             networkRenders={networksQuery.data?.renders ?? []}
+            networkValue={chooserActive ? networkValue : null}
+            onNetworkChange={onNetworkChange}
           />}
         />
       }
@@ -462,6 +527,7 @@ function VisualExporterPanel() {
                         setLabelsText("");
                         setNiftiPath("");
                         setNetwork("");
+                        setNetworkValue(FRESH_NETWORK);
                       }}
                       options={subjectOptions}
                       placeholder="Subject"
@@ -673,20 +739,7 @@ function VisualExporterPanel() {
                 <CardHeader title="Networks" />
                 <CardBody>
                   {!simulationName ? (
-                    <p className="field-help">Choose a simulation to list its network outputs.</p>
-                  ) : networks.length === 0 && !networksQuery.isPending ? (
-                    <div data-testid="ve-networks-empty">
-                      <p className="field-help">{NO_NETWORK_OUTPUTS}</p>
-                      <AssessNetworks
-                        subjectId={subjectId}
-                        simulationName={simulationName}
-                        onQueued={(job) => {
-                          jobs.trackJob(job);
-                          // The terminal follows this page's kind, blender; a pin follows this job whatever its kind.
-                          jobs.setPinnedJobId(job.id);
-                        }}
-                      />
-                    </div>
+                    <p className="field-help">Choose a simulation to render its networks.</p>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
                       <Checkbox
@@ -695,40 +748,72 @@ function VisualExporterPanel() {
                         label="Thalamocortical sequence: frontal, then posterior"
                       />
                       {networkSequence ? (
-                        <p className="field-help">
-                          One video of all.trx: each network goes from fibre direction to TI_max on one colour window, is pruned to its strongest 15 % by mean
-                          TI_max, and names the regions those fibres reach. Takes many hours inside the emulated container; re-render its bundle in a local Blender to
-                          finish sooner.
-                        </p>
+                        <>
+                          <p className="field-help">
+                            One video of all.trx: each network goes from fibre direction to TI_max on one colour window, is pruned to its strongest 15 % by mean
+                            TI_max, and names the regions those fibres reach. Takes many hours inside the emulated container; re-render its bundle in a local Blender to
+                            finish sooner.
+                          </p>
+                          {!networks.includes("all") && !networksQuery.isPending && (
+                            <div data-testid="ve-networks-empty">
+                              <p className="field-help">{SEQUENCE_NEEDS_ALL}</p>
+                              <AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <>
-                          <div className="form-grid">
-                            <Field label="Network" htmlFor="ve-network" help="Simulations/<sim>/tract/<name>.trx. all draws the run's strongest edges.">
-                              <Select id="ve-network" value={chosenNetwork || undefined} onValueChange={setNetwork} options={networks.map((name) => ({ value: name, label: name }))} />
-                            </Field>
-                            <Field label="Colour by" htmlFor="ve-network-metric">
-                              <Select
-                                id="ve-network-metric"
-                                value={networkMetric}
-                                onValueChange={(v) => setNetworkMetric(v === "ti_max" ? "ti_max" : "direction")}
-                                options={NETWORK_METRIC_OPTIONS}
-                              />
-                            </Field>
-                          </div>
+                          <NetworkChooser
+                            value={networkValue}
+                            onChange={onNetworkChange}
+                            subject={subjectId}
+                            simulation={simulationName}
+                            defaultHow="preset"
+                            nameLabel="Network name"
+                            nameHelp="Letters, digits, _ and -. It names this network's files, so networks of one simulation sit side by side."
+                            strongestEmpty={<AssessNetworks connectionsOnly subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />}
+                            extra={{
+                              label: "Existing file",
+                              active: networkFromFile,
+                              onSelect: () => setNetworkFromFile(!networkFromFile),
+                              content:
+                                networks.length === 0 && !networksQuery.isPending ? (
+                                  <div data-testid="ve-networks-empty">
+                                    <p className="field-help">{NO_NETWORK_OUTPUTS}</p>
+                                    <AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />
+                                  </div>
+                                ) : (
+                                  <Field label="Network" htmlFor="ve-network" help="Simulations/<sim>/tract/<name>.trx. all draws the run's strongest edges.">
+                                    <Select id="ve-network" value={chosenNetwork || undefined} onValueChange={setNetwork} options={networks.map((name) => ({ value: name, label: name }))} />
+                                  </Field>
+                                ),
+                            }}
+                          />
+                          <Field label="Colour by" htmlFor="ve-network-metric">
+                            <Select
+                              id="ve-network-metric"
+                              value={networkMetric}
+                              onValueChange={(v) => setNetworkMetric(v === "ti_max" ? "ti_max" : "direction")}
+                              options={NETWORK_METRIC_OPTIONS}
+                            />
+                          </Field>
                           <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Stills" />
-                          {networkStills && (
+                          {networkStills && networkFromFile && chosenNetwork === "all" && (
                             <div style={{ display: "flex", gap: "var(--space-3)" }}>
-                              {NETWORK_VIEWS.map((view) => (
+                              {ALL_FILE_VIEWS.map((view) => (
                                 <Checkbox
                                   key={view}
                                   checked={networkViews.includes(view)}
-                                  onCheckedChange={(on) => setNetworkViews(NETWORK_VIEWS.filter((v) => (v === view ? on : networkViews.includes(v))))}
+                                  onCheckedChange={(on) => setNetworkViews(ALL_FILE_VIEWS.filter((v) => (v === view ? on : networkViews.includes(v))))}
                                   label={view[0]!.toUpperCase() + view.slice(1)}
                                 />
                               ))}
                             </div>
                           )}
                           <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />
+                          {!(networkFromFile && chosenNetwork === "all") && (
+                            <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} auto={networkSetup?.values} />
+                          )}
                         </>
                       )}
                       <Field label="Quality" htmlFor="ve-network-quality" help="Fast preview samples and sizes less, to check a choice before a long render.">

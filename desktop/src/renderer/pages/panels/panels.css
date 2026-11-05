@@ -150,6 +150,13 @@
 }
 
 /* Visual exporter, Networks: the rendered stills and videos, in the Scene tab. */
+.network-setup-list { margin: 0; display: grid; gap: 2px; font-size: var(--text-xs, 11px); }
+.network-setup-list > div { display: grid; grid-template-columns: 11em minmax(0, 1fr); gap: var(--space-2); }
+.network-setup-list dt { color: var(--ink-2); }
+.network-setup-list dd { margin: 0; overflow-wrap: anywhere; }
+.network-preview { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: var(--space-2); }
+.network-preview-pane { flex: 1 1 60%; min-height: 240px; }
+.network-preview-renders { flex: 1 1 40%; min-height: 0; overflow: auto; }
 .network-renders { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--space-3); padding: var(--space-3); overflow: auto; height: 100%; align-content: start; }
 .network-renders figure { margin: 0; min-width: 0; }
 .network-renders img, .network-renders video { display: block; width: 100%; background: #000; border-radius: var(--radius-1, 4px); }

@@ -75,10 +75,13 @@ test("S1-S4: seeds list the edges, a mask completes the row, an edit makes it st
   await expect(rows.nth(0)).toContainText("300");
   await rows.nth(0).click();
   await expect(panel).toHaveAttribute("data-state", "S3");
-  await expect(panel.getByTestId("network-create-mask")).toBeDisabled();
+  // The choice names the mask until the user does.
+  await expect(panel.getByTestId("network-mask-name")).toHaveValue("lh_insula_Left-Thalamus-Proper");
+  await expect(panel.getByTestId("network-create-mask")).toBeEnabled();
 
   await panel.getByTestId("network-mask-name").fill("bad name");
   await expect(panel.getByText("Use letters, digits, _ and - only.")).toBeVisible();
+  await expect(panel.getByTestId("network-create-mask")).toBeDisabled();
   await panel.getByTestId("network-mask-name").fill("thal_insula");
   const created = page.waitForRequest((r) => r.url().endsWith("/api/tract/mask"));
   await panel.getByTestId("network-create-mask").click();
@@ -135,11 +138,15 @@ test("Results: ranking is an action, and every statistic is a column with none p
   await gotoPage(page, "results");
   const ranking = await openFirstExRun(page);
   await expect(ranking.getByTestId("network-ranking-table")).toHaveCount(0);
+  // All is the default, its size and time stated, and a top-N the other choice.
+  await expect(ranking.getByRole("radio", { name: /All montages in the run/ })).toBeChecked();
+  await expect(ranking.getByRole("radio", { name: "Top N by composite index" })).not.toBeChecked();
   const queued = page.waitForRequest((r) => r.url().endsWith("/api/jobs/groups") && r.method() === "POST");
   await ranking.getByTestId("network-rank").click();
   const body = (await queued).postDataJSON();
   expect(body.kind).toBe("tract");
   expect(body.config.stages).toEqual(["target"]);
+  expect(body.config.target.top_n).toBeNull();
   expect(body.config.target.selection).toEqual({ name: "thal_insula", kind: "edges", pairs: [["lh.insula", "Left-Thalamus-Proper"]] });
   const table = ranking.getByTestId("network-ranking-table");
   await expect(table).toBeVisible({ timeout: 30_000 });

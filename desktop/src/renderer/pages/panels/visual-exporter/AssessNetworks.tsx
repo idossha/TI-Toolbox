@@ -1,6 +1,7 @@
 /**
- * The Networks tab's way out of "no network outputs": a `tract` job's assess stage on this
- * simulation. Its one input the app cannot offer here, the subject's tractogram and network, is
+ * The Networks tab's explicit assess, for what no render starts by itself: `all.trx` for the
+ * thalamocortical sequence, and the edge table a top-N list reads. A `tract` job's assess stage on
+ * this simulation. Its one input the app cannot offer here, the subject's tractogram and network, is
  * checked before the button is offered, and the job's finish refreshes the tab (`app/jobs/invalidation.ts`).
  */
 import { useState } from "react";
@@ -15,20 +16,22 @@ import type { JobState } from "../../../ui/Status";
 import { notifySubmitError } from "../../../ui/Toast";
 import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { createTractJob, planTract, preflightTract, type JobStatus } from "./api";
-import { buildAssessConfig } from "./config";
+import { buildAssessConfig, buildConnectionsAssessConfig } from "./config";
 
-export function AssessNetworks({ subjectId, simulationName, onQueued }: {
+export function AssessNetworks({ subjectId, simulationName, onQueued, connectionsOnly = false }: {
   subjectId: string;
   simulationName: string;
   onQueued: (job: JobStatus) => void;
+  /** Only the edge table: no `.trx`, so next to no disk. */
+  connectionsOnly?: boolean;
 }) {
-  const config = buildAssessConfig(subjectId, simulationName);
+  const config = connectionsOnly ? buildConnectionsAssessConfig(subjectId, simulationName) : buildAssessConfig(subjectId, simulationName);
   const preflight = useQuery({
     queryKey: ["tract-preflight", subjectId, simulationName],
     queryFn: () => preflightTract(config, subjectId),
   });
   const [assessJobs, setAssessJobs] = usePageSession<Record<string, string>>("assessJobs", {});
-  const key = `${subjectId}/${simulationName}`;
+  const key = `${subjectId}/${simulationName}/${connectionsOnly ? "edges" : "all"}`;
   const { all } = useJobsModel();
   const running = all.some((job) => job.id === assessJobs[key] && RUNNING_STATES.includes(job.state as JobState));
   const [submitting, setSubmitting] = useState(false);
@@ -74,10 +77,11 @@ export function AssessNetworks({ subjectId, simulationName, onQueued }: {
         onClick={() => void submit(false)}
         data-testid="ve-assess-networks"
       >
-        {running ? "Assessing…" : "Assess networks"}
+        {running ? "Assessing…" : connectionsOnly ? "Assess connections" : "Assess networks"}
       </Button>
       <p className="field-help">
-        Samples this simulation&rsquo;s fields along every streamline of sub-{subjectId}&rsquo;s tractogram and writes <code>Simulations/{simulationName}/tract/</code>, including <code>all.trx</code> (about 0.4 GB at 200,000 seeds).
+        Samples this simulation&rsquo;s fields along every streamline of sub-{subjectId}&rsquo;s tractogram and writes <code>Simulations/{simulationName}/tract/</code>
+        {connectionsOnly ? ", with no streamline file." : <>, including <code>all.trx</code> (about 0.4 GB at 200,000 seeds).</>}
       </p>
       <ExistingOutputsDialog
         open={askReplace}

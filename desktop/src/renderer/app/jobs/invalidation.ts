@@ -46,6 +46,7 @@ const SIMULATIONS: readonly QueryKey[] = [
   ["results-file-text"],
   ["export-montage"],
   ["simulation-networks"],
+  ["tract-connections"],
   ["viewer-tree"],
   ["viewer-candidates"],
   ["viewer-resolution"],
@@ -120,7 +121,7 @@ export const BY_KIND: Readonly<Record<string, readonly QueryKey[]>> = {
   source: GROUP_OUTPUTS,
   // A rebuilt network changes what a target can name; a ranking is a result of an ex run; an
   // assess writes a simulation's network outputs, and track or network what the next assess needs.
-  tract: [["tract-manifest"], ["tract-manifests"], ["tract-edges"], ["tract-masks"], ["tract-rankings"], ["tract-streamlines"], ["simulation-networks"], ["tract-preflight"]],
+  tract: [["tract-manifest"], ["tract-manifests"], ["tract-edges"], ["tract-masks"], ["tract-rankings"], ["tract-streamlines"], ["simulation-networks"], ["tract-preflight"], ["tract-presets"], ["tract-connections"]],
   blender: [...GROUP_OUTPUTS, ["simulation-networks"]],
   tools: [],
 };

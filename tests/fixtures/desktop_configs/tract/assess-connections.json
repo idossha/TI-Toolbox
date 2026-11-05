@@ -1,0 +1,35 @@
+{
+  "id": "tract/assess-connections",
+  "page": "tract",
+  "title": "Assess a simulation's edge table for a top-N list",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "assess": {
+          "selections": [],
+          "simulations": [
+            "M1"
+          ]
+        },
+        "stages": [
+          "assess"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "assess"
+    ]
+  }
+}

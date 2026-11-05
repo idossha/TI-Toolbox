@@ -718,11 +718,95 @@ def test_render_options_are_refused_when_they_cannot_run():
             TractVisualConfig(**alone, **clash)
 
 
+def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+    from tit.blender.network_setup import resolve_network_setup
+    from tit.tract.config import Selection
+
+    selection = Selection(
+        name="net", kind="edges", regions=["lh.a"], pairs=[["lh.a", "rh.b"]]
+    )
+    cfg = TractVisualConfig(
+        "x", "s", selection=selection, metric="ti_max", views=["lateral"]
+    )
+    setup = resolve_network_setup(selection, {("lh.a", "rh.b"): 3})
+    cortical = {"lh.a": np.arange(0, 20), "rh.b": np.arange(40, 50)}
+    sphere = _sphere()
+    out = tmp_path / "tract"
+    tp.export_scene(
+        cfg,
+        three,
+        3,
+        (*sphere, len(sphere[0])),
+        None,
+        [],
+        str(out / tp.scene_folder(cfg)),
+        title="t",
+        synthetic=False,
+        edges={
+            -1: {"region_a": "lh.a", "region_b": "rh.b"},
+            0: {"region_a": "lh.a", "region_b": "rh.b"},
+            1: {"region_a": "lh.a", "region_b": "rh.b"},
+        },
+        regions=(cortical, {}),
+        highlight=["lh.a"],
+        setup=setup,
+    )
+    bundle = out / "tract_scene" / "net_ti_max"
+    manifest = json.loads((bundle / "manifest.json").read_text())
+    assert manifest["stem"] == "x_s_net_tract_ti_max"
+    assert manifest["network"] is True
+    assert manifest["setup"] == setup
+    # The stills land beside every other network's, two levels up from the bundle.
+    assert (bundle / manifest["output_dir"]).resolve() == out.resolve()
+    # Words, and which hemisphere each name belongs to.
+    assert {(label["name"], label["hemi"]) for label in manifest["labels"]} == {
+        ("L a (n=3)", -1),
+        ("R b (n=3)", 1),
+    }
+    # One tube radius, the setup's: a width that does not encode the field.
+    radii = np.load(bundle / "tracts.npz")["r"]
+    assert radii.max() == pytest.approx(setup["values"]["tube_radius_mm"])
+    assert radii.min() == pytest.approx(setup["values"]["tube_radius_mm"])
+
+
+def test_the_bundle_route_becomes_a_selection_of_the_edges_it_holds(three):
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+
+    edges = {
+        0: {"region_a": "lh.a", "region_b": "lh.b"},
+        1: {"region_a": "lh.a", "region_b": "lh.c"},
+    }
+    cfg = TractVisualConfig("x", "s", network_bundle="cst", network_top_edges=0)
+    picked = tp._bundle_as_selection(cfg, three, edges)
+    assert picked.selection.name == "cst"
+    assert picked.network_bundle == ""
+    assert sorted(map(tuple, picked.selection.pairs)) == [
+        ("lh.a", "lh.b"),
+        ("lh.a", "lh.c"),
+    ]
+    assert tp.output_stem(picked) == "x_s_cst_tract_ti_along"
+
+
+def test_a_network_drawn_in_part_is_an_even_sample_that_says_so(three):
+    from tit.blender import tract_publication as tp
+
+    three.dps["edge_id"] = np.zeros(3, dtype=np.int64)
+    edges = {0: {"region_a": "lh.a", "region_b": "lh.b"}}
+    picks = tp._picked(three, tp._edge_ids(edges, [["lh.b", "lh.a"]]))
+    assert picks.tolist() == [0, 1, 2]  # either way round
+    assert "(1 drawn, evenly sampled)" in tp.network_statement("n", three, 1)
+
+
 def test_absent_options_keep_the_final_three_view_render():
     from tit.blender.config import TractVisualConfig
 
     cfg = TractVisualConfig(subject_id="x", simulation_name="s")
-    assert cfg.views == [] and cfg.quality == "final" and not cfg.thalamocortical_sequence
+    assert (
+        cfg.views == [] and cfg.quality == "final" and not cfg.thalamocortical_sequence
+    )
 
 
 def test_sequence_networks_share_one_window_over_both(three):
@@ -747,7 +831,9 @@ def test_sequence_networks_share_one_window_over_both(three):
     nets = sequence_configs(cfg, three, edges)
 
     assert list(nets) == ["frontal", "posterior"]  # the order the video plays them in
-    in_network = three.offsets[2]  # streamlines 0 and 1, whose ti_max is 0 .. in_network - 1
+    in_network = three.offsets[
+        2
+    ]  # streamlines 0 and 1, whose ti_max is 0 .. in_network - 1
     expected = np.percentile(np.arange(in_network, dtype=np.float32), 99)
     for key, net in nets.items():
         assert net.vmax_v_per_m == pytest.approx(expected)

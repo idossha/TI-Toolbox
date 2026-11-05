@@ -754,9 +754,40 @@ function outputDirFor(kind, subject, config) {
   }
 }
 /** `stats` is one kind for two classes; without a `_type` the server builds GroupComparisonConfig. */
-/** `_plan_tract`: an assess-only job plans `Simulations/<sim>/tract` and replaces it when it exists. */
+/** `_plan_tract`: an assess-only job plans `Simulations/<sim>/tract` and replaces only its bundles. */
 function isTractAssess(cfg) {
   return Array.isArray(cfg?.stages) && cfg.stages.includes("assess") && !!cfg.assess;
+}
+function assessReplaces(subject, cfg) {
+  const outputs = simulationNetworks[`${subject}/${cfg.assess?.simulations?.[0]}`];
+  const names = (cfg.assess?.selections ?? [{ name: "all" }]).map((s) => s.name);
+  return !!outputs && (names.length ? names.some((name) => outputs.networks.includes(name)) : outputs.has_edges);
+}
+/** `tit.blender.tract_publication.output_stem`. */
+function tractRenderStem(subject, cfg) {
+  const network = cfg.selection?.name ?? cfg.network_bundle;
+  return `${subject}_${cfg.simulation_name}${network ? `_${network}` : ""}_tract_${cfg.metric ?? "ti_along"}`;
+}
+/** `replaced_outputs`: a render replaces only its own network's files. */
+function renderReplaces(subject, cfg) {
+  const stem = `${tractRenderStem(subject, cfg)}_`;
+  return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).some((r) => r.name.startsWith(stem));
+}
+/** `resolve_network_setup`'s answer in the shape the Plan reads, from the mock's own edge counts. */
+function mockNetworkSetup(cfg) {
+  const selection = cfg.selection;
+  const n = selection.pairs.reduce((sum, [a, b]) => sum + (tractEdge(a, b)?.n ?? 0), 0);
+  const overrides = cfg.overrides ?? {};
+  const preset = TRACT_PRESETS.find((p) => p.id === cfg.preset);
+  const held = preset?.same_side && !preset.opposite_pairs.some(([a, b]) => selection.pairs.some((p) => p.includes(a) && p.includes(b)));
+  return {
+    values: { title: selection.name, caption: null, highlight_regions: selection.regions, views: ["lateral", "oblique"], lateral_side: -1, region_labels: true, max_streamlines: 8000, tube_radius_mm: 0.09, vmax_v_per_m: null, iso_shell_percentile: 95, ...overrides },
+    reasons: { views: "It lies mostly in one hemisphere." },
+    overridden: Object.keys(overrides).sort(),
+    n_streamlines: n,
+    n_drawn: n,
+    opposite_removed: held ? { n_kept: preset.n_streamlines, n_with_opposite: preset.n_streamlines + preset.n_opposite, n_removed: preset.n_opposite, right_thalamus_to_left_cortex: preset.right_thalamus_to_left_cortex, left_thalamus_to_right_cortex: preset.left_thalamus_to_right_cortex } : null,
+  };
 }
 function statsTypeDir(cfg) {
   return cfg._type === "CorrelationConfig" ? "correlation" : "group_comparison";
@@ -784,6 +815,8 @@ function existsForFixture(kind, subject, config) {
   if (kind === "leadfield") return (leadfields[subject] ?? []).some((l) => l.net === cfg.eeg_net && l.exists);
   // A `simulation_networks.json` entry is a simulation with a `tract/` folder, listed bundles or not.
   if (kind === "tract") return isTractAssess(cfg) && `${subject}/${cfg.assess.simulations?.[0]}` in simulationNetworks;
+  // `_plan_blender`: a tract render's folder exists once something is rendered there.
+  if (kind === "blender" && cfg._type === "TractVisualConfig") return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).length > 0;
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -878,6 +911,7 @@ function resolveMontageSources(montageSources, ids) {
 }
 function resolvedFor(kind, config, montageSources, ids) {
   const cfg = config && typeof config === "object" ? config : {};
+  if (kind === "blender" && cfg._type === "TractVisualConfig" && cfg.selection) return { network_setup: mockNetworkSetup(cfg) };
   if (kind === "sim") {
     const montages = [...(Array.isArray(cfg.montages) ? cfg.montages : []), ...resolveMontageSources(montageSources, ids)];
     return montages.length ? { montages } : null;
@@ -1056,7 +1090,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
     // `_plan_leadfield`: a leadfield is replaced when its config asks to compute (`overwrite`).
-    const replaces = kind === "leadfield" ? !!cfg.overwrite : REPLACES_WHEN_EXISTS_KINDS.has(kind) || kind === "tract" || !!overwrite;
+    const replaces = kind === "leadfield" ? !!cfg.overwrite : kind === "tract" ? assessReplaces(subject, cfg) : kind === "blender" && cfg._type === "TractVisualConfig" ? renderReplaces(subject, cfg) : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
     return { kind, subject, output_dir, exists, will_overwrite: exists && replaces };
   });
   const lock_conflicts = [];
@@ -1596,8 +1630,26 @@ function finishJob(job) {
     job.status.exit_code = 0;
     job.status.state = "succeeded";
     if (job.status.kind === "tract" && isTractAssess(cfg)) {
-      const networks = (cfg.assess.selections ?? []).map((s) => s.name);
-      for (const sim of cfg.assess.simulations ?? []) simulationNetworks[`${cfg.subject_id}/${sim}`] = { networks, renders: [] };
+      for (const sim of cfg.assess.simulations ?? []) {
+        const key = `${cfg.subject_id}/${sim}`;
+        const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
+        const selections = cfg.assess.selections ?? [];
+        simulationNetworks[key] = {
+          networks: [...new Set([...earlier.networks, ...selections.map((s) => s.name)])].sort(),
+          assessed: [
+            ...earlier.assessed.filter((a) => !selections.some((s) => s.name === a.name)),
+            ...selections.filter((s) => s.pairs?.length).map((s) => ({ name: s.name, pairs: s.pairs, n_streamlines: s.pairs.reduce((sum, [a, b]) => sum + (tractEdge(a, b)?.n ?? 0), 0) })),
+          ],
+          has_edges: true,
+          renders: earlier.renders,
+        };
+      }
+    }
+    if (job.status.kind === "blender" && cfg._type === "TractVisualConfig" && cfg.selection) {
+      const key = `${cfg.subject_id}/${cfg.simulation_name}`;
+      const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
+      const name = `${tractRenderStem(cfg.subject_id, cfg)}_lateral.png`;
+      simulationNetworks[key] = { ...earlier, renders: [{ path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/tract/${name}`, name, kind: "image", modified_at: nowIso() }, ...earlier.renders.filter((r) => r.name !== name)] };
     }
   }
   job.status.finished_at = nowIso();
@@ -2427,7 +2479,7 @@ route("GET", "/api/catalog/simulations/:name/networks", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const sim = (simulations[subject] ?? []).find((s) => s.name === ctx.params.name);
   if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
-  json(ctx.res, 200, simulationNetworks[`${subject}/${ctx.params.name}`] ?? { networks: [], renders: [] });
+  json(ctx.res, 200, simulationNetworks[`${subject}/${ctx.params.name}`] ?? { networks: [], assessed: [], has_edges: false, renders: [] });
 });
 route("GET", "/api/catalog/analyses", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
@@ -2820,12 +2872,14 @@ const TRACT_REGIONS = [
   { name: "lh.precentral", cortical: true },
   { name: "Left-Thalamus-Proper", cortical: false },
   { name: "Brain-Stem", cortical: false },
+  { name: "Right-Thalamus-Proper", cortical: false },
 ];
 const TRACT_EDGES = [
   { region_a: "lh.precentral", region_b: "Brain-Stem", n: 600 },
   { region_a: "lh.insula", region_b: "Left-Thalamus-Proper", n: 300 },
   { region_a: "lh.precentral", region_b: "Left-Thalamus-Proper", n: 95 },
   { region_a: "lh.insula", region_b: "lh.precentral", n: 3 },
+  { region_a: "Right-Thalamus-Proper", region_b: "lh.precentral", n: 12 },
 ].map((edge, edge_id) => ({ edge_id, ...edge, share: edge.n / 998 }));
 const tractMasks = new Map(); // `${subject}/${name}` -> TractMask
 const TRACT_FINGERPRINT = "mock-tract-fingerprint";
@@ -2849,6 +2903,39 @@ route("GET", "/api/tract/edges", (ctx) => {
   const unknown = seeds.filter((s) => !TRACT_REGIONS.some((r) => r.name === s));
   if (unknown.length || seeds.length === 0) return json(ctx.res, 422, { detail: `Unknown region(s): ${unknown.join(", ")}` });
   json(ctx.res, 200, { edges: TRACT_EDGES.filter((e) => seeds.includes(e.region_a) || seeds.includes(e.region_b)) });
+});
+// `tit/tract/presets.py::resolve_preset`'s answer on the authored network above: one same-side set
+// with an opposite edge, one that is never filtered, one with absent labels, one with no streamline.
+const noOpposite = { opposite_pairs: [], n_opposite: 0, right_thalamus_to_left_cortex: 0, left_thalamus_to_right_cortex: 0 };
+const TRACT_PRESETS = [
+  { id: "posterior_thalamocortical", label: "Posterior thalamocortical", seeds: ["Left-Thalamus-Proper", "Right-Thalamus-Proper"], same_side: true, pairs: [["lh.precentral", "Left-Thalamus-Proper"]], n_edges: 1, n_streamlines: 95, opposite_pairs: [["Right-Thalamus-Proper", "lh.precentral"]], n_opposite: 12, right_thalamus_to_left_cortex: 12, left_thalamus_to_right_cortex: 0, missing: [], reason: null },
+  { id: "precentral_brainstem", label: "Precentral-brainstem", seeds: ["Brain-Stem"], same_side: false, pairs: [["lh.precentral", "Brain-Stem"]], n_edges: 1, n_streamlines: 600, ...noOpposite, missing: [], reason: null },
+  { id: "cingulate_cortical", label: "Cingulate-cortical", seeds: [], same_side: false, pairs: [], n_edges: 0, n_streamlines: 0, ...noOpposite, missing: ["lh.posteriorcingulate"], reason: "These labels are not in this network: lh.posteriorcingulate" },
+  { id: "amygdala_cortical", label: "Amygdala-cortical", seeds: ["Left-Amygdala"], same_side: false, pairs: [], n_edges: 0, n_streamlines: 0, ...noOpposite, missing: [], reason: "0 streamlines join these regions in this network." },
+];
+route("GET", "/api/tract/presets", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  if (subject !== "ernie") return json(ctx.res, 404, { detail: `sub-${subject} has no network yet.` });
+  json(ctx.res, 200, { presets: TRACT_PRESETS });
+});
+route("GET", "/api/tract/connections", (ctx) => {
+  const subject = ctx.url.searchParams.get("subject");
+  if (tractSubjectProblem(ctx.res, subject)) return;
+  const simulation = ctx.url.searchParams.get("simulation");
+  if (!simulationNetworks[`${subject}/${simulation}`]?.has_edges) return json(ctx.res, 404, { detail: `${simulation} is not assessed yet: it has no edges.json. Run the tract job's assess stage on it.` });
+  // Authored so each metric puts a different edge first.
+  json(ctx.res, 200, {
+    connections: TRACT_EDGES.map((e, i) => ({
+      region_a: e.region_a,
+      region_b: e.region_b,
+      n: e.n,
+      ti_along_mean: 0.1 + 0.01 * i,
+      ti_max_mean: 0.3 - 0.01 * i,
+      ti_avg_mean: 0.2,
+      align_index: i === 1 ? 2 : 1,
+    })),
+  });
 });
 route("GET", "/api/tract/streamlines", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");

@@ -72,7 +72,7 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => []),
   getAtlasRegions: vi.fn(async () => []),
   getNiftiLabels: vi.fn(async () => []),
-  getSimulationNetworks: vi.fn(async () => ({ networks: ["all", "cst_lh"], renders: [] })),
+  getSimulationNetworks: vi.fn(async () => ({ networks: ["all", "cst_lh"], assessed: [], has_edges: true, renders: [] })),
   validateBlender: vi.fn(async () => okResult),
   planBlender: vi.fn(async () => planResult),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
@@ -92,6 +92,11 @@ vi.mock("react-router-dom", async (importOriginal) => ({ ...(await importOrigina
 vi.mock("../../src/renderer/pages/panels/ExtensionRunPanel", () => ({
   ExtensionRunPanel: () => null,
   useExtensionJobs: () => ({ startedJobIds: [], pinnedJobId: null, setPinnedJobId: () => {}, trackJob: () => {} }),
+}));
+vi.mock("../../src/renderer/pages/_shared/roi/tract", async (original) => ({
+  ...(await original<object>()),
+  // The chosen network's count; "networks-chosen" is assessed, so no assess job joins its Run.
+  getTractPresets: async () => [{ id: "posterior_thalamocortical", same_side: true, pairs: [], opposite_pairs: [], n_streamlines: 7, n_opposite: 0, n_edges: 1 }],
 }));
 vi.mock("../../src/renderer/pages/panels/visual-exporter/ExportPreview", () => ({ ExportPreview: () => null }));
 vi.mock("../../src/renderer/pages/_shared/session/usePageScrollMemory", () => ({ usePageScrollMemory: () => {} }));
@@ -117,7 +122,7 @@ import { defaultConfig as defaultPreConfig, plannedSteps, toSubmitConfig } from 
 import { buildCorrelationConfig, buildGroupComparisonConfig, type SharedStatsFields } from "../../src/renderer/pages/panels/cluster-permutation/config";
 import { buildNiftiAverageConfig } from "../../src/renderer/pages/panels/nifti-group-average/config";
 import { buildNilearnConfig } from "../../src/renderer/pages/panels/nilearn-visuals/config";
-import { buildAssessConfig, buildMontageConfig, buildNetworkConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
+import { buildAssessConfig, buildConnectionsAssessConfig, buildNetworkAssessConfig, buildMontageConfig, buildNetworkConfig, buildRegionConfigs, buildSubcorticalConfig, buildVectorConfig } from "../../src/renderer/pages/panels/visual-exporter/config";
 import { clearPageSession, sessionSlot, writeSession } from "../../src/renderer/app/pageSession";
 import * as statsApi from "../../src/renderer/pages/panels/cluster-permutation/api";
 import * as niftiApi from "../../src/renderer/pages/panels/nifti-group-average/api";
@@ -752,7 +757,7 @@ async function blenderCase(slug: string, title: string, session: Record<string, 
   // One Run click submits every config the mode builds (regions: an STL and a PLY job); a blocked
   // panel's click (its Run stays enabled and explains itself in a toast) submits nothing.
   await panel.click();
-  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId], false]) : []);
+  expect(vi.mocked(blenderApi.createBlenderJob).mock.calls, `${slug}: what one Run click submits`).toEqual(accepts ? built.map((c) => [c, [session.subjectId], false, []]) : []);
   panel.unmount();
   return {
     id: `visual-exporter/${slug}`,
@@ -870,6 +875,8 @@ describe("desktop config corpus", () => {
       tractCase("network-only", "A subject with a tractogram: another atlas", tractJobConfig("001", "HCP_MMP1", false, true)),
       tractCase("retrack", "Track again over an existing tractogram", tractJobConfig("001", "DK40", true, true)),
       tractCase("assess", "Assess one simulation from the Visual exporter's Networks tab", buildAssessConfig("001", "M1") as { stages: string[] }),
+      tractCase("assess-network", "Assess one chosen network before its render", buildNetworkAssessConfig("001", "M1", { name: "posterior_thalamocortical", kind: "edges", regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] }) as { stages: string[] }),
+      tractCase("assess-connections", "Assess a simulation's edge table for a top-N list", buildConnectionsAssessConfig("001", "M1") as { stages: string[] }),
       tractCase("rank", "Rank an ex run on a network mask", rankingConfig("001", "run1", "GSN-HydroCel-185_leadfield.hdf5", mask, 20)),
     ]);
   });
@@ -926,11 +933,14 @@ describe("desktop config corpus", () => {
         buildRegionConfigs({ ...base, atlas: "DK40", fieldName: "TI_max", regions: [] }), { types: ["RegionConfig", "RegionConfig"] }),
       await blenderCase("montage-no-simulation", "Montage publication scene with no simulation picked", { subjectId: "001", simulationName: "", mode: "montage" },
         [buildMontageConfig({ subjectId: "001", simulationName: "", montageOnly: false, electrodeDiameterMm: 10, electrodeHeightMm: 6 })], { types: ["MontageConfig"] }),
-      await blenderCase("networks-bundle", "Network stills and turntable of one bundle", { ...base, mode: "networks", network: "cst_lh", networkMetric: "ti_max", networkTurntable: true },
+      await blenderCase("networks-bundle", "Network stills and turntable of one bundle", { ...base, mode: "networks", networkFromFile: true, network: "cst_lh", networkMetric: "ti_max", networkTurntable: true },
         [buildNetworkConfig({ ...base, network: "cst_lh", metric: "ti_max", views: ["lateral", "superior", "oblique"], stills: true, turntable: true, quality: "preview", sequence: false })], { types: ["TractVisualConfig"] }),
       await blenderCase("networks-sequence", "The thalamocortical sequence", { ...base, mode: "networks", networkSequence: true, networkQuality: "final" },
         [buildNetworkConfig({ ...base, network: "all", metric: "direction", views: ["lateral", "superior", "oblique"], stills: true, turntable: false, quality: "final", sequence: true })], { types: ["TractVisualConfig"] }),
-      await blenderCase("networks-nothing-chosen", "Networks with neither stills nor a turntable", { ...base, mode: "networks", networkStills: false },
+      await blenderCase("networks-chosen", "A network chosen by preset, automatic but for its side", { ...base, mode: "networks", networkMetric: "ti_max", networkOverrides: { lateral_side: 1 },
+        networkValue: { mode: "network", space: "subject", how: "preset", preset: "posterior_thalamocortical", seeds: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]], minN: 1, minCount: 1, name: "posterior_thalamocortical" } },
+        [buildNetworkConfig({ ...base, selection: { name: "posterior_thalamocortical", kind: "edges", regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] }, preset: "posterior_thalamocortical", overrides: { lateral_side: 1 }, network: "all", metric: "ti_max", views: ["lateral", "superior", "oblique"], stills: true, turntable: false, quality: "preview", sequence: false })], { types: ["TractVisualConfig"] }),
+      await blenderCase("networks-nothing-chosen", "Networks with neither stills nor a turntable", { ...base, mode: "networks", networkFromFile: true, networkStills: false },
         [], { types: [] }),
     ]);
   });

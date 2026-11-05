@@ -1,7 +1,17 @@
 {
-  "ernie/docs_example": { "networks": [], "renders": [] },
+  "ernie/docs_example": {
+    "networks": [],
+    "assessed": [],
+    "has_edges": true,
+    "renders": []
+  },
   "ernie/Thalamus": {
-    "networks": ["all", "thalamocortical_lh"],
+    "networks": [
+      "all",
+      "thalamocortical_lh"
+    ],
+    "assessed": [],
+    "has_edges": true,
     "renders": [
       {
         "path": "/mnt/example/derivatives/ti-toolbox/visual_exports/sub-ernie/Thalamus/tract/ernie_Thalamus_tract_direction_lateral.png",

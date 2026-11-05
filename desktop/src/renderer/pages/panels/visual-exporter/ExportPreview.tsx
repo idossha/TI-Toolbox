@@ -1,5 +1,7 @@
 import { useMutation, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { ScenePane } from "../../_shared/scene";
+import { NetworkPane } from "../../_shared/scene/NetworkPane";
+import type { NetworkRoiValue, RoiValue } from "../../_shared/roi/types";
 import {
   useSceneElectrodes,
   useSceneManifest,
@@ -36,6 +38,9 @@ export interface ExportPreviewProps {
   niftiPath: string;
   fieldName: string;
   networkRenders: SimulationNetworks["renders"];
+  /** The network being chosen, drawn live; `null` while the tab draws a file or the sequence. */
+  networkValue?: NetworkRoiValue | null;
+  onNetworkChange?: (value: RoiValue) => void;
 }
 
 /** Each preview owns its channel: opening an export must not replace the retained Viewer scene. */
@@ -89,7 +94,19 @@ export function ExportPreview(props: ExportPreviewProps) {
         Choose a subject to preview its export inputs.
       </p>
     );
-  if (mode === "networks") return <NetworkRenders renders={props.networkRenders} />;
+  if (mode === "networks")
+    return (
+      <div className="network-preview" data-testid="network-preview">
+        {props.networkValue && (
+          <div className="network-preview-pane">
+            <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} />
+          </div>
+        )}
+        <div className="network-preview-renders">
+          <NetworkRenders renders={props.networkRenders} />
+        </div>
+      </div>
+    );
   if (mode === "subcortical" || mode === "vectors") {
     if (mode === "subcortical" && !volumePath)
       return (

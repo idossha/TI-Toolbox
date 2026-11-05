@@ -4,21 +4,34 @@
  * marked preferred; rows open sorted by montage name until the reader chooses a column.
  */
 import { useMemo, useState } from "react";
+import type { SortingState } from "@tanstack/react-table";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../ui/Button";
 import { DataTable, type DataTableColumn } from "../../ui/DataTable";
 import { Callout } from "../../ui/Feedback";
 import { Field } from "../../ui/Field";
 import { NumberInput } from "../../ui/NumberInput";
+import { SegmentedControl } from "../../ui/SegmentedControl";
 import { Select } from "../../ui/Select";
 import { notify } from "../../ui/Toast";
 import { getTractMasks, getTractRankings, type TractMask, type TractRanking } from "../_shared/roi";
 import { submitJobGroup } from "../_shared/run";
+import { getCandidates } from "./candidates/api";
 
 type Row = TractRanking["montages"][number];
 
 /** `TargetConfig.top_n`'s default. */
 const DEFAULT_TOP_N = 20;
+/** Seconds per montage: 1,718 s over 14,535 on sub-CHN, emulated amd64 (2026-11-05). */
+const SECONDS_PER_MONTAGE = 0.12;
+/** Rows drawn at a time: a run's every montage is too many for one table in the DOM. */
+const ROWS_SHOWN = 200;
+
+/** `about 29 min`, or `under a minute` for a run that small. */
+export function rankingEstimate(montages: number): string {
+  const minutes = (montages * SECONDS_PER_MONTAGE) / 60;
+  return minutes < 1 ? "under a minute" : `about ${Math.round(minutes)} min`;
+}
 
 const stat = (key: keyof Row, header: string): DataTableColumn<Row> => ({
   id: key,
@@ -44,7 +57,7 @@ export const RANKING_COLUMNS: DataTableColumn<Row>[] = [
 ];
 
 /** The wire config of the ranking job: the mask's own selection, so it stays that mask. */
-export function rankingConfig(subject: string, run: string, leadfield: string, mask: TractMask, topN: number) {
+export function rankingConfig(subject: string, run: string, leadfield: string, mask: TractMask, topN: number | null) {
   return {
     _type: "TractConfig",
     subject_id: subject,
@@ -57,6 +70,38 @@ export function rankingConfig(subject: string, run: string, leadfield: string, m
       top_n: topN,
     },
   };
+}
+
+/** One ranking, sorted here because it draws only the top of the sort. */
+function RankingTable({ ranking }: { ranking: TractRanking }) {
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [shown, setShown] = useState(ROWS_SHOWN);
+  const rows = useMemo(() => {
+    const by = sorting[0];
+    const name = (row: Row) => row.montage.join(" ");
+    if (!by || by.id === "montage") {
+      const named = [...ranking.montages].sort((a, b) => name(a).localeCompare(name(b)));
+      return by?.desc ? named.reverse() : named;
+    }
+    const key = by.id as keyof Row;
+    const sign = by.desc ? -1 : 1;
+    return [...ranking.montages].sort((a, b) => sign * (Number(a[key]) - Number(b[key])));
+  }, [ranking, sorting]);
+  return (
+    <>
+      <div className="scroll-x">
+        <DataTable data={rows.slice(0, shown)} columns={RANKING_COLUMNS} getRowId={(row) => row.montage.join(" ")} sorting={sorting} onSortingChange={setSorting} />
+      </div>
+      {rows.length > shown && (
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--space-3)" }}>
+          <span className="field-help tabular" data-testid="network-ranking-shown">
+            First {shown.toLocaleString("en-US")} of {rows.length.toLocaleString("en-US")} in this order. All are in ranking_{ranking.name}.csv.
+          </span>
+          <Button variant="secondary" size="sm" onClick={() => setShown(shown + ROWS_SHOWN)}>Show {ROWS_SHOWN} more</Button>
+        </div>
+      )}
+    </>
+  );
 }
 
 export function NetworkRanking({ subject, run, runConfig }: { subject: string; run: string; runConfig: string | undefined }) {
@@ -73,10 +118,16 @@ export function NetworkRanking({ subject, run, runConfig }: { subject: string; r
   }, [runConfig]);
   const usable = useMemo(() => (masks.data ?? []).filter((mask) => !mask.stale), [masks.data]);
   const [chosen, setChosen] = useState<string | null>(null);
+  const [scope, setScope] = useState<"all" | "top">("all");
   const [topN, setTopN] = useState(DEFAULT_TOP_N);
+  const total = useQuery({
+    queryKey: ["ex-run-montages", subject, run],
+    queryFn: async () => (await getCandidates({ subject, kind: "ex", run }, 0, "Composite_Index", true, 1)).total,
+    retry: false,
+  });
   const mask = usable.find((m) => m.name === chosen) ?? usable.find((m) => m.path === targetMask) ?? usable[0];
   const rank = useMutation({
-    mutationFn: () => submitJobGroup("tract", rankingConfig(subject, run, leadfield as string, mask as TractMask, topN), [subject], { overwrite: true }),
+    mutationFn: () => submitJobGroup("tract", rankingConfig(subject, run, leadfield as string, mask as TractMask, scope === "all" ? null : topN), [subject], { overwrite: true }),
     onSuccess: () => {
       notify.success("Queued the ranking.");
       void queryClient.invalidateQueries({ queryKey: ["tract-rankings"] });
@@ -84,7 +135,7 @@ export function NetworkRanking({ subject, run, runConfig }: { subject: string; r
     onError: (error) => notify.error(error.message),
   });
 
-  const sorted = (ranking: TractRanking) => [...ranking.montages].sort((a, b) => a.montage.join(" ").localeCompare(b.montage.join(" ")));
+  const allLabel = total.data === undefined ? "All montages in the run" : `All montages in the run (${total.data.toLocaleString("en-US")}, ${rankingEstimate(total.data)})`;
   return (
     <div data-testid="network-ranking" style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
       {usable.length === 0 ? (
@@ -96,9 +147,14 @@ export function NetworkRanking({ subject, run, runConfig }: { subject: string; r
           <Field label="Network">
             <Select aria-label="Network mask" value={mask?.name ?? ""} onValueChange={setChosen} options={usable.map((m) => ({ value: m.name, label: `${m.name} · ${m.n_edges} edge${m.n_edges === 1 ? "" : "s"}` }))} />
           </Field>
-          <Field label="Montages" help="This run's distinct montages, its top rows by composite index.">
-            <NumberInput value={topN} min={1} step={1} onValueChange={(v) => setTopN(Math.max(1, Math.round(v ?? DEFAULT_TOP_N)))} />
+          <Field label="Montages" help="A montage strong on the composite index need not be strong along the fibres, so a top-N can leave out what this ranking would put first.">
+            <SegmentedControl aria-label="Montages to rank" value={scope} onValueChange={setScope} options={[{ value: "all", label: allLabel }, { value: "top", label: "Top N by composite index" }]} />
           </Field>
+          {scope === "top" && (
+            <Field label="N" help={rankingEstimate(topN)}>
+              <NumberInput value={topN} min={1} step={1} onValueChange={(v) => setTopN(Math.max(1, Math.round(v ?? DEFAULT_TOP_N)))} />
+            </Field>
+          )}
           <Button variant="secondary" size="sm" disabled={!mask || !leadfield || rank.isPending} onClick={() => rank.mutate()} data-testid="network-rank">
             {rank.isPending ? "Queueing…" : "Rank montages"}
           </Button>
@@ -111,9 +167,7 @@ export function NetworkRanking({ subject, run, runConfig }: { subject: string; r
             {ranking.name} · {ranking.n_streamlines.toLocaleString("en-US")} streamlines · {ranking.current_mA.join(" : ")} mA ·{" "}
             {ranking.n_points_in_leadfield_mesh.toLocaleString("en-US")} of {ranking.n_points.toLocaleString("en-US")} points inside the leadfield mesh. Field descriptors, not activation predictions. Select a column to sort.
           </p>
-          <div className="scroll-x">
-            <DataTable data={sorted(ranking)} columns={RANKING_COLUMNS} getRowId={(row) => row.montage.join(" ")} />
-          </div>
+          <RankingTable ranking={ranking} />
         </section>
       ))}
     </div>

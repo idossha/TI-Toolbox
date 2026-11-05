@@ -10,6 +10,9 @@ import { describe, expect, it } from "vitest";
 import Ajv2020 from "ajv/dist/2020";
 import {
   buildMontageConfig,
+  assessState,
+  buildConnectionsAssessConfig,
+  buildNetworkAssessConfig,
   buildNetworkConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
@@ -145,7 +148,59 @@ describe("networks mode", () => {
   });
 
   it("reads a bundle as its own tractogram and draws only it", () => {
-    expect(buildNetworkConfig(form)).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", views: ["oblique"], quality: "preview" });
+    const config = buildNetworkConfig(form);
+    expect(config).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", quality: "preview" });
+    // Its views come from the automatic setup, like any network's.
+    expect(config).not.toHaveProperty("views");
+  });
+
+  const selection = { name: "posterior_thalamocortical", kind: "edges" as const, regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] as [string, string][] };
+
+  it("a chosen network is the one Selection, with only what the user set as overrides", () => {
+    const config = buildNetworkConfig({ ...form, selection, preset: "posterior_thalamocortical", overrides: { lateral_side: 1 } });
+    expect(validate("TractVisualConfig", config)).toMatchObject({ valid: true, errors: [] });
+    expect(config).toMatchObject({ selection, preset: "posterior_thalamocortical", overrides: { lateral_side: 1 }, turntable_crossfade: true, turntable_frames: 96 });
+    expect(config).not.toHaveProperty("tractogram");
+    expect(config).not.toHaveProperty("views");
+    expect(config).not.toHaveProperty("network_bundle");
+  });
+
+  it("a video in direction colours has nothing to fade to", () => {
+    expect(buildNetworkConfig({ ...form, selection, metric: "direction" })).toMatchObject({ turntable_crossfade: false });
+  });
+
+  it("assessing a network sends the same Selection", () => {
+    const config = buildNetworkAssessConfig("CHN", "thalamus", selection);
+    expect(validate("TractConfig", config)).toMatchObject({ valid: true, errors: [] });
+    expect(config).toEqual({ _type: "TractConfig", subject_id: "CHN", stages: ["assess"], assess: { simulations: ["thalamus"], selections: [selection] } });
+  });
+
+  it("the connections-only assess writes no bundle", () => {
+    const config = buildConnectionsAssessConfig("CHN", "thalamus");
+    expect(validate("TractConfig", config)).toMatchObject({ valid: true, errors: [] });
+    expect(config.assess?.selections).toEqual([]);
+  });
+
+  describe("assessState", () => {
+    const outputs = (networks: string[], assessed: { name: string; pairs: string[][]; n_streamlines: number }[] = []) => ({ networks, assessed });
+    const own = { name: selection.name, pairs: selection.pairs, n_streamlines: 5 };
+
+    it("a network is ready when its own bundle holds these edges, whichever way round", () => {
+      expect(assessState(selection, 5, outputs([selection.name], [own]))).toBe("ready");
+      expect(assessState(selection, 5, outputs([selection.name], [{ ...own, pairs: [["lh.lingual", "Left-Thalamus-Proper"]] }]))).toBe("ready");
+    });
+    it("all.trx can be cut to any network", () => {
+      expect(assessState(selection, 5, outputs(["all"]))).toBe("ready");
+    });
+    it("no bundle and no all.trx means assess", () => {
+      expect(assessState(selection, 5, outputs(["posterior_tc"]))).toBe("assess");
+    });
+    it("a bundle of this name holding something else would be replaced, even beside all.trx", () => {
+      expect(assessState(selection, 5, outputs(["all", selection.name], [{ ...own, pairs: [["a", "b"]] }]))).toBe("replace");
+      expect(assessState(selection, 5, outputs([selection.name]))).toBe("replace");
+      // Same edges, other count: the network was rebuilt under it.
+      expect(assessState(selection, 6, outputs([selection.name], [own]))).toBe("replace");
+    });
   });
 
   it("all.trx keeps the config's default of foregrounding the strongest edges", () => {

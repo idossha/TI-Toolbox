@@ -1,0 +1,54 @@
+{
+  "id": "visual-exporter/networks-chosen",
+  "page": "visual-exporter",
+  "title": "A network chosen by preset, automatic but for its side",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractVisualConfig",
+        "connectome": false,
+        "height": 640,
+        "metric": "ti_max",
+        "overrides": {
+          "lateral_side": 1
+        },
+        "preset": "posterior_thalamocortical",
+        "quality": "preview",
+        "selection": {
+          "kind": "edges",
+          "name": "posterior_thalamocortical",
+          "pairs": [
+            [
+              "Left-Thalamus-Proper",
+              "lh.lingual"
+            ]
+          ],
+          "regions": [
+            "Left-Thalamus-Proper"
+          ]
+        },
+        "simulation_name": "M1",
+        "stills": true,
+        "subject_id": "001",
+        "turntable": false,
+        "turntable_crossfade": false,
+        "turntable_frames": 96,
+        "web": false,
+        "width": 960
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "TractVisualConfig"
+    ]
+  }
+}

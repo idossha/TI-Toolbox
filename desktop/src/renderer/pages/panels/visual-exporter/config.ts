@@ -9,6 +9,7 @@
  * `vector_scale`/`vector_length` of 1.0). Change one and this panel stops producing the files the
  * Qt extension produced.
  */
+import { samePairSet } from "../../_shared/roi/networkChoice";
 import type { MontageConfig, RegionConfig, SubcorticalConfig, TractConfig, TractVisualConfig, VectorConfig } from "./api";
 
 /**
@@ -21,6 +22,10 @@ export const NO_RECORDED_NET = "This simulation has no recorded EEG net.";
 export const PERCENTILE_ORDER = "Magnitude-scale percentiles must rise: blue ≤ green ≤ red.";
 
 export const NO_NETWORK_OUTPUTS = "This simulation has no network outputs yet. They come from the tract job's assess stage.";
+export const CHOOSE_A_NETWORK = "Choose a network.";
+export const NAME_THE_NETWORK = "Name the network: letters, digits, _ and -.";
+/** `all.trx` is the whole tractogram's file, which an assess of a network must not replace. */
+export const NAME_IS_RESERVED = "A network cannot be called all: that is the whole tractogram's file.";
 export const SEQUENCE_NEEDS_ALL = "The thalamocortical sequence reads all.trx, which this simulation does not have.";
 
 export type Mode = "regions" | "vectors" | "montage" | "subcortical" | "networks";
@@ -157,12 +162,27 @@ export function buildSubcorticalConfig(form: SubcorticalForm): SubcorticalConfig
   } as SubcorticalConfig;
 }
 
+/** `tit.tract`'s `Selection` of kind `edges`, the one definition a network has. */
+export interface NetworkSelection {
+  name: string;
+  kind: "edges";
+  regions: string[];
+  pairs: [string, string][];
+}
+
 export interface NetworksForm {
   subjectId: string;
   simulationName: string;
+  /** The network chosen; `null` draws `network`, an existing file. */
+  selection?: NetworkSelection | null;
+  /** The preset it came from, so the render can state what a same-side preset left out. */
+  preset?: string;
+  /** `tit.blender.network_setup.OVERRIDABLE` keys the user set; the rest are automatic. */
+  overrides?: Record<string, unknown>;
   /** A stem of `Simulations/<sim>/tract/*.trx`; ignored by the sequence, which reads `all.trx`. */
   network: string;
   metric: "direction" | "ti_max";
+  /** Only `all`, which has no automatic setup, is asked for its views here. */
   views: string[];
   stills: boolean;
   turntable: boolean;
@@ -172,7 +192,8 @@ export interface NetworksForm {
 
 /** Resolution and video length of each quality; `quality` itself sets samples and video size. */
 const NETWORK_QUALITY = {
-  preview: { width: 960, height: 640, turntable_frames: 48 },
+  // 96: a crossfade alone takes 48 frames (tract_scene.CROSSFADE_FRAMES).
+  preview: { width: 960, height: 640, turntable_frames: 96 },
   final: { width: 2400, height: 1600, turntable_frames: 120 },
 } as const;
 
@@ -192,27 +213,54 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     _type: "TractVisualConfig",
   };
   if (form.sequence) return { ...base, thalamocortical_sequence: true, stills: false, turntable: false } as TractVisualConfig;
-  const bundle = form.network === "all" ? {} : { network_bundle: form.network, network_top_edges: 0 };
-  return {
-    ...base,
-    ...bundle,
-    tractogram: `${form.network}.trx`,
+  const outputs = {
     metric: form.metric,
     stills: form.stills,
-    views: form.views,
     turntable: form.turntable,
+    // The reference video: fibre directions first, then a scalar metric.
+    turntable_crossfade: form.turntable && form.metric !== "direction",
     width,
     height,
     turntable_frames,
-  } as TractVisualConfig;
+  };
+  const overrides = form.overrides ?? {};
+  if (form.selection) return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as TractVisualConfig;
+  if (form.network === "all") return { ...base, ...outputs, tractogram: "all.trx", views: form.views } as TractVisualConfig;
+  return { ...base, ...outputs, tractogram: `${form.network}.trx`, network_bundle: form.network, network_top_edges: 0, overrides } as TractVisualConfig;
+}
+
+/** The tract job that writes one network's bundle: fields along every streamline, one `.trx`. */
+export function buildNetworkAssessConfig(subjectId: string, simulationName: string, selection: NetworkSelection): TractConfig {
+  return {
+    _type: "TractConfig",
+    subject_id: subjectId,
+    stages: ["assess"],
+    assess: { simulations: [simulationName], selections: [selection] },
+  } as TractConfig;
+}
+
+/** The assess stage with no bundle: `edges.json` and the rest, which a top-N list is read from. */
+export function buildConnectionsAssessConfig(subjectId: string, simulationName: string): TractConfig {
+  return {
+    _type: "TractConfig",
+    subject_id: subjectId,
+    stages: ["assess"],
+    assess: { simulations: [simulationName], selections: [] },
+  } as TractConfig;
 }
 
 /**
- * The tract job that gives a simulation its network outputs.
- *
- * shortcut: only the `all` selection (about 0.4 GB per simulation at 200,000 seeds), because the
- * thalamocortical sequence and the default render read all.trx; offer named bundles here if disk use becomes the complaint.
+ * Whether this simulation can draw the network yet: its own bundle holds exactly these edges, or
+ * `all.trx` can be cut to them. A bundle of this name holding anything else would be replaced.
  */
+export function assessState(selection: NetworkSelection, nStreamlines: number, outputs: { networks: string[]; assessed: { name: string; pairs: string[][]; n_streamlines: number }[] }): "ready" | "assess" | "replace" {
+  const own = outputs.assessed.find((bundle) => bundle.name === selection.name);
+  if (own && own.n_streamlines === nStreamlines && samePairSet(own.pairs, selection.pairs)) return "ready";
+  if (outputs.networks.includes(selection.name)) return "replace";
+  return outputs.networks.includes("all") ? "ready" : "assess";
+}
+
+/** The tract job that writes `all.trx` (about 0.4 GB at 200,000 seeds), which only the thalamocortical sequence needs. */
 export function buildAssessConfig(subjectId: string, simulationName: string): TractConfig {
   return {
     _type: "TractConfig",

@@ -9,10 +9,12 @@ import { join } from "node:path";
 import Ajv2020 from "ajv/dist/2020";
 import { describe, expect, it } from "vitest";
 import { drawnEdges, edgeSwatch, samePair, type TractEdge } from "../../src/renderer/pages/_shared/roi/tract";
+import { autoNetworkName, networkSelection, pairsFromTo, presetPairs, presetTotals, removedSentence, samePairSet, strongestPairs, withChoice, type TractConnection, type TractPreset } from "../../src/renderer/pages/_shared/roi/networkChoice";
 import { emptyRoi, isRoiComplete, roiToConfig, withNetworkEdit, withRoiSpace, type NetworkRoiValue } from "../../src/renderer/pages/_shared/roi/types";
 import { roiForSubject } from "../../src/renderer/pages/_shared/roi/subjectChange";
 import { targetPreviewRoi } from "../../src/renderer/pages/_shared/scene/targetPreviewModel";
 import { exTargets, buildExConfig, defaultExFormState } from "../../src/renderer/pages/optimizer/exConfig";
+import { rankingConfig, rankingEstimate } from "../../src/renderer/pages/results/NetworkRanking";
 import { optimizerTargetLabel, roiModesFor } from "../../src/renderer/pages/optimizer/rows";
 import { decodePickId, decodePickPixel, encodePickId, pickIdToRgb, PICK_KIND_EDGE } from "../../src/renderer/scene/pickId";
 import { EMPTY_SELECTION, MODE_RULES, selectionReducer } from "../../src/renderer/scene/selection";
@@ -30,6 +32,100 @@ function complete(): NetworkRoiValue {
     mask: { path: PATH, fingerprint: "f", nEdges: 1, nStreamlines: 300, nVoxels: 900, volumeMm3: 900 },
   };
 }
+
+const preset = (over: Partial<TractPreset> = {}): TractPreset => ({
+  id: "posterior_thalamocortical",
+  label: "Posterior thalamocortical",
+  seeds: ["Left-Thalamus-Proper", "Right-Thalamus-Proper"],
+  same_side: true,
+  pairs: [["Left-Thalamus-Proper", "lh.lingual"], ["Right-Thalamus-Proper", "rh.lingual"]],
+  n_edges: 2,
+  n_streamlines: 1407,
+  opposite_pairs: [["Right-Thalamus-Proper", "lh.lingual"], ["Left-Thalamus-Proper", "rh.lingual"]],
+  n_opposite: 191,
+  right_thalamus_to_left_cortex: 167,
+  left_thalamus_to_right_cortex: 24,
+  missing: [],
+  ...over,
+});
+
+describe("choosing a network", () => {
+  const base = { how: "preset" as const, seeds: [] as string[], pairs: [] as [string, string][] };
+
+  it("a preset keeps same-side edges until the opposite ones are asked for, and says what left", () => {
+    expect(presetPairs(preset(), false)).toEqual(preset().pairs);
+    expect(presetPairs(preset(), true)).toHaveLength(4);
+    expect(presetTotals(preset(), false)).toEqual({ streamlines: 1407, edges: 2 });
+    expect(presetTotals(preset(), true)).toEqual({ streamlines: 1598, edges: 4 });
+    expect(removedSentence(preset())).toBe("1,407 of 1,598; 191 opposite-hemisphere removed (right thalamus to left cortex 167, left thalamus to right cortex 24)");
+  });
+
+  it("the toggle reaches the network's name, for a same-side preset only", () => {
+    expect(autoNetworkName({ ...base, preset: "posterior_thalamocortical", presetSameSide: true })).toBe("posterior_thalamocortical");
+    expect(autoNetworkName({ ...base, preset: "posterior_thalamocortical", presetSameSide: true, includeOpposite: true })).toBe("posterior_thalamocortical_with_opposite");
+    expect(autoNetworkName({ ...base, preset: "interhemispheric_cortical", presetSameSide: false, includeOpposite: true })).toBe("interhemispheric_cortical");
+  });
+
+  it("names follow the choice and are always valid Selection names", () => {
+    expect(autoNetworkName({ ...base, how: "region", seeds: ["lh.insula"] })).toBe("lh_insula");
+    expect(autoNetworkName({ ...base, how: "region", seeds: ["lh.insula"], to: ["Brain-Stem"] })).toBe("lh_insula_to_Brain-Stem");
+    expect(autoNetworkName({ ...base, how: "region", seeds: ["lh.insula", "rh.insula"], to: ["a", "b", "c"] })).toBe("2_regions_to_3_regions");
+    expect(autoNetworkName({ ...base, how: "connection", seeds: ["a"], pairs: [["lh.x", "Brain-Stem"]] })).toBe("lh_x_Brain-Stem");
+    expect(autoNetworkName({ ...base, how: "connection", seeds: ["a.b"], pairs: [["a.b", "c"], ["a.b", "d"]] })).toBe("a_b_2_edges");
+    expect(autoNetworkName({ ...base, how: "strongest" })).toBe("");
+    expect(autoNetworkName({ ...base, how: "strongest", metric: "ti_max_mean", topN: 5 })).toBe("top_5_by_ti_max_mean");
+  });
+
+  it("from and to take every edge joining them, either way round, above the minimum", () => {
+    const edges = [
+      { region_a: "a", region_b: "x", n: 9 },
+      { region_a: "y", region_b: "a", n: 4 },
+      { region_a: "b", region_b: "x", n: 2 },
+      { region_a: "c", region_b: "d", n: 9 },
+    ];
+    expect(pairsFromTo(edges, ["a"], [], 1)).toEqual([["a", "x"], ["y", "a"]]);
+    expect(pairsFromTo(edges, ["a"], ["y"], 1)).toEqual([["y", "a"]]);
+    expect(pairsFromTo(edges, ["a", "b"], ["x"], 3)).toEqual([["a", "x"]]);
+  });
+
+  it("the top N follow the named metric, above the minimum, with a stable tie", () => {
+    const row = (region_a: string, n: number, ti_max_mean: number, align_index: number): TractConnection => ({ region_a, region_b: "z", n, ti_max_mean, align_index, ti_along_mean: 0, ti_avg_mean: 0 });
+    const rows = [row("a", 9, 0.1, 3), row("b", 9, 0.3, 1), row("c", 1, 0.9, 9), row("d", 9, 0.3, 2)];
+    expect(strongestPairs(rows, "ti_max_mean", 2, 5)).toEqual([["b", "z"], ["d", "z"]]);
+    expect(strongestPairs(rows, "align_index", 1, 5)).toEqual([["a", "z"]]);
+  });
+
+  it("a top N names no seed, so the render lights its busiest ends instead", () => {
+    const value = { ...(emptyRoi("network") as NetworkRoiValue), how: "strongest" as const, name: "n", seeds: ["a", "z"], pairs: [["a", "z"]] as [string, string][] };
+    expect(networkSelection(value)).toEqual({ name: "n", kind: "edges", regions: [], pairs: [["a", "z"]] });
+    expect(networkSelection({ ...value, how: "region" }).regions).toEqual(["a", "z"]);
+  });
+
+  it("two pair lists are the same network whichever way round", () => {
+    expect(samePairSet([["a", "b"], ["c", "d"]], [["d", "c"], ["b", "a"]])).toBe(true);
+    expect(samePairSet([["a", "b"]], [["a", "b"], ["c", "d"]])).toBe(false);
+  });
+
+  it("a name stays the user's once typed", () => {
+    const value = { ...(emptyRoi("network") as NetworkRoiValue), how: "preset" as const, name: "mine", nameEdited: true };
+    expect(withChoice(value, { preset: "x" }, withNetworkEdit).name).toBe("mine");
+    expect(withChoice({ ...value, nameEdited: false }, { preset: "x" }, withNetworkEdit).name).toBe("x");
+  });
+});
+
+describe("ranking a run", () => {
+  const mask = { name: "m", pairs: [["a", "b"]], min_count: 2 } as Parameters<typeof rankingConfig>[3];
+
+  it("All sends no limit, and a top N its number", () => {
+    expect(rankingConfig("S", "run", "lf.hdf5", mask, null).target).toMatchObject({ top_n: null, ex_run: "run", min_count: 2 });
+    expect(rankingConfig("S", "run", "lf.hdf5", mask, 20).target.top_n).toBe(20);
+  });
+
+  it("estimates from the measured rate: 14,535 montages took about 29 minutes", () => {
+    expect(rankingEstimate(14_535)).toBe("about 29 min");
+    expect(rankingEstimate(210)).toBe("under a minute");
+  });
+});
 
 const edge = (region_a: string, region_b: string, n: number, edge_id = 0): TractEdge => ({ edge_id, region_a, region_b, n, share: n / 1000 });
 

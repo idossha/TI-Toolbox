@@ -1037,3 +1037,76 @@ def test_two_jobs_claim_a_network_each_in_one_folder() -> None:
     assert _named_folders("blender", {"_type": "VectorConfig"}, [Job()]) == {
         "/p/sim/tract"
     }
+
+
+def test_a_ranking_reads_every_montage_of_a_run_or_its_top_rows(tmp_path: Path) -> None:
+    from tit.tract.target import ex_run_montages
+
+    csv_path = tmp_path / "final_output.csv"
+    # Composite = TImean_ROI x Focality: 0.2 > 0.1 > 0.05, and the last row repeats the first set.
+    csv_path.write_text(
+        "Montage,TImean_ROI,Focality\n"
+        "A_B <> C_D_I1-1.0mA_I2-1.0mA,0.1,1.0\n"
+        "E_F <> G_H_I1-1.0mA_I2-1.0mA,0.2,1.0\n"
+        "I_J <> K_L_I1-1.0mA_I2-1.0mA,0.05,1.0\n"
+        "A_B <> C_D_I1-0.5mA_I2-1.5mA,0.01,1.0\n"
+    )
+    assert ex_run_montages(str(csv_path), None) == [
+        ["E", "F", "G", "H"],
+        ["A", "B", "C", "D"],
+        ["I", "J", "K", "L"],
+    ]
+    assert ex_run_montages(str(csv_path), 1) == [["E", "F", "G", "H"]]
+
+
+@pytest.mark.parametrize("top_n", [0, -1])
+def test_a_top_n_of_nothing_is_refused(top_n: int) -> None:
+    from tit.tract.config import TargetConfig
+
+    with pytest.raises(ValueError, match="top_n"):
+        TargetConfig(top_n=top_n)
+    assert TargetConfig(top_n=None).top_n is None
+
+
+def test_a_long_ranking_reports_how_far_it_has_got(monkeypatch, caplog) -> None:
+    import logging
+
+    from simnibs.utils import TI_utils
+
+    from tit.opt.ex import engine as ex_engine
+    from tit.tract import target
+
+    class Engine:
+        def __init__(self, *args):
+            self.leadfield, self.idx_lf = None, None
+
+        def _load_leadfield(self):
+            class Mesh:
+                @staticmethod
+                def find_tetrahedron_with_points(points, compute_baricentric=False):
+                    return np.ones(len(points), dtype=int)
+
+            self.mesh = Mesh()
+
+    monkeypatch.setattr(ex_engine, "ExSearchEngine", Engine)
+    monkeypatch.setattr(
+        TI_utils, "get_field", lambda *a: np.ones((1, 3)), raising=False
+    )
+    # Each montage takes 40 s of a clock this test runs, so each after the first logs.
+    clock = iter(range(0, 4000, 40))
+    monkeypatch.setattr(target.time, "monotonic", lambda: next(clock))
+    points = np.array([[0.0, 0, 0], [1, 0, 0]])
+    offsets = np.array([0, 2])
+    tangents = np.array([[1.0, 0, 0], [1, 0, 0]])
+    with caplog.at_level(logging.INFO, logger="tit.tract.target"):
+        rows, _ = target.rank_montages(
+            "lf.hdf5",
+            points,
+            offsets,
+            np.array([1.0]),
+            tangents,
+            [["A", "B", "C", "D"]] * 3,
+        )
+    assert len(rows) == 3
+    assert "ranked 1/3 montages" in caplog.text
+    assert "ranked 2/3 montages" in caplog.text

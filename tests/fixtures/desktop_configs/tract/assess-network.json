@@ -1,0 +1,49 @@
+{
+  "id": "tract/assess-network",
+  "page": "tract",
+  "title": "Assess one chosen network before its render",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractConfig",
+        "assess": {
+          "selections": [
+            {
+              "kind": "edges",
+              "name": "posterior_thalamocortical",
+              "pairs": [
+                [
+                  "Left-Thalamus-Proper",
+                  "lh.lingual"
+                ]
+              ],
+              "regions": [
+                "Left-Thalamus-Proper"
+              ]
+            }
+          ],
+          "simulations": [
+            "M1"
+          ]
+        },
+        "stages": [
+          "assess"
+        ],
+        "subject_id": "001"
+      },
+      "kind": "tract",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "stages": [
+      "assess"
+    ]
+  }
+}

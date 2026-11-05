@@ -102,6 +102,8 @@ export interface MaskRoiValue {
  * only, and evaluated on white matter. `mask` exists only while it matches the selection: every edit
  * goes through `withNetworkEdit`, which drops it and sets `stale`, which is what disables Run.
  */
+export type NetworkHow = "preset" | "region" | "connection" | "strongest";
+
 export interface NetworkRoiValue {
   mode: "network";
   space: "subject";
@@ -110,6 +112,19 @@ export interface NetworkRoiValue {
   minN: number;
   minCount: number;
   name: string;
+  /** How it is being chosen (absent: seeds and edges by hand, what a saved target was made with). */
+  how?: NetworkHow;
+  preset?: string;
+  /** The preset keeps same-hemisphere edges by default, and this one has asked for the others. */
+  presetSameSide?: boolean;
+  includeOpposite?: boolean;
+  /** By region: the "to" side; empty means every region the seeds reach. */
+  to?: string[];
+  /** Strongest here: what the list is ordered by. Unset until the user names one. */
+  metric?: string;
+  topN?: number;
+  /** The user typed the name, so the choice no longer writes it. */
+  nameEdited?: boolean;
   mask?: { path: string; fingerprint: string; nEdges: number; nStreamlines: number; nVoxels: number; volumeMm3: number };
   /** A mask was made and the selection has changed since. */
   stale?: boolean;
@@ -121,7 +136,7 @@ export type RoiValue = MaskRoiValue | SphericalRoiValue | CorticalRoiValue | Sub
 export const NETWORK_NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 /** The same target with its selection changed: whatever mask it had no longer describes it. */
-export function withNetworkEdit(value: NetworkRoiValue, patch: Partial<Pick<NetworkRoiValue, "seeds" | "pairs" | "minN" | "minCount" | "name">>): NetworkRoiValue {
+export function withNetworkEdit(value: NetworkRoiValue, patch: Partial<NetworkRoiValue>): NetworkRoiValue {
   const { mask: _mask, stale: _stale, ...rest } = value;
   void _mask;
   void _stale;

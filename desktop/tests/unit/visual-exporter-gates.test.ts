@@ -59,7 +59,7 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => Object.keys(RECORDS).map((name) => ({ name, path: `${SIM_ROOT}/${name}` }))),
   getAtlasRegions: vi.fn(async () => []),
   getNiftiLabels: vi.fn(async () => []),
-  getSimulationNetworks: vi.fn(async (_subject: string, name: string) => (name === "no_tracts" ? { networks: [], renders: [] } : name === "bundles_only" ? { networks: ["cst_lh"], renders: [] } : { networks: ["all"], renders: [] })),
+  getSimulationNetworks: vi.fn(async (_subject: string, name: string) => ({ assessed: [], has_edges: false, renders: [], networks: name === "no_tracts" ? [] : name === "bundles_only" ? ["cst_lh"] : ["all"] })),
   validateBlender: vi.fn(async () => ({ ok: true, errors: [] })),
   planBlender: vi.fn(async () => ({ jobs: [], lock_conflicts: [], cost: { cpus: 1, mem_gb: 1 }, warnings: [] })),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
@@ -123,8 +123,14 @@ afterEach(() => {
 });
 
 describe("visual exporter networks gate", () => {
-  it("refuses a simulation with no network outputs and says where they come from", async () => {
+  it("asks for a network before anything else, assessed or not", async () => {
     const { title, submitted } = await render({ mode: "networks", subjectId: "101", simulationName: "no_tracts" });
+    expect(title).toBe("Choose a network.");
+    expect(submitted).toEqual([]);
+  });
+
+  it("refuses an existing file of a simulation with none, and says where they come from", async () => {
+    const { title, submitted } = await render({ mode: "networks", subjectId: "101", simulationName: "no_tracts", networkFromFile: true });
     expect(title).toBe("This simulation has no network outputs yet. They come from the tract job's assess stage.");
     expect(submitted).toEqual([]);
   });
@@ -134,13 +140,13 @@ describe("visual exporter networks gate", () => {
     const refused = await render({ ...base, networkSequence: true });
     expect(refused.title).toBe("The thalamocortical sequence reads all.trx, which this simulation does not have.");
     expect(refused.submitted).toEqual([]);
-    const bundle = await render(base);
+    const bundle = await render({ ...base, networkFromFile: true });
     expect(bundle.title).toBeNull();
     expect(bundle.submitted).toEqual([expect.objectContaining({ _type: "TractVisualConfig", tractogram: "cst_lh.trx", network_bundle: "cst_lh" })]);
   });
 
   it("refuses a run that would render nothing", async () => {
-    const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula" };
+    const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula", networkFromFile: true };
     expect((await render({ ...base, networkStills: false })).title).toBe("Choose stills, a turntable or both.");
     expect((await render({ ...base, networkViews: [] })).title).toBe("Choose at least one view.");
     expect((await render({ ...base, networkViews: [], networkTurntable: true, networkStills: false })).title).toBeNull();

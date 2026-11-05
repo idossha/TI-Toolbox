@@ -223,7 +223,7 @@ def rank_montages(
     started = last_report = time.monotonic()
     for done, (e1p, e1m, e2p, e2m) in enumerate(montages):
         now = time.monotonic()
-        if now - last_report >= RANK_REPORT_S:
+        if done and now - last_report >= RANK_REPORT_S:
             last_report = now
             left = (now - started) / done * (len(montages) - done)
             logger.info(

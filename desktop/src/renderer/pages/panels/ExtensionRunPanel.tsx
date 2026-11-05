@@ -19,7 +19,8 @@ export function useExtensionJobs() {
 export function ExtensionRunPanel({
   kind, subjects, plan, startedJobIds, pinnedJobId, setPinnedJobId, scene, paneControls,
 }: {
-  kind: string;
+  /** The job kinds this page's terminal follows. */
+  kind: string | string[];
   subjects: string[];
   plan: ReactNode;
   startedJobIds: readonly string[];
@@ -28,14 +29,15 @@ export function ExtensionRunPanel({
   scene?: ReactNode;
   paneControls?: ReactNode;
 }) {
-  const terminal = <JobTerminal kinds={[kind]} subjects={subjects} startedJobIds={startedJobIds} pinnedJobId={pinnedJobId} onPinJob={setPinnedJobId} />;
+  const kinds = Array.isArray(kind) ? kind : [kind];
+  const terminal = <JobTerminal kinds={kinds} subjects={subjects} startedJobIds={startedJobIds} pinnedJobId={pinnedJobId} onPinJob={setPinnedJobId} />;
   return (
     <div className="run-panel extension-run-panel" data-testid="run-panel">
       <section className="extension-plan" aria-label="Plan" data-testid="extension-plan">
         <header className="plan-grid-head"><span className="text-eyebrow">Plan</span></header>
         <div className="extension-plan-body">{plan}</div>
       </section>
-      {scene ? <RunPaneTabs kinds={[kind]} ranHere={startedJobIds.length > 0} terminal={terminal} scene={scene} controls={paneControls} /> : terminal}
+      {scene ? <RunPaneTabs kinds={kinds} ranHere={startedJobIds.length > 0} terminal={terminal} scene={scene} controls={paneControls} /> : terminal}
     </div>
   );
 }

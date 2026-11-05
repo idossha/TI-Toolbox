@@ -11,18 +11,15 @@
         "metric": "ti_max",
         "network_bundle": "cst_lh",
         "network_top_edges": 0,
+        "overrides": {},
         "quality": "preview",
         "simulation_name": "M1",
         "stills": true,
         "subject_id": "001",
         "tractogram": "cst_lh.trx",
         "turntable": true,
-        "turntable_frames": 48,
-        "views": [
-          "lateral",
-          "superior",
-          "oblique"
-        ],
+        "turntable_crossfade": true,
+        "turntable_frames": 96,
         "web": false,
         "width": 960
       },

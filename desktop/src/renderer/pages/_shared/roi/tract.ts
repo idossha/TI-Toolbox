@@ -10,6 +10,7 @@ import type { components } from "../../../api/schema";
 import { categoricalColor, rgbToHex } from "../../../scene/palette";
 import { parseTvsl1 } from "../../../scene/tvsl";
 import type { Rgb, SceneLines } from "../../../scene/types";
+import type { TractConnection, TractPreset } from "./networkChoice";
 import type { NetworkRoiValue } from "./types";
 
 export type TractManifest = components["schemas"]["TractManifest"];
@@ -33,6 +34,14 @@ export async function getTractEdges(subject: string, seeds: string[]): Promise<T
 
 export async function createTractMask(body: TractMaskRequest): Promise<TractMask> {
   return unwrap(await api.POST("/api/tract/mask", { body }), "/api/tract/mask");
+}
+
+export async function getTractPresets(subject: string): Promise<TractPreset[]> {
+  return unwrap(await api.GET("/api/tract/presets", { params: { query: { subject } } }), "/api/tract/presets").presets;
+}
+
+export async function getTractConnections(subject: string, simulation: string): Promise<TractConnection[]> {
+  return unwrap(await api.GET("/api/tract/connections", { params: { query: { subject, simulation } } }), "/api/tract/connections").connections;
 }
 
 export async function getTractMasks(subject: string): Promise<TractMask[]> {
@@ -82,10 +91,10 @@ export const edgeKey = (edge: { region_a: string; region_b: string }): string =>
  * what makes the swatch the line's colour. A selected edge is always drawn; the rest by streamline
  * count until the server's budget runs out.
  */
-export function drawnEdges(edges: readonly TractEdge[], pairs: readonly RegionPair[]): TractEdge[] {
+export function drawnEdges(edges: readonly TractEdge[], pairs: readonly RegionPair[], onlyPicked = false): TractEdge[] {
   const isPicked = (edge: TractEdge) => pairs.some((pair) => samePair(pair, [edge.region_a, edge.region_b]));
   const picked = edges.filter(isPicked);
-  const rest = edges.filter((edge) => !isPicked(edge));
+  const rest = onlyPicked ? [] : edges.filter((edge) => !isPicked(edge));
   return [...picked, ...rest].slice(0, MAX_DRAWN_EDGES);
 }
 
@@ -108,7 +117,9 @@ export function useTractLines(subject: string | undefined, value: NetworkRoiValu
 } {
   const edges = useTractEdges(subject, value?.seeds ?? [], fingerprint);
   const pairs = value?.pairs;
-  const drawn = useMemo(() => drawnEdges(edges.data ?? [], pairs ?? []), [edges.data, pairs]);
+  // A preset, a region list or a top-N is already the choice: only by-connection offers the rest.
+  const onlyPicked = !!value?.how && value.how !== "connection";
+  const drawn = useMemo(() => drawnEdges(edges.data ?? [], pairs ?? [], onlyPicked), [edges.data, pairs, onlyPicked]);
   const wanted = useMemo(() => drawn.map((edge): RegionPair => [edge.region_a, edge.region_b]), [drawn]);
   const stream = useQuery({
     queryKey: ["tract-streamlines", subject, fingerprint, wanted],
