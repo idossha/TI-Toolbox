@@ -1163,7 +1163,7 @@ export function SceneCanvas({
     return () => {
       if (window.__scene === handle) delete window.__scene;
     };
-  }, [markers, mode, opacities, parts, pickAt, sceneBounds, publishDebugHandle]);
+  }, [lines, markers, mode, opacities, parts, pickAt, sceneBounds, publishDebugHandle]);
 
   // --- render ---------------------------------------------------------------------------------
   const legendRows = useMemo<LegendEntry[]>(() => {

@@ -60,7 +60,7 @@ export function NetworkPanel({ value, onChange, subject, disabled }: {
     () => (manifest.data?.regions ?? []).map((r) => ({ id: r.name, label: r.name, detail: r.cortical ? "cortical" : "subcortical", search: r.name })),
     [manifest.data],
   );
-  const list = edges.data ?? [];
+  const list = useMemo(() => edges.data ?? [], [edges.data]);
   const edgeItems = useMemo<SelectionItem[]>(
     () =>
       list.map((edge) => ({
