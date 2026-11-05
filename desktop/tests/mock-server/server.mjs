@@ -334,7 +334,9 @@ function walk(value, amplitude) {
 }
 function snapshot() {
   cpu = walk(cpu, 12);
-  memPercent = walk(memPercent, 2);
+  // Capped so `free` below stays positive: past 79 % the used/cache/buffers/free bar has no free
+  // segment, which system.spec.ts met when a long run walked this far (2026-11-05, 3 of 4 segments).
+  memPercent = Math.min(75, walk(memPercent, 2));
   perCore = perCore.map((v) => walk(v, 25));
   netSent += Math.round(Math.random() * 2 * 1024 ** 2);
   netRecv += Math.round(Math.random() * 6 * 1024 ** 2);
