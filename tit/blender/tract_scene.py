@@ -36,6 +36,10 @@ DIVERGING_STRENGTH = 0.95
 #: Context fibres: thin, grey, faint and additive. They must never occlude: a dithered,
 #: partly opaque context stacked into a grey veil that cut the network into dashes.
 CONTEXT_RADIUS, CONTEXT_COLOUR, CONTEXT_STRENGTH = 0.05, (0.6, 0.64, 0.72), 0.006
+#: The TI_max iso-shell: a faint warm rim, so the hotspot reads behind the fibres.
+SHELL_COLOUR, SHELL_STRENGTH = (1.0, 0.66, 0.36), 0.05
+#: Frames a turntable crossfade from direction colours to the scalar metric takes.
+CROSSFADE_FRAMES = 48
 #: Glass brain rim emission (lighter than the scalp's ghost would make it).
 GLASS_STRENGTH = 0.055
 TEXT_GREY = 0.85
@@ -114,6 +118,9 @@ def _tube_modifier(obj, material, resolution: int = 6) -> None:
     link(radius.outputs["Curve"], sweep.inputs["Curve"])
     link(profile.outputs["Curve"], sweep.inputs["Profile Curve"])
     sweep.inputs["Fill Caps"].default_value = True  # open ends read as rings end-on
+    scale = sweep.inputs.get("Scale")
+    if scale is not None:  # 5.x scales the profile by this input, not the curve radius
+        link(r.outputs["Attribute"], scale)
     link(sweep.outputs["Mesh"], paint.inputs["Geometry"])
     link(paint.outputs["Geometry"], group_out.inputs[0])
     obj.modifiers.new("Tubes", "NODES").node_group = tree
@@ -188,15 +195,36 @@ def _ramp(m: _Nodes, v, stops):
     return node.outputs["Color"]
 
 
-def _fibre_colour_strength(m: _Nodes, manifest, v):
+def _keyed(socket, keys) -> None:
+    """Key *socket*'s value at each ``(frame, value)`` (linear between, held outside)."""
+    for frame, value in keys:
+        socket.default_value = float(value)
+        socket.keyframe_insert("default_value", frame=int(frame))
+
+
+def _fade(m: _Nodes, keys):
+    """A Value socket following *keys*, or the constant 1 when there are none."""
+    node = m.value(1.0)
+    if keys:
+        _keyed(node.outputs[0], keys)
+    return node.outputs[0]
+
+
+def _fibre_colour_strength(m: _Nodes, manifest, v, metric: str | None = None):
     """(colour, strength) of a fibre at normalised field socket *v* (shared with the bar)."""
-    if manifest["metric"] == "direction":
+    metric = metric or manifest["metric"]
+    if metric == "direction":
         colour = m.new("ShaderNodeVectorMath", operation="ABSOLUTE")
         m.feed(colour.inputs[0], m.attr("tangent", "Vector"))
-        colour = colour.outputs[0]
+        # |t| is the display (sRGB) value, as in DEC maps; squaring approximates the
+        # sRGB-to-linear step emission needs, else 0.5 shows as 0.73 and colours wash out.
+        square = m.new("ShaderNodeVectorMath", operation="MULTIPLY")
+        m.feed(square.inputs[0], colour.outputs[0])
+        m.feed(square.inputs[1], colour.outputs[0])
+        colour = square.outputs[0]
     else:
         colour = _ramp(m, v, manifest["stops"])
-    if manifest.get("diverging") or manifest["metric"] == "direction":
+    if manifest.get("diverging") or metric == "direction":
         return colour, DIVERGING_STRENGTH
     base = m.math("MULTIPLY_ADD", m.math("POWER", v, GAMMA), 1.0 - LOW, LOW)
     boost = m.math("MULTIPLY_ADD", m.math("POWER", v, 3.0), BOOST, 1.0)
@@ -213,18 +241,45 @@ def _keyed_frame(m: _Nodes, last: int):
     return socket
 
 
-def fibre_material(manifest, *, animated: bool = False, name: str = "Fibres"):
+def fibre_material(
+    manifest,
+    *,
+    animated: bool = False,
+    name: str = "Fibres",
+    metric: str | None = None,
+    crossfade=None,
+    fade=None,
+):
+    """Fibre (or colour-bar) emission.
+
+    *crossfade* keys a mix from direction colours (0) to the manifest's metric (1); *fade*
+    keys the whole material's strength over transparency (a colour bar that fades out).
+    """
     import bpy
 
     mat = bpy.data.materials.new(name)
     m = _Nodes(mat)
     v = m.attr("v")
-    colour, strength = _fibre_colour_strength(m, manifest, v)
+    colour, strength = _fibre_colour_strength(m, manifest, v, metric)
 
     finish = m.finish  # opaque everywhere: a fibre is one continuous tube
 
     if not animated:
-        finish(m.emission(colour, strength))
+        shader = m.emission(colour, strength)
+        if crossfade:
+            arrows, power = _fibre_colour_strength(m, manifest, v, "direction")
+            mix = m.new("ShaderNodeMixShader")
+            m.feed(mix.inputs[0], _fade(m, crossfade))
+            m.feed(mix.inputs[1], m.emission(arrows, power))
+            m.feed(mix.inputs[2], shader)
+            shader = mix.outputs[0]
+        if fade:
+            mat.surface_render_method = "BLENDED"
+            shader = m.add(
+                m.transparent(),
+                m.emission(colour, m.math("MULTIPLY", strength, _fade(m, fade))),
+            )
+        finish(shader)
         return mat
     front = manifest["front"]
     frame = _keyed_frame(m, front["frames"])
@@ -381,6 +436,24 @@ def _plate_material():
     return mat
 
 
+def fading_material(name, colour, strength, keys):
+    """Emission over transparency whose strength follows *keys* (text that fades in or out)."""
+    import bpy
+
+    if not keys:
+        return flat_material(name, colour, strength)
+    mat = bpy.data.materials.new(name)
+    mat.surface_render_method = "BLENDED"
+    m = _Nodes(mat)
+    m.finish(
+        m.add(
+            m.transparent(),
+            m.emission(colour, m.math("MULTIPLY", _fade(m, keys), strength)),
+        )
+    )
+    return mat
+
+
 def flat_material(name, colour, strength=1.0):
     import bpy
 
@@ -414,11 +487,112 @@ def _two_lines(text: str) -> str:
     return text[:cut] + "\n" + text[cut + 1 :]
 
 
-def build_overlay(manifest, camera, *, caption: str, distance: float):
-    """Colour bar, ticks, title and caption in camera space; returns its root empty.
+def _legend(
+    root, manifest, metric: str, hh: float, size: float, keys=None, tag: str = ""
+):
+    """The colour key of *metric* at the right edge: a bar with ticks, or the direction key.
+
+    With *keys* every part fades by them (a turntable crossfade swaps two legends).
+    """
+    text = fading_material(f"LegendText{tag}", (TEXT_GREY,) * 3, 1.0, keys)
+    x0, x1, y0, y1 = 0.885, 0.91, -0.42 * hh, 0.42 * hh
+    if metric == "direction":
+        _text(
+            f"BarTitle{tag}",
+            "Fibre direction",
+            size * 0.8,
+            (0.97, 0.22 * hh + 1.6 * size, 0),
+            root,
+            align="RIGHT",
+            material=text,
+        )
+        rows = (
+            ((1, 0, 0), "left – right"),
+            ((0, 1, 0), "anterior – posterior"),
+            ((0, 0, 1), "superior – inferior"),
+        )
+        for i, (colour, words) in enumerate(rows):
+            y = 0.22 * hh - i * 1.5 * size
+            swatch = _mesh_object(
+                f"Swatch{tag}{i}",
+                [
+                    (0.94, y, 0),
+                    (0.97, y, 0),
+                    (0.97, y + 0.8 * size, 0),
+                    (0.94, y + 0.8 * size, 0),
+                ],
+                faces=[(0, 1, 2, 3)],
+            )
+            swatch.parent = root
+            swatch.data.materials.append(
+                fading_material(f"Swatch{tag}{i}", colour, 0.95, keys)
+            )
+            _text(
+                f"Swatch{tag}{i}Text",
+                words,
+                size * 0.72,
+                (0.93, y + 0.1 * size, 0),
+                root,
+                align="RIGHT",
+                material=text,
+            )
+        return
+    bar = _mesh_object(
+        f"ColourBar{tag}",
+        [(x0, y0, 0), (x1, y0, 0), (x1, y1, 0), (x0, y1, 0)],
+        faces=[(0, 1, 2, 3)],
+        attributes={"v": [0, 0, 1, 1]},
+    )
+    bar.parent = root
+    bar.data.materials.append(
+        fibre_material(
+            manifest, name=f"ColourBarMaterial{tag}", metric=metric, fade=keys
+        )
+    )
+    ticks = manifest.get("ticks") or [
+        [f, f"{f * manifest['vmax']:.2f}"] for f in (0.0, 0.5, 1.0)
+    ]
+    for frac, tick in ticks:
+        y = y0 + frac * (y1 - y0) - 0.35 * size
+        _text(
+            f"Tick{tag}{frac}",
+            tick,
+            size * 0.8,
+            (x0 - 0.012, y, 0),
+            root,
+            align="RIGHT",
+            material=text,
+        )
+    units = f" ({manifest['units']})" if manifest["units"] not in ("", "1") else ""
+    _text(
+        f"BarTitle{tag}",
+        _two_lines(manifest["label"] + units),
+        size * 0.8,
+        (x1, y1 + 1.9 * size, 0),
+        root,
+        align="RIGHT",
+        material=text,
+    )
+    if manifest.get(
+        "network"
+    ):  # in network captions the smoothing note sits with the bar
+        _text(
+            f"BarNote{tag}",
+            _two_lines(manifest.get("smoothing_note", "")),
+            size * 0.55,
+            (x1, y0 - 1.6 * size, 0),
+            root,
+            align="RIGHT",
+            material=text,
+        )
+
+
+def build_overlay(manifest, camera, *, caption: str, distance: float, swap=None):
+    """Colour key, title and caption in camera space; returns its root empty.
 
     Built at half-width 1 (x right, y up); :func:`fit_overlay` scales it to a camera. A
     manifest with ``"bare": true`` gets only the root (region labels still hang from it).
+    *swap* = ``(out_keys, in_keys)`` crossfades the direction key out and the metric's in.
     """
     import bpy
 
@@ -429,55 +603,16 @@ def build_overlay(manifest, camera, *, caption: str, distance: float):
     text = flat_material("OverlayText", (TEXT_GREY,) * 3, 1.0)
     w, h = manifest["still_size"] if camera.data.type == "ORTHO" else VIDEO_SIZE
     hh = h / w
-    x0, x1, y0, y1 = 0.885, 0.91, -0.42 * hh, 0.42 * hh
     size = 0.034 * hh * 2
     if manifest.get(
         "bare"
     ):  # a panel for a composed figure: it brings its own bar and text
         return root
-    if manifest["metric"] != "direction":
-        bar = _mesh_object(
-            "ColourBar",
-            [(x0, y0, 0), (x1, y0, 0), (x1, y1, 0), (x0, y1, 0)],
-            faces=[(0, 1, 2, 3)],
-            attributes={"v": [0, 0, 1, 1]},
-        )
-        bar.parent = root
-        bar.data.materials.append(fibre_material(manifest, name="ColourBarMaterial"))
-        ticks = manifest.get("ticks") or [
-            [f, f"{f * manifest['vmax']:.2f}"] for f in (0.0, 0.5, 1.0)
-        ]
-        for frac, tick in ticks:
-            y = y0 + frac * (y1 - y0) - 0.35 * size
-            _text(
-                f"Tick{frac}",
-                tick,
-                size * 0.8,
-                (x0 - 0.012, y, 0),
-                root,
-                align="RIGHT",
-                material=text,
-            )
-        units = f" ({manifest['units']})" if manifest["units"] not in ("", "1") else ""
-        _text(
-            "BarTitle",
-            _two_lines(manifest["label"] + units),
-            size * 0.8,
-            (x1, y1 + 1.9 * size, 0),
-            root,
-            align="RIGHT",
-            material=text,
-        )
+    if swap:
+        _legend(root, manifest, "direction", hh, size, swap[0], tag="Out")
+        _legend(root, manifest, manifest["metric"], hh, size, swap[1], tag="In")
     else:
-        _text(
-            "BarTitle",
-            manifest["label"],
-            size * 0.8,
-            (0.97, -hh + 0.06, 0),
-            root,
-            align="RIGHT",
-            material=text,
-        )
+        _legend(root, manifest, manifest["metric"], hh, size)
     _text(
         "Title",
         manifest["title"],
@@ -488,11 +623,12 @@ def build_overlay(manifest, camera, *, caption: str, distance: float):
     )
     if caption:
         lines = caption.count("\n") + 1
+        scale = 0.7 if manifest.get("network") else 0.62
         _text(
             "Caption",
             caption,
-            size * 0.62,
-            (-0.96, -hh + 0.04 + 0.75 * size * (lines - 1), 0),
+            size * scale,
+            (-0.96, -hh + 0.04 + 1.2 * scale * size * (lines - 1), 0),
             root,
             material=text,
         )
@@ -681,7 +817,7 @@ def _render_movie(scene, out_dir: str, name: str) -> str:
 # ── scene ────────────────────────────────────────────────────────────────────
 
 
-def build_scene(manifest, base: str, *, animated: bool):
+def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
     """Fibres, glass brain, scalp, electrodes, ROI.
 
     Returns the brain's vertices (what a video orbits) and those plus the cranium (what a
@@ -725,7 +861,9 @@ def build_scene(manifest, base: str, *, animated: bool):
                 "tangent": t["tangent"],
             },
         )
-    _tube_modifier(fibres, fibre_material(manifest, animated=animated))
+    _tube_modifier(
+        fibres, fibre_material(manifest, animated=animated, crossfade=crossfade)
+    )
     if manifest.get("context"):
         with np.load(os.path.join(base, manifest["context"])) as c:
             cp, co = c["points"], c["offsets"]
@@ -776,6 +914,13 @@ def build_scene(manifest, base: str, *, animated: bool):
                 region_frames=region_frames,
                 regions=True,
             )
+        )
+    if manifest.get("shell"):
+        with np.load(os.path.join(base, manifest["shell"])) as sh:
+            shell = _mesh_object("TIShell", sh["vertices"], faces=sh["triangles"])
+        shell.data.polygons.foreach_set("use_smooth", [True] * len(shell.data.polygons))
+        shell.data.materials.append(
+            glass_material("TIShell", SHELL_COLOUR, SHELL_STRENGTH, 1.4)
         )
     if manifest.get("scalp"):
         with np.load(os.path.join(base, manifest["scalp"])) as s:
@@ -858,6 +1003,8 @@ def render_stills(manifest, base, out_dir) -> list[str]:
         "superior": ((0.0, 0.0, 1.0), (0, 1, 0)),
         "oblique": ((side * 0.78, 0.5, 0.38), (0, 0, 1)),
     }
+    if manifest.get("views"):  # a subset, e.g. one quick check view
+        views = {k: views[k] for k in manifest["views"]}
     written = []
     for view, (direction, up) in views.items():
         aim_ortho(
@@ -866,7 +1013,7 @@ def render_stills(manifest, base, out_dir) -> list[str]:
             direction,
             up,
             size,
-            bar=manifest["metric"] != "direction" and not manifest.get("bare"),
+            bar=not manifest.get("bare"),  # the direction key needs the column too
         )
         fit_overlay(overlay, camera, 10.0)
         place_labels(
@@ -892,15 +1039,20 @@ def render_turntable(manifest, base, out_dir) -> str:
 
     scene = bpy.context.scene
     configure(scene, VIDEO_SIZE, samples=16)
-    cloud, _head = build_scene(manifest, base, animated=False)
+    n, degrees = manifest["turntable_frames"], manifest["turntable_degrees"]
+    swap = crossfade = None
+    if manifest.get("crossfade"):  # direction for the first half, then the metric
+        a, b = n // 2 - CROSSFADE_FRAMES // 2, n // 2 + CROSSFADE_FRAMES // 2
+        crossfade = [(a, 0.0), (b, 1.0)]
+        swap = ([(a, 1.0), (b, 0.0)], crossfade)
+    cloud, _head = build_scene(manifest, base, animated=False, crossfade=crossfade)
     side = manifest["lateral_side"]
     pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
     scene.camera = camera
     overlay = build_overlay(
-        manifest, camera, caption=manifest.get("caption", ""), distance=60.0
+        manifest, camera, caption=manifest.get("caption", ""), distance=60.0, swap=swap
     )
     fit_overlay(overlay, camera, 60.0)
-    n, degrees = manifest["turntable_frames"], manifest["turntable_degrees"]
     scene.frame_start, scene.frame_end = 1, n
     step = math.radians(degrees) / (
         n if degrees >= 360 else n - 1
