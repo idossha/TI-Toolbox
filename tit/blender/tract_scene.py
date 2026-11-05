@@ -49,6 +49,15 @@ NEAR_MM, NEAR_MIN = 6.0, 0.3
 #: Patch glow (base, rim): every fibre's terminals, and the kept fibres' at labelling.
 PATCH_ALL, PATCH_KEPT = (0.04, 0.12), (0.1, 0.24)
 LABEL_COLOUR = (1.0, 0.9, 0.78)
+#: Labelled regions, one colour each (sRGB): clear of the plasma fibres and the amber thalami.
+LABEL_PALETTE = (
+    ("teal", (0.18, 0.82, 0.74)),
+    ("sky blue", (0.33, 0.62, 1.0)),
+    ("green", (0.42, 0.86, 0.38)),
+    ("violet", (0.64, 0.48, 1.0)),
+    ("light blue", (0.5, 0.84, 1.0)),
+    ("mint", (0.6, 1.0, 0.78)),
+)
 #: Frames a turntable crossfade from direction colours to the scalar metric takes.
 CROSSFADE_FRAMES = 48
 #: Glass brain rim emission (lighter than the scalp's ghost would make it).
@@ -382,9 +391,12 @@ def glass_material(
             term = m.math(
                 "MULTIPLY", m.math("MULTIPLY", m.attr(attribute), _fade(m, keys)), gain
             )
+            if len(entry) > 3:  # coloured by a region index attribute, one colour each
+                shader = m.add(shader, m.emission(_palette(m, m.attr(entry[3])), term))
+                continue
             lit = term if lit is None else m.math("ADD", lit, term)
-        glow = lit
-        shader = m.add(shader, m.emission(REGION_COLOUR, glow))
+        if lit is not None:
+            shader = m.add(shader, m.emission(REGION_COLOUR, lit))
     elif regions or region_frames:
         lit = m.attr("lit")
         if region_frames:
@@ -398,6 +410,22 @@ def glass_material(
         shader = m.add(shader, m.emission(REGION_COLOUR, glow))
     m.finish(shader)
     return mat
+
+
+def _palette(m: _Nodes, index):
+    """Colour socket of :data:`LABEL_PALETTE` entry *index* (1-based; constant steps)."""
+    node = m.new("ShaderNodeValToRGB")
+    ramp = node.color_ramp
+    ramp.interpolation = "CONSTANT"
+    count = len(LABEL_PALETTE) + 1
+    while len(ramp.elements) < count:
+        ramp.elements.new(0.5)
+    colours = [(0.0, 0.0, 0.0)] + [c for _n, c in LABEL_PALETTE]
+    for k, (element, colour) in enumerate(zip(ramp.elements, colours)):
+        element.position = k / count
+        element.color = (*(_srgb_to_linear(c) for c in colour), 1.0)
+    m.feed(node.inputs["Fac"], m.math("DIVIDE", m.math("ADD", index, 0.5), count))
+    return node.outputs["Color"]
 
 
 def deep_material(name):
@@ -1188,9 +1216,20 @@ def _segment(name, a, b, width, parent, material):
 
 def _callouts(root, camera, labels, hh, size, keys, tag):
     """Labels in two side columns, joined to their regions by short leader lines."""
-    material = fading_material(f"Callout{tag}", LABEL_COLOUR, 1.0, keys)
+    neutral = fading_material(f"Callout{tag}", LABEL_COLOUR, 1.0, keys)
     line = fading_material(f"Leader{tag}", (0.85, 0.8, 0.72), 0.8, keys)
-    spots = [(*_project(camera, l["xyz"]), l["name"]) for l in labels]
+    tinted = {}
+
+    def colour_of(label):  # a region's text and dot share its highlight colour
+        k = label.get("colour")
+        if not k:
+            return neutral
+        if k not in tinted:
+            rgb = LABEL_PALETTE[(k - 1) % len(LABEL_PALETTE)][1]
+            tinted[k] = fading_material(f"Callout{tag}c{k}", rgb, 1.0, keys)
+        return tinted[k]
+
+    spots = [(*_project(camera, l["xyz"]), l["name"], colour_of(l)) for l in labels]
     columns = {
         "left": sorted([s for s in spots if s[0] < 0], key=lambda s: -s[1]),
         "right": sorted([s for s in spots if s[0] >= 0], key=lambda s: -s[1]),
@@ -1202,10 +1241,11 @@ def _callouts(root, camera, labels, hh, size, keys, tag):
             _x,
             y,
             _n,
+            _c,
         ) in rows:  # keep each row near its region, never closer than one line
             y = min(max(y, -0.62 * hh), 0.62 * hh)
             ys.append(min(y, ys[-1] - gap) if ys else y)
-        for i, ((x, y, name), ty) in enumerate(zip(rows, ys)):
+        for i, ((x, y, name, tint), ty) in enumerate(zip(rows, ys)):
             width = 0.5 * size * len(name)
             if side == "left":
                 tx, anchor = -0.93, -0.93 + width + 0.015
@@ -1218,11 +1258,11 @@ def _callouts(root, camera, labels, hh, size, keys, tag):
                 (tx, ty - 0.35 * size, 0),
                 root,
                 align="LEFT" if side == "left" else "RIGHT",
-                material=material,
+                material=tint,
             )
             _segment(f"Leader{tag}{side}{i}", (anchor, ty), (x, y), 0.0025, root, line)
             _segment(
-                f"Dot{tag}{side}{i}", (x - 0.006, y), (x + 0.006, y), 0.012, root, line
+                f"Dot{tag}{side}{i}", (x - 0.006, y), (x + 0.006, y), 0.012, root, tint
             )
 
 
@@ -1286,7 +1326,6 @@ def render_sequence(
             crossfade=[(pl["cross"], 0.0), (pl["cross"] + mix, 1.0)],
             visible=pl["show"],
             prune=prune,
-            near=True,
         )
         _fibres(f"Fibres{i}", os.path.join(root_dir, net["tracts"]), material)
 
@@ -1298,7 +1337,7 @@ def render_sequence(
                 raise ValueError(
                     "the networks' glass brains differ; export them together"
                 )
-            for attr in ("lit", "lit_keep"):
+            for attr in ("lit", "lit_keep", "lab"):
                 brain.data.attributes.new(
                     f"{attr}{i}", "FLOAT", "POINT"
                 ).data.foreach_set("value", g[attr].astype(np.float32))
@@ -1308,7 +1347,10 @@ def render_sequence(
             (pl["leave"], 1.0),
             (pl["leave"] + out, 0.0),
         ]
-        keys += [(f"lit{i}", pl["show"], PATCH_ALL), (f"lit_keep{i}", kept, PATCH_KEPT)]
+        keys += [
+            (f"lit{i}", pl["show"], PATCH_ALL),
+            (f"lit_keep{i}", kept, PATCH_KEPT, f"lab{i}"),
+        ]
     brain.data.materials.clear()
     brain.data.materials.append(
         glass_material(
@@ -1321,7 +1363,7 @@ def render_sequence(
     )
 
     side = manifest["lateral_side"]
-    pivot, camera = perspective_rig(cloud, (side * 0.85, 0.25, 0.5), (0, 0, 1))
+    pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
     scene.camera = camera
     rate = 360.0 / (seg - lab - hold)  # degrees per moving frame
     spin = [

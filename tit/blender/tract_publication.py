@@ -506,6 +506,7 @@ def export_scene(
     gv, gt = simple.vertices.astype(np.float32), simple.triangles.astype(np.int32)
     lit_full = np.zeros(len(glass[0]), np.float32)
     keep_full = np.zeros(len(glass[0]), np.float32)
+    lab_full = np.zeros(len(glass[0]), np.float32)  # 1-based label colour index, 0 none
     frame_full = np.full(len(glass[0]), 1e6, np.float32)
     labels, sub_v, sub_t, sub_lit, sub_frame = [], [], [], [], []
     keep_labels = []
@@ -550,17 +551,18 @@ def export_scene(
                 (n for n in held if n in cortical and n not in highlight),
                 key=lambda n: -held[n],
             )
-            busiest = max((held[n] for n in parcels), default=1)
-            for name in parcels:
+            named = parcels[: cfg.label_regions]
+            busiest = max((held[n] for n in named), default=1)
+            # Only the named parcels light up, each in its own colour (lab), by count.
+            for k, name in enumerate(named, start=1):
                 ix = cortical[name]
-                keep_full[ix] = np.maximum(
-                    keep_full[ix], max(held[name] / busiest, 0.12)
-                )
-            for name in parcels[: cfg.label_regions]:
+                keep_full[ix] = max(held[name] / busiest, 0.35)
+                lab_full[ix] = k
                 keep_labels.append(
                     {
                         "name": f"{region_words(name)} · n={held[name]}",
-                        "xyz": [float(c) for c in glass[0][cortical[name]].mean(0)],
+                        "xyz": [float(c) for c in glass[0][ix].mean(0)],
+                        "colour": k,
                     }
                 )
             deep = [subcortical[n][0] for n in highlight if n in subcortical]
@@ -599,6 +601,7 @@ def export_scene(
         triangles=gt,
         lit=lit_full[simple.source_index],
         lit_keep=keep_full[simple.source_index],
+        lab=lab_full[simple.source_index],
         frame=frame_full[simple.source_index],
     )
     if sub_v:
