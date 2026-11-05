@@ -147,6 +147,13 @@ test("Results: ranking is an action, and every statistic is a column with none p
     await expect(table.getByRole("columnheader", { name: header, exact: true })).toBeVisible();
   }
   await expect(table.getByText(/preferred|recommended|best/i)).toHaveCount(0);
+  // Reachable without scrolling sideways at 1440 px: both ranks end inside the table's scroll box.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const scroller = (await ranking.locator(".scroll-x").first().boundingBox())!;
+  for (const header of ["Rank by ti_along", "Rank by ti_max"]) {
+    const box = (await table.getByRole("columnheader", { name: header, exact: true }).boundingBox())!;
+    expect(box.x + box.width, header).toBeLessThanOrEqual(scroller.x + scroller.width);
+  }
   // Opens by montage name, not by either rank.
   await expect(table.getByRole("row").nth(1)).toContainText("AF3 F3 C1 Cz");
 });

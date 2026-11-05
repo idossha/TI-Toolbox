@@ -31,6 +31,9 @@ const rank = (key: keyof Row, header: string): DataTableColumn<Row> => ({ id: ke
 
 export const RANKING_COLUMNS: DataTableColumn<Row>[] = [
   { id: "montage", header: "Montage", accessorFn: (row) => row.montage.join(" ") },
+  // First, so a 1440 px window shows them without scrolling past six wide statistics.
+  rank("rank_by_ti_along", "Rank by ti_along"),
+  rank("rank_by_ti_max", "Rank by ti_max"),
   stat("median_sl_mean_ti_along", "Median streamline mean ti_along (V/m)"),
   stat("pooled_mean_ti_along", "Pooled mean ti_along (V/m)"),
   stat("median_sl_mean_ti_max", "Median streamline mean ti_max (V/m)"),
@@ -38,8 +41,6 @@ export const RANKING_COLUMNS: DataTableColumn<Row>[] = [
   stat("median_sl_mean_ti_avg", "Median streamline mean ti_avg (V/m)"),
   stat("pooled_mean_ti_avg", "Pooled mean ti_avg (V/m)"),
   stat("align_index", "Alignment index"),
-  rank("rank_by_ti_along", "Rank by ti_along"),
-  rank("rank_by_ti_max", "Rank by ti_max"),
 ];
 
 /** The wire config of the ranking job: the mask's own selection, so it stays that mask. */
