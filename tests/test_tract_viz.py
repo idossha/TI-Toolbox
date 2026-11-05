@@ -222,7 +222,9 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     from tit.blender import tract_publication as tp
     from tit.blender.config import TractVisualConfig
 
-    cfg = TractVisualConfig(subject_id="x", simulation_name="s", roi_center_mm=[1, 2, 3])
+    cfg = TractVisualConfig(
+        subject_id="x", simulation_name="s", roi_center_mm=[1, 2, 3]
+    )
     electrodes = [{"name": "F7", "xyz": [-60.0, 30.0, 10.0], "channel": 0}]
     sphere = _sphere()
     edges = {
@@ -351,13 +353,17 @@ def test_tract_config_validates_and_round_trips():
     from tit.blender.config import TractVisualConfig
     from tit.config_io import deserialize_config, serialize_config
 
-    cfg = TractVisualConfig(subject_id="ernie", simulation_name="L_Insula", metric="ti_ratio")
+    cfg = TractVisualConfig(
+        subject_id="ernie", simulation_name="L_Insula", metric="ti_ratio"
+    )
     assert cfg.metric is TractVisualConfig.Metric.TI_RATIO
     data = serialize_config(cfg)
     assert data["_type"] == "TractVisualConfig"
     assert deserialize_config(TractVisualConfig, data) == cfg
     assert (
-        TractVisualConfig(subject_id="e", simulation_name="s", vmax_v_per_m=0.3).vmax_v_per_m
+        TractVisualConfig(
+            subject_id="e", simulation_name="s", vmax_v_per_m=0.3
+        ).vmax_v_per_m
         == 0.3
     )
     for bad in (
@@ -565,3 +571,74 @@ def test_ranking_winners_and_montage_labels():
     by_max, by_along = ranking_winners(rows)
     assert montage_label(by_max["montage"]) == "T8–C3 + C4–CP5"
     assert montage_label(by_along["montage"]) == "T8–CP5 + C3–C4"
+
+
+# -- named networks (thalamocortical renders) -----------------------------------------------------
+
+
+def test_edges_between_matches_either_orientation():
+    from tit.blender.tract_publication import edges_between
+
+    edges = {
+        1: {"region_a": "Left-Thalamus-Proper", "region_b": "lh.superiorfrontal"},
+        2: {"region_a": "rh.precuneus", "region_b": "Right-Thalamus-Proper"},
+        3: {"region_a": "lh.superiorfrontal", "region_b": "rh.precuneus"},
+        4: {"region_a": "Left-Thalamus-Proper", "region_b": "Left-Thalamus-Proper"},
+    }
+    thal = ["Left-Thalamus-Proper", "Right-Thalamus-Proper"]
+    assert edges_between(edges, thal, ["lh.superiorfrontal"]) == {1}
+    assert edges_between(edges, thal, ["rh.precuneus", "lh.superiorfrontal"]) == {1, 2}
+
+
+def test_network_statement_reports_streamline_medians(three):
+    from tit.blender.tract_publication import network_statement
+
+    three.dpv["ti_avg"] = (three.dpv["ti_max"] * 0.5).astype(np.float32)
+    text = network_statement("Frontal TC", three)
+    sid = three.streamline_id()
+    per = np.bincount(sid, three.dpv["ti_max"], three.n) / three.lengths
+    assert text.startswith("Frontal TC · n=3 streamlines (all drawn)\n")
+    assert f"median TI_max {np.median(per):.3f} V/m" in text
+    assert (
+        "median align_index 1.40" in text
+    )  # ti_along 0.7 ti_max over ti_avg 0.5 ti_max
+
+
+def test_network_config_validation():
+    from tit.blender.config import TractVisualConfig
+
+    for bad in (
+        {"network_from": ["a"]},
+        {"lateral_side": 2},
+        {"iso_shell_percentile": 100.0},
+        {"turntable_crossfade": True, "metric": "direction"},
+    ):
+        with pytest.raises(ValueError):
+            TractVisualConfig(subject_id="e", simulation_name="s", **bad)
+
+
+def test_prune_keeps_the_top_fraction_by_mean_ti_max():
+    from tit.blender.tract_publication import prune_by_ti_max
+
+    lines = [
+        np.stack([np.arange(5.0), np.full(5, float(i)), np.zeros(5)], 1)
+        for i in range(10)
+    ]
+    t = _tracts(lines)
+    t.dpv["ti_max"] = np.repeat(
+        np.arange(10, dtype=np.float32) / 10, 5
+    )  # mean = i / 10
+    rank, kept, cut, rank_cut = prune_by_ti_max(t, 0.2)
+    assert list(np.flatnonzero(kept)) == [8, 9]  # the two highest means
+    assert cut == pytest.approx(0.8)  # the weakest kept streamline's mean
+    np.testing.assert_allclose(rank, np.arange(10) / 9)
+    assert rank_cut == pytest.approx(8 / 9)
+    assert (rank[kept] >= rank_cut).all() and (rank[~kept] < rank_cut).all()
+
+
+def test_region_words_name_dk40_parcels_with_hemisphere():
+    from tit.blender.tract_publication import region_words
+
+    assert region_words("lh.superiorfrontal") == "L superior frontal"
+    assert region_words("rh.precuneus") == "R precuneus"
+    assert region_words("Left-Thalamus-Proper") == "Left-Thalamus-Proper"

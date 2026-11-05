@@ -9368,6 +9368,26 @@ export interface components {
          *         count an edge needs to be one of them.
          *     context_streamlines : int
          *         Faint context fibres drawn behind the network (0: none).
+         *     network_from, network_to, network_name : list of str, list of str, str
+         *         A network by its regions: every streamline whose edge joins a region of
+         *         ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,
+         *         none subsampled. Overrides ``network_bundle`` and the top edges.
+         *     highlight_regions : list of str
+         *         Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.
+         *     region_labels : bool
+         *         Name the lit regions on the still.
+         *     lateral_side : int
+         *         -1 left, 1 right, 0 the side of the strongest field.
+         *     iso_shell_percentile : float or None
+         *         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
+         *     prune_keep_fraction : float or None
+         *         In a named-network turntable sequence, sweep away all but this fraction of the
+         *         streamlines, the strongest by mean TI_max along each, then name where they end.
+         *     label_regions : int
+         *         How many cortical regions the pruned network names.
+         *     turntable_crossfade : bool
+         *         The turntable shows direction colours for its first half, crossfades over 2 s, then
+         *         shows ``metric`` (a scalar metric) for the second half.
          *     max_streamlines : int
          *         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
          *     vmax_v_per_m : float or None
@@ -9435,6 +9455,47 @@ export interface components {
              * @default 0
              */
             context_streamlines: number;
+            /** Network From */
+            network_from?: string[];
+            /** Network To */
+            network_to?: string[];
+            /**
+             * Network Name
+             * @default
+             */
+            network_name: string;
+            /** Highlight Regions */
+            highlight_regions?: string[];
+            /**
+             * Region Labels
+             * @default true
+             */
+            region_labels: boolean;
+            /**
+             * Lateral Side
+             * @default 0
+             */
+            lateral_side: number;
+            /**
+             * Iso Shell Percentile
+             * @default null
+             */
+            iso_shell_percentile: number | null;
+            /**
+             * Turntable Crossfade
+             * @default false
+             */
+            turntable_crossfade: boolean;
+            /**
+             * Prune Keep Fraction
+             * @default null
+             */
+            prune_keep_fraction: number | null;
+            /**
+             * Label Regions
+             * @default 5
+             */
+            label_regions: number;
             /**
              * Stills
              * @default true

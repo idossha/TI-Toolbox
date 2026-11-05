@@ -35,6 +35,8 @@ RENDER_STEP_MM = 1.5
 CONTEXT_STEP_MM = 3.0
 #: Tube radius per streamline, mm: ``TUBE_R0 + TUBE_R1 * gain`` (gain = its peak / the window).
 TUBE_R0, TUBE_R1 = 0.12, 0.12
+#: One tube radius, mm, for every fibre of a named network (thousands, all drawn).
+NETWORK_RADIUS = 0.09
 #: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
 #: lighting them all washed the cortex (sub-CHN insula_lh: 41).
 N_LABELS, N_LIT = 3, 6
@@ -229,6 +231,124 @@ def bundle_statement(name: str, n: int, summary: dict) -> str:
     return text
 
 
+#: DK40 parcel names as words, for on-screen labels.
+DK40_WORDS = {
+    "superiorfrontal": "superior frontal",
+    "rostralmiddlefrontal": "rostral middle frontal",
+    "caudalmiddlefrontal": "caudal middle frontal",
+    "parsopercularis": "pars opercularis",
+    "parstriangularis": "pars triangularis",
+    "parsorbitalis": "pars orbitalis",
+    "lateralorbitofrontal": "lateral orbitofrontal",
+    "medialorbitofrontal": "medial orbitofrontal",
+    "frontalpole": "frontal pole",
+    "precentral": "precentral",
+    "paracentral": "paracentral",
+    "superiorparietal": "superior parietal",
+    "inferiorparietal": "inferior parietal",
+    "supramarginal": "supramarginal",
+    "postcentral": "postcentral",
+    "precuneus": "precuneus",
+    "lateraloccipital": "lateral occipital",
+    "lingual": "lingual",
+    "cuneus": "cuneus",
+    "pericalcarine": "pericalcarine",
+}
+
+
+def region_words(name: str) -> str:
+    """``"lh.superiorfrontal"`` -> ``"L superior frontal"``; other names unchanged."""
+    hemi, _, parcel = name.partition(".")
+    if hemi in ("lh", "rh") and parcel:
+        return f"{hemi[0].upper()} {DK40_WORDS.get(parcel, parcel)}"
+    return name
+
+
+def prune_by_ti_max(tracts: td.Tracts, keep: float):
+    """Rank a network's streamlines by mean TI_max along each one; keep the top *keep*.
+
+    Returns ``(rank per streamline in [0, 1], kept mask, cut-off V/m, rank of the weakest
+    kept)``. The score is the plain mean of the per-vertex ``ti_max`` over the streamline's
+    points (evenly spaced, so the arc-length mean), with no display smoothing.
+    """
+    sid = tracts.streamline_id()
+    score = np.bincount(sid, tracts.dpv["ti_max"], tracts.n) / tracts.lengths
+    order = np.argsort(score, kind="stable")
+    rank = np.empty(tracts.n)
+    rank[order] = np.arange(tracts.n) / max(tracts.n - 1, 1)
+    n_keep = max(1, int(round(keep * tracts.n)))
+    kept = np.zeros(tracts.n, dtype=bool)
+    kept[order[-n_keep:]] = True
+    weakest = order[-n_keep]
+    return rank, kept, float(score[weakest]), float(rank[weakest])
+
+
+def edges_between(edges: dict[int, dict], side_a, side_b) -> set[int]:
+    """Edge ids joining a region of *side_a* to a region of *side_b* (either orientation)."""
+    a, b = set(side_a), set(side_b)
+    return {
+        e
+        for e, r in edges.items()
+        if (r["region_a"] in a and r["region_b"] in b)
+        or (r["region_a"] in b and r["region_b"] in a)
+    }
+
+
+def network_statement(name: str, tracts: td.Tracts) -> str:
+    """Two caption lines: the network's name and n, then neutral streamline medians.
+
+    Per streamline: the mean of TI_max and of ti_along over its points (tract points are
+    evenly spaced, so a point mean is the arc-length mean), and align_index = mean ti_along /
+    mean ti_avg, the tract pipeline's definition. The caption gives their medians.
+    """
+    sid = tracts.streamline_id()
+
+    def mean(key):
+        return np.bincount(sid, tracts.dpv[key], tracts.n) / tracts.lengths
+
+    along, peak = mean("ti_along"), mean("ti_max")
+    text = (
+        f"{name} · n={tracts.n:,} streamlines (all drawn)\n"
+        f"median TI_max {np.median(peak):.3f} V/m · median ti_along {np.median(along):.3f} V/m"
+    )
+    if "ti_avg" in tracts.dpv:
+        avg = mean("ti_avg")
+        align = np.divide(along, avg, out=np.ones_like(along), where=avg > 0)
+        text += f" · median align_index {np.median(align):.2f}"
+    return text
+
+
+def ti_iso_shell(mesh_path: str, percentile: float, step_mm: float = 1.5):
+    """``(vertices, triangles, level)``: the TI_max isosurface in the brain at *percentile*.
+
+    The level is the volume-weighted *percentile* of TI_max over the brain's tetrahedra (white
+    and grey matter, tags 1 and 2); the field is interpolated to a *step_mm* grid and the
+    surface extracted by marching cubes. Display geometry only.
+    """
+    import simnibs
+    from skimage.measure import marching_cubes
+
+    brain = simnibs.read_msh(mesh_path).crop_mesh(tags=[1, 2])
+    name = "TI_max" if "TI_max" in brain.field else next(iter(brain.field))
+    field = brain.field[name]
+    values = np.asarray(field.value, dtype=np.float64)
+    volume = np.asarray(brain.elements_volumes_and_areas().value, dtype=np.float64)
+    order = np.argsort(values)
+    share = np.cumsum(volume[order]) / volume.sum()
+    level = float(
+        values[order][min(np.searchsorted(share, percentile / 100.0), len(order) - 1)]
+    )
+    nodes = np.asarray(brain.nodes.node_coord, dtype=np.float64)
+    lo = nodes.min(0) - 2 * step_mm
+    dims = np.ceil((nodes.max(0) + 2 * step_mm - lo) / step_mm).astype(int)
+    affine = np.eye(4)
+    affine[:3, :3] *= step_mm
+    affine[:3, 3] = lo
+    grid = np.nan_to_num(np.asarray(field.interpolate_to_grid(dims, affine)))
+    verts, faces, _normals, _values = marching_cubes(grid, level)
+    return (verts * step_mm + lo).astype(np.float32), faces.astype(np.int32), level
+
+
 def select_network(
     cfg, tract_dir: str, everything: td.Tracts, edges, summary
 ) -> tuple[td.Tracts, str, list[dict]]:
@@ -291,13 +411,16 @@ def export_scene(
     edges: dict[int, dict] | None = None,
     regions: tuple[dict, dict] | None = None,
     caption: str = "",
+    highlight: list[str] | None = None,
+    shell: tuple[np.ndarray, np.ndarray, float] | None = None,
 ) -> str:
     """Write the Blender bundle; return the manifest path.
 
     *tracts* are drawn as full tubes of constant width per streamline, coloured along their
     length; *context* (optional) as faint thin lines. *regions* is :func:`region_geometry`'s
     result for the foreground's endpoint regions, which are lit by how much field their
-    fibres carry.
+    fibres carry, or, with *highlight*, exactly those regions, evenly. *shell* is
+    :func:`ti_iso_shell`'s result, drawn as one faint translucent surface.
     """
     os.makedirs(bundle_dir, exist_ok=True)
     edges = edges or {}
@@ -322,7 +445,13 @@ def export_scene(
     tracts.dpv["d"] = np.abs(s - s[peak][sid]).astype(np.float32)
     tracts.dpv["gain"] = gain[sid].astype(np.float32)
     tracts.dpv["v"] = td.colour_position(shown, metric, vmax)
-    tracts.dpv["r"] = (TUBE_R0 + TUBE_R1 * gain)[sid].astype(np.float32)
+    # A named network draws every fibre at one width: width must not encode the field there.
+    radius = (
+        np.full(tracts.n, NETWORK_RADIUS)
+        if cfg.network_from
+        else TUBE_R0 + TUBE_R1 * gain
+    )
+    tracts.dpv["r"] = radius[sid].astype(np.float32)
     total = s[tracts.offsets[1:] - 1]
     speed = float(cfg.front_speed_mm_per_frame)
     arrive = np.stack(
@@ -332,7 +461,26 @@ def export_scene(
         ],
         1,
     )
+    prune = kept = None
+    if cfg.network_from and cfg.prune_keep_fraction:
+        rank, kept, cut, rank_cut = prune_by_ti_max(tracts, cfg.prune_keep_fraction)
+        tracts.dpv["rank"] = rank[sid].astype(np.float32)
+        prune = {
+            "keep": float(cfg.prune_keep_fraction),
+            "cut_v_per_m": cut,
+            "rank_cut": rank_cut,
+            "n_kept": int(kept.sum()),
+            "n": int(tracts.n),
+        }
+    if highlight and regions is not None:
+        deep = [regions[1][n][0] for n in highlight if n in regions[1]]
+        if deep:
+            from scipy.spatial import cKDTree
+
+            near, _ = cKDTree(np.concatenate(deep)).query(tracts.points)
+            tracts.dpv["thal"] = near.astype(np.float32)
     tube = td.decimate(tracts, RENDER_STEP_MM)
+    extra = {k: tube.dpv[k] for k in ("rank", "thal") if k in tube.dpv}
     np.savez(
         os.path.join(bundle_dir, "tracts.npz"),
         points=tube.points.astype(np.float32),
@@ -342,6 +490,7 @@ def export_scene(
         d=tube.dpv["d"],
         gain=tube.dpv["gain"],
         tangent=np.abs(td.tangents(tube)).astype(np.float32),
+        **extra,
     )
     if context is not None and context.n:
         thin = td.decimate(context, CONTEXT_STEP_MM)
@@ -356,8 +505,10 @@ def export_scene(
     simple = simplify_to_budget(glass[0], glass[1], GLASS_TRIANGLES)
     gv, gt = simple.vertices.astype(np.float32), simple.triangles.astype(np.int32)
     lit_full = np.zeros(len(glass[0]), np.float32)
+    keep_full = np.zeros(len(glass[0]), np.float32)
     frame_full = np.full(len(glass[0]), 1e6, np.float32)
     labels, sub_v, sub_t, sub_lit, sub_frame = [], [], [], [], []
+    keep_labels = []
     if regions is not None:
         cortical, subcortical = regions
         weight, when, count = {}, {}, {}
@@ -372,7 +523,55 @@ def export_scene(
             (n for n in weight if n in cortical or n in subcortical),
             key=lambda n: -weight[n],
         )[:N_LIT]
-        top = max((weight[n] for n in drawn), default=1.0)
+        if highlight:
+            # Highlighted regions (the thalami) at full level; the network's cortical parcels
+            # by how many of its streamlines end in them, so the busiest terminals glow most.
+            parcels = [n for n in count if n in cortical and n not in highlight]
+            busiest = max((count[n] for n in parcels), default=1)
+            drawn = [
+                n for n in highlight if n in cortical or n in subcortical
+            ] + parcels
+            weight.update({n: 1.0 for n in highlight})
+            # Squared: the level below is its square root, so a parcel glows linearly in n.
+            weight.update({n: max(count[n] / busiest, 0.15) ** 2 for n in parcels})
+            top = 1.0
+            when.update({n: float(FRONT_START_FRAME) for n in drawn})
+        if not highlight:
+            top = max((weight[n] for n in drawn), default=1.0)
+        if kept is not None and highlight:
+            # Where the kept (strongest) streamlines end: lit linearly in their count, and
+            # the busiest parcels plus the thalamus named on screen.
+            held = {}
+            for i, pair in enumerate(_end_regions(tracts, edges)):
+                if kept[i]:
+                    for name in {n for n in pair if n}:
+                        held[name] = held.get(name, 0) + 1
+            parcels = sorted(
+                (n for n in held if n in cortical and n not in highlight),
+                key=lambda n: -held[n],
+            )
+            busiest = max((held[n] for n in parcels), default=1)
+            for name in parcels:
+                ix = cortical[name]
+                keep_full[ix] = np.maximum(
+                    keep_full[ix], max(held[name] / busiest, 0.12)
+                )
+            for name in parcels[: cfg.label_regions]:
+                keep_labels.append(
+                    {
+                        "name": f"{region_words(name)} · n={held[name]}",
+                        "xyz": [float(c) for c in glass[0][cortical[name]].mean(0)],
+                    }
+                )
+            deep = [subcortical[n][0] for n in highlight if n in subcortical]
+            if deep:
+                keep_labels.append(
+                    {
+                        "name": f"thalamus (L+R) · n={int(kept.sum())}",
+                        "xyz": [float(c) for c in np.concatenate(deep).mean(0)],
+                        "deep": True,
+                    }
+                )
         for name in drawn:
             level = float(np.clip(np.sqrt(weight[name] / top), 0.2, 1.0))
             if name in cortical:
@@ -387,10 +586,10 @@ def export_scene(
                 sub_lit.append(np.full(len(v), level, np.float32))
                 sub_frame.append(np.full(len(v), when[name], np.float32))
                 centre = v.mean(0)
-            if centre is not None and len(labels) < N_LABELS:
+            if centre is not None and cfg.region_labels and len(labels) < N_LABELS:
                 labels.append(
                     {
-                        "name": f"{name} (n={count[name]})",
+                        "name": f"{name} (n={count.get(name, 0)})",
                         "xyz": [float(c) for c in centre],
                     }
                 )
@@ -399,6 +598,7 @@ def export_scene(
         vertices=gv,
         triangles=gt,
         lit=lit_full[simple.source_index],
+        lit_keep=keep_full[simple.source_index],
         frame=frame_full[simple.source_index],
     )
     if sub_v:
@@ -409,12 +609,17 @@ def export_scene(
             lit=np.concatenate(sub_lit),
             frame=np.concatenate(sub_frame),
         )
+    if shell is not None:
+        np.savez(
+            os.path.join(bundle_dir, "shell.npz"), vertices=shell[0], triangles=shell[1]
+        )
     if scalp is not None:
         sv, st = _simplified(*scalp, SCALP_TRIANGLES)
         np.savez(os.path.join(bundle_dir, "scalp.npz"), vertices=sv, triangles=st)
 
     hot = tracts.points[along >= np.percentile(along, 99)]
     side = -1.0 if hot[:, 0].mean() < gv[:, 0].mean() else 1.0
+    side = float(cfg.lateral_side) if cfg.lateral_side else side
     label, units = td.METRICS[metric]
     if metric in td.DIVERGING:
         ticks = [[0.0, "0.5"], [0.5, "1"], [1.0, "2"]]
@@ -423,9 +628,11 @@ def export_scene(
     travel = float(np.percentile(arrive.max(1), 98))
     frames = int(min(FRONT_MAX_FRAMES, np.ceil(travel) + FRONT_HOLD_FRAMES))
     stem = f"{cfg.subject_id}_{cfg.simulation_name}_tract_{metric}"
-    shown_text = (
-        caption or f"{tracts.n:,} of {n_total:,} streamlines"
-    ) + f" · colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm"
+    shown_text = (caption or f"{tracts.n:,} of {n_total:,} streamlines") + (
+        ""
+        if cfg.network_from
+        else f" · colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm"
+    )
     if context is not None and context.n:
         shown_text += f" · grey: {context.n:,} other streamlines"
     manifest = {
@@ -447,6 +654,14 @@ def export_scene(
         "context": "context.npz" if context is not None and context.n else None,
         "glass": "glass.npz",
         "regions": "regions.npz" if sub_v else None,
+        "shell": "shell.npz" if shell is not None else None,
+        "shell_level": float(shell[2]) if shell is not None else None,
+        "shell_percentile": float(cfg.iso_shell_percentile or 0),
+        "crossfade": bool(cfg.turntable_crossfade),
+        "network": bool(cfg.network_from),
+        "prune": prune,
+        "keep_labels": keep_labels,
+        "smoothing_note": f"colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm",
         "labels": labels,
         "scalp": "scalp.npz" if scalp is not None else None,
         "electrodes": electrodes,
@@ -566,7 +781,45 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
         msh = os.path.join(m2m, f"{sid}.msh")
         scalp = extract_scalp_from_msh(msh) if os.path.isfile(msh) else None
         kwargs = {}
-        if cfg.focus:
+        if cfg.iso_shell_percentile:
+            kwargs["shell"] = ti_iso_shell(
+                pm.ti_mesh(sid, sim), cfg.iso_shell_percentile
+            )
+            log.info(
+                f"TI_max iso-shell at {kwargs['shell'][2]:.3f} V/m "
+                f"(brain p{cfg.iso_shell_percentile:g})"
+            )
+        if cfg.network_from:
+            ids = edges_between(edges, cfg.network_from, cfg.network_to)
+            pick = np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids)))
+            if not len(pick):
+                raise ValueError("network_from / network_to join no streamline")
+            tracts = td.select(everything, pick)  # every streamline: no subsampling
+            pairs = " + ".join(
+                "–".join(e["name"] for e in electrodes if e["channel"] == c)
+                for c in sorted({e["channel"] for e in electrodes})
+            )
+            caption = network_statement(f"sub-{sid} · {sim} montage ({pairs})", tracts)
+            if "shell" in kwargs:
+                caption += (
+                    f"\ntranslucent shell: TI_max = {kwargs['shell'][2]:.3f} V/m "
+                    f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
+                )
+            title = cfg.network_name or title
+            names = sorted(set(cfg.highlight_regions) | set(cfg.network_to))
+            regions = region_geometry(
+                m2m, label_volume(pm, sid), names, glass[0], glass[2]
+            )
+            log.info(
+                f"network {cfg.network_name}: {len(ids)} edges, {tracts.n} streamlines"
+            )
+            kwargs.update(
+                edges=edges,
+                regions=regions,
+                caption=caption,
+                highlight=list(cfg.highlight_regions),
+            )
+        elif cfg.focus:
             network, words, top = select_network(
                 cfg, tract_dir, everything, edges, summary
             )
@@ -587,7 +840,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 + f" · {network.n:,} of {n_total:,} drawn"
             )
             log.info(f"network: {caption}; {len(names)} endpoint regions")
-            kwargs = dict(
+            kwargs.update(
                 context=context, edges=edges, regions=regions, caption=caption
             )
             tracts = network

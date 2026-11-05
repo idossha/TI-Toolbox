@@ -241,6 +241,26 @@ class TractVisualConfig:
         count an edge needs to be one of them.
     context_streamlines : int
         Faint context fibres drawn behind the network (0: none).
+    network_from, network_to, network_name : list of str, list of str, str
+        A network by its regions: every streamline whose edge joins a region of
+        ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,
+        none subsampled. Overrides ``network_bundle`` and the top edges.
+    highlight_regions : list of str
+        Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.
+    region_labels : bool
+        Name the lit regions on the still.
+    lateral_side : int
+        -1 left, 1 right, 0 the side of the strongest field.
+    iso_shell_percentile : float or None
+        Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
+    prune_keep_fraction : float or None
+        In a named-network turntable sequence, sweep away all but this fraction of the
+        streamlines, the strongest by mean TI_max along each, then name where they end.
+    label_regions : int
+        How many cortical regions the pruned network names.
+    turntable_crossfade : bool
+        The turntable shows direction colours for its first half, crossfades over 2 s, then
+        shows ``metric`` (a scalar metric) for the second half.
     max_streamlines : int
         Rendering budget; a larger tractogram is subsampled toward its high-field fibres.
     vmax_v_per_m : float or None
@@ -282,6 +302,16 @@ class TractVisualConfig:
     network_top_edges: int = 5
     network_min_streamlines: int = 10
     context_streamlines: int = 0
+    network_from: list[str] = field(default_factory=list)
+    network_to: list[str] = field(default_factory=list)
+    network_name: str = ""
+    highlight_regions: list[str] = field(default_factory=list)
+    region_labels: bool = True
+    lateral_side: int = 0
+    iso_shell_percentile: float | None = None
+    turntable_crossfade: bool = False
+    prune_keep_fraction: float | None = None
+    label_regions: int = 5
     stills: bool = True
     turntable: bool = False
     propagation: bool = False
@@ -313,6 +343,27 @@ class TractVisualConfig:
             )
         if self.context_streamlines < 0:
             raise ValueError("context_streamlines must be >= 0")
+        if bool(self.network_from) != bool(self.network_to):
+            raise ValueError("network_from and network_to go together")
+        if self.lateral_side not in (-1, 0, 1):
+            raise ValueError("lateral_side is -1, 0 or 1")
+        if (
+            self.iso_shell_percentile is not None
+            and not 0 < self.iso_shell_percentile < 100
+        ):
+            raise ValueError("iso_shell_percentile must be in (0, 100)")
+        if (
+            self.turntable_crossfade
+            and self.metric == TractVisualConfig.Metric.DIRECTION
+        ):
+            raise ValueError("turntable_crossfade fades direction into a scalar metric")
+        if (
+            self.prune_keep_fraction is not None
+            and not 0 < self.prune_keep_fraction < 1
+        ):
+            raise ValueError("prune_keep_fraction must be in (0, 1)")
+        if self.label_regions < 0:
+            raise ValueError("label_regions must be >= 0")
         name = (self.network_bundle or "").strip()
         if name and (os.sep in name or name.startswith(".")):
             raise ValueError("network_bundle is a bundle name in the tract directory")
