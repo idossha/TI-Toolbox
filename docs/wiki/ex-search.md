@@ -35,7 +35,7 @@ A leadfield is the field of one electrode placed at every position of the net, s
 Open an Ex job's settings from its row (the settings button, or double-click the row). The dialog has:
 
 - **Leadfield**: the EEG net and its leadfield (see [above](#prerequisites-leadfield-and-eeg-net)).
-- **Target**: **Subcortical**, **Saved** or **NIfTI mask** (see [Defining the Target](#defining-the-target-roi)).
+- **Target**: **Subcortical**, **Saved**, **NIfTI mask** or **Network** (see [Defining the Target](#defining-the-target-roi)).
 - **Electrodes**: **Count** (**2 channels (TI)**, four electrodes, or **4 channels (mTI)**, eight), **Search space** (**Bucketed** or **All combinations**) and the electrode buckets or pool (see [Defining the Search Space](#defining-the-search-space)). The line under the section counts the electrodes, montages, current splits and iterations.
 - **Current**: **Total current**, **Step** and **Channel limit** (see [Current ratios](#current-ratios)). With 8 electrodes this section is **Carriers** instead.
 
@@ -51,6 +51,7 @@ The **Target** section offers three choices:
 - **Saved** uses spherical ROIs saved for the subject: tick one or more, or create one with **Add ROI** (a new subject shows "No saved ROIs for this subject yet"). **Radius** sets the sphere (1–10 mm, default 3 mm) and **Space** says whether the centres are Subject or MNI coordinates. **Combine selected ROIs into one target** unions the selected spheres into a single Ex search; without it each selected ROI runs its own search.
 - **Subcortical** selects regions from a volumetric atlas.
 - **NIfTI mask** imports a local `.nii` or `.nii.gz` file into the project. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
+- **Network** chooses edges of the subject's white-matter network and writes a mask from them, in subject space. See [White-matter networks](diffusion-processing.md#white-matter-networks), which also describes ranking a finished run on a network.
 
 **Electrodes** is a separate section: set **Count** to **2 channels (TI)** or **4 channels (mTI)**, then configure the search space. Channel k is electrodes Ek+ and Ek-, so the buckets are E1+, E1-, E2+, E2- (and E3±, E4± for mTI).
 

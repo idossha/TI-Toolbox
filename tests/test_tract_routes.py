@@ -383,6 +383,19 @@ def test_preflight_ignores_a_mask_with_no_sidecar(project: Path) -> None:
     ]
 
 
+def test_preflight_ignores_a_neighbouring_json_that_is_not_ours(project: Path) -> None:
+    for name in ("tract-hand.nii.gz", "bids.nii.gz"):
+        mask = masks_dir(project) / name
+        mask.parent.mkdir(exist_ok=True)
+        mask.write_bytes(b"nifti")
+        mask.with_name(name.replace(".nii.gz", ".json")).write_text(
+            '{"RepetitionTime": 2}'
+        )
+        flex = {"subject_id": "S1", "roi": {"atlas_path": str(mask), "label": None}}
+        found = preflight("flex", flex, str(project))
+        assert not [m for m in found if m.expected_path == str(mask)]
+
+
 def test_preflight_of_the_tract_kind_names_what_each_stage_needs(project: Path) -> None:
     def missing(**config) -> list[str]:
         found = preflight("tract", {"subject_id": "S1", **config}, str(project))

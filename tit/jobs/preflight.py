@@ -200,17 +200,27 @@ def _stale_tract_masks(
     """A network mask whose tractogram or network was rebuilt since it was made.
 
     The mask still exists and still loads, so nothing downstream would notice that it no longer
-    describes this subject's network. A mask with no sidecar (made by hand) has nothing to check.
+    describes this subject's network. A mask with no sidecar (made by hand) has nothing to check,
+    and neither has a mask whose neighbouring ``.json`` is not ours (a BIDS sidecar, say).
     """
+    names = [
+        p
+        for p in dict.fromkeys(_as_list(roi.get("atlas_path")))
+        if isinstance(p, str) and Path(p).name.startswith("tract-")
+    ]
+    if not names:
+        return []
     from tit.tract.network import network_fingerprint
     from tit.tract.target import read_mask_sidecar
 
     out = []
-    for path in dict.fromkeys(_as_list(roi.get("atlas_path"))):
-        if not isinstance(path, str) or not path or _not_own(pm, sid, path):
+    for path in names:
+        if _not_own(pm, sid, path):
             continue
-        record = read_mask_sidecar(path)
-        if record and record.get("fingerprint") != network_fingerprint(pm, sid):
+        record = read_mask_sidecar(path) or {}
+        if "fingerprint" in record and record["fingerprint"] != network_fingerprint(
+            pm, sid
+        ):
             out.append(
                 MissingInput(
                     f"a network mask made from sub-{sid}'s current tractogram and network",

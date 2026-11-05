@@ -5,7 +5,7 @@
  * `withNetworkEdit`, so editing the selection in either marks the mask stale. No edge is called
  * strong or recommended: rows are sorted by streamline count and the count is stated.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "../../../ui/Button";
 import { Callout, Skeleton } from "../../../ui/Feedback";
@@ -31,6 +31,14 @@ export function NetworkPanel({ value, onChange, subject, disabled }: {
   const edges = useTractEdges(subject, value.seeds, fingerprint);
   const [jobOpen, setJobOpen] = useState(false);
   const [confirmReplace, setConfirmReplace] = useState(false);
+
+  // The network was rebuilt under this row: its mask no longer describes it. Preflight would refuse.
+  const rebuilt = !!value.mask && !!fingerprint && value.mask.fingerprint !== fingerprint;
+  useEffect(() => {
+    if (rebuilt) onChange(withNetworkEdit(value, {}));
+    // `value` and `onChange` are fresh every render; the fact to react to is this boolean.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rebuilt]);
 
   const create = useMutation({
     mutationFn: (overwrite: boolean) =>
