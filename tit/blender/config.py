@@ -37,7 +37,7 @@ from enum import StrEnum
 from typing import Any
 
 from tit.blender.network_setup import validate_overrides
-from tit.tract.config import Selection
+from tit.tract.config import Selection, own_selection_name
 
 # ── Simulation inputs (shared by the runners and tit.jobs.preflight) ─────────
 
@@ -256,6 +256,11 @@ class TractVisualConfig:
         seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and
         outputs carry its name, so networks of one simulation coexist. Replaces every other network
         field, and the fields ``overrides`` can set.
+    own_network : str
+        A file the user loaded for this head model (:mod:`tit.tract.own`), which the tract job's assess
+        stage has assessed into ``tract/own_<name>/``. Every streamline in it is drawn, labelled or
+        not, and ``network.json`` records the file and what was checked. Replaces every other network
+        field, and the fields ``overrides`` can set.
     preset : str
         The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is
         drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated
@@ -269,11 +274,6 @@ class TractVisualConfig:
         The side the lateral panel shows: -1 left, 1 right, 0 the side of the strongest field.
     iso_shell_percentile : float or None
         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
-    prune_keep_fraction : float or None
-        In a named-network turntable sequence, sweep away all but this fraction of the
-        streamlines, the strongest by mean TI_max along each, then name where they end.
-    label_regions : int
-        How many cortical regions the sequence names once pruned.
     turntable_crossfade : bool
         The turntable shows direction colours for its first half, crossfades over 2 s, then
         shows ``metric`` (a scalar metric) for the second half.
@@ -292,12 +292,6 @@ class TractVisualConfig:
     quality : Quality
         ``final`` (32 samples per panel; videos 1920x1080 at 16) or ``preview`` (8 samples per
         panel; videos 960x540 at 6), for checking a choice before a long render.
-    thalamocortical_sequence : bool
-        One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40
-        parcels), each going from direction colours to TI_max on one shared window, pruned to
-        its strongest 15 % by mean TI_max, with the regions those fibres reach named in their
-        own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,
-        ``turntable``, ``propagation``, ``export_blend`` and the network fields must be off or empty.
     width, height : int
         The figure's size in pixels; each panel is a quarter of it.
     turntable_frames, turntable_degrees : int, float
@@ -345,14 +339,13 @@ class TractVisualConfig:
     network_to: list[str] = field(default_factory=list)
     network_name: str = ""
     selection: Selection | None = None
+    own_network: str = ""
     preset: str = ""
     overrides: dict[str, Any] = field(default_factory=dict)
     highlight_regions: list[str] = field(default_factory=list)
     lateral_side: int = 0
     iso_shell_percentile: float | None = None
     turntable_crossfade: bool = False
-    prune_keep_fraction: float | None = None
-    label_regions: int = 5
     stills: bool = True
     turntable: bool = False
     propagation: bool = False
@@ -360,7 +353,6 @@ class TractVisualConfig:
     connectome: bool = True
     export_blend: bool = False
     quality: Quality = Quality.FINAL
-    thalamocortical_sequence: bool = False
     width: int = 4000
     height: int = 4000
     turntable_frames: int = 120
@@ -379,35 +371,29 @@ class TractVisualConfig:
             raise ValueError("simulation_name is required")
         self.metric = TractVisualConfig.Metric(self.metric)
         self.quality = TractVisualConfig.Quality(self.quality)
-        if self.selection is not None:
-            if self.selection.kind != "edges":
-                raise ValueError("selection draws region pairs: kind must be 'edges'")
-            if (
-                self.thalamocortical_sequence
-                or self.network_from
-                or (self.network_bundle or "").strip()
-            ):
+        own = (self.own_network or "").strip()
+        if own:
+            # The name rule of a Selection: it names this network's folders.
+            own_selection_name(Selection(name=own).name)
+            if self.network_from or (self.network_bundle or "").strip():
                 raise ValueError(
-                    "selection is the network: leave network_from, network_bundle and "
-                    "thalamocortical_sequence empty"
+                    "own_network is the network: leave network_from and network_bundle empty"
                 )
-        elif self.overrides and not (
-            (self.network_bundle or "").strip() and not self.network_top_edges
+        if self.selection is not None:
+            # A loaded file's run sets its selection itself, of kind "all": every streamline is drawn.
+            if self.selection.kind != ("all" if own else "edges"):
+                raise ValueError("selection draws region pairs: kind must be 'edges'")
+            if self.network_from or (self.network_bundle or "").strip():
+                raise ValueError(
+                    "selection is the network: leave network_from and network_bundle empty"
+                )
+        elif (
+            self.overrides
+            and not own
+            and not ((self.network_bundle or "").strip() and not self.network_top_edges)
         ):
             raise ValueError("overrides adjust a selection's automatic setup")
         validate_overrides(self.overrides)
-        if self.thalamocortical_sequence and (
-            self.stills
-            or self.turntable
-            or self.propagation
-            or self.export_blend
-            or self.network_from
-            or self.network_bundle
-        ):
-            raise ValueError(
-                "thalamocortical_sequence runs alone: stills, turntable, propagation, "
-                "export_blend and the network fields must be off or empty"
-            )
         if self.export_blend and not (self.stills or self.turntable):
             raise ValueError("export_blend saves a render's scene: ask for one too")
         if self.max_streamlines <= 0:
@@ -434,13 +420,6 @@ class TractVisualConfig:
             and self.metric == TractVisualConfig.Metric.DIRECTION
         ):
             raise ValueError("turntable_crossfade fades direction into a scalar metric")
-        if (
-            self.prune_keep_fraction is not None
-            and not 0 < self.prune_keep_fraction < 1
-        ):
-            raise ValueError("prune_keep_fraction must be in (0, 1)")
-        if self.label_regions < 0:
-            raise ValueError("label_regions must be >= 0")
         name = (self.network_bundle or "").strip()
         if name and (os.sep in name or name.startswith(".")):
             raise ValueError("network_bundle is a bundle name in the tract directory")

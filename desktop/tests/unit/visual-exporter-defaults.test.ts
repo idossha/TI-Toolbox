@@ -13,6 +13,7 @@ import {
   assessState,
   buildConnectionsAssessConfig,
   buildNetworkAssessConfig,
+  buildOwnAssessConfig,
   buildNetworkConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
@@ -130,29 +131,29 @@ describe("outputHint", () => {
 });
 
 describe("networks mode", () => {
+  const selection = { name: "posterior_thalamocortical", kind: "edges" as const, regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] as [string, string][] };
   const form = {
     subjectId: "CHN",
     simulationName: "thalamus",
-    network: "cst_lh",
     metric: "ti_max" as const,
     stills: true,
     turntable: true,
     exportBlend: true,
     quality: "preview" as const,
-    sequence: false,
   };
 
   it("validates in every shape it builds", () => {
-    for (const config of [buildNetworkConfig(form), buildNetworkConfig({ ...form, network: "all" }), buildNetworkConfig({ ...form, sequence: true })])
+    for (const config of [buildNetworkConfig({ ...form, selection }), buildNetworkConfig({ ...form, ownNetwork: "mine" })])
       expect(validate("TractVisualConfig", config)).toMatchObject({ valid: true, errors: [] });
   });
 
-  it("reads a bundle as its own tractogram and draws only it", () => {
-    const config = buildNetworkConfig(form);
-    expect(config).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", quality: "preview", export_blend: true });
+  it("a loaded file is the network, and its assess names it", () => {
+    expect(buildNetworkConfig({ ...form, selection, ownNetwork: "mine" })).toMatchObject({ own_network: "mine", metric: "ti_max", quality: "preview", export_blend: true });
+    expect(buildNetworkConfig({ ...form, selection, ownNetwork: "mine" })).not.toHaveProperty("selection");
+    const assess = buildOwnAssessConfig("CHN", "thalamus", "mine");
+    expect(validate("TractConfig", assess)).toMatchObject({ valid: true, errors: [] });
+    expect(assess).toEqual({ _type: "TractConfig", subject_id: "CHN", stages: ["assess"], assess: { simulations: ["thalamus"], selections: [], own_network: "mine" } });
   });
-
-  const selection = { name: "posterior_thalamocortical", kind: "edges" as const, regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] as [string, string][] };
 
   it("a chosen network is the one Selection, with only what the user set as overrides", () => {
     const config = buildNetworkConfig({ ...form, selection, preset: "posterior_thalamocortical", overrides: { lateral_side: 1 } });
@@ -163,12 +164,8 @@ describe("networks mode", () => {
   });
 
   it("a figure is square, each of its four panels a quarter of it, at each quality", () => {
-    expect(buildNetworkConfig(form)).toMatchObject({ width: 1600, height: 1600 });
-    expect(buildNetworkConfig({ ...form, quality: "final" })).toMatchObject({ width: 4000, height: 4000 });
-  });
-
-  it("the sequence saves no scene, whatever the box says", () => {
-    expect(buildNetworkConfig({ ...form, sequence: true })).not.toHaveProperty("export_blend");
+    expect(buildNetworkConfig({ ...form, selection })).toMatchObject({ width: 1600, height: 1600 });
+    expect(buildNetworkConfig({ ...form, selection, quality: "final" })).toMatchObject({ width: 4000, height: 4000 });
   });
 
   it("a video in direction colours has nothing to fade to", () => {
@@ -206,27 +203,6 @@ describe("networks mode", () => {
       expect(assessState(selection, 5, outputs([selection.name]))).toBe("replace");
       // Same edges, other count: the network was rebuilt under it.
       expect(assessState(selection, 6, outputs([selection.name], [own]))).toBe("replace");
-    });
-  });
-
-  it("all.trx keeps the config's default of foregrounding the strongest edges", () => {
-    const config = buildNetworkConfig({ ...form, network: "all" });
-    expect(config).toMatchObject({ tractogram: "all.trx" });
-    expect(config).not.toHaveProperty("network_bundle");
-    expect(config).not.toHaveProperty("network_top_edges");
-  });
-
-  it("the sequence turns the outputs off that it refuses to run beside", () => {
-    expect(buildNetworkConfig({ ...form, sequence: true })).toEqual({
-      _type: "TractVisualConfig",
-      subject_id: "CHN",
-      simulation_name: "thalamus",
-      quality: "preview",
-      web: false,
-      connectome: false,
-      thalamocortical_sequence: true,
-      stills: false,
-      turntable: false,
     });
   });
 });

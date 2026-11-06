@@ -5342,6 +5342,110 @@
         }
       }
     },
+    "/api/tract/own": {
+      "get": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "The streamline files the user has loaded for this head model",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Every file loaded for this subject, by name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractOwnNetworks"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "tract"
+        ],
+        "summary": "Load a streamline file made for this head model, after checking that it fits",
+        "security": [
+          {
+            "cookieAuth": []
+          },
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "subject",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "The file's own name"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Checked and kept under the subject",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TractOwnNetwork"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such subject"
+          },
+          "413": {
+            "description": "The file exceeds the size limit"
+          },
+          "422": {
+            "description": "It cannot be read, or does not fit this head model"
+          }
+        }
+      }
+    },
     "/api/tract/presets": {
       "get": {
         "tags": [
@@ -9951,6 +10055,7 @@
         "required": [
           "networks",
           "assessed",
+          "own_assessed",
           "has_edges",
           "renders"
         ],
@@ -9996,6 +10101,13 @@
           "has_edges": {
             "type": "boolean",
             "description": "Whether the assess stage has written this simulation's edges.json."
+          },
+          "own_assessed": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The files the user loaded that this simulation has assessed (tract/own_<name>/)."
           },
           "renders": {
             "type": "array",
@@ -15179,7 +15291,7 @@
         "additionalProperties": false
       },
       "TractVisualConfig": {
-        "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. The figure, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames. A figure\nor turntable holds only the model and its tractography; what it shows is in ``network.json``.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``\n    (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging\n    about 1) or ``direction``.\nfocus : bool\n    Network-focused figures and videos: the bundle and top edges as full tubes, the rest\n    of the tractogram as faint context, their endpoint regions lit from the subject's own\n    labels. ``False`` draws a subsample of the whole tractogram.\nnetwork_bundle : str\n    A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank\n    foregrounds the top edges only.\nnetwork_top_edges, network_min_streamlines : int\n    How many of ``summary.json``'s top edges join the foreground, and the streamline\n    count an edge needs to be one of them.\ncontext_streamlines : int\n    Faint context fibres drawn behind the network (0: none).\nnetwork_from, network_to, network_name : list of str, list of str, str\n    A network by its regions: every streamline whose edge joins a region of\n    ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,\n    none subsampled. Overrides ``network_bundle`` and the top edges.\nselection : Selection or None\n    A named network, kind ``\"edges\"``: the one definition the optimizer's mask and the ranking\n    also use. Its ``<name>.trx`` is read when it exists, else ``all.trx``; ``regions`` holds its\n    seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and\n    outputs carry its name, so networks of one simulation coexist. Replaces every other network\n    field, and the fields ``overrides`` can set.\npreset : str\n    The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is\n    drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated\n    in the Plan and ``network.json`` from it, with their count.\noverrides : dict\n    With ``selection`` (or one bundle, ``network_top_edges`` 0), the keys of :data:`tit.blender.network_setup.OVERRIDABLE` replacing the\n    automatic value (``iso_shell_percentile: null`` draws no shell).\nhighlight_regions : list of str\n    Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.\nlateral_side : int\n    The side the lateral panel shows: -1 left, 1 right, 0 the side of the strongest field.\niso_shell_percentile : float or None\n    Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.\nprune_keep_fraction : float or None\n    In a named-network turntable sequence, sweep away all but this fraction of the\n    streamlines, the strongest by mean TI_max along each, then name where they end.\nlabel_regions : int\n    How many cortical regions the sequence names once pruned.\nturntable_crossfade : bool\n    The turntable shows direction colours for its first half, crossfades over 2 s, then\n    shows ``metric`` (a scalar metric) for the second half.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nvmax_v_per_m : float or None\n    Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.\n    Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write. ``stills`` is the one figure per colour, ``<colour>.png``: the\n    panels of :data:`tit.blender.network_setup.PANELS` on one scale.\nexport_blend : bool\n    Also save the rendered scene as ``network.blend`` in the network's folder, whole, so it\n    opens on another machine. It holds the colour just rendered, and the figure's scene when\n    both a figure and a turntable are asked for. It needs one of them to save.\nquality : Quality\n    ``final`` (32 samples per panel; videos 1920x1080 at 16) or ``preview`` (8 samples per\n    panel; videos 960x540 at 6), for checking a choice before a long render.\nthalamocortical_sequence : bool\n    One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40\n    parcels), each going from direction colours to TI_max on one shared window, pruned to\n    its strongest 15 % by mean TI_max, with the regions those fibres reach named in their\n    own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,\n    ``turntable``, ``propagation``, ``export_blend`` and the network fields must be off or empty.\nwidth, height : int\n    The figure's size in pixels; each panel is a quarter of it.\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/networks/<network>`` when ``None``.\nkeep_bundle : bool\n    Keep the render bundle (``bundle_<colour>/``) after a successful render, to re-render it\n    in another Blender. It is deleted otherwise; a failed render always keeps it.\nseed : int\n    Subsampling seed.",
+        "description": "Tractography renders of one simulation's ``tract/`` outputs.\n\nStreamlines become emissive tubes in a glass brain, coloured by a field metric along\neach fibre. The figure, the web viewer and the connectome figure are on by default; the\nturntable and the propagation animation are opt-in because they render many frames. A figure\nor turntable holds only the model and its tractography; what it shows is in ``network.json``.\n\nAttributes\n----------\nsubject_id, simulation_name : str\n    The simulation whose ``tract/`` directory is read.\ntractogram : str\n    A ``.trx`` file name inside ``Simulations/<sim>/tract/`` or an absolute path; its\n    directory supplies ``edges.json`` and ``connectome_*.npz``. Blank picks ``all.trx``,\n    else the directory's only ``.trx``.\nmetric : Metric\n    What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``\n    (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging\n    about 1) or ``direction``.\nfocus : bool\n    Network-focused figures and videos: the bundle and top edges as full tubes, the rest\n    of the tractogram as faint context, their endpoint regions lit from the subject's own\n    labels. ``False`` draws a subsample of the whole tractogram.\nnetwork_bundle : str\n    A bundle file of the tract directory (``insula_lh`` for ``insula_lh.trx``); blank\n    foregrounds the top edges only.\nnetwork_top_edges, network_min_streamlines : int\n    How many of ``summary.json``'s top edges join the foreground, and the streamline\n    count an edge needs to be one of them.\ncontext_streamlines : int\n    Faint context fibres drawn behind the network (0: none).\nnetwork_from, network_to, network_name : list of str, list of str, str\n    A network by its regions: every streamline whose edge joins a region of\n    ``network_from`` to one of ``network_to`` (either way round), all drawn at one width,\n    none subsampled. Overrides ``network_bundle`` and the top edges.\nselection : Selection or None\n    A named network, kind ``\"edges\"``: the one definition the optimizer's mask and the ranking\n    also use. Its ``<name>.trx`` is read when it exists, else ``all.trx``; ``regions`` holds its\n    seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and\n    outputs carry its name, so networks of one simulation coexist. Replaces every other network\n    field, and the fields ``overrides`` can set.\nown_network : str\n    A file the user loaded for this head model (:mod:`tit.tract.own`), which the tract job's assess\n    stage has assessed into ``tract/own_<name>/``. Every streamline in it is drawn, labelled or\n    not, and ``network.json`` records the file and what was checked. Replaces every other network\n    field, and the fields ``overrides`` can set.\npreset : str\n    The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is\n    drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated\n    in the Plan and ``network.json`` from it, with their count.\noverrides : dict\n    With ``selection`` (or one bundle, ``network_top_edges`` 0), the keys of :data:`tit.blender.network_setup.OVERRIDABLE` replacing the\n    automatic value (``iso_shell_percentile: null`` draws no shell).\nhighlight_regions : list of str\n    Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.\nlateral_side : int\n    The side the lateral panel shows: -1 left, 1 right, 0 the side of the strongest field.\niso_shell_percentile : float or None\n    Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.\nturntable_crossfade : bool\n    The turntable shows direction colours for its first half, crossfades over 2 s, then\n    shows ``metric`` (a scalar metric) for the second half.\nmax_streamlines : int\n    Rendering budget; a larger tractogram is subsampled toward its high-field fibres.\nvmax_v_per_m : float or None\n    Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.\n    Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).\nstills, turntable, propagation, web, connectome : bool\n    Which outputs to write. ``stills`` is the one figure per colour, ``<colour>.png``: the\n    panels of :data:`tit.blender.network_setup.PANELS` on one scale.\nexport_blend : bool\n    Also save the rendered scene as ``network.blend`` in the network's folder, whole, so it\n    opens on another machine. It holds the colour just rendered, and the figure's scene when\n    both a figure and a turntable are asked for. It needs one of them to save.\nquality : Quality\n    ``final`` (32 samples per panel; videos 1920x1080 at 16) or ``preview`` (8 samples per\n    panel; videos 960x540 at 6), for checking a choice before a long render.\nwidth, height : int\n    The figure's size in pixels; each panel is a quarter of it.\nturntable_frames, turntable_degrees : int, float\n    Orbit length (24 fps) and sweep.\nfront_speed_mm_per_frame : float\n    Propagation-front speed along the arc.\nroi_center_mm, roi_radius_mm : list of float or None, float\n    A target sphere to draw, in subject mm.\noutput_dir : str or None\n    Resolved to ``visual_exports/sub-<id>/<sim>/networks/<network>`` when ``None``.\nkeep_bundle : bool\n    Keep the render bundle (``bundle_<colour>/``) after a successful render, to re-render it\n    in another Blender. It is deleted otherwise; a failed render always keeps it.\nseed : int\n    Subsampling seed.",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -15270,6 +15382,11 @@
             ],
             "default": null
           },
+          "own_network": {
+            "default": "",
+            "title": "Own Network",
+            "type": "string"
+          },
           "preset": {
             "default": "",
             "title": "Preset",
@@ -15309,23 +15426,6 @@
             "title": "Turntable Crossfade",
             "type": "boolean"
           },
-          "prune_keep_fraction": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Prune Keep Fraction"
-          },
-          "label_regions": {
-            "default": 5,
-            "title": "Label Regions",
-            "type": "integer"
-          },
           "stills": {
             "default": true,
             "title": "Stills",
@@ -15359,11 +15459,6 @@
           "quality": {
             "$ref": "#/components/schemas/Quality",
             "default": "final"
-          },
-          "thalamocortical_sequence": {
-            "default": false,
-            "title": "Thalamocortical Sequence",
-            "type": "boolean"
           },
           "width": {
             "default": 4000,
@@ -15982,6 +16077,106 @@
               "null"
             ],
             "description": "Why it cannot be chosen; absent or null when it can."
+          }
+        }
+      },
+      "TractOwnChecks": {
+        "type": "object",
+        "required": [
+          "coordinates",
+          "n_streamlines",
+          "n_points",
+          "fraction_points_in_brain",
+          "fraction_points_in_head",
+          "minimum_fraction_in_brain",
+          "checked_against",
+          "not_proven"
+        ],
+        "properties": {
+          "coordinates": {
+            "type": "string"
+          },
+          "n_streamlines": {
+            "type": "integer"
+          },
+          "n_points": {
+            "type": "integer"
+          },
+          "fraction_points_in_brain": {
+            "type": "number"
+          },
+          "fraction_points_in_head": {
+            "type": "number"
+          },
+          "minimum_fraction_in_brain": {
+            "type": "number"
+          },
+          "checked_against": {
+            "type": "string"
+          },
+          "not_proven": {
+            "type": "string"
+          }
+        }
+      },
+      "TractOwnNetwork": {
+        "type": "object",
+        "required": [
+          "name",
+          "source_filename",
+          "file",
+          "sha256",
+          "checks",
+          "atlas",
+          "n_streamlines",
+          "n_both_ends_labelled",
+          "n_unlabelled",
+          "unlabelled_means"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "source_filename": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/TractOwnChecks"
+          },
+          "atlas": {
+            "type": "string"
+          },
+          "n_streamlines": {
+            "type": "integer"
+          },
+          "n_both_ends_labelled": {
+            "type": "integer"
+          },
+          "n_unlabelled": {
+            "type": "integer"
+          },
+          "unlabelled_means": {
+            "type": "string"
+          }
+        }
+      },
+      "TractOwnNetworks": {
+        "type": "object",
+        "required": [
+          "networks"
+        ],
+        "properties": {
+          "networks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TractOwnNetwork"
+            }
           }
         }
       },
@@ -17599,7 +17794,7 @@
         "additionalProperties": false
       },
       "AssessConfig": {
-        "description": "TI fields along streamlines (the ``assess`` stage).\n\nAttributes:\n    simulations: Simulation folder names under ``Simulations/``.\n    selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.\n        Edges, connectomes and per-streamline metrics always cover every streamline.\n    step_mm: Uniform arc-length step the streamlines are resampled to before sampling.\n        The activating function converges once the step is at most a quarter of\n        ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).\n    af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is\n        smoothed over before differentiating (a piecewise-constant field has no\n        pointwise derivative at a finite scale otherwise).\n    thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.\n    profile_points: Nodes of the along-tract profiles.\n    min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``\n        ranking in ``summary.json`` (they stay in every raw output).",
+        "description": "TI fields along streamlines (the ``assess`` stage).\n\nAttributes:\n    simulations: Simulation folder names under ``Simulations/``.\n    selections: Bundles to write; each gets ``<name>.trx`` in ``Simulations/<sim>/tract/``.\n        Edges, connectomes and per-streamline metrics always cover every streamline.\n    step_mm: Uniform arc-length step the streamlines are resampled to before sampling.\n        The activating function converges once the step is at most a quarter of\n        ``af_scale_mm`` (on ernie, 0.5 vs 0.25 mm moves its median maximum by 1 %).\n    af_scale_mm: Half-width of the triangle the activating function's ``E . t`` is\n        smoothed over before differentiating (a piecewise-constant field has no\n        pointwise derivative at a finite scale otherwise).\n    thresholds: User thresholds (V/m) for the fraction-above summaries; none by default.\n    profile_points: Nodes of the along-tract profiles.\n    min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``\n        ranking in ``summary.json`` (they stay in every raw output).\n    own_network: A file the user loaded for this head model (:mod:`tit.tract.own`), assessed in\n        place of the tractogram: every output goes to ``tract/own_<name>/``, so the simulation's\n        whole-tractogram outputs are not touched. ``selections`` is then ignored.",
         "properties": {
           "simulations": {
             "items": {
@@ -17641,6 +17836,11 @@
             "default": 5,
             "title": "Min Streamlines",
             "type": "integer"
+          },
+          "own_network": {
+            "default": "",
+            "title": "Own Network",
+            "type": "string"
           }
         },
         "title": "AssessConfig",

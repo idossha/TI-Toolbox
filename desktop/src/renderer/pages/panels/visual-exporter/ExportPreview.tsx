@@ -36,7 +36,7 @@ export interface ExportPreviewProps {
   labels: number[];
   niftiPath: string;
   fieldName: string;
-  /** The network being chosen, drawn live; `null` while the tab draws a file or the sequence. */
+  /** The network being chosen, drawn live; `null` while the tab draws the user's own file. */
   networkValue?: NetworkRoiValue | null;
   onNetworkChange?: (value: RoiValue) => void;
 }
@@ -96,7 +96,7 @@ export function ExportPreview(props: ExportPreviewProps) {
     return props.networkValue ? (
       <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} />
     ) : (
-      <p className="field-help">An existing file or the sequence draws what it holds: nothing to choose here. Its renders are in the Renders tab.</p>
+      <p className="field-help">Your own file draws what it holds: nothing to choose here. Its renders are in the Renders tab.</p>
     );
   if (mode === "subcortical" || mode === "vectors") {
     if (mode === "subcortical" && !volumePath)

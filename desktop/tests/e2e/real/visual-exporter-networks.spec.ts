@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, statSync } from "node:fs";
+import { mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -6,24 +6,20 @@ import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, 
 
 /**
  * The Visual exporter's Networks tab against a real server: from the tab, a low-resolution figure and
- * then a short turntable render in the image's Blender, and both appear in the Scene pane.
+ * then a short turntable render in the image's Blender, and both appear in the gallery.
  *
- * Needs a simulation with `tract/` outputs, which Dataset 000 does not have, so it is opt-in:
- *   TIT_E2E_NETWORKS_SUBJECT=CHN TIT_E2E_NETWORKS_SIMULATION=thalamus \
+ * Needs a simulation with `all.trx`, so a preset needs no assess; it is opt-in:
+ *   TIT_E2E_NETWORKS_SUBJECT=CHN TIT_E2E_NETWORKS_SIMULATION=posterior_along \
  *   TIT_E2E_NETWORKS_SHOTS=<dir> npx playwright test --project=real tests/e2e/real/visual-exporter-networks.spec.ts
- * Renders replace any in the network's `visual_exports/.../networks/<name>/`. Emulated Blender takes tens of
- * minutes for the turntable. What the pictures show is judged by eye from the screenshots.
- *
- * With TIT_E2E_PROJECT_HOST set, a third test submits the thalamocortical sequence, waits for its two
- * bundles, and cancels: its whole render takes hours emulated.
+ * It renders under a name of its own, TIT_E2E_NETWORKS_NAME. Emulated Blender takes tens of minutes for
+ * the turntable. What the pictures show is judged by eye from the screenshots.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const SUBJECT = process.env.TIT_E2E_NETWORKS_SUBJECT;
 const SIMULATION = process.env.TIT_E2E_NETWORKS_SIMULATION;
-const NETWORK = process.env.TIT_E2E_NETWORKS_BUNDLE ?? "cst_lh";
+const NETWORK = process.env.TIT_E2E_NETWORKS_NAME ?? "exporter_spec_posterior";
 const SHOTS = process.env.TIT_E2E_NETWORKS_SHOTS ?? join(tmpdir(), "tit-networks-shots");
-const PROJECT_HOST = process.env.TIT_E2E_PROJECT_HOST;
 
 test.skip(!SUBJECT || !SIMULATION, "skipping: TIT_E2E_NETWORKS_SUBJECT and TIT_E2E_NETWORKS_SIMULATION name no simulation with tract outputs");
 test.describe.configure({ mode: "serial" });
@@ -77,10 +73,8 @@ test.beforeAll(async () => {
   await shot("01-networks-no-simulation");
   await page.locator("#ve-simulation").click();
   await page.getByRole("option", { name: SIMULATION!, exact: true }).click();
-  await page.getByRole("radio", { name: "Existing file" }).click();
-  await expect(page.locator("#ve-network")).toBeVisible();
-  await page.locator("#ve-network").click();
-  await page.getByRole("option", { name: NETWORK, exact: true }).click();
+  await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
+  await page.getByTestId("network-mask-name").fill(NETWORK);
 });
 
 test.afterAll(async () => {
@@ -112,24 +106,4 @@ test("one short turntable renders from the tab and plays", async () => {
   await video.evaluate((v: HTMLVideoElement) => { v.currentTime = 1; });
   await page.waitForTimeout(1_500);
   await shot("05-networks-turntable-rendered");
-});
-
-test("the thalamocortical sequence exports both bundles and starts rendering from the tab", async () => {
-  test.skip(!PROJECT_HOST, "skipping: TIT_E2E_PROJECT_HOST is unset, so the bundles cannot be read");
-  test.setTimeout(60 * 60_000);
-  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
-  await shot("06-networks-sequence-options");
-  const started = Date.now();
-  const id = await submit();
-  const scene = join(PROJECT_HOST!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, SIMULATION!, "networks", "thalamocortical_sequence");
-  // This job's files, not those of an earlier run in the same folder (2 s for filesystem mtime grain).
-  const written = (path: string) => statSync(path, { throwIfNoEntry: false }) !== undefined && statSync(path).mtimeMs >= started - 2_000;
-  try {
-    await expect.poll(() => written(join(scene, "bundle_posterior", "manifest.json")) && written(join(scene, "bundle_frontal", "manifest.json")), { timeout: 40 * 60_000, intervals: [15_000] }).toBe(true);
-    await page.getByRole("radio", { name: "Terminal" }).or(page.getByRole("tab", { name: "Terminal" })).first().click();
-    await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal")).toContainText("running");
-    await shot("07-networks-sequence-rendering");
-  } finally {
-    await fetch(`${SERVER_URL}/api/jobs/${id}/cancel`, { method: "POST", headers: { authorization: `Bearer ${TOKEN}` } });
-  }
 });

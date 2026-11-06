@@ -312,7 +312,7 @@ test("6. another network renders beside the first, and each way of choosing is o
   await expect(page.getByTestId("network-mask-name")).toHaveValue("top_10_by_ti_max_mean");
   await page.waitForFunction(() => (window.__scene?.lines?.streamlines ?? 0) > 0, null, { timeout: 60_000 });
   await shot("15_strongest_here");
-  await page.getByRole("radio", { name: "Existing file" }).click();
-  await expect(page.locator("#ve-network")).toBeVisible();
-  await shot("16_existing_file");
+  await page.getByRole("radio", { name: "Your own file" }).click();
+  await expect(page.getByTestId("ve-own-load")).toBeVisible();
+  await shot("16_your_own_file");
 });

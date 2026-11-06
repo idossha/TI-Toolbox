@@ -38,11 +38,9 @@ from tit.blender import tract_data as td
 from tit.blender.network_setup import (
     PANELS,
     region_hemi,
-    region_words,
     resolve_network_setup,
 )
-from tit.tract.config import Selection
-from tit.tract.presets import FRONTAL, POSTERIOR, THALAMI
+from tit.tract.config import Selection, own_selection_name
 
 logger = logging.getLogger(__name__)
 
@@ -83,11 +81,6 @@ DIRECTION_KEY = {
     "red": "left – right",
     "green": "anterior – posterior",
     "blue": "superior – inferior",
-}
-#: The thalamocortical sequence's networks: thalami to DK40 parcels (frontal, then posterior).
-THALAMOCORTICAL = {
-    "frontal": ("Frontal thalamocortical network", FRONTAL),
-    "posterior": ("Posterior thalamocortical network", POSTERIOR),
 }
 
 
@@ -252,24 +245,6 @@ def _end_regions(tracts: td.Tracts, edges: dict[int, dict]) -> list[tuple[str, s
     return out
 
 
-def prune_by_ti_max(tracts: td.Tracts, keep: float):
-    """Rank a network's streamlines by mean TI_max along each one; keep the top *keep*.
-
-    Returns ``(rank per streamline in [0, 1], kept mask, cut-off V/m, rank of the weakest
-    kept)``. The score is the arc-length mean of the per-vertex ``ti_max``, with no display
-    smoothing.
-    """
-    score = td.arc_length_mean(tracts, tracts.dpv["ti_max"])
-    order = np.argsort(score, kind="stable")
-    rank = np.empty(tracts.n)
-    rank[order] = np.arange(tracts.n) / max(tracts.n - 1, 1)
-    n_keep = max(1, int(round(keep * tracts.n)))
-    kept = np.zeros(tracts.n, dtype=bool)
-    kept[order[-n_keep:]] = True
-    weakest = order[-n_keep]
-    return rank, kept, float(score[weakest]), float(rank[weakest])
-
-
 def edges_between(edges: dict[int, dict], side_a, side_b) -> set[int]:
     """Edge ids joining a region of *side_a* to a region of *side_b* (either orientation)."""
     a, b = set(side_a), set(side_b)
@@ -368,12 +343,6 @@ def image_metrics(manifest: dict) -> dict:
     return record
 
 
-def sequence_caption(name: str, n_total: int, n_drawn: int) -> str:
-    """``"<who> · n=1,407 streamlines (all drawn)"``: the sequence video's title and subject line."""
-    drawn = "all drawn" if n_drawn >= n_total else f"{n_drawn:,} drawn, evenly sampled"
-    return f"{name} · n={n_total:,} streamlines ({drawn})"
-
-
 def ti_iso_shell(mesh_path: str, percentile: float, step_mm: float = 1.5):
     """``(vertices, triangles, level)``: the TI_max isosurface in the brain at *percentile*.
 
@@ -438,9 +407,9 @@ def select_network(cfg, tract_dir: str, everything: td.Tracts, summary) -> td.Tr
 
 
 def network_slug(cfg) -> str:
-    """The network's folder name: a selection's, a bundle's, or ``all`` for a whole tractogram."""
-    if cfg.thalamocortical_sequence:
-        return "thalamocortical_sequence"
+    """The network's folder name: a loaded file's, a selection's, a bundle's, or ``all``."""
+    if cfg.own_network:
+        return own_selection_name(cfg.own_network)
     if cfg.selection is not None:
         return cfg.selection.name
     named = (cfg.network_bundle or cfg.network_name or "").strip()
@@ -460,8 +429,6 @@ def bundle_folder(cfg) -> str:
 
 def planned_outputs(cfg) -> list[str]:
     """The files this config's run writes, named as they will be."""
-    if cfg.thalamocortical_sequence:
-        return ["ti_max_sequence.mp4"]
     metric = str(cfg.metric)
     names = []
     if cfg.stills:
@@ -496,7 +463,7 @@ def _remove_bundles(cfg, out: str, folders: list[str]) -> None:
 
 
 def write_network_record(
-    out: str, cfg, original, setup: dict | None, metrics=None, image=None
+    out: str, cfg, original, setup: dict | None, metrics: dict, image: dict
 ) -> str:
     """``network.json``: the sidecar of this network's renders.
 
@@ -544,10 +511,10 @@ def write_network_record(
             images[name] = {
                 "panels": list(PANELS),
                 "panel_order": PANEL_ORDER,
-                **(image or {}),
+                **image,
             }
         elif name.endswith(".mp4"):
-            images[name] = dict(image or {})
+            images[name] = dict(image)
             if (
                 cfg.turntable_crossfade
             ):  # it opens in direction colours, then fades to the metric
@@ -561,7 +528,7 @@ def write_network_record(
         "preset": cfg.preset,
         "code_version": tit.__version__,
         "colours": colours,
-        "metrics": {**metrics, "images": images} if metrics else None,
+        "metrics": {**metrics, "images": images},
         "blend": blend,
     }
     with open(path + ".tmp", "w", encoding="utf-8") as stream:
@@ -590,7 +557,6 @@ def export_scene(
     context: td.Tracts | None = None,
     edges: dict[int, dict] | None = None,
     regions: tuple[dict, dict] | None = None,
-    caption: str = "",
     highlight: list[str] | None = None,
     shell: tuple[np.ndarray, np.ndarray, float] | None = None,
     setup: dict | None = None,
@@ -647,26 +613,7 @@ def export_scene(
         ],
         1,
     )
-    prune = kept = None
-    if named and cfg.prune_keep_fraction:
-        rank, kept, cut, rank_cut = prune_by_ti_max(tracts, cfg.prune_keep_fraction)
-        tracts.dpv["rank"] = rank[sid].astype(np.float32)
-        prune = {
-            "keep": float(cfg.prune_keep_fraction),
-            "cut_v_per_m": cut,
-            "rank_cut": rank_cut,
-            "n_kept": int(kept.sum()),
-            "n": int(tracts.n),
-        }
-    if highlight and regions is not None:
-        deep = [regions[1][n][0] for n in highlight if n in regions[1]]
-        if deep:
-            from scipy.spatial import cKDTree
-
-            near, _ = cKDTree(np.concatenate(deep)).query(tracts.points)
-            tracts.dpv["thal"] = near.astype(np.float32)
     tube = td.decimate(tracts, RENDER_STEP_MM)
-    extra = {k: tube.dpv[k] for k in ("rank", "thal") if k in tube.dpv}
     np.savez(
         os.path.join(bundle_dir, "tracts.npz"),
         points=tube.points.astype(np.float32),
@@ -676,7 +623,6 @@ def export_scene(
         d=tube.dpv["d"],
         gain=tube.dpv["gain"],
         tangent=np.abs(td.tangents(tube)).astype(np.float32),
-        **extra,
     )
     if context is not None and context.n:
         thin = td.decimate(context, CONTEXT_STEP_MM)
@@ -691,11 +637,8 @@ def export_scene(
     simple = simplify_to_budget(glass[0], glass[1], GLASS_TRIANGLES)
     gv, gt = simple.vertices.astype(np.float32), simple.triangles.astype(np.int32)
     lit_full = np.zeros(len(glass[0]), np.float32)
-    keep_full = np.zeros(len(glass[0]), np.float32)
-    lab_full = np.zeros(len(glass[0]), np.float32)  # 1-based label colour index, 0 none
     frame_full = np.full(len(glass[0]), 1e6, np.float32)
     sub_v, sub_t, sub_lit, sub_frame = [], [], [], []
-    keep_labels = []
     if regions is not None:
         cortical, subcortical = regions
         weight, when, count = {}, {}, {}
@@ -729,41 +672,6 @@ def export_scene(
             when.update({n: float(FRONT_START_FRAME) for n in drawn})
         if not highlight:
             top = max((weight[n] for n in drawn), default=1.0)
-        if kept is not None and highlight:
-            # Where the kept (strongest) streamlines end: lit linearly in their count, and
-            # the busiest parcels plus the thalamus named on screen.
-            held = {}
-            for i, pair in enumerate(_end_regions(tracts, edges)):
-                if kept[i]:
-                    for name in {n for n in pair if n}:
-                        held[name] = held.get(name, 0) + 1
-            parcels = sorted(
-                (n for n in held if n in cortical and n not in highlight),
-                key=lambda n: -held[n],
-            )
-            named = parcels[: cfg.label_regions]
-            busiest = max((held[n] for n in named), default=1)
-            # Only the named parcels light up, each in its own colour (lab), by count.
-            for k, name in enumerate(named, start=1):
-                ix = cortical[name]
-                keep_full[ix] = max(held[name] / busiest, 0.35)
-                lab_full[ix] = k
-                keep_labels.append(
-                    {
-                        "name": f"{region_words(name)} · n={held[name]}",
-                        "xyz": [float(c) for c in glass[0][ix].mean(0)],
-                        "colour": k,
-                    }
-                )
-            deep = [subcortical[n][0] for n in highlight if n in subcortical]
-            if deep:
-                keep_labels.append(
-                    {
-                        "name": f"thalamus (L+R) · n={int(kept.sum())}",
-                        "xyz": [float(c) for c in np.concatenate(deep).mean(0)],
-                        "deep": True,
-                    }
-                )
         for name in drawn:
             level = float(np.clip(np.sqrt(weight[name] / top), 0.2, 1.0))
             if name in cortical:
@@ -781,8 +689,6 @@ def export_scene(
         vertices=gv,
         triangles=gt,
         lit=lit_full[simple.source_index],
-        lit_keep=keep_full[simple.source_index],
-        lab=lab_full[simple.source_index],
         frame=frame_full[simple.source_index],
     )
     if sub_v:
@@ -822,7 +728,6 @@ def export_scene(
         "ticks": ticks,
         "stops": td.stops_for(metric),
         "diverging": metric in td.DIVERGING,
-        "caption": caption,
         "n_drawn": int(tracts.n),
         "smoothing_mm": td.SMOOTH_MM,
         "lateral_side": side,
@@ -843,8 +748,6 @@ def export_scene(
         "crossfade": bool(cfg.turntable_crossfade),
         "network": named,
         "setup": setup,
-        "prune": prune,
-        "keep_labels": keep_labels,
         "smoothing_note": f"colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm",
         "scalp": "scalp.npz" if scalp is not None else None,
         "electrodes": electrodes,
@@ -976,13 +879,29 @@ def _opposite_record(pm, cfg) -> dict | None:
     return opposite_removed(resolved, cfg.selection.pairs)
 
 
+def _own_as_selection(cfg, everything: td.Tracts, edges: dict[int, dict]):
+    """A loaded file, as a selection of every streamline; the labelled edges are its regions."""
+    pairs = [list(pair) for pair in _edge_counts(everything, edges)]
+    return replace(
+        cfg, selection=Selection(name=network_slug(cfg), kind="all", pairs=pairs)
+    )
+
+
 def _apply_setup(cfg, pm, everything: td.Tracts, edges: dict[int, dict]):
     """The config with its network's automatic setup applied, and the setup itself."""
-    pick = _picked(everything, _edge_ids(edges, cfg.selection.pairs))
+    pick = (
+        np.arange(everything.n)
+        if cfg.own_network
+        else _picked(everything, _edge_ids(edges, cfg.selection.pairs))
+    )
     if not len(pick):
         raise ValueError(f"selection {cfg.selection.name!r} picks no streamline here")
+    counts = _edge_counts(td.select(everything, pick), edges)
     setup = resolve_network_setup(
-        cfg.selection, _edge_counts(td.select(everything, pick), edges), cfg.overrides
+        cfg.selection,
+        counts,
+        cfg.overrides,
+        n_unlabelled=everything.n - sum(counts.values()) if cfg.own_network else 0,
     )
     setup["opposite_removed"] = _opposite_record(pm, cfg)
     values = setup["values"]
@@ -1012,7 +931,7 @@ def _named_network(cfg, pm, everything, edges, glass, log, setup=None):
         if selection
         else edges_between(edges, cfg.network_from, cfg.network_to)
     )
-    pick = _picked(everything, ids)
+    pick = np.arange(everything.n) if cfg.own_network else _picked(everything, ids)
     if not len(pick):
         raise ValueError(
             f"network_from / network_to join no streamline ({cfg.network_name})"
@@ -1057,89 +976,16 @@ def _named_network(cfg, pm, everything, edges, glass, log, setup=None):
     )
 
 
-def sequence_configs(cfg, everything, edges) -> dict:
-    """One render config per thalamocortical network, on one TI_max window (p99 over both)."""
-    configs, picks = {}, []
-    for key, (name, cortex) in THALAMOCORTICAL.items():
-        regions = [f"{hemi}.{parcel}" for hemi in ("lh", "rh") for parcel in cortex]
-        ids = edges_between(edges, THALAMI, regions)
-        picks.append(np.flatnonzero(np.isin(everything.dps["edge_id"], sorted(ids))))
-        configs[key] = dict(network_name=name, network_to=regions)
-    both = np.isin(everything.streamline_id(), np.concatenate(picks))
-    if not both.any():
-        raise ValueError("no streamline joins the thalami to a DK40 cortical parcel")
-    vmax = float(np.percentile(everything.dpv["ti_max"][both], 99))
-    return {
-        key: replace(
-            cfg,
-            thalamocortical_sequence=False,
-            metric=type(cfg).Metric.TI_MAX,
-            network_from=THALAMI,
-            highlight_regions=THALAMI,
-            lateral_side=-1,
-            iso_shell_percentile=95.0,
-            max_streamlines=1_000_000,
-            vmax_v_per_m=vmax,
-            turntable=True,
-            turntable_crossfade=True,
-            prune_keep_fraction=0.15,
-            label_regions=5,
-            **named,
-        )
-        for key, named in configs.items()
-    }
-
-
-def _render_sequence(
-    cfg,
-    pm,
-    out,
-    everything,
-    edges,
-    electrodes,
-    glass,
-    scalp,
-    *,
-    synthetic,
-    log,
-):
-    """Export both networks' bundles, then render the one video from them."""
-    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
-    configs = sequence_configs(cfg, everything, edges)
-    first = next(iter(configs.values()))
-    shell = ti_iso_shell(pm.ti_mesh(sid, sim), first.iso_shell_percentile)
-    log.info(f"TI_max iso-shell at {shell[2]:.3f} V/m (brain p95)")
-    pairs = " + ".join(
-        "–".join(e["name"] for e in electrodes if e["channel"] == c)
-        for c in sorted({e["channel"] for e in electrodes})
-    )
-    manifests = []
-    for key, net in configs.items():
-        network, tracts, kwargs = _named_network(net, pm, everything, edges, glass, log)
-        manifests.append(
-            export_scene(
-                net,
-                tracts,
-                glass,
-                scalp,
-                electrodes,
-                os.path.join(out, f"bundle_{key}"),
-                title=net.network_name,
-                synthetic=synthetic,
-                shell=shell,
-                caption=sequence_caption(
-                    f"sub-{sid} · {sim} montage ({pairs})", network.n, tracts.n
-                ),
-                **kwargs,
-            )
-        )
-    extra = ["preview"] if str(cfg.quality) == "preview" else []
-    render("sequence", *manifests, out, "ti_max_sequence", *extra)
-    _remove_bundles(cfg, out, [f"bundle_{key}" for key in configs])
-
-
 def _tractogram_name(cfg, sim_dir: str) -> str:
     """What a named network reads: its own bundle when assessed, else ``all.trx``."""
+    if cfg.own_network:
+        slug = network_slug(cfg)
+        path = os.path.join(sim_dir, "tract", slug, f"{slug}.trx")
+        if not os.path.isfile(path):
+            raise FileNotFoundError(
+                f"{path} does not exist: assess this file first (the tract job's assess stage)."
+            )
+        return path
     named = cfg.tractogram.strip()
     if named:
         return named
@@ -1223,30 +1069,17 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             png = os.path.join(out, f"connectome_{metric}.png")
             plot_connectome(npz, png, title=title)
             log.info(f"wrote {png}")
-    if cfg.stills or cfg.turntable or cfg.propagation or cfg.thalamocortical_sequence:
+    if cfg.stills or cfg.turntable or cfg.propagation:
         from tit.blender.utils import extract_scalp_from_msh
 
         msh = os.path.join(m2m, f"{sid}.msh")
         scalp = extract_scalp_from_msh(msh) if os.path.isfile(msh) else None
-        if cfg.thalamocortical_sequence:
-            _render_sequence(
-                cfg,
-                pm,
-                out,
-                everything,
-                edges,
-                electrodes,
-                glass,
-                scalp,
-                synthetic=synthetic,
-                log=log,
-            )
-            write_network_record(out, cfg, original, None)
-            return out
         kwargs = {}
         setup = None
         network = everything
-        if (cfg.network_bundle or "").strip() and not cfg.network_top_edges:
+        if cfg.own_network:
+            cfg = _own_as_selection(cfg, everything, edges)
+        elif (cfg.network_bundle or "").strip() and not cfg.network_top_edges:
             cfg = _bundle_as_selection(cfg, everything, edges)
         if cfg.selection:
             cfg, setup = _apply_setup(cfg, pm, everything, edges)
@@ -1305,15 +1138,13 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             if tracts.n >= n_total
             else "even sample" if cfg.selection else "weighted by ti_along_max"
         )
-        write_network_record(
-            out,
-            cfg,
-            original,
-            setup,
-            network_metrics(
-                network, n_total, edges, electrodes, setup, synthetic=synthetic
-            ),
-            image,
+        metrics = network_metrics(
+            network, n_total, edges, electrodes, setup, synthetic=synthetic
         )
+        if cfg.own_network:
+            from tit.tract.own import own_record
+
+            metrics["source"] = own_record(pm, sid, cfg.own_network)
+        write_network_record(out, cfg, original, setup, metrics, image)
         _remove_bundles(cfg, out, [bundle_folder(cfg)])
     return out

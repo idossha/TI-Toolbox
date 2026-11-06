@@ -4745,3 +4745,76 @@ coordinates are named by index: named by those coordinates, truncated to fit, th
 map and range); composing the figure in `simnibs_python` (a kept bundle must re-render in another Blender); migrating or re-rendering older
 folders (the gallery reads them as they are; nothing else touches them).
 
+## 2026-11-06 — A subject's cortex in every pane is its central surfaces, whole
+
+**Decision.** `tit/scene/build.py` builds a subject's `gm` part from `surfaces/{lh,rh}.central.gii`, unsimplified, whenever both
+exist, in place of the head mesh's tag 1002 clustered to the budget. The labels' path is unchanged: nearest central vertex, now at
+distance 0, then the one-ring mode filter, then the flat `vLabel` shading of "Native pane anatomy and labels" (2026-09-06, commit
+`c5c36bfe`). That earlier fix stays; it was already active here and could not reach this cause. The packaged guides are not rebuilt.
+
+**Why.** The maintainer: "the atlas on the cortex renders broken". Measured on sub-CHN. Tag 1002 stops where grey matter meets no CSF:
+361,185 triangles with 7,482 boundary edges in 392 loops, 121 of them on the lateral surface. Clustering to 147,838 triangles made it
+worse: 1,090 loops, 368 lateral, 3,361 non-manifold edges, up to 3.11 mm off, with 1.95 mm mean edges against a label map defined on
+0.71 mm ones, which is the teeth. The central surfaces hold 983,040 triangles, 0 boundary and 0 non-manifold edges, and every vertex's
+label exactly. TetraVox (central plus annot) and Blender's glass (central) already read them, so the panes were the ones that differed.
+At one camera in the Networks pane the region borders go from 123 islands and 3.19 % tooth pixels to 53 and 1.74 %, at 122 fps both.
+`desktop/tests/e2e/real/atlas-borders.spec.ts` holds this and fails on the old path.
+
+**Cost.** 17.7 MB for the part on sub-CHN, about three times the old budget, over the local connection. The panes lose the cerebellum and
+brainstem, which were never labelled; the head's framing keeps their floor (`mesh_floor_z`). This supersedes the `gm` line of the plan's §S3
+budget for subject scenes, and a future `guide_build` run would inherit it.
+
+**Alternatives rejected.** Clustering the central surfaces to the budget: holes come back (2,471 boundary edges at 150,000 triangles, 969 at
+500,000). Filling the holes in tag 1002: a second cortical mesh to maintain beside the one the labels are on. A pane-only path: the defect was
+in the shared scene service, so every pane gets the fix from it. Blender's glass still clusters the central surfaces to 200,000 triangles
+for its translucent shell, where no region border is drawn (`GLASS_TRIANGLES`); it does not show this defect and was left.
+
+**Revisit if.** A subject without central surfaces is common enough that the fallback's look matters, or a pane over a remote connection
+makes 18 MB matter; then measure a real decimator, not a grid.
+
+## 2026-11-06 — The thalamocortical sequence is removed
+
+**Decision.** `thalamocortical_sequence`, its form row, `render_sequence` and what only it reached (per-frame fade and prune, callouts,
+`prune_keep_fraction`, `label_regions`, `sequence_caption`, DK40 region words) are gone. An old config carrying one of those keys is refused
+with a plain message, by strict reading at `-m tit.blender` as at `POST /api/jobs`. A network's figure is unchanged, by 0 differing pixels
+at 1600x1600 against the figure before the removal (`posterior_thalamocortical`, `TI_max`, with shell and thalamus).
+
+**Why.** The maintainer: "remove the 'thalamocortical sequence' why do we have it there by itself?". It was one approved video promoted
+into a form, needing a full tractogram, many hours on an emulated host, and its own render path beside the network form.
+
+**Kept.** The propagation video and its overlay code, reachable by config and offered by no form (`build_overlay`, `fit_overlay`, `_legend`, `_text`,
+`flat_material`, `_keyed_frame`), since the maintainer did not ask for it to go. The glass thalamus, which figures use. `network_from`, `network_to`
+and `network_bundle`, for scripts. `_fade` and `_keyed`, for the turntable's crossfade.
+
+**Cost.** An earlier `network.json` holds the removed keys, so it no longer re-renders: a network is rendered again from the form.
+Silently ignoring them would have re-rendered something other than what the file asked for. The 2026-11-05 entry's "Other removed fields are
+ignored" in `contracts/CHANGES.md` is corrected by the 2026-11-06 entry.
+
+## 2026-11-06 — A network file is the user's own, checked against the head model and never transformed
+
+**Decision.** The Networks tab's **Existing file**, a dropdown over `Simulations/<sim>/tract/`, becomes **Your own file**: a TRX, TCK or TRK upload,
+stored at `tractography/own/` and assessed to `tract/own_<name>/`. Its ends are labelled by the network stage's own `assign_endpoints`; a streamline with
+an end in no region is drawn, and counted. The render uses every streamline and the same automatic setup. The Optimizer does not offer it.
+
+**Why.** The maintainer: "for the existing file option maybe we can just allow users to load their own netowrk file if they have one they created for the
+head model". The dropdown only reached files the toolbox had written, which **By connection** reaches already.
+
+**The check.** At least `MIN_IN_BRAIN` = 95 % of a file's points in `final_tissues.nii.gz` tissues 1, 2 or 3 (white matter, grey matter, CSF). Measured on sub-CHN's own tractogram: unchanged
+100 %; shifted by 20 mm in x 92.2 %, 30 mm in y 88.4 %, 40 mm in z 62.5 %, 100 mm 7 %, 200 mm 0; the same streamlines in QSIPrep's ACPC space
+(`tractogram_acpc.tck`) 68.5 %. A left-right flip passes at 99.87 %, and so can another subject's file in a similar space, so `NOT_PROVEN` says the checks
+cannot prove the file was made for this subject, in the form and in the sidecar. **Cost.** A native file with more than 5 % of its points outside those
+tissues is refused; the one native file measured has none outside.
+
+**Alternatives rejected.** Applying a transform or guessing a space: a silently moved tractogram is worse than a refused one. Rebuilding the mask
+stage for it in the Optimizer: it needs the fingerprint and sidecar logic for a tractogram outside the track stage, for a request that named rendering. Keeping the
+dropdown as well: a second path to files **By connection** already reaches.
+
+**Revisit if.** Users load files with real streamlines ending past the brain, which would move the 95 %; or ask to target their file, which is a new mask source.
+
+## 2026-11-06 — Real-data tests read Dataset 000 as it is after sub-101's simulations were removed
+
+**Decision.** The maintainer removed `sub-101/Simulations` on purpose, so tests that read them are repointed at runs that exist, not skipped. The TI recompute and the V2 mesh
+comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub-CHN/posterior_timax`. With one analysis left (ernie's voxel ROI), the results test
+checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
+"same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
+

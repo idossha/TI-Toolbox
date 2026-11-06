@@ -314,7 +314,15 @@ with a reference is the operator's step. `desktop/tests/e2e/real/network-figures
 (`TIT_E2E_FIGURES_SUBJECT`, `TIT_E2E_FIGURES_SIMULATION`, `TIT_E2E_PROJECT_HOST`) renders a thalamocortical
 preset with its `.blend`, a network chosen by connection and a bilateral preset in both colours, renders one
 colour again, and writes each job's peak memory and time to `figures-results.json`; no text in the pixels is
-judged by eye from its copies. `tests/test_network_setup.py` pins each automatic-setup rule, preset
+judged by eye from its copies. `desktop/tests/e2e/real/network-own-file.spec.ts` (`TIT_E2E_OWN_FILES`, from
+`dev/export_own_network_fixture.py`) loads the TCK and TRX of a network's own streamlines through the file
+picker, renders them on the same overrides as that network and compares the figures in pixels, and has a
+shifted and an empty file refused with nothing queued. `desktop/tests/e2e/real/atlas-borders.spec.ts`
+(`TIT_E2E_ATLAS_SUBJECT`, `TIT_E2E_ATLAS_SIMULATION`) counts islands and tooth pixels of the region colours
+in the Networks pane's drawing buffer, at a fixed camera; it needs a build with the scene hooks
+(`npm run pree2e`), and the old clustered head-mesh surface fails it (123 islands, 3.19 %, against 53 and
+1.74 %). `tests/numerical/test_tract_own_real.py` pins the fit check on sub-CHN's real tractogram, shifted
+and flipped. `tests/test_network_setup.py` pins each automatic-setup rule, preset
 resolution and the same-side counts, the file names, the panels and their one scale, and `network.json`'s
 medians against `streamline_stats`; `tests/test_blender_process_boundary.py` (`TIT_TEST_BLENDER_BIN`, in the
 image) renders a small bundle in the real Blender, opens `network.blend` with the bundle gone, checks its

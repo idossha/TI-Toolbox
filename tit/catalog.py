@@ -934,6 +934,7 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     ``assess`` stage); ``assessed`` what ``summary.json`` recorded of those made from region
     pairs, for telling a network already assessed from one that only shares its name;
     ``has_edges`` whether the assess stage has run here at all, which is what gives ``edges.json``;
+    ``own_assessed`` the files the user loaded that this simulation has assessed;
     ``renders`` the PNG, MP4 and ``.blend`` files in
     ``visual_exports/sub-<id>/<sim>/networks/<network>/``, each with its network, colour and view,
     newest first; a colour's figure has no view, and a ``.blend`` neither.
@@ -991,6 +992,16 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
                         }
                     )
     renders.sort(key=lambda r: (r["modified_at"], r["name"]), reverse=True)
+    own_assessed = (
+        sorted(
+            name[len("own_") :]
+            for name in os.listdir(tract_dir)
+            if name.startswith("own_")
+            and os.path.isfile(os.path.join(tract_dir, name, f"{name}.trx"))
+        )
+        if tract_dir and os.path.isdir(tract_dir)
+        else []
+    )
     assessed = []
     if tract_dir and os.path.isfile(os.path.join(tract_dir, "summary.json")):
         try:
@@ -1010,6 +1021,7 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     return {
         "networks": networks,
         "assessed": assessed,
+        "own_assessed": own_assessed,
         "has_edges": bool(tract_dir)
         and os.path.isfile(os.path.join(tract_dir, "edges.json")),
         "renders": renders,

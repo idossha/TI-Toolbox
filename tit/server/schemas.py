@@ -330,6 +330,7 @@ class AssessedNetwork(BaseModel):
 class SimulationNetworks(BaseModel):
     networks: list[str]
     assessed: list[AssessedNetwork]
+    own_assessed: list[str]
     has_edges: bool
     renders: list[NetworkRender]
 

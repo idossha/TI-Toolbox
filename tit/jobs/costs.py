@@ -177,10 +177,11 @@ def default_cost(kind: str, config: dict[str, Any] | None = None) -> Cost:
         and config.get("_type") == "TractVisualConfig"
         and (
             config.get("selection")
+            or config.get("own_network")
             or (config.get("network_bundle") and config.get("network_top_edges") == 0)
         )
     ):
-        # One network. The sequence and a whole tractogram's render stay at the full claim, unmeasured.
+        # One network. A whole tractogram's render stays at the full claim, unmeasured.
         base = Cost(cpus=1, mem_gb=TRACT_RENDER_MEM_GB)
     if kind in FLEX_KINDS:
         restarts = _count(config.get("n_multistart")) or 1

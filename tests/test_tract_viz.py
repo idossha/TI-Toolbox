@@ -9,9 +9,7 @@ What this pins (2026-11-04)
     - :func:`tit.plotting.tract_web.viewer_payload` round-trips positions to 0.005 mm and field
       values to one uint16 step, and a 15 000-streamline page stays under 12 MB.
     - The connectome helpers order hemispheres and pick the top edges.
-    - ``TractVisualConfig``'s quality and thalamocortical sequence options: refused when they
-      cannot run, carried into the manifest, and the sequence's two networks share one TI_max
-      window (p99 over both, the approved render's; 2026-11-05).
+    - ``TractVisualConfig``'s quality option: refused when it cannot run.
     - A run writes one figure per colour and ``network.json``'s metrics, and leaves another colour
       alone (2026-11-05).
 
@@ -291,23 +289,12 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     )
 
 
-def test_highlighted_deep_regions_glow_softly_and_parcels_by_count(
-    tmp_path, three, monkeypatch
-):
+def test_highlighted_deep_regions_glow_softly_and_parcels_by_count(tmp_path, three):
     """A highlighted thalamus is exported at 0.4, the level of the sub-CHN turntable the user
     approved (HIGHLIGHT_LEVEL at c5312a3c); previews v1-v3 had 1.0."""
     from tit.blender import tract_publication as tp
     from tit.blender.config import TractVisualConfig
 
-    class NearestTree:  # scipy is mocked on the host; the fibre-to-thalamus distance is unused
-        def __init__(self, reference):
-            self.reference = np.asarray(reference)
-
-        def query(self, points):
-            d = np.linalg.norm(points[:, None] - self.reference[None], axis=-1)
-            return d.min(1), d.argmin(1)
-
-    monkeypatch.setattr("scipy.spatial.cKDTree", NearestTree)
     sphere = _sphere()
     edges = {
         -1: {"region_a": "lh.c", "region_b": "lh.c"},
@@ -668,34 +655,7 @@ def test_network_config_validation():
             TractVisualConfig(subject_id="e", simulation_name="s", **bad)
 
 
-def test_prune_keeps_the_top_fraction_by_mean_ti_max():
-    from tit.blender.tract_publication import prune_by_ti_max
-
-    lines = [
-        np.stack([np.arange(5.0), np.full(5, float(i)), np.zeros(5)], 1)
-        for i in range(10)
-    ]
-    t = _tracts(lines)
-    t.dpv["ti_max"] = np.repeat(
-        np.arange(10, dtype=np.float32) / 10, 5
-    )  # mean = i / 10
-    rank, kept, cut, rank_cut = prune_by_ti_max(t, 0.2)
-    assert list(np.flatnonzero(kept)) == [8, 9]  # the two highest means
-    assert cut == pytest.approx(0.8)  # the weakest kept streamline's mean
-    np.testing.assert_allclose(rank, np.arange(10) / 9)
-    assert rank_cut == pytest.approx(8 / 9)
-    assert (rank[kept] >= rank_cut).all() and (rank[~kept] < rank_cut).all()
-
-
-def test_region_words_name_dk40_parcels_with_hemisphere():
-    from tit.blender.tract_publication import region_words
-
-    assert region_words("lh.superiorfrontal") == "L superior frontal"
-    assert region_words("rh.precuneus") == "R precuneus"
-    assert region_words("Left-Thalamus-Proper") == "Left-Thalamus-Proper"
-
-
-# -- figure, quality, the thalamocortical sequence (the Visual exporter's Networks tab) ------------
+# -- figure and quality (the Visual exporter's Networks tab) ------------
 
 
 def test_render_options_are_refused_when_they_cannot_run():
@@ -704,13 +664,6 @@ def test_render_options_are_refused_when_they_cannot_run():
     base = dict(subject_id="x", simulation_name="s")
     with pytest.raises(ValueError):
         TractVisualConfig(**base, quality="draft")
-    with pytest.raises(ValueError, match="runs alone"):
-        TractVisualConfig(**base, thalamocortical_sequence=True)  # stills default on
-    alone = dict(base, thalamocortical_sequence=True, stills=False)
-    TractVisualConfig(**alone)
-    for clash in (dict(turntable=True), dict(network_bundle="cst_lh")):
-        with pytest.raises(ValueError, match="runs alone"):
-            TractVisualConfig(**alone, **clash)
 
 
 def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
@@ -1117,7 +1070,6 @@ def test_a_network_drawn_in_part_is_an_even_sample_that_says_so(three):
     edges = {0: {"region_a": "lh.a", "region_b": "lh.b"}}
     picks = tp._picked(three, tp._edge_ids(edges, [["lh.b", "lh.a"]]))
     assert picks.tolist() == [0, 1, 2]  # either way round
-    assert "(1 drawn, evenly sampled)" in tp.sequence_caption("n", three.n, 1)
 
 
 def test_absent_options_keep_the_final_figure_and_no_scene():
@@ -1128,55 +1080,6 @@ def test_absent_options_keep_the_final_figure_and_no_scene():
         cfg.quality == "final"
         and cfg.stills
         and not cfg.export_blend
-        and not cfg.thalamocortical_sequence
     )
 
 
-def test_sequence_networks_share_one_window_over_both(three):
-    from tit.blender.config import TractVisualConfig
-    from tit.blender.tract_publication import HIGHLIGHT_LEVEL, sequence_configs
-
-    # Streamline 0 ends in a frontal parcel, 1 in a posterior one, 2 joins neither network.
-    three.dps["edge_id"] = np.array([10, 20, 30])
-    three.dpv["ti_max"] = np.arange(len(three.points), dtype=np.float32)
-    edges = {
-        10: {"region_a": "Left-Thalamus-Proper", "region_b": "lh.superiorfrontal"},
-        20: {"region_a": "rh.precuneus", "region_b": "Right-Thalamus-Proper"},
-        30: {"region_a": "lh.superiorfrontal", "region_b": "rh.precuneus"},
-    }
-    cfg = TractVisualConfig(
-        subject_id="x",
-        simulation_name="s",
-        thalamocortical_sequence=True,
-        stills=False,
-        quality="preview",
-    )
-    nets = sequence_configs(cfg, three, edges)
-
-    assert list(nets) == ["frontal", "posterior"]  # the order the video plays them in
-    in_network = three.offsets[
-        2
-    ]  # streamlines 0 and 1, whose ti_max is 0 .. in_network - 1
-    expected = np.percentile(np.arange(in_network, dtype=np.float32), 99)
-    for key, net in nets.items():
-        assert net.vmax_v_per_m == pytest.approx(expected)
-        assert net.highlight_regions == net.network_from
-        assert net.prune_keep_fraction == 0.15 and net.turntable_crossfade
-        assert net.metric == "ti_max" and net.quality == "preview"
-    assert "lh.superiorfrontal" in nets["frontal"].network_to
-    assert "rh.precuneus" in nets["posterior"].network_to
-    assert not set(nets["frontal"].network_to) & set(nets["posterior"].network_to)
-    assert HIGHLIGHT_LEVEL == 0.4  # the approved glow (8db67690)
-
-
-def test_sequence_without_a_thalamocortical_edge_says_so(three):
-    from tit.blender.config import TractVisualConfig
-    from tit.blender.tract_publication import sequence_configs
-
-    three.dps["edge_id"] = np.array([1, 1, 1])
-    edges = {1: {"region_a": "lh.superiorfrontal", "region_b": "rh.precuneus"}}
-    cfg = TractVisualConfig(
-        subject_id="x", simulation_name="s", thalamocortical_sequence=True, stills=False
-    )
-    with pytest.raises(ValueError, match="no streamline joins the thalami"):
-        sequence_configs(cfg, three, edges)

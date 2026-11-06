@@ -34,11 +34,13 @@ import json
 import logging
 import os
 import time
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
 
 from . import geometry
+from .config import Selection, own_selection_name
 from .io import load_streamlines, save_tractogram
 from .network import orient, select
 
@@ -248,7 +250,10 @@ def assess_simulation(
 
     pm = get_path_manager()
     pts, off, h, t, kappa = resampled
-    out_dir = pm.ensure(pm.sim_tract(subject_id, simulation))
+    out_dir = pm.sim_tract(subject_id, simulation)
+    if cfg.own_network:
+        out_dir = os.path.join(out_dir, own_selection_name(cfg.own_network))
+    out_dir = pm.ensure(out_dir)
     t0 = time.time()
     paths = carrier_meshes(pm, subject_id, simulation)
     fields, outside = sample_carriers(paths, pts, cache)
@@ -436,9 +441,16 @@ def run_assess(subject_id: str, cfg) -> list[dict]:
     from tit.paths import get_path_manager
 
     pm = get_path_manager()
-    tract_dir = pm.tractography(subject_id)
-    streamlines = load_streamlines(os.path.join(tract_dir, "tractogram.trx"))
-    network = load_network(subject_id)
+    if cfg.own_network:
+        from .own import load_own
+
+        streamlines, network = load_own(pm, subject_id, cfg.own_network)
+        name = own_selection_name(cfg.own_network)
+        cfg = replace(cfg, selections=[Selection(name=name, kind="all")])
+    else:
+        tract_dir = pm.tractography(subject_id)
+        streamlines = load_streamlines(os.path.join(tract_dir, "tractogram.trx"))
+        network = load_network(subject_id)
     if len(network["labels"]) != len(streamlines):
         raise ValueError(
             "network.npz does not match tractogram.trx; rerun the network stage"

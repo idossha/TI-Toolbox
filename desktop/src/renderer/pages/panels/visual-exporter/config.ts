@@ -21,12 +21,11 @@ export const NO_RECORDED_NET = "This simulation has no recorded EEG net.";
 /** `VectorConfig` (tit/blender/config.py) refuses magnitude-scale thresholds that do not rise. */
 export const PERCENTILE_ORDER = "Magnitude-scale percentiles must rise: blue ≤ green ≤ red.";
 
-export const NO_NETWORK_OUTPUTS = "This simulation has no network outputs yet. They come from the tract job's assess stage.";
+export const CHOOSE_A_FILE = "Load a file, or choose one already loaded.";
 export const CHOOSE_A_NETWORK = "Choose a network.";
 export const NAME_THE_NETWORK = "Name the network: letters, digits, _ and -.";
 /** `all.trx` is the whole tractogram's file, which an assess of a network must not replace. */
 export const NAME_IS_RESERVED = "A network cannot be called all: that is the whole tractogram's file.";
-export const SEQUENCE_NEEDS_ALL = "The thalamocortical sequence reads all.trx, which this simulation does not have.";
 
 export type Mode = "regions" | "vectors" | "montage" | "subcortical" | "networks";
 
@@ -173,21 +172,20 @@ export interface NetworkSelection {
 export interface NetworksForm {
   subjectId: string;
   simulationName: string;
-  /** The network chosen; `null` draws `network`, an existing file. */
+  /** The network chosen by preset, region, connection or a top-N. */
   selection?: NetworkSelection | null;
+  /** A file the user loaded for this head model (`tit/tract/own.py`); replaces `selection`. */
+  ownNetwork?: string;
   /** The preset it came from, so the render can state what a same-side preset left out. */
   preset?: string;
   /** `tit.blender.network_setup.OVERRIDABLE` keys the user set; the rest are automatic. */
   overrides?: Record<string, unknown>;
-  /** A stem of `Simulations/<sim>/tract/*.trx`; ignored by the sequence, which reads `all.trx`. */
-  network: string;
   metric: "direction" | "ti_max";
   /** One figure of four fixed panels. */
   stills: boolean;
   turntable: boolean;
   exportBlend: boolean;
   quality: "preview" | "final";
-  sequence: boolean;
 }
 
 /** The figure's size (each panel a quarter of it) and video length of each quality; `quality` itself sets samples and video size. */
@@ -198,9 +196,7 @@ const NETWORK_QUALITY = {
 } as const;
 
 /**
- * The tab draws PNG and MP4 renders only, so the web viewer and connectome figures stay off. A
- * bundle file is its own tractogram, so only it is read and its top edges are not drawn twice;
- * `all` foregrounds the run's strongest edges, the config's default.
+ * The tab draws PNG and MP4 renders only, so the web viewer and connectome figures stay off.
  */
 export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
   const { width, height, turntable_frames } = NETWORK_QUALITY[form.quality];
@@ -212,7 +208,6 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     connectome: false,
     _type: "TractVisualConfig",
   };
-  if (form.sequence) return { ...base, thalamocortical_sequence: true, stills: false, turntable: false } as TractVisualConfig;
   const outputs = {
     metric: form.metric,
     stills: form.stills,
@@ -225,9 +220,18 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     turntable_frames,
   };
   const overrides = form.overrides ?? {};
-  if (form.selection) return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as unknown as TractVisualConfig;
-  if (form.network === "all") return { ...base, ...outputs, tractogram: "all.trx" } as TractVisualConfig;
-  return { ...base, ...outputs, tractogram: `${form.network}.trx`, network_bundle: form.network, network_top_edges: 0, overrides } as TractVisualConfig;
+  if (form.ownNetwork) return { ...base, ...outputs, own_network: form.ownNetwork, overrides } as TractVisualConfig;
+  return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as unknown as TractVisualConfig;
+}
+
+/** The tract job that samples this simulation's fields along a loaded file's streamlines. */
+export function buildOwnAssessConfig(subjectId: string, simulationName: string, ownNetwork: string): TractConfig {
+  return {
+    _type: "TractConfig",
+    subject_id: subjectId,
+    stages: ["assess"],
+    assess: { simulations: [simulationName], selections: [], own_network: ownNetwork },
+  } as unknown as TractConfig;
 }
 
 /** The tract job that writes one network's bundle: fields along every streamline, one `.trx`. */
@@ -259,16 +263,6 @@ export function assessState(selection: NetworkSelection, nStreamlines: number, o
   if (own && own.n_streamlines === nStreamlines && samePairSet(own.pairs, selection.pairs)) return "ready";
   if (outputs.networks.includes(selection.name)) return "replace";
   return outputs.networks.includes("all") ? "ready" : "assess";
-}
-
-/** The tract job that writes `all.trx` (about 0.4 GB at 200,000 seeds), which only the thalamocortical sequence needs. */
-export function buildAssessConfig(subjectId: string, simulationName: string): TractConfig {
-  return {
-    _type: "TractConfig",
-    subject_id: subjectId,
-    stages: ["assess"],
-    assess: { simulations: [simulationName], selections: [{ name: "all", kind: "all" }] },
-  } as TractConfig;
 }
 
 /** The Plan as one line: what Run queues, what it draws, and what it replaces. */

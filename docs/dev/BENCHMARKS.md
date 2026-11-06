@@ -287,7 +287,7 @@ job's `rss_peak` and time its `started_at` to `finished_at`, from `status.json`;
 | `posterior_thalamocortical` | 1,407 | TI_max with scene / direction | 3.69 / 3.72 GB | 96 s | 10.84 MB |
 | `interhemispheric_cortical` | 3,716 | TI_max / direction | 4.47 / 5.00 GB | 244 s | |
 | `basal_ganglia_cortical_v3` | 8,000 of 19,035 | TI_max with scene | 4.89 GB | 272 s | 18.67 MB |
-| `posterior_tc` (an existing file) | 1,598 | direction | 4.28 GB | 108 s | |
+| `posterior_tc` | 1,598 | direction | 4.28 GB | 108 s | |
 | `posterior_tc`, its turntable alone (96 frames, 960x540 at 6 samples) | 1,598 | direction | 5.30 GB | 50 min | |
 
 Before this form, with two 960x640 stills, the same 1,407 and 8,000 peaked at 3.93 and 4.13 GB, so the 6 GB claim of a network's

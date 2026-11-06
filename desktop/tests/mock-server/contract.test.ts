@@ -400,6 +400,8 @@ describe("contract coverage: every openapi.yaml path+method", () => {
     await call("/api/tract/streamlines", "GET", "/api/tract/streamlines?subject=ernie&pair=lh.insula%7CLeft-Thalamus-Proper");
     await call("/api/tract/mask", "POST", "/api/tract/mask", { body: { subject: "ernie", name: "contract", pairs: [["lh.insula", "Left-Thalamus-Proper"]] } });
     await call("/api/tract/masks", "GET", "/api/tract/masks?subject=ernie");
+    await call("/api/tract/own", "POST", "/api/tract/own?subject=ernie&name=contract.tck", { rawBody: new Uint8Array([1]) });
+    await call("/api/tract/own", "GET", "/api/tract/own?subject=ernie");
     await call("/api/tract/rankings", "GET", "/api/tract/rankings?subject=ernie&ex_run=none");
     await call("/api/tract/presets", "GET", "/api/tract/presets?subject=ernie");
     await call("/api/tract/connections", "GET", "/api/tract/connections?subject=ernie&simulation=Thalamus");

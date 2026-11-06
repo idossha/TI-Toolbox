@@ -45,52 +45,6 @@ OVERRIDABLE = (
     "iso_shell_percentile",
 )
 
-#: DK40 parcel names as words, for the thalamocortical sequence's labels.
-DK40_WORDS = {
-    "superiorfrontal": "superior frontal",
-    "rostralmiddlefrontal": "rostral middle frontal",
-    "caudalmiddlefrontal": "caudal middle frontal",
-    "parsopercularis": "pars opercularis",
-    "parstriangularis": "pars triangularis",
-    "parsorbitalis": "pars orbitalis",
-    "lateralorbitofrontal": "lateral orbitofrontal",
-    "medialorbitofrontal": "medial orbitofrontal",
-    "frontalpole": "frontal pole",
-    "precentral": "precentral",
-    "paracentral": "paracentral",
-    "superiorparietal": "superior parietal",
-    "inferiorparietal": "inferior parietal",
-    "supramarginal": "supramarginal",
-    "postcentral": "postcentral",
-    "precuneus": "precuneus",
-    "lateraloccipital": "lateral occipital",
-    "lingual": "lingual",
-    "cuneus": "cuneus",
-    "pericalcarine": "pericalcarine",
-    "superiortemporal": "superior temporal",
-    "middletemporal": "middle temporal",
-    "inferiortemporal": "inferior temporal",
-    "bankssts": "banks of the STS",
-    "fusiform": "fusiform",
-    "transversetemporal": "transverse temporal",
-    "temporalpole": "temporal pole",
-    "entorhinal": "entorhinal",
-    "parahippocampal": "parahippocampal",
-    "caudalanteriorcingulate": "caudal anterior cingulate",
-    "isthmuscingulate": "isthmus cingulate",
-    "posteriorcingulate": "posterior cingulate",
-    "rostralanteriorcingulate": "rostral anterior cingulate",
-    "insula": "insula",
-}
-
-
-def region_words(name: str) -> str:
-    """``"lh.superiorfrontal"`` -> ``"L superior frontal"``; other names unchanged."""
-    hemi, _, parcel = name.partition(".")
-    if hemi in ("lh", "rh") and parcel:
-        return f"{hemi[0].upper()} {DK40_WORDS.get(parcel, parcel)}"
-    return name
-
 
 def region_hemi(name: str) -> int:
     """-1 for a left region, 1 for a right one, 0 for one on the midline (``Brain-Stem``)."""
@@ -121,6 +75,7 @@ def resolve_network_setup(
     selection,
     counts: Mapping[tuple[str, str], int],
     overrides: Mapping[str, Any] | None = None,
+    n_unlabelled: int = 0,
 ) -> dict[str, Any]:
     """Every setting of one network's render, from its edges alone.
 
@@ -129,6 +84,8 @@ def resolve_network_setup(
         counts: Streamlines per edge, keyed by ``(region_a, region_b)`` in either order. An edge
             of ``selection.pairs`` absent here holds no streamline.
         overrides: Keys of :data:`OVERRIDABLE` replacing the automatic value.
+        n_unlabelled: Streamlines drawn that belong to no edge (a user's file, an end far from any
+            region): they count towards the budget, tube width and shell.
 
     Returns:
         ``values`` (the settings), ``reasons`` (one sentence per automatic value), ``overridden``
@@ -140,7 +97,7 @@ def resolve_network_setup(
         n = per_pair.get(frozenset((a, b)), 0)
         ends[a] += n
         ends[b] += n
-    n_streamlines = sum(ends.values()) // 2
+    n_streamlines = sum(ends.values()) // 2 + n_unlabelled
     # Sorted by count, then name: a tie must not depend on the order the pairs came in.
     regions = sorted(ends, key=lambda r: (-ends[r], r))
 

@@ -40,7 +40,7 @@ const CONFIG = {
   _type: "TractConfig",
   subject_id: "ernie",
   stages: ["assess"],
-  assess: { simulations: ["L_Insula"], selections: [{ name: "all", kind: "all" }] },
+  assess: { simulations: ["L_Insula"], selections: [] },
 };
 const planned = (willOverwrite: boolean) => ({ jobs: [{ will_overwrite: willOverwrite }] }) as never;
 

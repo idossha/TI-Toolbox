@@ -532,6 +532,13 @@ Sources: [`native setup`](../../desktop/src/main/tetravoxNative.ts),
 
 [`scene/`](../../desktop/src/renderer/scene/) renders surfaces, screen-space markers and atlas
 selection without an iframe or a second graphics dependency. Guide labels align with their geometry.
+A subject's `gm` part is its two central surfaces, whole and with their own triangulation, which is
+what TetraVox and Blender's glass read and what the atlas annotations label vertex by vertex
+(`tit/scene/build.py`); with no central surfaces it falls back to the head mesh's tag 1002. It has no
+cerebellum or brainstem. The head mesh's floor still frames the head (`mesh_floor_z`). Excluded
+alternative: simplifying it, since grid clustering opens holes in a closed surface (2,471 boundary edges at
+150,000 triangles on sub-CHN, 969 at 500,000). `desktop/tests/e2e/real/atlas-borders.spec.ts` bounds
+the fragmentation of the region borders in the pane's own pixels.
 A triangle's majority region label controls flat shading and picking; rotating its vertices preserves
 winding and prevents the provoking vertex from assigning a minority label. Triple junctions retain
 their original ordering.
@@ -854,8 +861,20 @@ render (`manifest.json` `setup`, from the bundle) agree and no field decides wha
 `TractVisualConfig.overrides` replaces any one value, unknown keys refused. Excluded alternative: a camera
 or threshold search over renders, which would be neither explainable nor testable.
 Applying the setup draws what `network_from` draws, the approved glass-thalamus look. An existing bundle
-(`network_bundle`, `network_top_edges: 0`) is first read as the Selection of the edges it holds.
-`network_from`/`network_to` stay for scripts and the sequence.
+(`network_bundle`, `network_top_edges: 0`) is first read as the Selection of the edges it holds; it and
+`network_from`/`network_to` stay for scripts, and no form offers them.
+
+**A network from the user's own file.** `POST /api/tract/own` stores a TRX, TCK or TRK as
+`tractography/own/<name><ext>` beside `<name>.npz` (each streamline's two endpoint regions, from the
+network stage's `assign_endpoints` on the head model's atlas) and `<name>.json` (source filename, counts,
+checks, written last), all in `tit/tract/own.py`. A file is refused unless it holds streamlines with
+finite points and at least `MIN_IN_BRAIN` of them inside the head model's brain tissues in
+`final_tissues.nii.gz`; coordinates are never transformed. An assess job with `own_network` writes
+`tract/own_<name>/`, so it cannot touch the simulation's tractogram outputs, and a render with
+`TractVisualConfig.own_network` draws every streamline, with the same automatic setup and
+`metrics.source` in `network.json` holding the source filename, the checks and the unlabelled count.
+The checks cannot prove the file was made for this subject (`NOT_PROVEN`, shown in the form and stored in
+the sidecar). The Optimizer does not offer it: a mask needs the network's fingerprint and sidecar logic.
 
 **A figure holds the model and its fibres; numbers live in the sidecar.** `run_tract`'s stills are one
 `<colour>.png` of the four panels `network_setup.PANELS`, tiled two to a row by `tract_scene.tile_panels`:
@@ -863,13 +882,13 @@ one orthographic width across all of them (`figure_scale`, the widest view at 94
 framing of the head down to the chin, the black background, and no text, colour bar or label objects in
 the scene; `width` and `height` are the figure's, each panel a quarter. Panel PNGs are written to a
 temporary folder and only the whole figure is moved in. Turntables hold no text either. Only the
-thalamocortical sequence and the propagation video keep overlays (`_legend`, `_text`, `build_overlay`),
-and the sequence's line is `sequence_caption`. Excluded alternatives: separate per-view PNGs (several
+propagation video, reachable by config and offered by no form, keeps overlays (`_legend`, `_text`,
+`build_overlay`). Excluded alternatives: separate per-view PNGs (several
 files to crop and align by hand for what is one figure); composing panels in `simnibs_python` with PIL
 (a kept bundle must re-render in another Blender, which has only numpy and `bpy`).
 
 **One folder per network.** `visual_exports/sub-<id>/<sim>/networks/<network>/` (`all` for a whole
-tractogram, `thalamocortical_sequence` for the sequence) holds `<colour>.png`,
+tractogram) holds `<colour>.png`,
 `<colour>_turntable.mp4`, an opt-in `network.blend` and `network.json`: the selection, code version,
 per colour the config that re-renders it (`-m tit.blender network.json <colour>`), the setup and files, and
 `metrics`: what holds for the network (streamlines total, opposite-hemisphere counts with the QC count,
@@ -906,11 +925,7 @@ draw (no matching `<name>.trx`, no `all.trx`) is assessed first by a `tract` job
 (`ExtensionRunPanel.planLine`), the setup is in the form beside its overrides, and renders are a third tab
 (`RunPaneTabs.extra`). `SceneCanvas` keeps the legend and sliders behind **Layers** on every page, closed by
 default and over the canvas rather than beside it; `desktop/tests/e2e/network-scene-layout.spec.ts` holds the
-canvas to at least 60 % of the window's height, in px. `quality: preview` spends 8 samples per panel and 960x540 at 6 samples per video frame. `thalamocortical_sequence` promotes the approved video into the
-config: `run_tract` exports `bundle_frontal/` and `bundle_posterior/` in `networks/thalamocortical_sequence/` on one
-TI_max window (p99 over both) and runs `tract_scene.py -- sequence`, with the thalami flat-shaded glass
-at `HIGHLIGHT_LEVEL` 0.4; it refuses to run beside a figure, a turntable, `export_blend` or named network fields. The
-preview renders every fourth frame at 6 fps. Jobs render in the image's Blender (`TIT_BLENDER_BIN`, set
+canvas to at least 60 % of the window's height, in px. `quality: preview` spends 8 samples per panel and 960x540 at 6 samples per video frame. Jobs render in the image's Blender (`TIT_BLENDER_BIN`, set
 to `/opt/blender/blender`, 4.4.3 by `verify_runtime.py`), never a host one; the bundles stay
 re-renderable in another Blender. Excluded alternative: a host Blender launched by the desktop app (a
 second render route that exists on one machine and that no job, lock or cancel would govern).

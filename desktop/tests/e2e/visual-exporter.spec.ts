@@ -190,7 +190,7 @@ test("the label browser falls back to the typed field when the volume cannot be 
   expect(job.config).toMatchObject({ _type: "SubcorticalConfig", labels: [10, 49], simulation_name: "" });
 });
 
-test("an existing file still renders, a preset is chosen in its place, and the sequence still runs", async () => {
+test("Your own file: a wrong file is refused in the server's words, a good one runs after its assess", async () => {
   await launchApp(true);
   await connect();
   await openPanel();
@@ -199,11 +199,21 @@ test("an existing file still renders, a preset is chosen in its place, and the s
   await page.locator("#ve-simulation").click();
   await page.getByRole("option", { name: "Thalamus", exact: true }).click();
   await page.getByRole("radio", { name: "Networks" }).click();
-  await page.getByRole("radio", { name: "Existing file" }).click();
+  // The old way is gone from the tab: no list of bundles, no sequence.
+  await expect(page.getByRole("radio", { name: "Existing file" })).toHaveCount(0);
+  await expect(page.getByRole("checkbox", { name: /Thalamocortical sequence/ })).toHaveCount(0);
+  await page.getByRole("radio", { name: "Your own file" }).click();
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Load a file, or choose one already loaded.");
 
-  await expect(page.locator("#ve-network")).toContainText("all");
-  await page.locator("#ve-network").click();
-  await page.getByRole("option", { name: "thalamocortical_lh", exact: true }).click();
+  await page.getByTestId("ve-own-input").setInputFiles({ name: "shifted.tck", mimeType: "application/octet-stream", buffer: Buffer.from("x") });
+  await expect(page.getByTestId("ve-own-error")).toContainText("inside this head model's brain");
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Load a file, or choose one already loaded.");
+
+  await page.getByTestId("ve-own-input").setInputFiles({ name: "mine.tck", mimeType: "application/octet-stream", buffer: Buffer.from("x") });
+  await expect(page.getByTestId("ve-own-checks")).toContainText("10 left unlabelled");
+  await expect(page.getByTestId("ve-own-checks")).toContainText("cannot prove");
+  await expect(page.getByTestId("ve-own-error")).toHaveCount(0);
+
   await page.locator("#ve-network-metric").click();
   await page.getByRole("option", { name: "TI_max", exact: true }).click();
   await page.getByRole("checkbox", { name: "Turntable video" }).click();
@@ -213,56 +223,31 @@ test("an existing file still renders, a preset is chosen in its place, and the s
   await expect(page.getByTestId("ve-planned-files")).toHaveText("Writes: ti_max.png, ti_max_turntable.mp4");
   await page.getByRole("checkbox", { name: "Export .blend" }).click();
   await expect(page.getByTestId("ve-planned-files")).toContainText("network.blend (about 40 MB, the TI_max scene)");
-  const job = await submittedJob(() => page.getByTestId("run-button").click());
-  expect(job).toMatchObject({ kind: "blender", subject_ids: ["ernie"] });
-  expect(job.config).toMatchObject({
-    _type: "TractVisualConfig",
-    simulation_name: "Thalamus",
-    tractogram: "thalamocortical_lh.trx",
-    network_bundle: "thalamocortical_lh",
-    metric: "ti_max",
-    stills: true,
-    turntable: true,
-    export_blend: true,
-    width: 1600,
-    height: 1600,
-    quality: "preview",
+  const accepted: { kind: string; config: Record<string, unknown>; after?: string[] }[] = [];
+  page.on("request", (r) => {
+    if (r.url().endsWith("/api/jobs") && r.method() === "POST") accepted.push(r.postDataJSON());
   });
-  expect(job.config).not.toHaveProperty("views");
-
-  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
-  const sequence = await submittedJob(async () => {
-    await expect(page.locator("#ve-network")).toHaveCount(0);
-    await page.getByTestId("run-button").click();
-    const replace = page.getByRole("button", { name: /Replace/ });
-    await replace.click({ timeout: 2_000 }).catch(() => undefined);
-  });
-  expect(sequence.config).toMatchObject({ thalamocortical_sequence: true, stills: false, turntable: false });
+  await page.getByTestId("run-button").click();
+  await expect.poll(() => accepted.length, { timeout: 10_000 }).toBe(2);
+  expect(accepted[0]).toMatchObject({ kind: "tract", config: { stages: ["assess"], assess: { simulations: ["Thalamus"], selections: [], own_network: "mine" } } });
+  expect(accepted[1]).toMatchObject({ kind: "blender", config: { _type: "TractVisualConfig", own_network: "mine", metric: "ti_max", turntable: true, export_blend: true, width: 1600, height: 1600, quality: "preview" } });
+  expect(accepted[1]!.after).toHaveLength(1);
+  expect(accepted[1]!.config).not.toHaveProperty("views");
+  await page.getByRole("radio", { name: "Your own file" }).click(); // Back to the chooser for the next tests.
 
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
   // By network, labelled by what it shows: the mock's fixture is a folder from before the one-figure
   // form, of the network called all, and it still reads.
+  // Open whichever way it starts: it is the only group until the mock's render of this file lands.
+  await renders.locator('details[data-network="all"]').evaluate((details: HTMLDetailsElement) => {
+    details.open = true;
+  });
   await expect(renders.getByRole("img", { name: "all, Fibre direction · lateral" })).toBeVisible();
-  await expect(renders.locator("figcaption").first()).toHaveText("Fibre direction · lateral");
   await page.screenshot({ path: join(ARTIFACTS, "panel-visual-exporter-networks.png") });
 });
 
-test("a simulation with no network file says where they come from, and a chosen network needs none", async () => {
-  await launchApp(true);
-  await connect();
-  await openPanel();
-  await chooseSubjectAndSimulation();
-  await page.getByRole("radio", { name: "Networks" }).click();
-  await page.locator("#ve-simulation").click();
-  await page.getByRole("option", { name: /^(?!Thalamus$)/ }).first().click();
-  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Choose a network.");
-  await page.getByRole("radio", { name: "Existing file" }).click();
-  await expect(page.getByTestId("ve-networks-empty")).toContainText("tract job's assess stage");
-  await expect(page.getByTestId("run-button")).toHaveAttribute("title", /assess stage/);
-});
-
-async function openNetworksOf(subject: string, simulation: string, fromFile = true): Promise<void> {
+async function openNetworksOf(subject: string, simulation: string): Promise<void> {
   await launchApp(true);
   await connect();
   await openPanel();
@@ -271,11 +256,10 @@ async function openNetworksOf(subject: string, simulation: string, fromFile = tr
   await page.locator("#ve-simulation").click();
   await page.getByRole("option", { name: simulation, exact: true }).click();
   await page.getByRole("radio", { name: "Networks" }).click();
-  if (fromFile) await page.getByRole("radio", { name: "Existing file" }).click();
 }
 
 test("a preset is chosen, says what same-side left out, and Run assesses it before rendering", async () => {
-  await openNetworksOf("ernie", "L_Insula", false);
+  await openNetworksOf("ernie", "L_Insula");
   const presets = page.getByTestId("network-presets");
   // A set this network has no labels for, or no streamline in, says so and cannot be chosen.
   await expect(presets.getByRole("option", { name: /Cingulate-cortical/ })).toContainText("These labels are not in this network");
@@ -313,7 +297,7 @@ test("a preset is chosen, says what same-side left out, and Run assesses it befo
 });
 
 test("a render of one network leaves another's files alone, and asks only about its own", async () => {
-  await openNetworksOf("ernie", "Thalamus", false);
+  await openNetworksOf("ernie", "Thalamus");
   const first = page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ });
   await first.click();
   const job = await submittedJob(() => page.getByTestId("run-button").click());
@@ -336,7 +320,7 @@ test("a render of one network leaves another's files alone, and asks only about 
 });
 
 test("by region: from a seed alone, then narrowed by a to", async () => {
-  await openNetworksOf("ernie", "L_Insula", false);
+  await openNetworksOf("ernie", "L_Insula");
   await page.getByRole("radio", { name: "By region" }).click();
   await page.getByTestId("network-seeds").click();
   await page.getByRole("dialog").getByRole("option", { name: /^lh\.precentral/ }).click();
@@ -354,7 +338,7 @@ test("by region: from a seed alone, then narrowed by a to", async () => {
 });
 
 test("by connection: the table is the choice, and a line in the pane is too", async () => {
-  await openNetworksOf("ernie", "L_Insula", false);
+  await openNetworksOf("ernie", "L_Insula");
   await page.getByRole("radio", { name: "By connection" }).click();
   await page.getByTestId("network-seeds").click();
   await page.getByRole("dialog").getByRole("option", { name: /^lh\.insula/ }).click();
@@ -366,7 +350,7 @@ test("by connection: the table is the choice, and a line in the pane is too", as
 });
 
 test("strongest here: no metric is chosen for you, and the list follows the one you name", async () => {
-  await openNetworksOf("ernie", "Thalamus", false);
+  await openNetworksOf("ernie", "Thalamus");
   await page.getByRole("radio", { name: "Strongest here" }).click();
   await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Choose a network.");
   await page.locator("#network-metric").click();
@@ -382,7 +366,7 @@ test("strongest here: no metric is chosen for you, and the list follows the one 
 });
 
 test("strongest here on a simulation not yet assessed offers its edge table, and nothing else", async () => {
-  await openNetworksOf("ernie", "L_Insula", false);
+  await openNetworksOf("ernie", "L_Insula");
   await page.getByRole("radio", { name: "Strongest here" }).click();
   await expect(page.getByTestId("network-strongest-empty")).toContainText("not assessed yet");
   const job = await submittedJob(() => page.getByTestId("ve-assess-networks").click());
@@ -391,7 +375,7 @@ test("strongest here on a simulation not yet assessed offers its edge table, and
 });
 
 test("advanced overrides reach the config and the Plan says who set what", async () => {
-  await openNetworksOf("ernie", "Thalamus", false);
+  await openNetworksOf("ernie", "Thalamus");
   await page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ }).click();
   await page.getByTestId("network-advanced").locator("summary").click();
   await expect(page.getByTestId("network-setup-plan")).toContainText("Streamlines drawn");
@@ -404,41 +388,10 @@ test("advanced overrides reach the config and the Plan says who set what", async
   expect(job.config).toMatchObject({ overrides: { lateral_side: 1, iso_shell_percentile: null } });
 });
 
-test("Assess networks queues the tract job, the terminal follows it, and its finish lists the network", async () => {
-  await openNetworksOf("ernie", "L_Insula");
-  const job = await submittedJob(() => page.getByTestId("ve-assess-networks").click());
-  expect(job).toMatchObject({ kind: "tract", subject_ids: ["ernie"], overwrite: false });
-  expect(job.config).toEqual({
-    _type: "TractConfig",
-    subject_id: "ernie",
-    stages: ["assess"],
-    assess: { simulations: ["L_Insula"], selections: [{ name: "all", kind: "all" }] },
-  });
-  await expect(page.getByTestId("ve-assess-networks")).toContainText("Assessing");
-  await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal-identity")).toContainText("tract", { timeout: 20_000 });
-  // No reload and no page change: the job's finish alone turns the empty state into the form.
-  await expect(page.locator("#ve-network")).toContainText("all", { timeout: 30_000 });
-  await expect(page.getByTestId("ve-networks-empty")).toHaveCount(0);
-});
-
-test("Assess networks adds to an existing tract folder without asking, and asks over its own file", async () => {
-  await openNetworksOf("ernie", "docs_example");
-  const job = await submittedJob(() => page.getByTestId("ve-assess-networks").click());
-  expect(job).toMatchObject({ kind: "tract", overwrite: false });
-
-  // A second assess of all.trx replaces the one the first wrote.
-  await openNetworksOf("ernie", "Thalamus", false);
-  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
-  await expect(page.getByTestId("ve-networks-empty")).toHaveCount(0);
-});
-
-test("Assess networks without a tractogram says what to run, and offers no button", async () => {
-  await openNetworksOf("101", "Thalamus", false);
+test("a subject with no tractogram says what to run, and still offers Your own file", async () => {
+  await openNetworksOf("101", "Thalamus");
   await expect(page.getByTestId("network-unavailable")).toContainText("No tractography for sub-101");
-  await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
-  const reason = page.getByTestId("ve-assess-missing");
-  await expect(reason).toContainText("tractogram for sub-101");
-  await expect(reason).toContainText("network for sub-101");
-  await expect(reason).toContainText("Run Tractography for sub-101 first");
-  await expect(page.getByTestId("ve-assess-networks")).toHaveCount(0);
+  await page.getByTestId("network-unavailable").getByRole("button", { name: "Your own file" }).click();
+  await expect(page.getByTestId("ve-own-load")).toBeVisible();
+  await page.getByTestId("network-unavailable").getByRole("button", { name: "Run tractography…" }).waitFor();
 });

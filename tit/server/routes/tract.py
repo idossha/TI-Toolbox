@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from tit import catalog
@@ -162,6 +162,34 @@ class TractConnection(BaseModel):
 
 class TractConnections(BaseModel):
     connections: list[TractConnection]
+
+
+class TractOwnChecks(BaseModel):
+    coordinates: str
+    n_streamlines: int
+    n_points: int
+    fraction_points_in_brain: float
+    fraction_points_in_head: float
+    minimum_fraction_in_brain: float
+    checked_against: str
+    not_proven: str
+
+
+class TractOwnNetwork(BaseModel):
+    name: str
+    source_filename: str
+    file: str
+    sha256: str
+    checks: TractOwnChecks
+    atlas: str
+    n_streamlines: int
+    n_both_ends_labelled: int
+    n_unlabelled: int
+    unlabelled_means: str
+
+
+class TractOwnNetworks(BaseModel):
+    networks: list[TractOwnNetwork]
 
 
 def _subject(pm, subject: str) -> str:
@@ -444,6 +472,85 @@ def streamlines(
             "x-content-type-options": "nosniff",
         },
     )
+
+
+#: A whole-brain tractogram of 200,000 streamlines is about 0.4 GB; this leaves room for denser ones.
+_OWN_UPLOAD_LIMIT = 8 * 1024**3
+
+
+@router.get(
+    "/api/tract/own",
+    response_model=TractOwnNetworks,
+    summary="The streamline files the user has loaded for this head model",
+)
+def own_networks(subject: Annotated[SubjectId, Query()]) -> TractOwnNetworks:
+    from tit.tract.own import list_own
+
+    pm = _pm()
+    _subject(pm, subject)
+    return TractOwnNetworks(networks=list_own(pm, subject))
+
+
+@router.post(
+    "/api/tract/own",
+    status_code=201,
+    response_model=TractOwnNetwork,
+    summary="Load a streamline file made for this head model, after checking that it fits",
+    responses={
+        404: {"description": "No such subject"},
+        413: {"description": "The file exceeds the size limit"},
+        422: {"description": "It cannot be read, or does not fit this head model"},
+    },
+    openapi_extra={
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"}
+                }
+            },
+        }
+    },
+)
+async def load_own_network(
+    request: Request,
+    subject: Annotated[SubjectId, Query()],
+    name: Annotated[str, Query(min_length=1, description="The file's own name")],
+) -> TractOwnNetwork:
+    import tempfile
+
+    from starlette.concurrency import run_in_threadpool
+
+    from tit.paths import resolve_within
+    from tit.tract.own import OwnNetworkError, own_dir, store, stored_name
+
+    pm = _pm()
+    _subject(pm, subject)
+    try:
+        stored_name(name)
+        folder = Path(resolve_within(pm.project_dir, str(own_dir(pm, subject))))
+    except OwnNetworkError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(403, "The folder escapes the project") from exc
+    folder.parent.mkdir(parents=True, exist_ok=True)
+    # Beside the destination, so keeping it is a rename; gone whichever way this ends.
+    with tempfile.TemporaryDirectory(dir=folder.parent, prefix=".own-") as scratch:
+        uploaded = Path(scratch) / "upload"
+        total = 0
+        with uploaded.open("wb") as stream:
+            async for chunk in request.stream():
+                total += len(chunk)
+                if total > _OWN_UPLOAD_LIMIT:
+                    raise HTTPException(413, "This file exceeds the 8 GiB limit.")
+                stream.write(chunk)
+        if total == 0:
+            raise HTTPException(422, "This file is empty.")
+        try:
+            record = await run_in_threadpool(store, pm, subject, uploaded, name)
+        except OwnNetworkError as exc:
+            raise HTTPException(422, str(exc)) from exc
+    return TractOwnNetwork(**record)
 
 
 def _mask_record(path: Path, record: dict[str, Any], current: str) -> TractMask:

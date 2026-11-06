@@ -932,7 +932,20 @@ def _check_tract(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
     stages = config.get("stages") or ("track", "network", "assess")
     tract_dir = Path(pm.tractography(sid))
     fix = f"Run Tractography for sub-{sid} first (Pre-processing page, Diffusion)."
-    if "track" in stages:
+    assess = config.get("assess")
+    own = assess.get("own_network") if isinstance(assess, dict) else None
+    if own and list(stages) == ["assess"]:
+        # A file the user loaded stands in for the tractogram and network.
+        sidecar = tract_dir / "own" / f"{own}.json"
+        if not sidecar.is_file():
+            missing.append(
+                MissingInput(
+                    f"loaded file {own!r} for sub-{sid}",
+                    str(sidecar),
+                    "Load it on the Networks tab first (Your own file).",
+                )
+            )
+    elif "track" in stages:
         # tit.tract.tracking's own refusal (qsiprep_inputs), reached at submission instead.
         qsi = pm.qsiprep_subject(sid)
         if not Path(qsi).is_dir():
@@ -949,14 +962,13 @@ def _check_tract(pm: PathManager, config: dict[str, Any]) -> list[MissingInput]:
                 f"tractogram for sub-{sid}", str(tract_dir / "tractogram.trx"), fix
             )
         )
-    if {"assess", "target"} & set(stages) and "network" not in stages:
+    if {"assess", "target"} & set(stages) and "network" not in stages and not own:
         if not (tract_dir / "network.npz").is_file():
             missing.append(
                 MissingInput(
                     f"network for sub-{sid}", str(tract_dir / "network.npz"), fix
                 )
             )
-    assess = config.get("assess")
     if "assess" in stages and isinstance(assess, dict):
         for sim in assess.get("simulations") or []:
             if isinstance(sim, str) and not Path(pm.simulation(sid, sim)).is_dir():

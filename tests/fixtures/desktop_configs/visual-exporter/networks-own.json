@@ -1,0 +1,40 @@
+{
+  "id": "visual-exporter/networks-own",
+  "page": "visual-exporter",
+  "title": "A file the user loaded, assessed already",
+  "jobs": [
+    {
+      "config": {
+        "_type": "TractVisualConfig",
+        "connectome": false,
+        "export_blend": false,
+        "height": 1600,
+        "metric": "ti_max",
+        "overrides": {},
+        "own_network": "mine",
+        "quality": "preview",
+        "simulation_name": "M1",
+        "stills": true,
+        "subject_id": "001",
+        "turntable": true,
+        "turntable_crossfade": true,
+        "turntable_frames": 96,
+        "web": false,
+        "width": 1600
+      },
+      "kind": "blender",
+      "subject_ids": [
+        "001"
+      ]
+    }
+  ],
+  "desktop": {
+    "accepts": true,
+    "reason": null
+  },
+  "expect": {
+    "blender_types": [
+      "TractVisualConfig"
+    ]
+  }
+}

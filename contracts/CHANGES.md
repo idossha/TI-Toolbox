@@ -1377,6 +1377,17 @@ absent fields reproduce the previous render. Behaviour that moves: a render's `w
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-06 — A network from the user's own file; the thalamocortical sequence is gone
+
+`TractVisualConfig` loses `thalamocortical_sequence`, `prune_keep_fraction` and `label_regions`, and gains
+`own_network`; `AssessConfig` gains `own_network`. New `GET` and `POST /api/tract/own` (a file body, refused with
+a 422 and the reason) with `TractOwnNetworks`, `TractOwnNetwork` and `TractOwnChecks`. `SimulationNetworks` gains
+`own_assessed`. A `TractVisualConfig` with a key it does not have is now refused at `-m tit.blender` as at
+`POST /api/jobs`, which corrects the entry below: a `network.json` written earlier carries the removed fields, so
+it no longer re-renders and its network is rendered again from the form. Regenerated
+`contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
 ## 2026-11-05 — A network's render is one figure, and its numbers are in network.json
 
 `TractVisualConfig` loses `views` and `region_labels` and gains `export_blend`; `width` and `height` are the

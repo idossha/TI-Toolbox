@@ -159,7 +159,14 @@ def _run_tract(data: dict, logger: logging.Logger) -> str | None:
     from tit.blender.config import TractVisualConfig
     from tit.blender.tract_publication import run_tract
 
-    config = deserialize_config(TractVisualConfig, data)
+    # Strict: an older network.json naming an option since removed must not render something else.
+    fields = {key: value for key, value in data.items() if key != "_type"}
+    try:
+        config = deserialize_config(TractVisualConfig, fields, strict=True)
+    except ValueError as exc:
+        raise ValueError(
+            f"This config asks for something this version no longer does: {exc}"
+        ) from exc
     return run_tract(config, logger_override=logger)
 
 

@@ -63,6 +63,7 @@ def test_simulation_networks_lists_trx_stems_and_finished_renders(tree):
     pm, _root, _outside = tree
     Path(pm.simulation("001", "simA")).mkdir(parents=True)
     assert catalog.simulation_networks(pm, "001", "simA") == {
+        "own_assessed": [],
         "networks": [],
         "assessed": [],
         "has_edges": False,

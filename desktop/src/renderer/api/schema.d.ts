@@ -4427,6 +4427,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tract/own": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The streamline files the user has loaded for this head model */
+        get: {
+            parameters: {
+                query: {
+                    subject: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Every file loaded for this subject, by name */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractOwnNetworks"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Load a streamline file made for this head model, after checking that it fits */
+        post: {
+            parameters: {
+                query: {
+                    subject: string;
+                    /** @description The file's own name */
+                    name: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            responses: {
+                /** @description Checked and kept under the subject */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TractOwnNetwork"];
+                    };
+                };
+                /** @description No such subject */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description The file exceeds the size limit */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description It cannot be read, or does not fit this head model */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tract/presets": {
         parameters: {
             query?: never;
@@ -6599,6 +6686,8 @@ export interface components {
             }[];
             /** @description Whether the assess stage has written this simulation's edges.json. */
             has_edges: boolean;
+            /** @description The files the user loaded that this simulation has assessed (tract/own_<name>/). */
+            own_assessed: string[];
             /** @description PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first. */
             renders: {
                 path: string;
@@ -9903,6 +9992,11 @@ export interface components {
          *         seeds. Its render is set up by :func:`tit.blender.network_setup.resolve_network_setup`, and
          *         outputs carry its name, so networks of one simulation coexist. Replaces every other network
          *         field, and the fields ``overrides`` can set.
+         *     own_network : str
+         *         A file the user loaded for this head model (:mod:`tit.tract.own`), which the tract job's assess
+         *         stage has assessed into ``tract/own_<name>/``. Every streamline in it is drawn, labelled or
+         *         not, and ``network.json`` records the file and what was checked. Replaces every other network
+         *         field, and the fields ``overrides`` can set.
          *     preset : str
          *         The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is
          *         drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated
@@ -9916,11 +10010,6 @@ export interface components {
          *         The side the lateral panel shows: -1 left, 1 right, 0 the side of the strongest field.
          *     iso_shell_percentile : float or None
          *         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
-         *     prune_keep_fraction : float or None
-         *         In a named-network turntable sequence, sweep away all but this fraction of the
-         *         streamlines, the strongest by mean TI_max along each, then name where they end.
-         *     label_regions : int
-         *         How many cortical regions the sequence names once pruned.
          *     turntable_crossfade : bool
          *         The turntable shows direction colours for its first half, crossfades over 2 s, then
          *         shows ``metric`` (a scalar metric) for the second half.
@@ -9939,12 +10028,6 @@ export interface components {
          *     quality : Quality
          *         ``final`` (32 samples per panel; videos 1920x1080 at 16) or ``preview`` (8 samples per
          *         panel; videos 960x540 at 6), for checking a choice before a long render.
-         *     thalamocortical_sequence : bool
-         *         One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40
-         *         parcels), each going from direction colours to TI_max on one shared window, pruned to
-         *         its strongest 15 % by mean TI_max, with the regions those fibres reach named in their
-         *         own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,
-         *         ``turntable``, ``propagation``, ``export_blend`` and the network fields must be off or empty.
          *     width, height : int
          *         The figure's size in pixels; each panel is a quarter of it.
          *     turntable_frames, turntable_degrees : int, float
@@ -10020,6 +10103,11 @@ export interface components {
             /** @default null */
             selection: components["schemas"]["Selection"] | null;
             /**
+             * Own Network
+             * @default
+             */
+            own_network: string;
+            /**
              * Preset
              * @default
              */
@@ -10045,16 +10133,6 @@ export interface components {
              * @default false
              */
             turntable_crossfade: boolean;
-            /**
-             * Prune Keep Fraction
-             * @default null
-             */
-            prune_keep_fraction: number | null;
-            /**
-             * Label Regions
-             * @default 5
-             */
-            label_regions: number;
             /**
              * Stills
              * @default true
@@ -10087,11 +10165,6 @@ export interface components {
             export_blend: boolean;
             /** @default final */
             quality: components["schemas"]["Quality"];
-            /**
-             * Thalamocortical Sequence
-             * @default false
-             */
-            thalamocortical_sequence: boolean;
             /**
              * Width
              * @default 4000
@@ -10406,6 +10479,31 @@ export interface components {
             missing: string[];
             /** @description Why it cannot be chosen; absent or null when it can. */
             reason?: string | null;
+        };
+        TractOwnChecks: {
+            coordinates: string;
+            n_streamlines: number;
+            n_points: number;
+            fraction_points_in_brain: number;
+            fraction_points_in_head: number;
+            minimum_fraction_in_brain: number;
+            checked_against: string;
+            not_proven: string;
+        };
+        TractOwnNetwork: {
+            name: string;
+            source_filename: string;
+            file: string;
+            sha256: string;
+            checks: components["schemas"]["TractOwnChecks"];
+            atlas: string;
+            n_streamlines: number;
+            n_both_ends_labelled: number;
+            n_unlabelled: number;
+            unlabelled_means: string;
+        };
+        TractOwnNetworks: {
+            networks: components["schemas"]["TractOwnNetwork"][];
         };
         TractPresets: {
             presets: components["schemas"]["TractPreset"][];
@@ -11678,6 +11776,9 @@ export interface components {
          *         profile_points: Nodes of the along-tract profiles.
          *         min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``
          *             ranking in ``summary.json`` (they stay in every raw output).
+         *         own_network: A file the user loaded for this head model (:mod:`tit.tract.own`), assessed in
+         *             place of the tractogram: every output goes to ``tract/own_<name>/``, so the simulation's
+         *             whole-tractogram outputs are not touched. ``selections`` is then ignored.
          */
         AssessConfig: {
             /** Simulations */
@@ -11706,6 +11807,11 @@ export interface components {
              * @default 5
              */
             min_streamlines: number;
+            /**
+             * Own Network
+             * @default
+             */
+            own_network: string;
         };
         /**
          * NetworkConfig

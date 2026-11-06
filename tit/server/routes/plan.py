@@ -809,6 +809,8 @@ def _plan_source(
 
 
 def _plan_tract(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob], None]:
+    from tit.tract.config import own_selection_name
+
     sid = config.subject_id
     tract_dir = pm.tractography(sid)
     jobs: list[PlanJob] = []
@@ -835,6 +837,20 @@ def _plan_tract(kind: str, pm: PathManager, config: Any) -> tuple[list[PlanJob],
     if "assess" in config.stages:
         for sim in config.assess.simulations:
             output_dir = os.path.join(pm.simulation(sid, sim), "tract")
+            if config.assess.own_network:
+                # A loaded file's outputs are a folder of their own, replaced together.
+                own = own_selection_name(config.assess.own_network)
+                output_dir = os.path.join(output_dir, own)
+                jobs.append(
+                    PlanJob(
+                        kind=kind,
+                        subject=sid,
+                        output_dir=output_dir,
+                        exists=_dir_exists(output_dir),
+                        will_overwrite=_dir_exists(output_dir),
+                    )
+                )
+                continue
             # A bundle is replaced, and adding one to the folder replaces nothing: the rest of
             # the folder covers every streamline whichever selections asked. With no selection
             # that rest is the job's whole output.
@@ -1041,13 +1057,30 @@ def _bundle_selection(pm: PathManager, config: Any) -> Any:
 
 def _network_setup(pm: PathManager, config: Any) -> dict[str, Any] | None:
     """A selection's automatic setup, from the same counts the render will read."""
+    from tit.blender.network_setup import resolve_network_setup
+    from tit.tract.config import Selection
+
+    own = (config.own_network or "").strip()
+    if own:
+        from tit.blender.tract_publication import network_slug
+        from tit.tract.own import own_counts
+
+        try:
+            pairs, counts, unlabelled = own_counts(pm, config.subject_id, own)
+        except OSError:
+            return None
+        selection = Selection(name=network_slug(config), kind="all", pairs=pairs)
+        setup = resolve_network_setup(
+            selection, counts, config.overrides, n_unlabelled=unlabelled
+        )
+        setup["opposite_removed"] = None
+        return setup
     selection = config.selection or _bundle_selection(pm, config)
     path = os.path.join(pm.tractography(config.subject_id), "network.npz")
     if selection is None or not os.path.isfile(path):
         return None
     import numpy as np
 
-    from tit.blender.network_setup import resolve_network_setup
     from tit.tract.presets import PRESETS, opposite_removed, resolve_preset
 
     with np.load(path, allow_pickle=False) as data:

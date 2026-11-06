@@ -45,7 +45,6 @@ from tit.blender.tract_publication import (
     planned_outputs,
     region_counts,
     replaced_outputs,
-    sequence_caption,
 )
 from tit.tract import geometry
 from tit.tract.config import Selection
@@ -265,8 +264,6 @@ def test_a_blend_needs_a_render_and_stays_out_of_the_sequence() -> None:
     assert config(export_blend=True, stills=False, turntable=True).export_blend
     with pytest.raises(ValueError, match="export_blend"):
         config(export_blend=True, stills=False)
-    with pytest.raises(ValueError, match="runs alone"):
-        config(thalamocortical_sequence=True, stills=False, export_blend=True)
 
 
 # ---- names: networks of one simulation coexist ----------------------------------------------
@@ -506,12 +503,6 @@ def test_no_metric_is_called_preferred_anywhere_in_a_record() -> None:
         assert word not in words
 
 
-def test_the_sequence_keeps_the_line_its_video_splits_on() -> None:
-    # tract_scene.render_sequence splits on " · n=": what is before names the subject, after the count.
-    assert sequence_caption("sub-x", 3, 3) == "sub-x · n=3 streamlines (all drawn)"
-    assert sequence_caption("sub-x", 3, 2) == "sub-x · n=3 streamlines (2 drawn, evenly sampled)"
-
-
 def test_crossing_twice_counts_only_kept_fibres_past_the_margin() -> None:
     from tit.blender.tract_publication import MIDLINE_MARGIN_MM, crossing_twice
 
@@ -675,20 +666,3 @@ def test_preset_ids_can_name_files_and_never_repeat() -> None:
     assert len(set(ids)) == len(ids)
     for preset_id in ids:
         Selection(name=preset_id)  # the name rule
-
-
-def test_the_posterior_preset_is_the_set_the_thalamocortical_sequence_draws() -> None:
-    from tit.blender.tract_publication import THALAMI as sequence_thalami
-    from tit.blender.tract_publication import THALAMOCORTICAL
-
-    found = next(p for p in PRESETS if p.id == "posterior_thalamocortical")
-    assert (
-        list(found.seeds) == sequence_thalami or tuple(found.seeds) == sequence_thalami
-    )
-    parcels = {
-        f"{h}.{parcel}"
-        for h in ("lh", "rh")
-        for parcel in THALAMOCORTICAL["posterior"][1]
-    }
-    assert set(found.targets) == parcels
-    assert len(parcels) == 18

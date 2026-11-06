@@ -20,6 +20,7 @@ export type TractVisualConfig = components["schemas"]["TractVisualConfig"];
 export type TractConfig = components["schemas"]["TractConfig"];
 export type MissingInput = components["schemas"]["MissingInput"];
 export type SimulationNetworks = components["schemas"]["SimulationNetworks"];
+export type OwnNetwork = components["schemas"]["TractOwnNetwork"];
 export type Region = components["schemas"]["Region"];
 export type NiftiLabel = components["schemas"]["NiftiLabel"];
 type PipelineConfig = components["schemas"]["PipelineConfig"];
@@ -48,6 +49,27 @@ export async function getAtlasRegions(subject: string, atlas: string): Promise<R
 export async function getNiftiLabels(subject: string, path?: string): Promise<NiftiLabel[]> {
   const p = "/api/catalog/nifti/labels";
   return unwrap(await api.GET(p, { params: { query: { subject, path: path || undefined } } }), p);
+}
+
+/** The streamline files the user has loaded for this head model (`tit/tract/own.py`). */
+export async function getOwnNetworks(subject: string): Promise<OwnNetwork[]> {
+  const path = "/api/tract/own";
+  return unwrap(await api.GET(path, { params: { query: { subject } } }), path).networks;
+}
+
+/** Sends a file to be checked and kept; a file that does not fit is refused in the server's words. */
+export async function loadOwnNetwork(file: File, subject: string): Promise<OwnNetwork> {
+  const response = await fetch(`/api/tract/own?name=${encodeURIComponent(file.name)}&subject=${encodeURIComponent(subject)}`, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: file,
+  });
+  if (!response.ok) {
+    const error = (await response.json().catch(() => null)) as { detail?: unknown } | null;
+    throw new Error(typeof error?.detail === "string" ? error.detail : `Could not load this file (${response.status}).`);
+  }
+  return (await response.json()) as OwnNetwork;
 }
 
 /** The simulation's `tract/*.trx` stems and the PNG and MP4 files rendered from them. */

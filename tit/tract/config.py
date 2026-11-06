@@ -28,6 +28,11 @@ SELECTION_KINDS = (
 )
 
 
+def own_selection_name(name: str) -> str:
+    """A user's file's network, in its folders: never one chosen by region, whatever its name."""
+    return f"own_{name}"
+
+
 def _positive(value: float, name: str) -> None:
     if not value > 0:
         raise ValueError(f"{name} must be > 0 (was {value!r})")
@@ -171,6 +176,9 @@ class AssessConfig:
         profile_points: Nodes of the along-tract profiles.
         min_streamlines: Edges with fewer streamlines are left out of the ``top_edges``
             ranking in ``summary.json`` (they stay in every raw output).
+        own_network: A file the user loaded for this head model (:mod:`tit.tract.own`), assessed in
+            place of the tractogram: every output goes to ``tract/own_<name>/``, so the simulation's
+            whole-tractogram outputs are not touched. ``selections`` is then ignored.
     """
 
     simulations: list[str] = field(default_factory=list)
@@ -180,6 +188,7 @@ class AssessConfig:
     thresholds: list[float] = field(default_factory=list)
     profile_points: int = 100
     min_streamlines: int = 5
+    own_network: str = ""
 
     def __post_init__(self) -> None:
         _positive(self.step_mm, "step_mm")

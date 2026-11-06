@@ -42,6 +42,7 @@ import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/
 import { emptyRoi, type NetworkRoiValue, type RoiValue } from "../../_shared/roi/types";
 import { NetworkChooser, NETWORK_NAME_RE, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
 import { AssessNetworks } from "./AssessNetworks";
+import { OwnNetworkPicker } from "./OwnNetworkPicker";
 import { NetworkAdvanced, type NetworkSetupRecord } from "./NetworkSetup";
 import { isPicture, NetworkRenders } from "./NetworkRenders";
 import { ExportPreview } from "./ExportPreview";
@@ -53,19 +54,19 @@ import {
   buildMontageConfig,
   buildNetworkAssessConfig,
   buildNetworkConfig,
+  buildOwnAssessConfig,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
   networkPlanLine,
+  CHOOSE_A_FILE,
   CHOOSE_A_NETWORK,
   NAME_IS_RESERVED,
   NAME_THE_NETWORK,
-  NO_NETWORK_OUTPUTS,
   NO_RECORDED_NET,
   outputHint,
   PERCENTILE_ORDER,
   parseLabels,
-  SEQUENCE_NEEDS_ALL,
   type Mode,
   type NetworksForm,
 } from "./config";
@@ -156,15 +157,14 @@ function VisualExporterPanel() {
 
   // Networks
   const [networkValue, setNetworkValue] = usePageSession<NetworkRoiValue>("networkValue", FRESH_NETWORK);
-  const [networkFromFile, setNetworkFromFile] = usePageSession("networkFromFile", false);
+  const [networkOwnFile, setNetworkOwnFile] = usePageSession("networkOwnFile", false);
+  const [ownNetwork, setOwnNetwork] = usePageSession("ownNetwork", "");
   const [networkOverrides, setNetworkOverrides] = usePageSession<Record<string, unknown>>("networkOverrides", {});
-  const [network, setNetwork] = usePageSession("network", "");
   const [networkMetric, setNetworkMetric] = usePageSession<NetworksForm["metric"]>("networkMetric", "direction");
   const [networkStills, setNetworkStills] = usePageSession("networkStills", true);
   const [networkTurntable, setNetworkTurntable] = usePageSession("networkTurntable", false);
   const [networkExportBlend, setNetworkExportBlend] = usePageSession("networkExportBlend", false);
   const [networkQuality, setNetworkQuality] = usePageSession<NetworksForm["quality"]>("networkQuality", "preview");
-  const [networkSequence, setNetworkSequence] = usePageSession("networkSequence", false);
 
   const [submitting, setSubmitting] = useState(false);
   /** The jobs a 409 left unqueued, awaiting the existing-outputs decision. */
@@ -185,11 +185,11 @@ function VisualExporterPanel() {
     queryFn: () => getSimulationNetworks(subjectId, simulationName),
     enabled: mode === "networks" && !!subjectId && !!simulationName,
   });
-  const networks = networksQuery.data?.networks ?? [];
-  const chosenNetwork = networks.includes(network) ? network : networks.includes("all") ? "all" : (networks[0] ?? "");
   const onNetworkChange = (value: RoiValue) => setNetworkValue(value as NetworkRoiValue);
-  // A chosen network is what this tab renders, unless the sequence or an existing file was asked for.
-  const chooserActive = mode === "networks" && !networkSequence && !networkFromFile;
+  // A chosen network is what this tab renders, unless the user's own file was asked for.
+  const chooserActive = mode === "networks" && !networkOwnFile;
+  const ownActive = mode === "networks" && networkOwnFile;
+  const ownNeedsAssess = ownActive && !!ownNetwork && !!networksQuery.data && !networksQuery.data.own_assessed.includes(ownNetwork);
   const selection = useMemo(() => (chooserActive && networkValue.pairs.length > 0 ? networkSelection(networkValue) : null), [chooserActive, networkValue]);
   // The count an assessed bundle must hold to be this network, from the same answer the picker shows.
   const countQuery = useQuery({
@@ -262,14 +262,13 @@ function VisualExporterPanel() {
   if (mode === "networks" && clientErrors.length === 0) {
     if (networksQuery.isPending) clientErrors.push("Reading this simulation's network outputs…");
     else if (networksQuery.error) clientErrors.push(networksQuery.error.message);
-    else if (networkSequence && !networks.includes("all")) clientErrors.push(SEQUENCE_NEEDS_ALL);
-    else if (networkFromFile && networks.length === 0) clientErrors.push(NO_NETWORK_OUTPUTS);
+    else if (ownActive && !ownNetwork) clientErrors.push(CHOOSE_A_FILE);
     else if (chooserActive && !selection) clientErrors.push(CHOOSE_A_NETWORK);
     else if (chooserActive && !NETWORK_NAME_RE.test(networkValue.name)) clientErrors.push(NAME_THE_NETWORK);
     else if (chooserActive && networkValue.name === "all") clientErrors.push(NAME_IS_RESERVED);
     else if (chooserActive && countQuery.error) clientErrors.push(countQuery.error.message);
     else if (chooserActive && assessing === null) clientErrors.push("Reading this network's streamline count…");
-    else if (!networkSequence && !networkStills && !networkTurntable) clientErrors.push("Choose a figure, a turntable or both.");
+    else if (!networkStills && !networkTurntable) clientErrors.push("Choose a figure, a turntable or both.");
   }
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
@@ -334,13 +333,12 @@ function VisualExporterPanel() {
             selection,
             preset: networkValue.how === "preset" ? networkValue.preset : undefined,
             overrides: networkOverrides,
-            network: chosenNetwork,
+            ownNetwork: ownActive ? ownNetwork : undefined,
             metric: networkMetric,
             stills: networkStills,
             turntable: networkTurntable,
             exportBlend: networkExportBlend,
             quality: networkQuality,
-            sequence: networkSequence,
           }),
         ];
     }
@@ -376,13 +374,13 @@ function VisualExporterPanel() {
     networkValue.how,
     networkValue.preset,
     networkOverrides,
-    chosenNetwork,
+    ownActive,
+    ownNetwork,
     networkMetric,
     networkStills,
     networkTurntable,
     networkExportBlend,
     networkQuality,
-    networkSequence,
   ]);
 
   // The plan and the validation speak for the first config; the regions mode submits two jobs
@@ -413,7 +411,7 @@ function VisualExporterPanel() {
       return;
     }
     // The plan answers first, so the question comes before the assess job is queued.
-    if (selection && (assessing === "replace" || planQuery.data?.jobs.some((job) => job.will_overwrite))) {
+    if ((selection || ownActive) && (assessing === "replace" || planQuery.data?.jobs.some((job) => job.will_overwrite))) {
       setRefused(configs);
       return;
     }
@@ -431,12 +429,17 @@ function VisualExporterPanel() {
         jobs.trackJob(assess);
         after.push(assess.id);
       }
+      if (ownNeedsAssess) {
+        const assess = await createTractJob(buildOwnAssessConfig(subjectId, simulationName, ownNetwork), subjectId, overwrite);
+        jobs.trackJob(assess);
+        after.push(assess.id);
+      }
       for (const config of batch) {
         jobs.trackJob(await createBlenderJob(config, [subjectId], overwrite, after));
         queued += 1;
       }
       const n = batch.length;
-      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName, selection?.name ?? (networkSequence ? "thalamocortical_sequence" : chosenNetwork))}`);
+      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName, ownActive ? `own_${ownNetwork}` : selection?.name)}`);
     } catch (error) {
       // The export exists: ask, and on Replace resend only the jobs not already queued.
       if (!overwrite && isExistingOutputsConflict(error)) setRefused(batch.slice(queued));
@@ -462,16 +465,16 @@ function VisualExporterPanel() {
           planLine={
             mode === "networks"
               ? networkPlanLine({
-                  jobs: 1 + (selection && assessing && assessing !== "ready" ? 1 : 0),
+                  jobs: 1 + ((selection && assessing && assessing !== "ready") || ownNeedsAssess ? 1 : 0),
                   memGb: planQuery.data?.cost.mem_gb,
-                  network: selection?.name ?? (networkFromFile ? chosenNetwork : undefined),
-                  streamlines: countQuery.data,
+                  network: ownActive ? ownNetwork : selection?.name,
+                  streamlines: ownActive ? undefined : countQuery.data,
                   blendMb,
                   replaced: replacedFiles,
                 })
               : undefined
           }
-          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.filter(isPicture).length}`, content: <NetworkRenders renders={networkRenders} current={networkFromFile ? chosenNetwork : selection?.name} /> } : undefined}
+          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.filter(isPicture).length}`, content: <NetworkRenders renders={networkRenders} current={ownActive ? `own_${ownNetwork}` : selection?.name} /> } : undefined}
           sceneFocusKey={mode === "networks" && chooserActive ? `${networkValue.how}|${networkValue.preset}|${networkValue.pairs.length}|${networkValue.includeOpposite}` : undefined}
           plan={<>
             <PlanSummary plan={planQuery.data} loading={loading}
@@ -481,6 +484,11 @@ function VisualExporterPanel() {
               <p className="field-help" data-testid="ve-assess-first">
                 {assessing === "replace" ? `Replaces this simulation's ${selection.name}.trx, which holds other edges. ` : ""}
                 A tract job assesses this network first (about 3 min: fields along every streamline), and the render waits for it.
+              </p>
+            )}
+            {ownNeedsAssess && (
+              <p className="field-help" data-testid="ve-assess-first">
+                A tract job assesses this file first (fields along every streamline), and the render waits for it.
               </p>
             )}
             {plannedFiles.length > 0 && (
@@ -547,7 +555,7 @@ function VisualExporterPanel() {
                         setLabelIds([]);
                         setLabelsText("");
                         setNiftiPath("");
-                        setNetwork("");
+                        setOwnNetwork("");
                         setNetworkValue(FRESH_NETWORK);
                       }}
                       options={subjectOptions}
@@ -763,27 +771,6 @@ function VisualExporterPanel() {
                     <p className="field-help">Choose a simulation to render its networks.</p>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
-                      <Checkbox
-                        checked={networkSequence}
-                        onCheckedChange={setNetworkSequence}
-                        label="Thalamocortical sequence: frontal, then posterior"
-                      />
-                      {networkSequence ? (
-                        <>
-                          <p className="field-help">
-                            One video of all.trx: each network goes from fibre direction to TI_max on one colour window, is pruned to its strongest 15 % by mean
-                            TI_max, and names the regions those fibres reach. Takes many hours inside the emulated container; re-render its bundle in a local Blender to
-                            finish sooner.
-                          </p>
-                          {!networks.includes("all") && !networksQuery.isPending && (
-                            <div data-testid="ve-networks-empty">
-                              <p className="field-help">{SEQUENCE_NEEDS_ALL}</p>
-                              <AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />
-                            </div>
-                          )}
-                        </>
-                      ) : (
-                        <>
                           <NetworkChooser
                             value={networkValue}
                             onChange={onNetworkChange}
@@ -792,22 +779,12 @@ function VisualExporterPanel() {
                             defaultHow="preset"
                             nameLabel="Network name"
                             nameHelp="Letters, digits, _ and -. It names this network's files, so networks of one simulation sit side by side."
-                            strongestEmpty={<AssessNetworks connectionsOnly subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />}
+                            strongestEmpty={<AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />}
                             extra={{
-                              label: "Existing file",
-                              active: networkFromFile,
-                              onSelect: () => setNetworkFromFile(!networkFromFile),
-                              content:
-                                networks.length === 0 && !networksQuery.isPending ? (
-                                  <div data-testid="ve-networks-empty">
-                                    <p className="field-help">{NO_NETWORK_OUTPUTS}</p>
-                                    <AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />
-                                  </div>
-                                ) : (
-                                  <Field label="Network" htmlFor="ve-network" help="Simulations/<sim>/tract/<name>.trx. all draws the run's strongest edges.">
-                                    <Select id="ve-network" value={chosenNetwork || undefined} onValueChange={setNetwork} options={networks.map((name) => ({ value: name, label: name }))} />
-                                  </Field>
-                                ),
+                              label: "Your own file",
+                              active: networkOwnFile,
+                              onSelect: () => setNetworkOwnFile(!networkOwnFile),
+                              content: <OwnNetworkPicker subject={subjectId} value={ownNetwork} onChange={setOwnNetwork} />,
                             }}
                           />
                           <Field label="Colour by" htmlFor="ve-network-metric">
@@ -821,11 +798,7 @@ function VisualExporterPanel() {
                           <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Figure: lateral, top, front and back" />
                           <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />
                           <Checkbox checked={networkExportBlend} onCheckedChange={setNetworkExportBlend} label="Export .blend" />
-                          {!(networkFromFile && chosenNetwork === "all") && (
-                            <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} setup={networkSetup} />
-                          )}
-                        </>
-                      )}
+                          <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} setup={networkSetup} />
                       <Field label="Quality" htmlFor="ve-network-quality" help="Fast preview samples and sizes less, to check a choice before a long render.">
                         <Select
                           id="ve-network-quality"

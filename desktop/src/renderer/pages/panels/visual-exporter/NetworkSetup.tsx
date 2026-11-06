@@ -168,6 +168,7 @@ export function NetworkAdvanced({ subject, overrides, onChange, setup, disabled 
           headers={{ label: "Region", detail: "Kind" }}
           filterPlaceholder="Filter regions…"
           idPrefix="ve-setup-lit"
+          triggerTestId="ve-setup-lit"
           placeholder="Automatic"
           disabled={disabled}
         />

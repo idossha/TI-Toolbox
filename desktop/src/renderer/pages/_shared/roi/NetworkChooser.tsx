@@ -52,7 +52,7 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
   nameHelp: string;
   /** What the Strongest tab offers while this simulation has no assessed edges. */
   strongestEmpty?: ReactNode;
-  /** One more way in, beside the four (an existing bundle file). */
+  /** One more way in, beside the four (the user's own file). A subject with no network has only this. */
   extra?: { label: string; active: boolean; onSelect: () => void; content: ReactNode };
 }) {
   const manifest = useTractManifest(subject);
@@ -154,6 +154,7 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
           Run tractography…
         </Button>
         <TractJobDialog open={jobOpen} onOpenChange={setJobOpen} subjects={[subject]} />
+        {extra && (extra.active ? extra.content : <Button variant="secondary" size="sm" disabled={disabled} onClick={extra.onSelect}>{extra.label}</Button>)}
       </div>
     );
   }

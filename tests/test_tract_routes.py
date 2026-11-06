@@ -1121,6 +1121,103 @@ def test_the_gallery_reads_a_figure_a_video_a_scene_and_an_older_folder(
     }
 
 
+def test_a_loaded_file_is_kept_after_its_checks_and_a_refusal_is_said_plainly(
+    client: TestClient, project: Path, monkeypatch
+) -> None:
+    from tit.tract import own
+
+    assert client.get("/api/tract/own", params={"subject": "S1"}).json() == {
+        "networks": []
+    }
+
+    def post(name: str, body: bytes = b"bytes"):
+        return client.post(
+            "/api/tract/own",
+            params={"subject": "S1", "name": name},
+            content=body,
+            headers={"content-type": "application/octet-stream"},
+        )
+
+    assert "choose a .trx, .tck or .trk" in post("mask.nii").json()["detail"]
+    assert post("mine.tck", b"").json()["detail"] == "This file is empty."
+    assert post("mine.tck", b"").status_code == 422
+    assert post("x.tck", b"bytes").status_code == 422  # nibabel is mocked: no streamlines
+
+    record = {
+        "name": "mine",
+        "source_filename": "mine.tck",
+        "file": "mine.tck",
+        "sha256": "0",
+        "checks": {
+            "coordinates": "world",
+            "n_streamlines": 2,
+            "n_points": 10,
+            "fraction_points_in_brain": 1.0,
+            "fraction_points_in_head": 1.0,
+            "minimum_fraction_in_brain": 0.95,
+            "checked_against": "final_tissues.nii.gz",
+            "not_proven": "cannot prove",
+        },
+        "atlas": "DK40",
+        "n_streamlines": 2,
+        "n_both_ends_labelled": 1,
+        "n_unlabelled": 1,
+        "unlabelled_means": "far",
+    }
+    monkeypatch.setattr(own, "store", lambda *a: record)
+    answer = post("mine.tck")
+    assert answer.status_code == 201
+    assert answer.json()["checks"]["not_proven"] == "cannot prove"
+
+
+def test_a_loaded_files_assess_and_render_write_its_own_folders(
+    client: TestClient, project: Path
+) -> None:
+    def plan(kind: str, config: dict) -> dict:
+        return client.post(
+            f"/api/plan/{kind}", json={"config": config, "subject_ids": ["S1"]}
+        ).json()
+
+    assess = plan(
+        "tract",
+        {
+            "subject_id": "S1",
+            "stages": ["assess"],
+            "assess": {"simulations": ["sim1"], "selections": [], "own_network": "mine"},
+        },
+    )
+    assert assess["jobs"][0]["output_dir"].endswith("sim1/tract/own_mine")
+    render = plan(
+        "blender",
+        {
+            "_type": "TractVisualConfig",
+            "subject_id": "S1",
+            "simulation_name": "sim1",
+            "own_network": "mine",
+            "metric": "ti_max",
+        },
+    )
+    assert render["jobs"][0]["output_dir"].endswith("networks/own_mine")
+    assert render["cost"]["mem_gb"] == 6
+
+
+def test_a_config_may_not_name_a_loaded_file_and_another_network() -> None:
+    from tit.blender.config import TractVisualConfig
+    from tit.tract.config import Selection
+
+    with pytest.raises(ValueError, match="own_network is the network"):
+        TractVisualConfig("S1", "sim1", own_network="mine", network_bundle="cst")
+    with pytest.raises(ValueError, match="kind must be 'edges'"):
+        TractVisualConfig(
+            "S1",
+            "sim1",
+            own_network="mine",
+            selection=Selection(name="x", kind="edges", pairs=[["a", "b"]]),
+        )
+    with pytest.raises(ValueError, match="letters, digits"):
+        TractVisualConfig("S1", "sim1", own_network="../escape")
+
+
 def test_two_jobs_claim_one_blend_but_a_colour_each() -> None:
     from tit.server.overwrite_policy import _network_claims
 

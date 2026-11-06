@@ -41,7 +41,7 @@ def test_only_montage_reserves_full_blender_memory(config_type, memory_gb):
         ({"network_bundle": "x", "network_top_edges": 0}, 6),
         # The config's default foregrounds top edges from the whole tractogram too.
         ({"network_bundle": "x"}, 16),
-        ({"thalamocortical_sequence": True}, 16),
+        ({"own_network": "mine"}, 6),
         ({}, 16),
     ],
 )

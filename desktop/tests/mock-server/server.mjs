@@ -760,12 +760,13 @@ function isTractAssess(cfg) {
 }
 function assessReplaces(subject, cfg) {
   const outputs = simulationNetworks[`${subject}/${cfg.assess?.simulations?.[0]}`];
+  if (cfg.assess?.own_network) return !!outputs?.own_assessed?.includes(cfg.assess.own_network);
   const names = (cfg.assess?.selections ?? [{ name: "all" }]).map((s) => s.name);
   return !!outputs && (names.length ? names.some((name) => outputs.networks.includes(name)) : outputs.has_edges);
 }
 /** `tit.blender.tract_publication.network_slug`. */
 function tractNetworkName(cfg) {
-  return cfg.thalamocortical_sequence ? "thalamocortical_sequence" : (cfg.selection?.name ?? cfg.network_bundle ?? "all");
+  return cfg.own_network ? `own_${cfg.own_network}` : (cfg.selection?.name ?? cfg.network_bundle ?? "all");
 }
 function tractRendersOf(subject, cfg) {
   return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).filter((r) => r.network === tractNetworkName(cfg));
@@ -1648,6 +1649,7 @@ function finishJob(job) {
         const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
         const selections = cfg.assess.selections ?? [];
         simulationNetworks[key] = {
+          own_assessed: [...new Set([...(earlier.own_assessed ?? []), ...(cfg.assess.own_network ? [cfg.assess.own_network] : [])])],
           networks: [...new Set([...earlier.networks, ...selections.map((s) => s.name)])].sort(),
           assessed: [
             ...earlier.assessed.filter((a) => !selections.some((s) => s.name === a.name)),
@@ -1658,7 +1660,7 @@ function finishJob(job) {
         };
       }
     }
-    if (job.status.kind === "blender" && cfg._type === "TractVisualConfig" && cfg.selection) {
+    if (job.status.kind === "blender" && cfg._type === "TractVisualConfig" && (cfg.selection || cfg.own_network)) {
       const key = `${cfg.subject_id}/${cfg.simulation_name}`;
       const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
       const network = tractNetworkName(cfg);
@@ -2495,7 +2497,8 @@ route("GET", "/api/catalog/simulations/:name/networks", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   const sim = (simulations[subject] ?? []).find((s) => s.name === ctx.params.name);
   if (!sim) return json(ctx.res, 404, { detail: "unknown subject or simulation" });
-  json(ctx.res, 200, simulationNetworks[`${subject}/${ctx.params.name}`] ?? { networks: [], assessed: [], has_edges: false, renders: [] });
+  const networks = simulationNetworks[`${subject}/${ctx.params.name}`] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
+  json(ctx.res, 200, { own_assessed: [], ...networks });
 });
 route("GET", "/api/catalog/analyses", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
@@ -2929,6 +2932,23 @@ const TRACT_PRESETS = [
   { id: "cingulate_cortical", label: "Cingulate-cortical", seeds: [], same_side: false, pairs: [], n_edges: 0, n_streamlines: 0, ...noOpposite, missing: ["lh.posteriorcingulate"], reason: "These labels are not in this network: lh.posteriorcingulate" },
   { id: "amygdala_cortical", label: "Amygdala-cortical", seeds: ["Left-Amygdala"], same_side: false, pairs: [], n_edges: 0, n_streamlines: 0, ...noOpposite, missing: [], reason: "0 streamlines join these regions in this network." },
 ];
+const ownNetworks = new Map();
+/** `tit/tract/own.py`: a name must be a streamline file, an empty body is refused, "shifted" stands for a file in another space. */
+route("GET", "/api/tract/own", (ctx) => json(ctx.res, 200, { networks: ownNetworks.get(ctx.url.searchParams.get("subject")) ?? [] }));
+route("POST", "/api/tract/own", async (ctx) => {
+  const name = ctx.url.searchParams.get("name") ?? "";
+  const subject = ctx.url.searchParams.get("subject");
+  const stem = name.replace(/\.(trx|tck|trk)$/i, "");
+  if (stem === name) return json(ctx.res, 422, { detail: `${name} is not a streamline file: choose a .trx, .tck or .trk file.` });
+  if (stem.includes("shifted")) return json(ctx.res, 422, { detail: "Only 0.0% of this file's points fall inside this head model's brain (at least 95% is needed; 0.0% are inside the head)." });
+  const record = {
+    name: stem, source_filename: name, file: name, sha256: "0", atlas: "DK40", n_streamlines: 100, n_both_ends_labelled: 90, n_unlabelled: 10,
+    unlabelled_means: "an end more than 3 mm from any DK40 region",
+    checks: { coordinates: "read as world RAS mm, not transformed", n_streamlines: 100, n_points: 5000, fraction_points_in_brain: 1, fraction_points_in_head: 1, minimum_fraction_in_brain: 0.95, checked_against: "final_tissues.nii.gz", not_proven: "They cannot prove the file was made for this subject." },
+  };
+  ownNetworks.set(subject, [...(ownNetworks.get(subject) ?? []).filter((r) => r.name !== stem), record]);
+  json(ctx.res, 201, record);
+});
 route("GET", "/api/tract/presets", (ctx) => {
   const subject = ctx.url.searchParams.get("subject");
   if (tractSubjectProblem(ctx.res, subject)) return;
@@ -3860,6 +3880,7 @@ route("POST", "/api/__mock/reset", (ctx) => {
   capsProject.clear();
   project.host_path = FIXTURE_HOST_PATH;
   simulationNetworks = loadJson("simulation_networks.json");
+  ownNetworks.clear();
   json(ctx.res, 200, { jobs_cleared: cleared });
 });
 // Mock-only: switch the project the overview routes describe (3 or 30 subjects). See

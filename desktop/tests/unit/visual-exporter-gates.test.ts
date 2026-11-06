@@ -59,7 +59,9 @@ vi.mock("../../src/renderer/pages/panels/visual-exporter/api", () => ({
   getSimulationsFor: vi.fn(async () => Object.keys(RECORDS).map((name) => ({ name, path: `${SIM_ROOT}/${name}` }))),
   getAtlasRegions: vi.fn(async () => []),
   getNiftiLabels: vi.fn(async () => []),
-  getSimulationNetworks: vi.fn(async (_subject: string, name: string) => ({ assessed: [], has_edges: false, renders: [], networks: name === "no_tracts" ? [] : name === "bundles_only" ? ["cst_lh"] : ["all"] })),
+  getOwnNetworks: vi.fn(async () => []),
+  loadOwnNetwork: vi.fn(),
+  getSimulationNetworks: vi.fn(async (_subject: string, name: string) => ({ assessed: [], own_assessed: ["mine"], has_edges: false, renders: [], networks: name === "no_tracts" ? [] : name === "bundles_only" ? ["cst_lh"] : ["all"] })),
   validateBlender: vi.fn(async () => ({ ok: true, errors: [] })),
   planBlender: vi.fn(async () => ({ jobs: [], lock_conflicts: [], cost: { cpus: 1, mem_gb: 1 }, warnings: [] })),
   createBlenderJob: vi.fn(async () => ({ id: "job" })),
@@ -129,24 +131,18 @@ describe("visual exporter networks gate", () => {
     expect(submitted).toEqual([]);
   });
 
-  it("refuses an existing file of a simulation with none, and says where they come from", async () => {
-    const { title, submitted } = await render({ mode: "networks", subjectId: "101", simulationName: "no_tracts", networkFromFile: true });
-    expect(title).toBe("This simulation has no network outputs yet. They come from the tract job's assess stage.");
-    expect(submitted).toEqual([]);
-  });
-
-  it("refuses the sequence without all.trx, while that simulation's bundle still renders", async () => {
-    const base = { mode: "networks", subjectId: "101", simulationName: "bundles_only" };
-    const refused = await render({ ...base, networkSequence: true });
-    expect(refused.title).toBe("The thalamocortical sequence reads all.trx, which this simulation does not have.");
+  it("asks for a file before Your own file can run, and then renders it", async () => {
+    const base = { mode: "networks", subjectId: "101", simulationName: "bundles_only", networkOwnFile: true };
+    const refused = await render(base);
+    expect(refused.title).toBe("Load a file, or choose one already loaded.");
     expect(refused.submitted).toEqual([]);
-    const bundle = await render({ ...base, networkFromFile: true });
-    expect(bundle.title).toBeNull();
-    expect(bundle.submitted).toEqual([expect.objectContaining({ _type: "TractVisualConfig", tractogram: "cst_lh.trx", network_bundle: "cst_lh" })]);
+    const chosen = await render({ ...base, ownNetwork: "mine" });
+    expect(chosen.title).toBeNull();
+    expect(chosen.submitted).toEqual([expect.objectContaining({ _type: "TractVisualConfig", own_network: "mine" })]);
   });
 
   it("refuses a run that would render nothing", async () => {
-    const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula", networkFromFile: true };
+    const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula", networkOwnFile: true, ownNetwork: "mine" };
     expect((await render({ ...base, networkStills: false })).title).toBe("Choose a figure, a turntable or both.");
     expect((await render({ ...base, networkStills: false, networkExportBlend: true })).title).toBe("Choose a figure, a turntable or both.");
     expect((await render({ ...base, networkTurntable: true, networkStills: false })).title).toBeNull();

@@ -56,10 +56,11 @@ own.
 - **Strongest here:** the top N connections of this simulation in a metric you name. None is
   preselected and none is recommended. It reads the simulation's edge table, which **Assess
   connections** writes if the simulation has none yet.
-- **Existing file** draws a `.trx` already in `Simulations/<sim>/tract/`.
+- **Your own file** loads a tractogram you made for this head model, as TRX, TCK or TRK, in the head
+  model's world coordinates in millimetres. See [below](#your-own-network-file).
 
-The same choosing appears in the Optimizer's Network target, apart from Strongest here, so a mask and a
-render can come from one definition.
+The same choosing appears in the Optimizer's Network target, apart from Strongest here and Your own file,
+so a mask and a render can come from one definition.
 
 **Same-side thalamocortical networks.** Thalamocortical networks keep same-hemisphere connections by
 default, following common tractography practice, because crossed streamlines are often artefactual;
@@ -150,24 +151,26 @@ Other options:
   which it holds. The Plan states its approximate size, and `network.json` its size in bytes.
 - **Quality:** **Fast preview** (a 1600x1600 figure, a 4 s turntable at 960x540) checks a choice before
   **Final** (a 4000x4000 figure, a 5 s turntable at 1920x1080).
-- **Thalamocortical sequence:** one video of `all.trx` in which the frontal, then the posterior
-  thalamocortical network goes from fibre direction to TI_max on one colour window, is pruned to the
-  strongest 15 % of its streamlines by mean TI_max, and names the cortical regions those fibres reach
-  in their own colours, inside a translucent thalamus. Region names use DK40 parcels. It draws every
-  thalamocortical edge and needs `all.trx`, which **Assess networks** writes (about 0.4 GB per
-  simulation at 200,000 seeds).
-
 Every colour shows a field descriptor along the fibres, not a prediction of activation.
 
-Renders run in the container's Blender. On Apple Silicon that is emulated: a preview frame takes
-about a minute, so a sequence (864 frames, 216 in a preview) takes many hours, while a local Blender
-renders the same frame in seconds. To use one, run the job, stop it once its bundles exist under
-`networks/thalamocortical_sequence/`, and re-render them:
+Renders run in the container's Blender. On Apple Silicon that is emulated, so a preview frame takes about
+a minute. A bundle kept with `keep_bundle` in the config renders in seconds in a local Blender.
 
-```bash
-blender --background --factory-startup --python tit/blender/tract_scene.py -- sequence \
-  bundle_frontal/manifest.json bundle_posterior/manifest.json <output_dir> <name> [preview]
-```
+#### Your own network file
+
+Pick the file and the toolbox stores it under the subject, at `tractography/own/`. It is checked before
+anything is queued, and refused with the reason if it has no streamlines, has points that are not
+numbers, or has fewer than 95 % of its points inside this head model's brain. Coordinates are never moved
+or converted: a file in another space (for example QSIPrep's ACPC) is refused, not fixed.
+
+The checks show the streamlines fall inside this head model's brain. They cannot prove the file was made for
+this subject: another subject's file in a similar space, or one flipped left to right, can pass.
+
+Each streamline's two ends get a region from the head model's atlas, and the form says how many have an end
+in no region. Those are still drawn. **Run** assesses the file on the simulation first if needed, then
+renders every streamline with the same automatic setup as any network, to
+`networks/own_<name>/`. `network.json` records the source filename, the checks and the unlabelled count under
+`metrics.source`. A file cannot be a target in the Optimizer.
 
 ### Cortical Regions
 

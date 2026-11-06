@@ -44,20 +44,6 @@ SHELL_COLOUR, SHELL_STRENGTH = (1.0, 0.66, 0.36), 0.05
 NETWORK_RECEDE = {"glass": 0.55, "scalp": 0.5, "electrode": 0.45}
 #: Cortical patch glow in network renders: lit * (PATCH_BASE + PATCH_RIM * rim).
 PATCH_BASE, PATCH_RIM = 0.05, 0.16
-#: Fibres fade to NEAR_MIN opacity within NEAR_MM of the thalami.
-NEAR_MM, NEAR_MIN = 6.0, 0.3
-#: Patch glow (base, rim): every fibre's terminals, and the kept fibres' at labelling.
-PATCH_ALL, PATCH_KEPT = (0.04, 0.12), (0.1, 0.24)
-LABEL_COLOUR = (1.0, 0.9, 0.78)
-#: Labelled regions, one colour each (sRGB): clear of the plasma fibres and the amber thalami.
-LABEL_PALETTE = (
-    ("teal", (0.18, 0.82, 0.74)),
-    ("sky blue", (0.33, 0.62, 1.0)),
-    ("green", (0.42, 0.86, 0.38)),
-    ("violet", (0.64, 0.48, 1.0)),
-    ("light blue", (0.5, 0.84, 1.0)),
-    ("mint", (0.6, 1.0, 0.78)),
-)
 #: Frames a turntable crossfade from direction colours to the scalar metric takes.
 CROSSFADE_FRAMES = 48
 #: Glass brain rim emission (lighter than the scalp's ghost would make it).
@@ -77,7 +63,6 @@ VIDEO_SIZE = (1920, 1080)
 PANEL_FILL = 0.94
 #: The figure frames the head down to the chin, this far below the brain, not the neck under it.
 CHIN_BELOW_BRAIN_MM = 55.0
-PREVIEW_FRAME_STEP = 4
 CAPTION_4D = (
     "Fronts run from each fibre's field maximum to both ends; brightness = that fibre's peak "
     "TI envelope along the fibre.\nA depiction of where the stimulated fibres project, not a "
@@ -273,17 +258,10 @@ def fibre_material(
     name: str = "Fibres",
     metric: str | None = None,
     crossfade=None,
-    fade=None,
-    visible=None,
-    prune=None,
-    near: bool = False,
 ):
     """Fibre (or colour-bar) emission.
 
-    *visible* keys the fibres in and out (dithered transparency, two networks taking turns).
-
-    *crossfade* keys a mix from direction colours (0) to the manifest's metric (1); *fade*
-    keys the whole material's strength over transparency (a colour bar that fades out).
+    *crossfade* keys a mix from direction colours (0) to the manifest's metric (1).
     """
     import bpy
 
@@ -301,28 +279,6 @@ def fibre_material(
             mix = m.new("ShaderNodeMixShader")
             m.feed(mix.inputs[0], _fade(m, crossfade))
             m.feed(mix.inputs[1], m.emission(arrows, power))
-            m.feed(mix.inputs[2], shader)
-            shader = mix.outputs[0]
-        if fade:
-            mat.surface_render_method = "BLENDED"
-            shader = m.add(
-                m.transparent(),
-                m.emission(colour, m.math("MULTIPLY", strength, _fade(m, fade))),
-            )
-        if visible or prune or near:
-            mat.surface_render_method = "DITHERED"
-            alpha = _fade(m, visible)
-            if prune:  # fibres below the swept rank threshold fade, weakest first
-                threshold, band = prune
-                over = m.math("SUBTRACT", m.attr("rank"), _fade(m, threshold))
-                keep = m.math("DIVIDE", over, _fade(m, band), clamp=True)
-                alpha = m.math("MULTIPLY", alpha, keep)
-            if near:  # see-through within a few mm of the thalami, which stay visible
-                clear = m.math("DIVIDE", m.attr("thal"), NEAR_MM, clamp=True)
-                alpha = m.math("MULTIPLY", alpha, m.math("MAXIMUM", clear, NEAR_MIN))
-            mix = m.new("ShaderNodeMixShader")
-            m.feed(mix.inputs[0], alpha)
-            m.feed(mix.inputs[1], m.transparent())
             m.feed(mix.inputs[2], shader)
             shader = mix.outputs[0]
         finish(shader)
@@ -365,15 +321,13 @@ def glass_material(
     *,
     region_frames: int | None = None,
     regions: bool = False,
-    region_keys=None,
     patch=(0.1, 0.45),
 ):
     """Facing-ratio emission over transparency, with lit region patches when *regions*.
 
     The ``lit`` attribute sets each patch's brightness; with *region_frames* a patch lights
     when the frame passes its ``frame`` attribute, otherwise it is lit throughout.
-    *region_keys* = ``[(attribute, keys), ...]`` sums several lit attributes, each faded by
-    its keys (two networks taking turns). *patch* = (base, rim) gains of the patch glow.
+    *patch* = (base, rim) gains of the patch glow.
     """
     import bpy
 
@@ -387,22 +341,7 @@ def glass_material(
     shader = m.add(
         m.transparent(), m.emission(colour, m.math("MULTIPLY", rim, strength))
     )
-    if region_keys:
-        lit = None
-        for entry in region_keys:
-            attribute, keys = entry[:2]
-            base, edge = entry[2] if len(entry) > 2 else patch
-            gain = m.math("MULTIPLY_ADD", rim, edge, base)
-            term = m.math(
-                "MULTIPLY", m.math("MULTIPLY", m.attr(attribute), _fade(m, keys)), gain
-            )
-            if len(entry) > 3:  # coloured by a region index attribute, one colour each
-                shader = m.add(shader, m.emission(_palette(m, m.attr(entry[3])), term))
-                continue
-            lit = term if lit is None else m.math("ADD", lit, term)
-        if lit is not None:
-            shader = m.add(shader, m.emission(REGION_COLOUR, lit))
-    elif regions or region_frames:
+    if regions or region_frames:
         lit = m.attr("lit")
         if region_frames:
             frame = _keyed_frame(m, region_frames)
@@ -417,22 +356,6 @@ def glass_material(
     return mat
 
 
-def _palette(m: _Nodes, index):
-    """Colour socket of :data:`LABEL_PALETTE` entry *index* (1-based; constant steps)."""
-    node = m.new("ShaderNodeValToRGB")
-    ramp = node.color_ramp
-    ramp.interpolation = "CONSTANT"
-    count = len(LABEL_PALETTE) + 1
-    while len(ramp.elements) < count:
-        ramp.elements.new(0.5)
-    colours = [(0.0, 0.0, 0.0)] + [c for _n, c in LABEL_PALETTE]
-    for k, (element, colour) in enumerate(zip(ramp.elements, colours)):
-        element.position = k / count
-        element.color = (*(_srgb_to_linear(c) for c in colour), 1.0)
-    m.feed(node.inputs["Fac"], m.math("DIVIDE", m.math("ADD", index, 0.5), count))
-    return node.outputs["Color"]
-
-
 def _context_material():
     """Faint grey light added over the scene: the rest of the tractogram, hiding nothing."""
     import bpy
@@ -441,24 +364,6 @@ def _context_material():
     mat.surface_render_method = "BLENDED"
     m = _Nodes(mat)
     m.finish(m.add(m.transparent(), m.emission(CONTEXT_COLOUR, CONTEXT_STRENGTH)))
-    return mat
-
-
-def fading_material(name, colour, strength, keys):
-    """Emission over transparency whose strength follows *keys* (text that fades in or out)."""
-    import bpy
-
-    if not keys:
-        return flat_material(name, colour, strength)
-    mat = bpy.data.materials.new(name)
-    mat.surface_render_method = "BLENDED"
-    m = _Nodes(mat)
-    m.finish(
-        m.add(
-            m.transparent(),
-            m.emission(colour, m.math("MULTIPLY", _fade(m, keys), strength)),
-        )
-    )
     return mat
 
 
@@ -495,18 +400,13 @@ def _two_lines(text: str) -> str:
     return text[:cut] + "\n" + text[cut + 1 :]
 
 
-def _legend(
-    root, manifest, metric: str, hh: float, size: float, keys=None, tag: str = ""
-):
-    """The colour key of *metric* at the right edge: a bar with ticks, or the direction key.
-
-    With *keys* every part fades by them (a turntable crossfade swaps two legends).
-    """
-    text = fading_material(f"LegendText{tag}", (TEXT_GREY,) * 3, 1.0, keys)
+def _legend(root, manifest, metric: str, hh: float, size: float):
+    """The colour key of *metric* at the right edge: a bar with ticks, or the direction key."""
+    text = flat_material("LegendText", (TEXT_GREY,) * 3, 1.0)
     x0, x1, y0, y1 = 0.885, 0.91, -0.42 * hh, 0.42 * hh
     if metric == "direction":
         _text(
-            f"BarTitle{tag}",
+            "BarTitle",
             "Fibre direction",
             size * 0.8,
             (0.97, 0.22 * hh + 1.6 * size, 0),
@@ -522,7 +422,7 @@ def _legend(
         for i, (colour, words) in enumerate(rows):
             y = 0.22 * hh - i * 1.5 * size
             swatch = _mesh_object(
-                f"Swatch{tag}{i}",
+                f"Swatch{i}",
                 [
                     (0.94, y, 0),
                     (0.97, y, 0),
@@ -532,11 +432,9 @@ def _legend(
                 faces=[(0, 1, 2, 3)],
             )
             swatch.parent = root
-            swatch.data.materials.append(
-                fading_material(f"Swatch{tag}{i}", colour, 0.95, keys)
-            )
+            swatch.data.materials.append(flat_material(f"Swatch{i}", colour, 0.95))
             _text(
-                f"Swatch{tag}{i}Text",
+                f"Swatch{i}Text",
                 words,
                 size * 0.72,
                 (0.93, y + 0.1 * size, 0),
@@ -546,16 +444,14 @@ def _legend(
             )
         return
     bar = _mesh_object(
-        f"ColourBar{tag}",
+        "ColourBar",
         [(x0, y0, 0), (x1, y0, 0), (x1, y1, 0), (x0, y1, 0)],
         faces=[(0, 1, 2, 3)],
         attributes={"v": [0, 0, 1, 1]},
     )
     bar.parent = root
     bar.data.materials.append(
-        fibre_material(
-            manifest, name=f"ColourBarMaterial{tag}", metric=metric, fade=keys
-        )
+        fibre_material(manifest, name="ColourBarMaterial", metric=metric)
     )
     ticks = manifest.get("ticks") or [
         [f, f"{f * manifest['vmax']:.2f}"] for f in (0.0, 0.5, 1.0)
@@ -563,7 +459,7 @@ def _legend(
     for frac, tick in ticks:
         y = y0 + frac * (y1 - y0) - 0.35 * size
         _text(
-            f"Tick{tag}{frac}",
+            f"Tick{frac}",
             tick,
             size * 0.8,
             (x0 - 0.012, y, 0),
@@ -573,7 +469,7 @@ def _legend(
         )
     units = f" ({manifest['units']})" if manifest["units"] not in ("", "1") else ""
     _text(
-        f"BarTitle{tag}",
+        "BarTitle",
         _two_lines(manifest["label"] + units),
         size * 0.8,
         (x1, y1 + 1.9 * size, 0),
@@ -581,11 +477,9 @@ def _legend(
         align="RIGHT",
         material=text,
     )
-    if manifest.get(
-        "network"
-    ):  # in network captions the smoothing note sits with the bar
+    if manifest.get("network"):  # in a network the smoothing note sits with the bar
         _text(
-            f"BarNote{tag}",
+            "BarNote",
             _two_lines(manifest.get("smoothing_note", "")),
             size * 0.55,
             (x1, y0 - 1.6 * size, 0),
@@ -843,35 +737,7 @@ def _render_movie(scene, out_dir: str, name: str, fps: int = 24) -> str:
         shutil.rmtree(working, ignore_errors=True)
 
 
-def _fibres(name, path, material):
-    """One tube object of every streamline in a ``tracts.npz``."""
-    with np.load(path) as t:
-        points, offsets = t["points"], t["offsets"]
-        mask = np.ones(len(points) - 1, dtype=bool)
-        mask[offsets[1:-1] - 1] = False  # no edge from one streamline's end to the next
-        edges = np.stack([np.arange(len(points) - 1), np.arange(1, len(points))], 1)[
-            mask
-        ]
-        v = t["v"]
-        obj = _mesh_object(
-            name,
-            points,
-            edges=edges,
-            attributes={
-                "v": v,
-                "r": t["r"] if "r" in t.files else np.full(len(v), 0.2, np.float32),
-                "d": t["d"],
-                "gain": t["gain"],
-                "tangent": t["tangent"],
-                # per-point extras the sequence shades with (prune rank, thalamus distance)
-                **{k: t[k] for k in ("rank", "thal") if k in t.files},
-            },
-        )
-    _tube_modifier(obj, material)
-    return obj
-
-
-def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=None):
+def build_scene(manifest, base: str, *, animated: bool, crossfade=None):
     """Fibres, glass brain, scalp, electrodes, ROI.
 
     Returns the brain's vertices (what a video orbits) and those plus the cranium (what a
@@ -917,9 +783,7 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
         )
     _tube_modifier(
         fibres,
-        fibre_material(
-            manifest, animated=animated, crossfade=crossfade, visible=visible
-        ),
+        fibre_material(manifest, animated=animated, crossfade=crossfade),
     )
     recede = NETWORK_RECEDE if manifest.get("network") else {}
     if manifest.get("context"):
@@ -1139,287 +1003,6 @@ def render_turntable(manifest, base, out_dir) -> str:
     return _render_movie(scene, out_dir, f"{manifest['stem']}_turntable")
 
 
-def _project(camera, point):
-    """Overlay coordinates (half-width 1) of a world point seen by a perspective *camera*."""
-    from mathutils import Vector
-
-    local = camera.matrix_world.inverted() @ Vector(point)
-    scale = camera.data.lens / (camera.data.sensor_width / 2) / max(-local.z, 1e-6)
-    return local.x * scale, local.y * scale
-
-
-def _segment(name, a, b, width, parent, material):
-    """A flat line from *a* to *b* in overlay space."""
-    a, b = np.asarray(a, float), np.asarray(b, float)
-    d = b - a
-    n = np.array([-d[1], d[0]]) / max(np.linalg.norm(d), 1e-9) * width / 2
-    quad = [(*(a + n), 0.0), (*(b + n), 0.0), (*(b - n), 0.0), (*(a - n), 0.0)]
-    obj = _mesh_object(name, quad, faces=[(0, 1, 2, 3)])
-    obj.parent = parent
-    obj.data.materials.append(material)
-
-
-def _callouts(root, camera, labels, hh, size, keys, tag):
-    """Labels in two side columns, joined to their regions by short leader lines."""
-    neutral = fading_material(f"Callout{tag}", LABEL_COLOUR, 1.0, keys)
-    line = fading_material(f"Leader{tag}", (0.85, 0.8, 0.72), 0.8, keys)
-    tinted = {}
-
-    def colour_of(label):  # a region's text and dot share its highlight colour
-        k = label.get("colour")
-        if not k:
-            return neutral
-        if k not in tinted:
-            rgb = LABEL_PALETTE[(k - 1) % len(LABEL_PALETTE)][1]
-            tinted[k] = fading_material(f"Callout{tag}c{k}", rgb, 1.0, keys)
-        return tinted[k]
-
-    spots = [(*_project(camera, l["xyz"]), l["name"], colour_of(l)) for l in labels]
-    columns = {
-        "left": sorted([s for s in spots if s[0] < 0], key=lambda s: -s[1]),
-        "right": sorted([s for s in spots if s[0] >= 0], key=lambda s: -s[1]),
-    }
-    gap = 1.7 * size
-    for side, rows in columns.items():
-        ys = []
-        for (
-            _x,
-            y,
-            _n,
-            _c,
-        ) in rows:  # keep each row near its region, never closer than one line
-            y = min(max(y, -0.62 * hh), 0.62 * hh)
-            ys.append(min(y, ys[-1] - gap) if ys else y)
-        for i, ((x, y, name, tint), ty) in enumerate(zip(rows, ys)):
-            width = 0.5 * size * len(name)
-            if side == "left":
-                tx, anchor = -0.93, -0.93 + width + 0.015
-            else:
-                tx, anchor = 0.80, 0.80 - width - 0.015
-            _text(
-                f"Callout{tag}{side}{i}",
-                name,
-                size,
-                (tx, ty - 0.35 * size, 0),
-                root,
-                align="LEFT" if side == "left" else "RIGHT",
-                material=tint,
-            )
-            _segment(f"Leader{tag}{side}{i}", (anchor, ty), (x, y), 0.0025, root, line)
-            _segment(
-                f"Dot{tag}{side}{i}", (x - 0.006, y), (x + 0.006, y), 0.012, root, tint
-            )
-
-
-def render_sequence(
-    manifest, base, second, base_b, out_dir, name, *, preview: bool, frames=None
-) -> str:
-    """One turntable: each network shows direction colours, mixes to TI_max, is pruned to its
-    strongest fibres by mean TI_max, and names where they end; then the next network.
-
-    Per network (``SEG`` frames): direction for 5 s, a 2 s mix to the metric, 2 s held, a
-    2.5 s sweep that fades fibres out from the weakest up, the regions the kept fibres reach
-    lit and named for 5 s with the camera still at the hero view, then a 1 s fade out; the
-    next network fades in after it (no frame shows both). The camera turns at one speed.
-    """
-    import bpy
-
-    scene = bpy.context.scene
-    size = (960, 540) if preview else VIDEO_SIZE
-    configure(scene, size, samples=6 if preview else 16)
-    seg, rgb, mix, held, sweep, lab, hold, out = (
-        420,
-        120,
-        CROSSFADE_FRAMES,
-        48,
-        60,
-        24,
-        96,
-        24,
-    )
-    end = 2 * seg + 24
-    nets = [(manifest, base, 0), (second, base_b, seg)]
-
-    def plan(s, first):
-        cross = s + rgb
-        cut = cross + mix + held  # sweep starts
-        named = cut + sweep  # sweep ends, labels arrive
-        leave = named + lab + hold  # fade out starts
-        show = (
-            [(leave, 1.0), (leave + out, 0.0)]
-            if first
-            else [(s, 0.0), (s + 24, 1.0), (leave, 1.0), (leave + out, 0.0)]
-        )
-        return dict(cross=cross, cut=cut, named=named, leave=leave, show=show)
-
-    plans = [plan(s, i == 0) for i, (_m, _b, s) in enumerate(nets)]
-    cloud, _head = None, None
-    for i, ((net, root_dir, s), pl) in enumerate(zip(nets, plans)):
-        prune = None
-        if net.get("prune"):
-            n, rc = net["prune"]["n"], net["prune"]["rank_cut"]
-            prune = (
-                [(pl["cut"], -0.06), (pl["named"] - 12, rc - 0.5 / max(n - 1, 1))],
-                [(pl["cut"], 0.06), (pl["named"] - 12, 0.06), (pl["named"], 1e-5)],
-            )
-        if i == 0:  # the scene first: building it clears every material
-            cloud, _head = build_scene(net, root_dir, animated=False)
-            bpy.data.objects.remove(bpy.data.objects["Fibres"], do_unlink=True)
-        material = fibre_material(
-            net,
-            name=f"Fibres{i}",
-            crossfade=[(pl["cross"], 0.0), (pl["cross"] + mix, 1.0)],
-            visible=pl["show"],
-            prune=prune,
-        )
-        _fibres(f"Fibres{i}", os.path.join(root_dir, net["tracts"]), material)
-
-    brain = bpy.data.objects["GlassBrain"]
-    keys = []
-    for i, ((net, root_dir, _s), pl) in enumerate(zip(nets, plans)):
-        with np.load(os.path.join(root_dir, net["glass"])) as g:
-            if len(g["lit"]) != len(brain.data.vertices):
-                raise ValueError(
-                    "the networks' glass brains differ; export them together"
-                )
-            for attr in ("lit", "lit_keep", "lab"):
-                brain.data.attributes.new(
-                    f"{attr}{i}", "FLOAT", "POINT"
-                ).data.foreach_set("value", g[attr].astype(np.float32))
-        kept = [
-            (pl["named"], 0.0),
-            (pl["named"] + lab, 1.0),
-            (pl["leave"], 1.0),
-            (pl["leave"] + out, 0.0),
-        ]
-        keys += [
-            (f"lit{i}", pl["show"], PATCH_ALL),
-            (f"lit_keep{i}", kept, PATCH_KEPT, f"lab{i}"),
-        ]
-    brain.data.materials.clear()
-    brain.data.materials.append(
-        glass_material(
-            "GlassAB",
-            GLASS_COLOUR,
-            GLASS_STRENGTH * NETWORK_RECEDE["glass"],
-            2.6,
-            region_keys=keys,
-        )
-    )
-
-    side = manifest["lateral_side"]
-    pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
-    scene.camera = camera
-    rate = 360.0 / (seg - lab - hold)  # degrees per moving frame
-    spin = [
-        (1, -rate * (plans[0]["named"] - 1)),
-        (plans[0]["named"], 0.0),
-        (plans[0]["leave"], 0.0),
-        (plans[1]["named"], 360.0),
-        (plans[1]["leave"], 360.0),
-        (end, 360.0 + rate * (end - plans[1]["leave"])),
-    ]
-    for frame, angle in spin:
-        pivot.rotation_euler = (0.0, 0.0, math.radians(angle))
-        pivot.keyframe_insert("rotation_euler", frame=frame)
-
-    root = bpy.data.objects.new("Overlay", None)
-    scene.collection.objects.link(root)
-    root.parent = camera
-    root.location = (0.0, 0.0, -60.0)
-    hh = size[1] / size[0]
-    tsize = 0.034 * hh * 2
-    direction_keys, bar_keys = [], []
-    for i, pl in enumerate(plans):
-        c = pl["cross"] + mix // 2
-        if i:  # back to the direction key as the next network arrives
-            direction_keys += [(pl["show"][0][0], 0.0), (pl["show"][1][0], 1.0)]
-            bar_keys += [(plans[0]["leave"], 1.0), (plans[0]["leave"] + 12, 0.0)]
-        direction_keys += [(c - 6, 1.0), (c, 0.0)]
-        bar_keys += [(c, 0.0), (c + 6, 1.0)]
-    _legend(root, manifest, "direction", hh, tsize, direction_keys, tag="Dir")
-    _legend(root, manifest, manifest["metric"], hh, tsize, bar_keys, tag="Bar")
-    sub_line = manifest["caption"].split("\n")[0].split(" · n=")[0]
-    _text(
-        "Subject",
-        sub_line,
-        tsize * 0.62,
-        (-0.96, -hh + 0.04, 0),
-        root,
-        material=flat_material("SubjectText", (0.55,) * 3, 1.0),
-    )
-    for i, ((net, _root, _s), pl) in enumerate(zip(nets, plans)):
-        on = (
-            pl["show"]
-            if i
-            else [(1, 1.0), (pl["leave"], 1.0), (pl["leave"] + out, 0.0)]
-        )
-        heading = net["caption"].split("\n")[0].split(" · n=")[-1]
-        _text(
-            f"Title{i}",
-            f"{net['title']} · n={heading}",
-            tsize,
-            (-0.96, hh - 1.6 * tsize, 0),
-            root,
-            material=fading_material(f"Title{i}", (TEXT_GREY,) * 3, 1.0, on),
-        )
-        if net.get("prune"):
-            pr = net["prune"]
-            words = (
-                f"strongest {pr['keep']:.0%} by mean TI_max along the fibre: "
-                f"≥ {pr['cut_v_per_m']:.3f} V/m, n = {pr['n_kept']:,} of {pr['n']:,}"
-            )
-            pruned = [
-                (pl["cut"], 0.0),
-                (pl["cut"] + 12, 1.0),
-                (pl["leave"], 1.0),
-                (pl["leave"] + out, 0.0),
-            ]
-            _text(
-                f"Prune{i}",
-                words,
-                tsize * 0.7,
-                (-0.96, hh - 2.9 * tsize, 0),
-                root,
-                material=fading_material(f"Prune{i}", (TEXT_GREY,) * 3, 1.0, pruned),
-            )
-        if net.get("keep_labels"):
-            named = [
-                (pl["named"], 0.0),
-                (pl["named"] + lab, 1.0),
-                (pl["leave"], 1.0),
-                (pl["leave"] + out, 0.0),
-            ]
-            _text(
-                f"Note{i}",
-                "labels: regions where these fibres terminate "
-                "(n = streamlines ending there)",
-                tsize * 0.6,
-                (-0.96, -hh + 0.04 + 1.1 * tsize, 0),
-                root,
-                material=fading_material(f"Note{i}", (0.7,) * 3, 1.0, named),
-            )
-            scene.frame_set(pl["named"] + lab)  # the camera is still while labels show
-            bpy.context.view_layer.update()
-            _callouts(
-                root, camera, net["keep_labels"], hh, tsize * 0.9, named, tag=str(i)
-            )
-    fit_overlay(root, camera, 60.0)
-    if frames:  # sample stills instead of the movie, for quick checks
-        scene.render.image_settings.file_format = "PNG"
-        for frame in frames:
-            scene.frame_set(frame)
-            scene.render.filepath = os.path.join(out_dir, f"{name}_f{frame:04d}.png")
-            bpy.ops.render.render(write_still=True)
-        return out_dir
-    scene.frame_set(1)
-    scene.frame_start, scene.frame_end = 1, end
-    if not preview:
-        return _render_movie(scene, out_dir, name)
-    scene.frame_step = PREVIEW_FRAME_STEP  # same running time, a quarter of the frames
-    return _render_movie(scene, out_dir, name, fps=24 // PREVIEW_FRAME_STEP)
-
-
 def render_propagation(manifest, base, out_dir) -> str:
     import bpy
 
@@ -1449,33 +1032,6 @@ def main(argv: list[str]) -> None:
         raise RuntimeError("tract_scene.py renders with blender --background")
     # New keys interpolate linearly: the front and the orbit move at constant speed.
     bpy.context.preferences.edit.keyframe_new_interpolation_type = "LINEAR"
-    if argv and argv[0] == "sequence":  # sequence A.json B.json out_dir name [preview]
-        loaded = []
-        for path in argv[1:3]:
-            with open(path, encoding="utf-8") as stream:
-                loaded.append(
-                    (json.load(stream), os.path.dirname(os.path.abspath(path)))
-                )
-        os.makedirs(argv[3], exist_ok=True)
-        print(
-            render_sequence(
-                loaded[0][0],
-                loaded[0][1],
-                loaded[1][0],
-                loaded[1][1],
-                argv[3],
-                argv[4],
-                preview="preview" in argv[5:],
-                frames=[
-                    int(f)
-                    for a in argv[5:]
-                    if a.startswith("frames=")
-                    for f in a[7:].split(",")
-                ],
-            ),
-            flush=True,
-        )
-        return
     manifest_path = os.path.abspath(argv[0])
     base = os.path.dirname(manifest_path)
     with open(manifest_path, encoding="utf-8") as stream:

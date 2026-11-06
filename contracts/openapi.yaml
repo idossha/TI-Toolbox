@@ -2687,6 +2687,40 @@ paths:
           $ref: "#/components/responses/Unauthorized"
         "404":
           description: The project has no such subject.
+  /api/tract/own:
+    get:
+      tags: [tract]
+      summary: The streamline files the user has loaded for this head model
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { name: subject, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Every file loaded for this subject, by name
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractOwnNetworks" }
+    post:
+      tags: [tract]
+      summary: Load a streamline file made for this head model, after checking that it fits
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - { name: subject, in: query, required: true, schema: { type: string } }
+        - { name: name, in: query, required: true, schema: { type: string, minLength: 1 }, description: "The file's own name" }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "201":
+          description: Checked and kept under the subject
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TractOwnNetwork" }
+        "404": { description: No such subject }
+        "413": { description: The file exceeds the size limit }
+        "422": { description: "It cannot be read, or does not fit this head model" }
   /api/tract/presets:
     get:
       tags: [tract]
@@ -4769,7 +4803,7 @@ components:
         kind: { type: string }
     SimulationNetworks:
       type: object
-      required: [networks, assessed, has_edges, renders]
+      required: [networks, assessed, own_assessed, has_edges, renders]
       properties:
         networks:
           type: array
@@ -4794,6 +4828,10 @@ components:
         has_edges:
           type: boolean
           description: Whether the assess stage has written this simulation's edges.json.
+        own_assessed:
+          type: array
+          items: { type: string }
+          description: The files the user loaded that this simulation has assessed (tract/own_<name>/).
         renders:
           type: array
           description: PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.
@@ -6504,6 +6542,39 @@ components:
         reason:
           type: [string, "null"]
           description: Why it cannot be chosen; absent or null when it can.
+    TractOwnChecks:
+      type: object
+      required: [coordinates, n_streamlines, n_points, fraction_points_in_brain, fraction_points_in_head, minimum_fraction_in_brain, checked_against, not_proven]
+      properties:
+        coordinates: { type: string }
+        n_streamlines: { type: integer }
+        n_points: { type: integer }
+        fraction_points_in_brain: { type: number }
+        fraction_points_in_head: { type: number }
+        minimum_fraction_in_brain: { type: number }
+        checked_against: { type: string }
+        not_proven: { type: string }
+    TractOwnNetwork:
+      type: object
+      required: [name, source_filename, file, sha256, checks, atlas, n_streamlines, n_both_ends_labelled, n_unlabelled, unlabelled_means]
+      properties:
+        name: { type: string }
+        source_filename: { type: string }
+        file: { type: string }
+        sha256: { type: string }
+        checks: { $ref: "#/components/schemas/TractOwnChecks" }
+        atlas: { type: string }
+        n_streamlines: { type: integer }
+        n_both_ends_labelled: { type: integer }
+        n_unlabelled: { type: integer }
+        unlabelled_means: { type: string }
+    TractOwnNetworks:
+      type: object
+      required: [networks]
+      properties:
+        networks:
+          type: array
+          items: { $ref: "#/components/schemas/TractOwnNetwork" }
     TractPresets:
       type: object
       required: [presets]

@@ -1,18 +1,14 @@
 {
-  "id": "tract/assess",
+  "id": "tract/assess-own",
   "page": "tract",
-  "title": "Assess one simulation from the Visual exporter's Networks tab",
+  "title": "Assess a file the user loaded before its render",
   "jobs": [
     {
       "config": {
         "_type": "TractConfig",
         "assess": {
-          "selections": [
-            {
-              "kind": "all",
-              "name": "all"
-            }
-          ],
+          "own_network": "mine",
+          "selections": [],
           "simulations": [
             "M1"
           ]
