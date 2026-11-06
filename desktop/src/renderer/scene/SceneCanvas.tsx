@@ -127,6 +127,8 @@ export interface SceneDebugHandle {
    * no spike" about the rendered image rather than about the geometry (`scene/labelFaces.ts`).
    */
   sampleRegions(points: Array<[number, number]>): Array<number | null>;
+  /** `sampleRegions` of every device pixel, in one pass: a border read per pixel (`atlas-borders.spec.ts`). */
+  regionFrame(): { width: number; height: number; regions: (number | null)[] } | null;
   /**
    * Overrides `markersOccluded` on the live renderer until the next render that changes the prop.
    *
@@ -1117,6 +1119,12 @@ export function SceneCanvas({
           const target = pickAt(x, y)?.target ?? null;
           return target && target.kind === "region" ? target.index : null;
         });
+      },
+      regionFrame() {
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        if (!scene || !camera) return null;
+        return scene.regionFrame(camera, { markers: false, regions: true, lines: false, depth: false, allSurfaces: pickAnySurface });
       },
       setMarkerOcclusion(occluded) {
         const scene = sceneRef.current;
