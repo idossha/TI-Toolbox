@@ -6841,6 +6841,11 @@ export interface components {
              * @description Run QSIPrep's MNI normalization (needed only for QSIRecon atlases; SyN distortion correction enables it itself).
              */
             mni_normalization?: boolean;
+            /**
+             * Use Gpu
+             * @description Run eddy on the GPU (requires NVIDIA Docker runtime).
+             */
+            use_gpu?: boolean;
         };
         /**
          * QSIReconPreferences
@@ -6911,7 +6916,7 @@ export interface components {
                 segmentation_final_resolution?: number | null;
                 skin_facet_size?: number | null;
             } | null;
-            qsiprep_config: WithRequired<components["schemas"]["QSIPrepPreferences"], "output_resolution" | "image_tag" | "skip_bids_validation" | "denoise_method" | "unringing_method" | "mni_normalization">;
+            qsiprep_config: WithRequired<components["schemas"]["QSIPrepPreferences"], "output_resolution" | "image_tag" | "skip_bids_validation" | "denoise_method" | "unringing_method" | "mni_normalization" | "use_gpu">;
             qsi_recon_config: WithRequired<components["schemas"]["QSIReconPreferences"], "recon_specs" | "atlases" | "use_gpu" | "image_tag" | "skip_odf_reports">;
             charm_threads: number | null;
             qsiprep_threads: number | null;
@@ -8342,6 +8347,8 @@ export interface components {
          *         Run QSIPrep's anatomical normalization to MNI. Off by default: only
          *         QSIRecon atlases/template-space specs need it. Always on with SyN SDC,
          *         which uses the MNI transform to place its fieldmap prior.
+         *     use_gpu : bool
+         *         Run eddy on the GPU (requires NVIDIA Docker runtime).
          */
         QSIPrepConfig: {
             /** Subject Id */
@@ -8382,6 +8389,11 @@ export interface components {
              * @default false
              */
             mni_normalization: boolean;
+            /**
+             * Use Gpu
+             * @default false
+             */
+            use_gpu: boolean;
         };
         /**
          * QSIReconConfig
@@ -10209,6 +10221,9 @@ export interface components {
          *         Run QSIPrep's anatomical normalization to MNI. Only QSIRecon atlases and
          *         template-space specs need it; fieldmap-less SyN correction turns it on
          *         by itself.
+         *     use_gpu : bool
+         *         Run eddy on the GPU (requires NVIDIA Docker runtime). CPU and GPU eddy
+         *         are not numerically identical, so keep one choice across a cohort.
          *
          *     Raises
          *     ------
@@ -10264,6 +10279,11 @@ export interface components {
              * @default false
              */
             mni_normalization: boolean;
+            /**
+             * Use Gpu
+             * @default false
+             */
+            use_gpu: boolean;
         };
         /**
          * QSIReconSettings
