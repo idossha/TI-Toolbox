@@ -910,7 +910,7 @@ function resolvedFor(kind, config, montageSources, ids) {
   if (kind === "blender" && cfg._type === "TractVisualConfig") {
     const metric = cfg.metric ?? "ti_along";
     return {
-      planned_outputs: [...(cfg.stills === false ? [] : [`${metric}.png`]), ...(cfg.turntable ? [`${metric}_turntable.mp4`] : []), ...(cfg.export_blend ? ["network.blend"] : [])],
+      planned_outputs: [...[metric, ...(cfg.extra_metrics ?? [])].flatMap((colour) => [...(cfg.stills === false ? [] : [`${colour}.png`]), ...(cfg.turntable ? [`${colour}_turntable.mp4`] : [])]), ...(cfg.export_blend ? ["network.blend"] : [])],
       ...(cfg.export_blend ? { blend_size_mb: 40 } : {}),
       ...(cfg.selection ? { network_setup: mockNetworkSetup(cfg) } : {}),
     };
@@ -1654,10 +1654,11 @@ function finishJob(job) {
       const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
       const network = `${networkStamp()}_${job.status.id ?? job.id}`;
       const label = `${cfg.own_network ? `${cfg.own_network}.tck` : (cfg.preset ?? (cfg.selection?.regions ?? []).slice(0, 2).join(", "))} · 2026-11-06 12:00:00`;
-      const colour = cfg.metric ?? "ti_along";
-      const name = `${colour}.png`;
-      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), label, network, colour, view: "" };
-      simulationNetworks[key] = { ...earlier, renders: [render, ...earlier.renders.filter((r) => r.path !== render.path)] };
+      const made = [cfg.metric ?? "ti_along", ...(cfg.extra_metrics ?? [])].map((colour) => {
+        const name = `${colour}.png`;
+        return { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), label, network, colour, view: "" };
+      });
+      simulationNetworks[key] = { ...earlier, renders: [...made, ...earlier.renders] };
     }
   }
   job.status.finished_at = nowIso();

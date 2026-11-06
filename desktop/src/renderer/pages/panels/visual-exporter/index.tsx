@@ -56,6 +56,8 @@ import {
   buildNetworkConfig,
   buildOwnAssessConfig,
   bundleName,
+  CHOOSE_A_COLOUR,
+  toggleColour,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
@@ -78,10 +80,6 @@ const MODE_OPTIONS: { value: Mode; label: string }[] = [
   { value: "networks", label: "Networks" },
 ];
 
-const NETWORK_METRIC_OPTIONS = [
-  { value: "direction", label: "Fibre direction (RGB)" },
-  { value: "ti_max", label: "TI_max" },
-];
 const NETWORK_QUALITY_OPTIONS = [
   { value: "preview", label: "Fast preview" },
   { value: "final", label: "Final" },
@@ -159,7 +157,7 @@ function VisualExporterPanel() {
   const [networkOwnFile, setNetworkOwnFile] = usePageSession("networkOwnFile", false);
   const [ownNetwork, setOwnNetwork] = usePageSession("ownNetwork", "");
   const [networkOverrides, setNetworkOverrides] = usePageSession<Record<string, unknown>>("networkOverrides", {});
-  const [networkMetric, setNetworkMetric] = usePageSession<NetworksForm["metric"]>("networkMetric", "direction");
+  const [networkColours, setNetworkColours] = usePageSession<NetworksForm["colours"]>("networkColours", ["direction"]);
   const [networkStills, setNetworkStills] = usePageSession("networkStills", true);
   const [networkTurntable, setNetworkTurntable] = usePageSession("networkTurntable", false);
   const [networkExportBlend, setNetworkExportBlend] = usePageSession("networkExportBlend", false);
@@ -269,6 +267,7 @@ function VisualExporterPanel() {
     else if (chooserActive && !selection) clientErrors.push(CHOOSE_A_NETWORK);
     else if (chooserActive && countQuery.error) clientErrors.push(countQuery.error.message);
     else if (chooserActive && assessing === null) clientErrors.push("Reading this network's streamline count…");
+    else if (networkColours.length === 0) clientErrors.push(CHOOSE_A_COLOUR);
     else if (!networkStills && !networkTurntable) clientErrors.push("Choose a figure, a turntable or both.");
   }
   let subcorticalLabels: number[] = [];
@@ -335,7 +334,7 @@ function VisualExporterPanel() {
             preset: networkValue.how === "preset" ? networkValue.preset : undefined,
             overrides: networkOverrides,
             ownNetwork: ownActive ? ownNetwork : undefined,
-            metric: networkMetric,
+            colours: networkColours,
             stills: networkStills,
             turntable: networkTurntable,
             exportBlend: networkExportBlend,
@@ -377,7 +376,7 @@ function VisualExporterPanel() {
     networkOverrides,
     ownActive,
     ownNetwork,
-    networkMetric,
+    networkColours,
     networkStills,
     networkTurntable,
     networkExportBlend,
@@ -492,7 +491,7 @@ function VisualExporterPanel() {
             )}
             {plannedFiles.length > 0 && (
               <p className="field-help" data-testid="ve-planned-files">
-                Writes: {plannedFiles.map((file) => (file === "network.blend" && blendMb !== undefined ? `${file} (about ${blendMb} MB, the ${networkMetric === "direction" ? "fibre direction" : "TI_max"} scene)` : file)).join(", ")}
+                Writes: {plannedFiles.map((file) => (file === "network.blend" && blendMb !== undefined ? `${file} (about ${blendMb} MB, the ${networkColours[0] === "direction" ? "fibre direction" : "TI_max"} scene)` : file)).join(", ")}
               </p>
             )}
             {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
@@ -783,13 +782,11 @@ function VisualExporterPanel() {
                               content: <OwnNetworkPicker subject={subjectId} value={ownNetwork} onChange={setOwnNetwork} />,
                             }}
                           />
-                          <Field label="Colour by" htmlFor="ve-network-metric">
-                            <Select
-                              id="ve-network-metric"
-                              value={networkMetric}
-                              onValueChange={(v) => setNetworkMetric(v === "ti_max" ? "ti_max" : "direction")}
-                              options={NETWORK_METRIC_OPTIONS}
-                            />
+                          <Field label="Colour by" help="Tick both for one folder with both figures, from one run.">
+                            <div className="network-colours" data-testid="ve-network-colours">
+                              <Checkbox checked={networkColours.includes("ti_max")} onCheckedChange={(on) => setNetworkColours(toggleColour(networkColours, "ti_max", on))} label="TI_max" />
+                              <Checkbox checked={networkColours.includes("direction")} onCheckedChange={(on) => setNetworkColours(toggleColour(networkColours, "direction", on))} label="Fibre direction (RGB)" />
+                            </div>
                           </Field>
                           <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Figure: lateral, top, front and back" />
                           <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />

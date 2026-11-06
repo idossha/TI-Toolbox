@@ -102,8 +102,8 @@ region names, colour bar or panel labels. Four panels on one scale and one black
 
 ```
 visual_exports/sub-<id>/<sim>/networks/<datetime>/
-  ti_max.png            (or direction.png)
-  ti_max_turntable.mp4
+  ti_max.png  direction.png
+  ti_max_turntable.mp4  direction_turntable.mp4
   network.blend
   network.json
 ```
@@ -118,7 +118,8 @@ another. Beside `metrics` it holds the selection, the code version and, per colo
 the files, and the config to render it again: `simnibs_python -m tit.blender network.json ti_max`.
 
 Each run has a folder of its own, named by date and time as an ex-search run is (`20261106_143022`), so a render
-never replaces an earlier one and there is nothing to name. The Plan names what it writes. The render's working bundle is deleted when
+never replaces an earlier one and there is nothing to name. Tick **TI_max** and **Fibre direction** together and one
+run writes both colours to one folder, with one `network.json`; a colour added in a later run gets its own folder. The Plan names what it writes. The render's working bundle is deleted when
 the render succeeds, and kept when it fails (`bundle_<colour>/`), or always with `keep_bundle` in the config.
 The **Renders** tab beside **Terminal** and **Scene** shows them by run, labelled with what the network is (its
 preset, its regions or your file's name) and the date and time, one open at a time; it also reads folders rendered
@@ -147,7 +148,7 @@ Other options:
 - **Figure**, and a **Turntable video**, which is off until you ask for it and holds no text either.
 - **Export .blend**, off until you ask for it: `network.blend` in the run's folder, the scene the
   render used, with its meshes and materials in the file so it opens on another machine. It has a camera
-  per panel. It holds one colour, the one just rendered, and the figure's scene when a figure and a
+  per panel. It holds one colour, TI_max when both are ticked, and the figure's scene when a figure and a
   turntable are both asked for; `network.json` says
   which it holds. The Plan states its approximate size, and `network.json` its size in bytes.
 - **Quality:** **Fast preview** (a 1600x1600 figure, a 4 s turntable at 960x540) checks a choice before

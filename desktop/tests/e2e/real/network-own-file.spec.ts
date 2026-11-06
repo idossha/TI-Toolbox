@@ -135,8 +135,8 @@ for (const [file, stored] of [["own_spec_tck.tck", "own_spec_tck"], ["own_spec_t
     await expect(checks).toContainText("552 streamlines", { timeout: 180_000 });
     await expect(checks).toContainText("0 left unlabelled");
     await expect(checks).toContainText("cannot prove");
-    await page.locator("#ve-network-metric").click();
-    await page.getByRole("option", { name: "TI_max", exact: true }).click();
+    await page.getByRole("checkbox", { name: "TI_max", exact: true }).check();
+    await page.getByRole("checkbox", { name: "Fibre direction (RGB)" }).uncheck();
     // The reference lights what it was chosen by; a file has no seeds, so the same one is named here.
     if (!(await page.getByTestId("ve-setup-lit").isVisible())) await page.getByTestId("network-advanced").locator("summary").click();
     if (stored === "own_spec_tck") {

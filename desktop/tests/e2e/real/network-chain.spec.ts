@@ -261,8 +261,8 @@ test("5. the Networks tab assesses and renders the chosen network, and its figur
   await openNetworksTab();
   await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
   await expect(page.getByTestId("network-mask-name")).toHaveCount(0);
-  await page.locator("#ve-network-metric").click();
-  await page.getByRole("option", { name: "TI_max", exact: true }).click();
+  await page.getByRole("checkbox", { name: "TI_max", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Fibre direction (RGB)" }).uncheck();
   await page.getByTestId("network-advanced").locator("summary").click();
   await expect(page.getByTestId("network-setup-removed")).toContainText("opposite-hemisphere removed", { timeout: 30_000 });
   await page.waitForFunction(() => (window.__scene?.lines?.streamlines ?? 0) > 0, null, { timeout: 120_000 }).catch(() => undefined);

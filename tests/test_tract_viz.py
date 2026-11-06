@@ -899,6 +899,80 @@ def test_each_run_gets_a_folder_of_its_own_and_leaves_the_last_one_alone(
     assert (second / "ti_max.png").exists()
 
 
+def test_one_run_in_two_colours_is_one_folder_one_record_and_loads_once(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+    from tit.blender.config import TractVisualConfig
+    from tit.config_io import deserialize_config
+
+    loads = []
+    renders = []
+
+    def writer(manifest_path, *rest):
+        renders.append(json.loads(Path(manifest_path).read_text())["metric"])
+        _still_writer(manifest_path, *rest)
+
+    _run_tract_project(tmp_path, monkeypatch, three, writer)
+    load_trx = tp.td.load_trx
+    monkeypatch.setattr(
+        tp.td, "load_trx", lambda path: loads.append(path) or load_trx(path)
+    )
+    cfg = _selection_config(extra_metrics=["direction"], export_blend=True)
+    assert tp.planned_outputs(cfg)[:2] == ["ti_max.png", "direction.png"]
+    out = Path(tp.run_tract(cfg))
+    assert sorted(p.name for p in out.iterdir()) == [
+        "direction.png",
+        "network.blend",
+        "network.json",
+        "ti_max.png",
+    ]
+    assert renders == ["ti_max", "direction"]
+    assert len(loads) == 1  # the tractogram is read once, whatever the colours
+    record = json.loads((out / "network.json").read_text())
+    assert sorted(record["colours"]) == ["direction", "ti_max"]
+    assert record["colours"]["ti_max"]["files"] == ["ti_max.png"]
+    assert record["colours"]["direction"]["files"] == ["direction.png"]
+    assert sorted(record["metrics"]["images"]) == ["direction.png", "ti_max.png"]
+    assert record["blend"]["colour"] == "ti_max"  # one .blend, the first colour's
+    # Each colour's config renders that colour alone.
+    config = dict(record["colours"]["direction"]["config"])
+    config.pop("project_dir")
+    alone = deserialize_config(TractVisualConfig, config)
+    assert str(alone.metric) == "direction"
+    assert alone.extra_metrics == [] and alone.export_blend is False
+
+
+def test_a_colour_cannot_be_asked_for_twice() -> None:
+    with pytest.raises(ValueError, match="once"):
+        _selection_config(extra_metrics=["ti_max"])
+
+
+def test_only_a_scalar_colour_crossfades_in_a_two_colour_run(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+
+    seen = {}
+
+    def writer(manifest_path, *rest):
+        manifest = json.loads(Path(manifest_path).read_text())
+        seen[manifest["metric"]] = manifest["crossfade"]
+        base = Path(manifest_path).parent / manifest["output_dir"]
+        (base / f"{manifest['stem']}_turntable.mp4").write_bytes(b"mp4")
+
+    _run_tract_project(tmp_path, monkeypatch, three, writer)
+    tp.run_tract(
+        _selection_config(
+            extra_metrics=["direction"],
+            stills=False,
+            turntable=True,
+            turntable_crossfade=True,
+        )
+    )
+    assert seen == {"ti_max": True, "direction": False}
+
+
 def test_rendering_another_colour_keeps_the_first_in_network_json(
     tmp_path, monkeypatch, three
 ):
@@ -908,7 +982,9 @@ def test_rendering_another_colour_keeps_the_first_in_network_json(
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config()
-    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
+    cfg = replace(
+        cfg, output_dir=str(tmp_path / "named")
+    )  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, metric="direction"))
     record = json.loads((out / "network.json").read_text())
@@ -929,7 +1005,9 @@ def test_a_colour_rendered_again_replaces_only_its_own_record(
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config()
-    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
+    cfg = replace(
+        cfg, output_dir=str(tmp_path / "named")
+    )  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, metric="direction"))
     first = json.loads((out / "network.json").read_text())
@@ -951,7 +1029,9 @@ def test_a_blend_is_recorded_with_its_colour_and_size_and_survives_a_plain_rende
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config(export_blend=True)
-    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
+    cfg = replace(
+        cfg, output_dir=str(tmp_path / "named")
+    )  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     # A blend outlives the bundle, which a successful render deletes.
     assert not (out / "bundle_ti_max").exists()
@@ -964,7 +1044,9 @@ def test_a_blend_is_recorded_with_its_colour_and_size_and_survives_a_plain_rende
     kept = json.loads((out / "network.json").read_text())
     assert kept["blend"] == record["blend"]
     tp.run_tract(replace(cfg, metric="direction"))
-    assert json.loads((out / "network.json").read_text())["blend"]["colour"] == "direction"
+    assert (
+        json.loads((out / "network.json").read_text())["blend"]["colour"] == "direction"
+    )
 
 
 def test_a_turntable_after_a_figure_keeps_the_figures_record(
@@ -984,7 +1066,9 @@ def test_a_turntable_after_a_figure_keeps_the_figures_record(
 
     _run_tract_project(tmp_path, monkeypatch, three, writer)
     cfg = _selection_config()
-    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
+    cfg = replace(
+        cfg, output_dir=str(tmp_path / "named")
+    )  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, stills=False, turntable=True))
     record = json.loads((out / "network.json").read_text())
@@ -1012,7 +1096,9 @@ def test_a_turntable_opening_in_direction_colours_carries_both_keys(
         (base / "ti_max_turntable.mp4").write_bytes(b"mp4")
 
     _run_tract_project(tmp_path, monkeypatch, three, writer)
-    out = Path(tp.run_tract(_selection_config(turntable=True, turntable_crossfade=True)))
+    out = Path(
+        tp.run_tract(_selection_config(turntable=True, turntable_crossfade=True))
+    )
     images = json.loads((out / "network.json").read_text())["metrics"]["images"]
     video = images["ti_max_turntable.mp4"]
     assert video["colour_key"]["green"] == "anterior – posterior"
@@ -1097,10 +1183,4 @@ def test_absent_options_keep_the_final_figure_and_no_scene():
     from tit.blender.config import TractVisualConfig
 
     cfg = TractVisualConfig(subject_id="x", simulation_name="s")
-    assert (
-        cfg.quality == "final"
-        and cfg.stills
-        and not cfg.export_blend
-    )
-
-
+    assert cfg.quality == "final" and cfg.stills and not cfg.export_blend

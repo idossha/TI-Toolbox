@@ -433,14 +433,14 @@ def bundle_folder(cfg) -> str:
 
 def planned_outputs(cfg) -> list[str]:
     """The files this config's run writes, named as they will be."""
-    metric = str(cfg.metric)
     names = []
-    if cfg.stills:
-        names.append(f"{metric}.png")
-    if cfg.turntable:
-        names.append(f"{metric}_turntable.mp4")
-    if cfg.propagation:
-        names.append(f"{metric}_propagation.mp4")
+    for metric in map(str, [cfg.metric, *cfg.extra_metrics]):
+        if cfg.stills:
+            names.append(f"{metric}.png")
+        if cfg.turntable:
+            names.append(f"{metric}_turntable.mp4")
+        if cfg.propagation:
+            names.append(f"{metric}_propagation.mp4")
     if cfg.export_blend:
         names.append(BLEND_NAME)
     if cfg.web:
@@ -451,6 +451,17 @@ def planned_outputs(cfg) -> list[str]:
 def blend_size_mb(n_drawn: int) -> int:
     """About how large ``network.blend`` will be, from the render's streamline budget."""
     return round(BLEND_BASE_MB + BLEND_MB_PER_STREAMLINE * n_drawn)
+
+
+def _one_colour(cfg, metric, first: bool):
+    """*cfg* as the render of one of its colours: the first holds the ``.blend``, and only a scalar crossfades."""
+    return replace(
+        cfg,
+        metric=metric,
+        extra_metrics=[],
+        export_blend=cfg.export_blend and first,
+        turntable_crossfade=cfg.turntable_crossfade and str(metric) != "direction",
+    )
 
 
 def _remove_bundles(cfg, out: str, folders: list[str]) -> None:
@@ -1037,7 +1048,9 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
     synthetic = bool(summary.get("synthetic"))
     everything = td.load_trx(path)
     needed = ["ti_along", "ti_max"] + (
-        ["ti_avg"] if cfg.metric == "align_index" else []
+        ["ti_avg"]
+        if "align_index" in map(str, [cfg.metric, *cfg.extra_metrics])
+        else []
     )
     for key in needed:
         if key not in everything.dpv:
@@ -1122,25 +1135,6 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             )
             kwargs.update(context=context, edges=edges, regions=regions)
             tracts = network
-        manifest = export_scene(
-            cfg,
-            tracts,
-            glass,
-            scalp,
-            electrodes,
-            os.path.join(out, bundle_folder(cfg)),
-            title=title,
-            synthetic=synthetic,
-            **kwargs,
-        )
-        render(manifest)
-        with open(manifest, encoding="utf-8") as stream:
-            image = image_metrics(json.load(stream))
-        image["sampling"] = (
-            "all drawn"
-            if tracts.n >= n_total
-            else "even sample" if cfg.selection else "weighted by ti_along_max"
-        )
         metrics = network_metrics(
             network, n_total, edges, electrodes, setup, synthetic=synthetic
         )
@@ -1148,6 +1142,35 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             from tit.tract.own import own_record
 
             metrics["source"] = own_record(pm, sid, cfg.own_network)
-        write_network_record(out, cfg, original, setup, metrics, image)
-        _remove_bundles(cfg, out, [bundle_folder(cfg)])
+        # Everything above is the network's; only the scene and its render are per colour.
+        for index, metric in enumerate([cfg.metric, *cfg.extra_metrics]):
+            one = _one_colour(cfg, metric, index == 0)
+            manifest = export_scene(
+                one,
+                tracts,
+                glass,
+                scalp,
+                electrodes,
+                os.path.join(out, bundle_folder(one)),
+                title=title,
+                synthetic=synthetic,
+                **kwargs,
+            )
+            render(manifest)
+            with open(manifest, encoding="utf-8") as stream:
+                image = image_metrics(json.load(stream))
+            image["sampling"] = (
+                "all drawn"
+                if tracts.n >= n_total
+                else "even sample" if cfg.selection else "weighted by ti_along_max"
+            )
+            write_network_record(
+                out,
+                one,
+                _one_colour(original, metric, index == 0),
+                setup,
+                metrics,
+                image,
+            )
+            _remove_bundles(one, out, [bundle_folder(one)])
     return out

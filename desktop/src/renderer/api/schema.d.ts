@@ -9971,6 +9971,9 @@ export interface components {
          *         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``
          *         (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging
          *         about 1) or ``direction``.
+         *     extra_metrics : list of Metric
+         *         More colours for this run: each writes its own files, in the same folder and under one
+         *         ``network.json``. A ``.blend`` holds ``metric``, the first.
          *     focus : bool
          *         Network-focused figures and videos: the bundle and top edges as full tubes, the rest
          *         of the tractogram as faint context, their endpoint regions lit from the subject's own
@@ -10057,6 +10060,8 @@ export interface components {
             tractogram: string;
             /** @default ti_along */
             metric: components["schemas"]["Metric"];
+            /** Extra Metrics */
+            extra_metrics?: components["schemas"]["Metric"][];
             /**
              * Max Streamlines
              * @default 15000

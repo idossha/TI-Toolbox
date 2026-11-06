@@ -8,6 +8,7 @@
         "_type": "TractVisualConfig",
         "connectome": false,
         "export_blend": false,
+        "extra_metrics": [],
         "height": 1600,
         "metric": "ti_max",
         "overrides": {

@@ -167,6 +167,13 @@ export interface NetworkSelection {
   pairs: [string, string][];
 }
 
+export type NetworkColour = "ti_max" | "direction";
+
+/** A colour ticked or unticked, in the one order the config and the files use. */
+export function toggleColour(colours: readonly NetworkColour[], colour: NetworkColour, on: boolean): NetworkColour[] {
+  return (["ti_max", "direction"] as const).filter((c) => (c === colour ? on : colours.includes(c)));
+}
+
 export interface NetworksForm {
   subjectId: string;
   simulationName: string;
@@ -178,7 +185,8 @@ export interface NetworksForm {
   preset?: string;
   /** `tit.blender.network_setup.OVERRIDABLE` keys the user set; the rest are automatic. */
   overrides?: Record<string, unknown>;
-  metric: "direction" | "ti_max";
+  /** At least one; each writes its own files in the run's one folder. */
+  colours: NetworkColour[];
   /** One figure of four fixed panels. */
   stills: boolean;
   turntable: boolean;
@@ -207,12 +215,13 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     _type: "TractVisualConfig",
   };
   const outputs = {
-    metric: form.metric,
+    metric: form.colours[0],
+    extra_metrics: form.colours.slice(1),
     stills: form.stills,
     turntable: form.turntable,
     export_blend: form.exportBlend,
     // The reference video: fibre directions first, then a scalar metric.
-    turntable_crossfade: form.turntable && form.metric !== "direction",
+    turntable_crossfade: form.turntable && form.colours[0] !== "direction",
     width,
     height,
     turntable_frames,
@@ -267,6 +276,8 @@ export function assessState(selection: NetworkSelection, nStreamlines: number, o
  * What the assessed bundle under `tract/` is called, which the user never sees. A bundle holding
  * these edges is reused whatever it is called, and another selection's is never taken.
  */
+export const CHOOSE_A_COLOUR = "Tick a colour: TI_max, fibre direction or both.";
+
 export function bundleName(auto: string, pairs: readonly string[][], outputs?: { networks: string[]; assessed: { name: string; pairs: string[][] }[] }): string {
   const same = outputs?.assessed.find((bundle) => samePairSet(bundle.pairs, pairs));
   if (same) return same.name;

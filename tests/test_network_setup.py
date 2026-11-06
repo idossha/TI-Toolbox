@@ -301,6 +301,21 @@ def test_a_run_plans_its_colours_files_and_a_blend_only_when_asked_for() -> None
     assert planned_outputs(config(web=False, stills=False, turntable=True)) == [
         "ti_along_turntable.mp4"
     ]
+    both = config(
+        web=False,
+        stills=True,
+        turntable=True,
+        export_blend=True,
+        metric="ti_max",
+        extra_metrics=["direction"],
+    )
+    assert planned_outputs(both) == [
+        "ti_max.png",
+        "ti_max_turntable.mp4",
+        "direction.png",
+        "direction_turntable.mp4",
+        "network.blend",
+    ]
 
 
 # ---- labels -----------------------------------------------------------------------------------

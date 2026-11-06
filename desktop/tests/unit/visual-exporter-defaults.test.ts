@@ -19,6 +19,8 @@ import {
   buildSubcorticalConfig,
   buildVectorConfig,
   outputHint,
+  toggleColour,
+  type NetworkColour,
   parseLabels,
 } from "../../src/renderer/pages/panels/visual-exporter/config";
 
@@ -135,7 +137,7 @@ describe("networks mode", () => {
   const form = {
     subjectId: "CHN",
     simulationName: "thalamus",
-    metric: "ti_max" as const,
+    colours: ["ti_max"] as NetworkColour[],
     stills: true,
     turntable: true,
     exportBlend: true,
@@ -169,7 +171,17 @@ describe("networks mode", () => {
   });
 
   it("a video in direction colours has nothing to fade to", () => {
-    expect(buildNetworkConfig({ ...form, selection, metric: "direction" })).toMatchObject({ turntable_crossfade: false });
+    expect(buildNetworkConfig({ ...form, selection, colours: ["direction"] })).toMatchObject({ turntable_crossfade: false });
+  });
+
+  it("both colours are one config, whichever was ticked first", () => {
+    const both = toggleColour(toggleColour(["direction"], "ti_max", true), "direction", true);
+    expect(both).toEqual(["ti_max", "direction"]);
+    expect(toggleColour(["direction"], "ti_max", true)).toEqual(["ti_max", "direction"]);
+    expect(toggleColour(["ti_max", "direction"], "ti_max", false)).toEqual(["direction"]);
+    const config = buildNetworkConfig({ ...form, selection, colours: both });
+    expect(validate("TractVisualConfig", config)).toMatchObject({ valid: true, errors: [] });
+    expect(config).toMatchObject({ metric: "ti_max", extra_metrics: ["direction"], turntable_crossfade: true });
   });
 
   it("assessing a network sends the same Selection", () => {

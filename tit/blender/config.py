@@ -234,6 +234,9 @@ class TractVisualConfig:
         What colours the tubes: ``ti_along``, ``ti_max``, ``ti_ratio``, ``align_index``
         (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging
         about 1) or ``direction``.
+    extra_metrics : list of Metric
+        More colours for this run: each writes its own files, in the same folder and under one
+        ``network.json``. A ``.blend`` holds ``metric``, the first.
     focus : bool
         Network-focused figures and videos: the bundle and top edges as full tubes, the rest
         of the tractogram as faint context, their endpoint regions lit from the subject's own
@@ -328,6 +331,7 @@ class TractVisualConfig:
     simulation_name: str
     tractogram: str = ""
     metric: Metric = Metric.TI_ALONG
+    extra_metrics: list[Metric] = field(default_factory=list)
     max_streamlines: int = 15_000
     vmax_v_per_m: float | None = None
     focus: bool = True
@@ -370,6 +374,12 @@ class TractVisualConfig:
         if not (self.simulation_name or "").strip():
             raise ValueError("simulation_name is required")
         self.metric = TractVisualConfig.Metric(self.metric)
+        self.extra_metrics = [TractVisualConfig.Metric(m) for m in self.extra_metrics]
+        colours = [self.metric, *self.extra_metrics]
+        if len(set(colours)) != len(colours):
+            raise ValueError(
+                "a run renders each colour once: extra_metrics repeats one"
+            )
         self.quality = TractVisualConfig.Quality(self.quality)
         own = (self.own_network or "").strip()
         if own:

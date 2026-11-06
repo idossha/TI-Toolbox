@@ -214,8 +214,8 @@ test("Your own file: a wrong file is refused in the server's words, a good one r
   await expect(page.getByTestId("ve-own-checks")).toContainText("cannot prove");
   await expect(page.getByTestId("ve-own-error")).toHaveCount(0);
 
-  await page.locator("#ve-network-metric").click();
-  await page.getByRole("option", { name: "TI_max", exact: true }).click();
+  await page.getByRole("checkbox", { name: "TI_max", exact: true }).check();
+  await page.getByRole("checkbox", { name: "Fibre direction (RGB)" }).uncheck();
   await page.getByRole("checkbox", { name: "Turntable video" }).click();
   // No Title, Caption, Region names or Views to set: a figure has four fixed panels and no text.
   await page.getByTestId("network-advanced").locator("summary").click();
@@ -314,6 +314,27 @@ test("each render has a folder of its own: the same network again replaces nothi
   await expect(page.getByTestId("existing-outputs-replace")).toHaveCount(0);
   await expect(page.getByRole("radio", { name: "Renders 3" })).toBeVisible({ timeout: 30_000 });
   await expect(renders.locator("details")).toHaveCount(3);
+});
+
+test("both colours are one run and one folder, and neither ticked is refused", async () => {
+  await openNetworksOf("ernie", "Thalamus");
+  await page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ }).click();
+  const tiMax = page.getByRole("checkbox", { name: "TI_max", exact: true });
+  const direction = page.getByRole("checkbox", { name: "Fibre direction (RGB)" });
+  await expect(direction).toBeChecked();
+  await direction.uncheck();
+  await expect(page.getByTestId("run-button")).toHaveAttribute("title", "Tick a colour: TI_max, fibre direction or both.");
+  await tiMax.check();
+  await direction.check();
+  await expect(page.getByTestId("ve-planned-files")).toHaveText("Writes: ti_max.png, direction.png");
+  const job = await submittedJob(() => page.getByTestId("run-button").click());
+  expect(job.config).toMatchObject({ metric: "ti_max", extra_metrics: ["direction"] });
+  await page.getByRole("radio", { name: "Renders 3" }).click({ timeout: 30_000 });
+  const renders = page.getByTestId("network-renders");
+  // One group of two figures, the older folder still its own group.
+  await expect(renders.locator("details")).toHaveCount(2);
+  await expect(renders.locator("details[open]").getByRole("img")).toHaveCount(2);
+  await tiMax.uncheck();
 });
 
 test("by region: from a seed alone, then narrowed by a to", async () => {

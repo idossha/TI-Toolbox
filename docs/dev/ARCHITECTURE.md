@@ -888,7 +888,7 @@ files to crop and align by hand for what is one figure); composing panels in `si
 (a kept bundle must re-render in another Blender, which has only numpy and `bpy`).
 
 **One folder per run.** `visual_exports/sub-<id>/<sim>/networks/<datetime>/`, named `%Y%m%d_%H%M%S` as an
-ex-search run's folder is, holds `<colour>.png`,
+ex-search run's folder is, holds for `metric` and each of `extra_metrics` `<colour>.png`,
 `<colour>_turntable.mp4`, an opt-in `network.blend` and `network.json`: the selection, code version,
 per colour the config that renders it again in a new folder (`-m tit.blender network.json <colour>`), the setup and files, and
 `metrics`: what holds for the network (streamlines total, opposite-hemisphere counts with the QC count,

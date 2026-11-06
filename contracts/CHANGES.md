@@ -1377,6 +1377,13 @@ absent fields reproduce the previous render. Behaviour that moves: a render's `w
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-06 — One network run can render several colours
+
+`TractVisualConfig` gains `extra_metrics` (default empty, so a config without it renders `metric` alone, as before); a repeat of a
+colour is refused. `resolved.planned_outputs` names each colour's files. `network.json` gets one `colours` entry per colour, each with a config
+that renders that colour alone. Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
 ## 2026-11-06 — A network's render is a dated folder of its own
 
 A tract render's `output_dir` is `networks/<datetime>/`, so its plan never overwrites; `POST /api/plan/blender` loses
