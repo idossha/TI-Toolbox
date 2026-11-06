@@ -8,6 +8,11 @@ toc_group: major
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
 ---
+### Unreleased
+
+- **Fixed: leaving a page with a playing video no longer takes the server down** — after a Plan had been computed, dropping a stream could end the server's worker, and the app then waited for ever on every request until restarted.
+
+---
 ### v3.1.3 — November 3, 2026 <span class="release-pill">Latest</span> {#v313--november-3-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.3/">Release notes →</a>
