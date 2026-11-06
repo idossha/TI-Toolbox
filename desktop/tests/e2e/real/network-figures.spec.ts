@@ -96,8 +96,9 @@ async function colour(name: "TI_max" | "Fibre direction (RGB)"): Promise<void> {
 async function renderBoth(simulation: string, network: string, firstWithBlend = false): Promise<NetworkRecord> {
   const out = folder(simulation, network);
   await colour("TI_max");
-  // Run answers from the Plan, which follows the form after a debounce: wait for this network's.
-  await expect(page.locator(".extension-plan-line summary")).toContainText(network, { timeout: 30_000 });
+  // Run answers from the Plan, which follows the form after a debounce and a request: this folder is
+  // new, so the last network's "will overwrite" must be gone before Run is pressed.
+  await expect(page.getByTestId("extension-plan-line")).toContainText(new RegExp(`${network} .*replaces nothing`), { timeout: 30_000 });
   const blend = page.getByRole("checkbox", { name: "Export .blend" });
   if (firstWithBlend) {
     await blend.click();
