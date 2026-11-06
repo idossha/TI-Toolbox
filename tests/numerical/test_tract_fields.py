@@ -17,8 +17,8 @@ Pins (2026-11-04):
   the comparison) return the field; for a linear field the two differ by at most
   |grad E| x the cell diagonal, and the linear interpolation is closer to the exact field
   than the element value.
-* **V2, real carrier mesh (gated on ``TIT_DATASET_000``, read-only).** On sub-101
-  ``L_Insula``'s two carrier meshes, 300 straight 40 mm streamlines centred on random WM
+* **V2, real carrier mesh (gated on ``TIT_DATASET_000``, read-only).** On sub-CHN
+  ``left_insula_mean``'s two carrier meshes, 300 straight 40 mm streamlines centred on random WM
   element barycentres: ``sample_carriers`` and SimNIBS's linear interpolation find the same
   points outside the brain tissues, and their ``ti_along`` agrees in distribution (correlation > 0.8, median
   difference < 10 % of the local ``ti_max``): properties, not pinned numbers (the measured
@@ -198,9 +198,9 @@ def test_v2_real_mesh_tet_vs_linear():
 import os, sys
 import numpy as np
 root = os.environ.get("TIT_DATASET_000", "")
-mesh_dir = os.path.join(root, "derivatives/SimNIBS/sub-101/Simulations/L_Insula/high_Frequency/mesh")
+mesh_dir = os.path.join(root, "derivatives/SimNIBS/sub-CHN/Simulations/left_insula_mean/high_Frequency/mesh")
 if not root or not os.path.isdir(mesh_dir):
-    print("skipping: TIT_DATASET_000 is unset or has no sub-101 L_Insula carrier meshes "
+    print("skipping: TIT_DATASET_000 is unset or has no sub-CHN left_insula_mean carrier meshes "
           "(export TIT_DATASET_000=/path/to/Dataset000, read-only)")
     sys.exit(3)
 from simnibs.mesh_tools import mesh_io
@@ -222,7 +222,7 @@ def linear(paths, points):
         bad_any |= bad
     return out, bad_any
 pm = get_path_manager(root)
-paths = carrier_meshes(pm, "101", "L_Insula")
+paths = carrier_meshes(pm, "CHN", "left_insula_mean")
 # 300 straight 40 mm streamlines centred on random WM barycentres, random directions
 wm = mesh_io.read_msh(str(paths[0])).crop_mesh(tags=[1])
 rng = np.random.default_rng(0)

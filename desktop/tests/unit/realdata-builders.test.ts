@@ -76,7 +76,7 @@ describe("Dataset 000 snapshot", () => {
     expect(montages.length).toBeGreaterThanOrEqual(20);
     expect(SUBJECTS.flatMap(([, s]) => s.flex_runs).length).toBeGreaterThanOrEqual(3);
     expect(SUBJECTS.flatMap(([, s]) => s.freehand).length).toBeGreaterThanOrEqual(1);
-    // 2026-11-03: sub-101 L_Insula and L_Insula_old, sub-CHN left_insula_mean, sub-ernie AF3_PO10_and_AF4_Oz.
+    // 2026-11-06: sub-CHN left_insula_mean, posterior_along, posterior_timax and thalamus; sub-ernie AF3_PO10_and_AF4_Oz.
     expect(SUBJECTS.flatMap(([, s]) => s.simulations).length).toBeGreaterThanOrEqual(4);
     expect(SUBJECTS.flatMap(([, s]) => s.leadfields).length).toBeGreaterThanOrEqual(1);
   });
@@ -180,11 +180,11 @@ describe("every free-hand placement builds the job it was saved as", () => {
 });
 
 /**
- * Simulation folders with no field mesh: sub-101's L_Insula_old is a re-run cancelled on
- * 2026-10-22 after it cleared the old outputs, so the catalog offers no field for it. Pinned below
- * so this list cannot outlive it.
+ * Simulation folders with no field mesh, for which the catalog offers no field. None on 2026-11-06:
+ * sub-101's L_Insula_old, a re-run cancelled after it cleared its outputs, went with sub-101's
+ * simulations. Pinned below so this list cannot outlive what it names.
  */
-const NO_FIELD_MESH = new Set(["101/L_Insula_old"]);
+const NO_FIELD_MESH = new Set<string>();
 
 describe("analyzer field options for every real simulation", () => {
   const sims = SUBJECTS.flatMap(([sid, s]) => s.simulations.map((sim) => ({ sid, sim })));

@@ -296,31 +296,31 @@ def test_the_grey_matter_mean_is_the_same_whatever_the_roi(runs):
     for run in [r for r in runs if r["kind"] == "ex"]:
         cfg = run["cfg"]
         by_leadfield[(cfg["subject_id"], Path(cfg["leadfield_hdf"]).name)].append(run)
-    shared = [group for group in by_leadfield.values() if len(group) > 1]
-    if not shared:
-        # Dataset 000 since 2026-11-01: one ex run per subject (sub-101's 20260919_160209 is
-        # gone and its 20260914_112446 folder is empty).
-        runs_by_leadfield = "; ".join(
-            f"sub-{sid} {leadfield}: {', '.join(Path(r['dir']).name for r in group)}"
-            for (sid, leadfield), group in sorted(by_leadfield.items())
-        )
-        pytest.skip(
-            "skipping: no two ex runs share a subject and a leadfield "
-            f"({runs_by_leadfield})"
-        )
     compared = 0
-    for group in shared:
+    for group in by_leadfield.values():
         per_run = []
         for run in group:
             values = defaultdict(list)
             for r in run["rows"]:
                 values[_class_key(r)].append(r["TImean_GM"])
             per_run.append(values)
+        if len(per_run) < 2:
+            continue
         for key in set.intersection(*(set(v) for v in per_run)):
             seen = [gm for values in per_run for gm in values[key]]
             assert max(seen) - min(seen) <= 2 * HALF + 1e-12, key
             compared += 1
-    assert compared
+    if not compared:
+        # Dataset 000 since 2026-11-04: sub-101 has two ex runs on one leadfield, but their
+        # electrode sets give no montage in common.
+        runs_by_leadfield = "; ".join(
+            f"sub-{sid} {leadfield}: {', '.join(Path(r['dir']).name for r in group)}"
+            for (sid, leadfield), group in sorted(by_leadfield.items())
+        )
+        pytest.skip(
+            "skipping: no two ex runs of one subject and leadfield share a montage "
+            f"({runs_by_leadfield})"
+        )
 
 
 def test_grey_matter_means_are_plausible(runs):

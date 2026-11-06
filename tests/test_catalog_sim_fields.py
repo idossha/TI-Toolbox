@@ -274,7 +274,7 @@ def test_dataset_000_fields_are_registry_names_and_vn_carriers_are_listed():
     sims = root / "derivatives" / "SimNIBS"
     watched = [
         sims / "sub-ernie" / "Simulations" / "AF3_PO10_and_AF4_Oz",
-        sims / "sub-101" / "Simulations" / "L_Insula",
+        sims / "sub-CHN" / "Simulations" / "posterior_timax",
         sims / "sub-CHN" / "Simulations" / "left_insula_mean",
     ]
     before = {w: _mtimes(w) for w in watched}
@@ -308,12 +308,12 @@ def test_dataset_000_fields_are_registry_names_and_vn_carriers_are_listed():
     assert chn["fields"] == ["TI_max", "magnE"]
     assert chn["space"] == ["subject"]
 
-    # sub-101/L_Insula (re-run 2026-11-01) saved no NIfTIs: it offers the fields its config
-    # asked for, which its field mesh carries, in no volume space.
-    insula = catalog.simulation_detail(pm, "101", "L_Insula")
+    # CHN/posterior_timax saved no NIfTIs: it offers the fields its config asked for, which its
+    # field mesh carries, in no volume space.
+    timax = catalog.simulation_detail(pm, "CHN", "posterior_timax")
     config = json.loads((watched[1] / "documentation" / "config.json").read_text())
-    assert set(config["output_fields"]) == {"TI_max", "hf_peak", "hf_rms"}
-    assert set(insula["fields"]) == set(config["output_fields"])
-    assert insula["niftis"] == [] and insula["space"] == []
+    assert set(config["output_fields"]) == {"TI_max"}
+    assert set(timax["fields"]) == set(config["output_fields"])
+    assert timax["niftis"] == [] and timax["space"] == []
 
     assert {w: _mtimes(w) for w in watched} == before
