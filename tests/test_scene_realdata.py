@@ -261,9 +261,7 @@ def scene_format(request) -> str:
     return request.param
 
 
-@pytest.fixture(scope="module")
-def surfaces(pm, subject: str, scene_format: str) -> dict:
-    """Both surface payloads, built for real and decoded from the cache."""
+def _build_and_decode(pm, subject: str, scene_format: str) -> dict:
     from tit.scene import build, cache
 
     metas = build.build_surfaces(pm, subject)
@@ -285,6 +283,22 @@ def surfaces(pm, subject: str, scene_format: str) -> dict:
             f"{meta['max_deviation_mm']} mm, {meta['build_ms']} ms"
         )
     return out
+
+
+@pytest.fixture(scope="module")
+def surfaces(pm, subject: str, scene_format: str) -> dict:
+    """Both surface payloads, built for real and decoded from the cache."""
+    return _build_and_decode(pm, subject, scene_format)
+
+
+@pytest.fixture(scope="module")
+def head_mesh_surfaces(pm, subject: str, scene_format: str) -> dict:
+    """The same build for a subject with no central surfaces: grey matter from the head mesh."""
+    from tit.scene import build
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(build, "central_surface_paths", lambda *_: {})
+        return _build_and_decode(pm, subject, scene_format)
 
 
 @pytest.fixture(scope="module")
@@ -312,12 +326,12 @@ def labels(pm, subject: str, atlas: str, surfaces: dict, scene_format: str) -> d
 # ── §S3 budgets, on a real mesh ──────────────────────────────────────────────
 
 
-def test_both_surfaces_meet_the_s3_budget(surfaces: dict) -> None:
-    """150 000 triangles and 3 MB per surface (decision S3)."""
+def test_the_head_mesh_path_meets_the_s3_budget(head_mesh_surfaces: dict) -> None:
+    """150 000 triangles and 3 MB per surface (decision S3), where no central surface exists."""
     from tit.scene import build
 
-    assert set(surfaces) == {"skin", "gm"}
-    for part, entry in surfaces.items():
+    assert set(head_mesh_surfaces) == {"skin", "gm"}
+    for part, entry in head_mesh_surfaces.items():
         meta = entry["meta"]
         assert meta["triangles"] <= build.MAX_TRIANGLES, part
         # The budget is a *wire* budget, so it applies to every serialisation
@@ -326,6 +340,38 @@ def test_both_surfaces_meet_the_s3_budget(surfaces: dict) -> None:
             assert size <= build.MAX_BYTES, f"{part} as {name}: {size} bytes"
         assert meta["within_budget"] is True, part
         assert meta["triangles"] > 1000, f"{part} collapsed to nothing"
+
+
+def test_the_grey_matter_is_both_central_surfaces_whole_and_closed(
+    pm, subject: str, surfaces: dict
+) -> None:
+    """What the atlas labels, re-read from the files, with no hole for a region border to break at.
+
+    Measured on sub-CHN on 2026-11-06: 983 040 triangles, 0 boundary and 0 non-manifold edges,
+    where the head mesh's tag clustered to the budget had 4 862 and 3 361 (DECISIONS).
+    """
+    import nibabel as nib
+
+    from tit.scene import build
+
+    meta = surfaces["gm"]["meta"]
+    payload = surfaces["gm"]["payload"]
+    arrays = [
+        nib.load(build.central_surface_paths(pm, subject)[hemi]).darrays
+        for hemi in ("lh", "rh")
+    ]
+    np.testing.assert_array_equal(
+        payload.positions,
+        np.concatenate([a[0].data for a in arrays]).astype(np.float32),
+    )
+    assert payload.triangle_count == sum(len(a[1].data) for a in arrays)
+    assert meta["source"] == "central surfaces"
+    assert meta["simplified"] is False and meta["max_deviation_mm"] == 0.0
+    assert meta["within_budget"] is True
+    t = np.asarray(payload.indices, dtype=np.int64)
+    edges = np.sort(np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]]), axis=1)
+    _, counts = np.unique(edges, axis=0, return_counts=True)
+    assert set(counts.tolist()) == {2}, "every edge belongs to exactly two triangles"
 
 
 def test_the_skin_surface_is_shipped_untouched(surfaces: dict) -> None:
@@ -337,7 +383,7 @@ def test_the_skin_surface_is_shipped_untouched(surfaces: dict) -> None:
 
 
 def test_simplifying_gm_reports_a_deviation_in_the_millimetre_range(
-    surfaces: dict,
+    head_mesh_surfaces: dict,
 ) -> None:
     """Sanity band, not a pinned value.
 
@@ -348,7 +394,7 @@ def test_simplifying_gm_reports_a_deviation_in_the_millimetre_range(
     positive, and is single-digit millimetres -- a clustering bug that merged
     across the hemispheres would put it in the tens.
     """
-    meta = surfaces["gm"]["meta"]
+    meta = head_mesh_surfaces["gm"]["meta"]
     assert meta["simplified"] is True
     assert meta["cell_mm"] > 0
     assert 0.0 < meta["max_deviation_mm"] < 10.0
@@ -406,7 +452,9 @@ def _boundary_edges(indices) -> int:
     return int((counts == 1).sum())
 
 
-def test_both_served_surfaces_are_wound_outward(surfaces: dict) -> None:
+def test_both_served_surfaces_are_wound_outward(
+    surfaces: dict, head_mesh_surfaces: dict
+) -> None:
     """The defect fixed on 2026-09-04, on the mesh that produced it.
 
     Measured on ``sub-ernie`` before the fix, on the bytes the container
@@ -423,7 +471,10 @@ def test_both_served_surfaces_are_wound_outward(surfaces: dict) -> None:
     enough for the question to have an answer.
     """
     volumes = {}
-    for part, entry in surfaces.items():
+    for part, entry in {
+        **surfaces,
+        "head mesh gm": head_mesh_surfaces["gm"],
+    }.items():
         payload = entry["payload"]
         volume = _enclosed_volume(payload.positions, payload.indices)
         volumes[part] = volume
@@ -444,24 +495,31 @@ def test_both_served_surfaces_are_wound_outward(surfaces: dict) -> None:
             f"more than the {spread * 100:.2f} % its open boundary can explain"
         )
     assert (
-        surfaces["gm"]["meta"]["winding_flipped"] is True
+        head_mesh_surfaces["gm"]["meta"]["winding_flipped"] is True
     ), "the head mesh's gm tag came out outward -- the convention this fix compensates for changed"
     assert surfaces["skin"]["meta"]["winding_flipped"] is False
     assert 0.5e6 < volumes["gm"] < 2.5e6, "gm does not enclose a brain-sized volume"
+    assert 0.5e6 < volumes["head mesh gm"] < 2.5e6, "nor does the head mesh's"
     assert 2.0e6 < volumes["skin"] < 1.0e7, "skin does not enclose a head-sized volume"
     assert volumes["gm"] < volumes["skin"], "the brain is inside the head"
 
 
-def test_the_framing_box_drops_the_neck_and_keeps_the_head(surfaces: dict) -> None:
+def test_the_framing_box_drops_the_neck_and_keeps_the_head(
+    surfaces: dict, head_mesh_surfaces: dict
+) -> None:
     """``focus_bbox`` is the framing hint decision S7's pane needs.
 
     ``sub-ernie``'s skin runs to ``z = -128.9 mm`` (neck and shoulders) while
     its grey matter starts at ``-50.7``, so a pane framing ``bbox`` spends
-    about a fifth of its height on neck.
+    about a fifth of its height on neck. The floor is the head mesh's grey matter, which holds
+    the cerebellum, so the head frames the same whichever surface draws the cortex.
     """
     gm = surfaces["gm"]["meta"]
     skin = surfaces["skin"]["meta"]
-    floor = gm["bbox"][2]
+    floor = head_mesh_surfaces["gm"]["meta"]["bbox"][2]
+    assert skin["focus_bbox"] == pytest.approx(
+        head_mesh_surfaces["skin"]["meta"]["focus_bbox"], abs=1e-3
+    )
 
     assert gm["focus_bbox"] == gm["bbox"], "grey matter has nothing below its own floor"
     assert (
@@ -744,7 +802,7 @@ def test_the_reference_and_fiducials_are_in_the_same_space(
 
 
 def test_every_served_gm_vertex_is_an_untouched_mesh_vertex(
-    pm, subject: str, surfaces: dict
+    pm, subject: str, head_mesh_surfaces: dict
 ) -> None:
     """The property that lets labels and electrodes stay registered.
 
@@ -765,7 +823,7 @@ def test_every_served_gm_vertex_is_an_untouched_mesh_vertex(
     original = np.asarray(
         mesh.crop_mesh(tags=[build.PART_TAGS["gm"]]).nodes.node_coord, dtype=np.float32
     )
-    served = surfaces["gm"]["payload"].positions
+    served = head_mesh_surfaces["gm"]["payload"].positions
 
     # Exact membership: every served coordinate triple is one the mesh has.
     original_rows = {row.tobytes() for row in np.ascontiguousarray(original)}
@@ -773,7 +831,7 @@ def test_every_served_gm_vertex_is_an_untouched_mesh_vertex(
     assert served_rows <= original_rows, "a served vertex is not a mesh vertex"
 
     distance, _ = cKDTree(served.astype(np.float64)).query(original.astype(np.float64))
-    meta = surfaces["gm"]["meta"]
+    meta = head_mesh_surfaces["gm"]["meta"]
     print(
         f"[{subject}] gm simplification at cell {meta['cell_mm']} mm: "
         f"{len(original)} -> {len(served)} vertices; distance from an original "

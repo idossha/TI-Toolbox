@@ -6,7 +6,8 @@ What this module extracts, and from where:
 part / payload   source
 ===============  ==========================================================
 ``skin``         ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1005])``
-``gm``           ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
+``gm``           ``m2m_<id>/surfaces/{lh,rh}.central.gii``, whole; without
+                 them ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
 electrodes       ``m2m_<id>/eeg_positions/<net>.csv`` (``Electrode,x,y,z,name``)
 region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
                  + ``m2m_<id>/surfaces/{lh,rh}.central.gii``
@@ -14,12 +15,11 @@ region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
 
 **The alignment problem, and how it is solved.** A ``.annot`` file has one
 label per vertex of the *central* surface -- 245 762 per hemisphere on
-``sub-ernie``. The head mesh's grey-matter surface is a different, coarser
-triangulation of the same anatomy: 168 952 vertices, and 76 k after §S3
-simplification. The label array therefore cannot be handed over as-is; it has
-neither the right length nor the right order, and a renderer that assumed it
-did would highlight a region several centimetres from the one the user
-clicked. :func:`build_labels` instead
+``sub-ernie``. Where the ``gm`` part is those surfaces, each vertex finds itself
+at distance 0. For a head with no central surfaces the head mesh's grey-matter
+surface is a different, coarser triangulation of the same anatomy: 168 952
+vertices, and 76 k after §S3 simplification, whose label array cannot be handed
+over as-is. :func:`build_labels` takes one path for both:
 
 1. **decodes the ``gm`` payload the surface route actually serves** (not a
    re-derived vertex list -- a re-derivation is exactly where the two orders
@@ -28,7 +28,7 @@ clicked. :func:`build_labels` instead
 3. copies that vertex's region across only when it is within
    :data:`LABEL_RADIUS_MM`.
 
-Step 3 matters because the head mesh's GM tag covers cerebellum and brainstem
+Step 3 matters on the head mesh, whose GM tag covers cerebellum and brainstem
 as well as cortex, and the cortical atlases cover none of it: measured on
 ``sub-ernie``, 7.35 % of GM vertices are more than 5 mm from any central
 surface vertex (max 45.7 mm). Those come back label ``0`` = "no region"
@@ -86,7 +86,8 @@ __all__ = [
 #: matter (``simnibs.mesh_tools.mesh_io.ElementTags``).
 PART_TAGS: dict[str, int] = {"skin": 1005, "gm": 1002}
 
-#: Decision S3's budget, per surface.
+#: Decision S3's budget, per surface, for the skin and a head with no central surfaces. The grey
+#: matter of a head that has them is drawn whole (DECISIONS, 2026-11-06).
 MAX_TRIANGLES = 150_000
 MAX_BYTES = 3 * 1024 * 1024
 
@@ -193,7 +194,7 @@ def surface_sources(pm: PathManager, sid: str) -> list[str]:
     path = source_path(pm, Path(pm.m2m(sid)) / f"{sid}.msh")
     if path is None:
         raise SceneUnavailable("Head mesh resolves outside the project")
-    return [str(path)]
+    return [str(path), *central_surface_paths(pm, sid).values()]
 
 
 def surface_fingerprint(pm: PathManager, sid: str) -> str:
@@ -602,6 +603,27 @@ def _read_surface(mesh, tag: int) -> tuple[np.ndarray, np.ndarray, bool]:
     return vertices, triangles, flipped
 
 
+def _read_central(paths: dict[str, str]) -> tuple[np.ndarray, np.ndarray, bool]:
+    """Both central surfaces as one part, lh then rh: ``_read_surface``'s answer for the cortex.
+
+    The surfaces a cortical annotation is defined on, closed and two-manifold, which the head
+    mesh's GM tag is not: it stops where grey matter meets no CSF (121 lateral holes on sub-CHN),
+    and clustering it under a budget cuts over a thousand more (2026-11-06, DECISIONS).
+    """
+    import nibabel as nib
+
+    vertices, triangles = [], []
+    offset = 0
+    for hemi in ("lh", "rh"):
+        arrays = nib.load(paths[hemi]).darrays
+        vertices.append(np.asarray(arrays[0].data, dtype=np.float64))
+        triangles.append(np.asarray(arrays[1].data, dtype=np.int64) + offset)
+        offset += len(vertices[-1])
+    merged = np.concatenate(vertices)
+    wound, flipped = orient_outward(merged, np.concatenate(triangles))
+    return merged, wound, flipped
+
+
 def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     """Build, cache and describe both surface parts for *sid*.
 
@@ -624,6 +646,9 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     # and because it lets the 184 MB mesh be released before the memory the
     # clustering needs is allocated.
     extracted: dict[str, tuple[np.ndarray, np.ndarray, bool, float]] = {}
+    central = central_surface_paths(pm, sid)
+    whole_cortex = len(central) == 2
+    mesh_floor_z = np.inf
     for part, tag in PART_TAGS.items():
         part_started = time.perf_counter()
         vertices, triangles, flipped = _read_surface(mesh, tag)
@@ -631,6 +656,10 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             raise SceneUnavailable(
                 f"{mesh_path.name} has no tag-{tag} ({part}) surface elements"
             )
+        if part == FOCUS_FLOOR_PART:
+            mesh_floor_z = float(vertices[:, 2].min())
+        if part == "gm" and whole_cortex:
+            vertices, triangles, flipped = _read_central(central)
         extract_ms = (time.perf_counter() - part_started) * 1000.0
         extracted[part] = (vertices, triangles, flipped, extract_ms)
     del mesh
@@ -638,7 +667,14 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     simplified: dict[str, tuple[SimplifyResult, float]] = {}
     for part, (vertices, triangles, _flipped, _extract_ms) in extracted.items():
         part_started = time.perf_counter()
-        result = simplify_to_budget(vertices, triangles, MAX_TRIANGLES, MAX_BYTES)
+        # The central surfaces stay whole: clustering is what cuts holes in a closed cortex.
+        keep_whole = part == "gm" and whole_cortex
+        result = simplify_to_budget(
+            vertices,
+            triangles,
+            len(triangles) if keep_whole else MAX_TRIANGLES,
+            None if keep_whole else MAX_BYTES,
+        )
         simplified[part] = (result, (time.perf_counter() - part_started) * 1000.0)
 
     # The floor is read off the vertices the floor part publishes -- the very set its `bbox`
@@ -647,8 +683,10 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     # *below* its float64 self (-92.396347 vs -92.3963463), so a float64 floor cut it out of
     # the grey matter's own focus box (-92.335 against a bbox floor of -92.396).
     floor_source = simplified.get(FOCUS_FLOOR_PART)
+    # The head mesh's floor counts too: it holds the cerebellum, which a central surface does not,
+    # so the head keeps its framing whichever surface the cortex is drawn from.
     floor_z = (
-        float(floor_source[0].vertices[:, 2].min())
+        min(float(floor_source[0].vertices[:, 2].min()), mesh_floor_z)
         if floor_source is not None
         else -np.inf
     )
@@ -679,6 +717,9 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
         meta = {
             "part": part,
             "tag": PART_TAGS[part],
+            "source": (
+                "central surfaces" if part == "gm" and whole_cortex else "head mesh"
+            ),
             "vertices": int(len(result.vertices)),
             "triangles": int(len(result.triangles)),
             "source_vertices": int(len(vertices)),
@@ -688,7 +729,8 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             "simplify_rounds": int(result.rounds),
             "max_deviation_mm": round(float(result.max_deviation), 4),
             "within_budget": bool(
-                len(result.triangles) <= MAX_TRIANGLES and len(blob) <= MAX_BYTES
+                (part == "gm" and whole_cortex)
+                or (len(result.triangles) <= MAX_TRIANGLES and len(blob) <= MAX_BYTES)
             ),
             # Per-serialisation payload size, so the manifest and a reader can
             # say what a `format=gii` request will actually cost without
