@@ -4529,3 +4529,168 @@ job was killed mid-render, which a `finally` cannot catch.
 bundle by default (`network.json`'s config rebuilds it in under a minute); a draggable split (the existing
 expand and the taller pane were enough, and it is a second gesture to maintain).
 
+## 2026-11-05 — Across DIPY and MRtrix3, directions, bundle summaries and dominant edges hold; edge rankings and counts do not
+
+**Decision.** State a `tit.tract` result at bundle level or for a dominant edge that repeats across seeds. Quote a
+field on a named edge to no better than about 10 %, rank only edges with at least 20 streamlines, and treat edge ranks
+below about 5, edge counts and track density as tool-dependent. MRtrix3 stays an external reference
+(`tractogram_acpc.tck` exists for it), not a dependency. The full write-up, `results.json` and scripts are under
+`derivatives/ti-toolbox/tract_validation/v1_compare/` in Dataset 000, and earlier entries' `validation/v1_compare/...`
+paths mean that folder.
+
+**Design.** sub-CHN, two between-tool comparisons, each tool's run-to-run variation as the yardstick. Original: DIPY at
+`3bde9823` against MRtrix3 3.0.8 iFOD2 on msmt-CSD with WM seeds, brain-mask termination and no ACT. ACT-matched: DIPY at
+`2cbdbb43`, which has the brain-stem exit, against iFOD2 with ACT on a 5TT built from the same charm segmentation
+(`-backtrack -crop_at_gmwmi`), same seeds, mask, count and lengths. What remains between the two is the tracking
+algorithm and the FOD model (SSST against msmt-CSD), plus each tool's sub-cortical convention. All tractograms went
+through the same network and assess stages. Density and connectome use 95,895 streamlines per run; science metrics use
+the full tractograms (DIPY 95,895 / 96,031, fixed DIPY 99,955 / 99,998, MRtrix 200,000 each).
+
+| Metric | Between, original | Between, ACT-matched | Floor: fixed DIPY | Floor: MRtrix+5TT |
+|---|---|---|---|---|
+| Density Spearman, WM (537,943 voxels) | 0.610 | 0.753 | 0.936 | 0.939 |
+| Density Dice, TDI ≥ 1 / ≥ 10 | 0.779 / 0.737 | 0.888 / 0.827 | 0.943 / 0.902 | 0.947 / 0.919 |
+| Density Spearman, WM > 5 mm deep / FA > 0.4 | 0.31 / 0.31 | 0.46 / 0.55 | 0.91 / 0.92 | 0.77 / 0.88 |
+| Connectome Spearman log(1+count), 87 regions | 0.552 | 0.740 | 0.916 | 0.907 |
+| Top-50 edge overlap | 0.46 | 0.70 | 0.92 | 0.90 |
+| Both ends assigned | DIPY 0.967, MRtrix 0.650 | DIPY 0.968, MRtrix 0.941 | | |
+| Bundle median ti_along, median (max) relative difference | 4.5 % (20.9 %) | 5.7 % (12.9 %) | 0.5 % (1.9 %) | 0.3 % (5.1 %) |
+| Bundle alignment index (ti_along/ti_avg), median (max) \|Δ\| | 0.091 (0.187) | 0.059 (0.115) | 0.008 (0.018) | 0.006 (0.040) |
+| Edge ti_along Spearman, insula / thalamus / LH2 | 0.84 / 0.83 / 0.93 | 0.90 / 0.89 / 0.96 | 0.97 / 0.96 / 0.99 | 0.96 / 0.96 / 0.98 |
+| Edge ti_along median relative difference | 8.9–9.5 % | 7.1–7.5 % | 2.8–3.3 % | 2.7–2.9 % |
+| Top-10 edge overlap, n ≥ 20 in both, mean of 3 montages | 0.53 | 0.67 | 0.90 | 0.80 |
+
+Direction agrees: the median angle between the DIPY CSD peak and the MRtrix FOD peak is 1.25° (IQR 0.78–1.98°, 98.4 %
+within 10°, WM with MRtrix FA > 0.4, 194,180 voxels); a wrong-frame control gives 46.8°.
+
+**What it means.** Matching the tissue model closes about half of the gap, and a gap beyond the noise floor remains at
+every level. It does not shrink with more streamlines: the edge-level difference stays about 7 % whatever the edge size
+while run-to-run difference falls from about 6 % to 1.5 %, so more streamlines buy precision, not cross-tool accuracy.
+
+- Three headline claims under the ACT-matched comparison. The thalamus montage's top edges are cingulum: 4 of 5 in both
+  MRtrix runs, 5 and 4 of 5 in fixed DIPY, with the ti_along/ti_max range 0.7–0.93. The left_insula_mean montage's top
+  edge is pars opercularis to caudate: rank 1 in all four runs, 0.345 / 0.347 V/m in DIPY against 0.296 / 0.294 in MRtrix.
+  The whole tractogram is aligned at or below chance with the TI maximum direction: alignment index 0.63 / 1.01 / 0.87
+  in DIPY against 0.67 / 0.95 / 0.86 in MRtrix for left_insula_mean / thalamus / LH2.
+- The original comparison's failure on pars opercularis to caudate was a termination artefact: without ACT, MRtrix
+  streamlines run through the caudate rather than ending there.
+- Sub-cortical convention: MRtrix ACT lets a streamline enter a nucleus and stop inside it, DIPY stops on contact.
+  Strict thalamocortical streamlines run a median 4.5 mm inside the left thalamus with MRtrix+5TT and 0 mm with DIPY, and
+  under the thalamus montage this bundle gets +13 % ti_along with MRtrix+5TT. Edges into deep grey nuclei depend on it.
+- The gap in deep, high-FA white matter (0.46–0.55 against a 0.77–0.94 floor) survives length matching and smoothing, and
+  is the algorithm and the FOD model. Tortuosity is not the cause: mean |tangent·V1| 0.860 fixed DIPY, 0.865 MRtrix+5TT.
+- The brain-stem exit works: cortex to lower brain stem 0.005 % to 0.458 % / 0.501 % (seeds 1 / 2) against 0.543 % /
+  0.537 % for MRtrix+5TT. The remaining entry gap (5.0 % against 10.2 %) is the binary-CSF ACT difference around the brain
+  stem and fourth ventricle.
+
+**5TT.** `scripts/15_make_5tt.py` from `final_tissues` and `segmentation/labeling`, nearest neighbour through the ACPC to
+T1 chain, the same maps `ActStoppingCriterion` receives. cGM 559,761 voxels, sGM 52,985 (aseg 10–13, 17, 18, 26, 49–54, 58),
+WM 564,594 including brain stem and ventral DC (as the code's `DEEP_GREY` does), CSF 396,064, pathological empty. `5ttcheck`
+passes.
+
+**MRtrix gradient gotcha.** Give MRtrix QSIPrep's `.b` table (`mrconvert -grad`), not `-fslgrad`. The QSIPrep `.bvec` is
+in the LPS+ voxel frame, and MRtrix's `-fslgrad` adds the FSL x-flip for positive-determinant images: `dwigradcheck` scored
+that table 38.9 mm mean streamline length against 61.5 mm for its x-flip, which is QSIPrep's `.b` (max difference 5e-9).
+`dwigradcheck` alone cannot exclude a z-flip (60.4 mm against 61.05 mm, within about 1 %). DIPY must read the `.bvec` in
+the array frame with no FSL flip.
+
+**Checks that passed.** ACPC to T1 map against `qc.json`, to 4.8e-7; applied to DIPY's `.tck` it reproduces `tractogram.trx`
+to 4.6e-5 mm, and its inverse misses by 125 mm. Own TDI against `tckmap`, Spearman 0.99985. DIPY seed-1 rerun bit-identical.
+
+**Not compared.** `f_am` (step-dependent) and signed `e_par` (its sign follows the tracking direction). SIFT2 weights exist
+for the original MRtrix run 1 only, so that row has no floor and no ACT-matched counterpart.
+
+**Alternatives rejected.** A fixed agreement threshold (each tool's own floor is the yardstick); treating the no-ACT MRtrix
+run as the reference (its 0.650 both-ends fraction and through-nucleus paths compare different fibres).
+
+## 2026-11-05 — Proof of concept: on sub-CHN, a direction-aware montage out-scored `thalamus` along the posterior thalamocortical network
+
+**Status: proof of concept on one subject, not a montage to use.** The montage pool was **20 electrodes, 14,535
+montages**; the search over all 60 electrodes (about 1.46 million montages) was skipped. Every field value is a descriptor
+along fibres, not a prediction of activation. It ran by CLI at `feat/tract` `4c73d1eb` in `idossha/ti-toolbox:v3.1.3`, and
+13 of 14 criteria passed, 1e being partial. The report, `results.json`, configs and scripts are under
+`derivatives/ti-toolbox/tract_validation/poc_20261105/` in Dataset 000; its outputs sit where a toolbox run would write them.
+Later entries today moved the app route on; the numbers below are the run's.
+
+**Why record it.** It is the first end-to-end evidence for this feature, and the same-side and every-montage ranking entries
+above cite it.
+
+**Result.** CPz-F7 + Pz-F8, 1 mA + 1 mA, against `thalamus` (F7-P7 + F8-P8) on the same 1,598 streamlines, FEM both sides:
+
+| | Optimized | `thalamus` | Difference | Streamlines higher |
+|---|---:|---:|---:|---:|
+| ti_along (V/m) | 0.1501 | 0.0373 | +0.1128 (+302 %) | 99.4 % |
+| TI_max (V/m) | 0.2371 | 0.1009 | +0.1362 (+135 %) | 100 % |
+| align_index (random-direction baseline 1) | 1.553 | 0.819 | +0.734 (+90 %) | 85.7 % |
+
+**Limits.**
+- The winner's rank 1 is true by construction. The distance from the pool median (ti_along 0.045 V/m) is the informative part.
+- It depends on the pool: 16 electrodes nearest the network centroid plus F7, P7, F8, P8, added so `thalamus` is a pool
+  member. All of the top five along-fibre montages use F7 and F8, and those five lie within 3 %.
+- The gain is not exclusive. From `thalamus` to optimized, frontal ti_along rises 56 % and TI_max 80 %, with frontal
+  alignment not improving (0.794 against 0.834). Posterior beats frontal under optimized (ti_along 0.150 against 0.059 V/m)
+  and not under `thalamus` (0.037 against 0.038).
+- Field outside the mask rises: GM mean +75 %, whole-head p99.9 about 5.7-fold (12.67 against 2.23 V/m by element count),
+  and the whole-head maximum sits in compact bone in all three montages (35.76, 80.81 and 18.28 V/m). Reported with no
+  threshold applied.
+- Leadfield against FEM on the mask, same 14,770 elements: -0.28 %, -0.08 % and **+5.24 %** for CP3-P8 + CP4-CP5 (the top
+  `TImean_ROI` montage, 0.3375 against 0.3551 V/m). Its cause was not found, and only 3 of 14,535 montages were checked, so
+  a similar error could exist in a pool whose top five sit closer than that.
+
+**Findings that changed the code or stay open.**
+- Direction changes the choice. Across the pool `TImean_ROI` tracks streamline TI_max (Spearman 0.994) better than ti_along
+  (0.902). The rank-1 montage on TI_max is rank 886 on ti_along, and the winner is p94.5 on `TImean_ROI`.
+- Tractography is reproducible: same seed, parameters and 8 workers gave identical streamlines and a byte-identical `.tck`;
+  the `.trx` differs only in zip timestamps. Track + network took 345 s, of which 109 s is the frame check's tensor.
+- Cross-tool Spearman reproduced at 0.746 and 0.740 (MRtrix run-to-run 0.908).
+- Posterior midline crossing is 191/1,598 = 12.0 % (MRtrix 14.2 % / 13.3 %), frontal 2.4 %, lopsided 167 against 24. Without
+  them ti_along is 0.154 against 0.037 V/m (+313 %).
+- The mask (23,876 voxels, 98.87 % WM) is white matter touching its ends: only 39 of 6,815 and 84 of 6,833 thalamus voxels
+  are inside it, because ACT stops streamlines at the grey boundary.
+- Ranking on Dataset 000 against the reference copy: one bundle point of 233,131 falls inside the leadfield mesh in one and not
+  the other, cause not established; 275 rows change `rank_by_ti_along` by up to 12 places among near-ties, top 20 unchanged.
+  Two regenerations were identical, so it is systematic, not run-to-run noise.
+
+**Not validated by this run.** The desktop app, queue, preflight and picker (later covered by
+`desktop/tests/e2e/real/network-chain.spec.ts`); whether the winner survives on another tractogram; montages outside the pool;
+a second subject; anisotropic conductivity; any link between these values and neural response.
+
+## 2026-11-05 — Selection stays in the optimizer and inspection in TetraVox, as a core layer
+
+**Decision.** This records the design note behind the `tract` job kind entry above. Choosing a network happens in the
+desktop optimizer; inspecting field-coloured streamlines happens in TetraVox, as a core layer rather than an extension; both
+read TRX on disk; Blender stays the publication and 4-D renderer. TetraVox's side is its own decision ("Tractogram display
+enters the core; tractography stays out", TetraVox `docs/DECISIONS.md`), written generically: "other users coming with other
+file organizations should be able to load data and be able to show tracts and potentially map fields on those".
+
+**Why.** A core layer, because an extension cannot add a layer kind (`Layer` is a closed union with an exhaustive registry) and
+would need its own install inside TI's copy, while a core layer arrives through updates TI already manages. Field colour on the
+panes would undo decision S1. There is no field before simulation, so the only gain of selecting inside TetraVox is small.
+
+**Budgets stated by the design (budgets, not measurements).** Pane preview at most 64 edges × 100 streamlines per edge, ~0.3 M
+points, ~4 MB. The view side at full resolution was estimated at 13 M points, about 210 MB of GPU memory, against TetraVox's
+limits of GPU ≤ 500 MB and renderer heap ≤ 400 MB; TetraVox's own measurements superseded this, and its vertex is 18 B.
+
+**Not yet connected.** TI does not send a tractogram to TetraVox. The change is written down, unapplied, in
+`dev/upstream/tetravox-tracts/`; it is open work in [ROADMAP.md](ROADMAP.md).
+
+**Alternatives rejected.** Everything in TetraVox (a cross-process reply protocol, TI concepts such as edges and min-n in a generic
+viewer, no remote projects, targeting tied to the viewer's release cadence); field-weighted display subsampling (it would favour
+a metric, so uniform).
+
+## 2026-11-05 — The tract development folder is retired; reference data live in Dataset 000
+
+**Decision.** `tract_network_dev/` (19 GB) is gone. Design and results are in this log, [TESTING.md](TESTING.md) and
+[ROADMAP.md](ROADMAP.md); testing and output from now on go to Dataset 000, and code and docs to this repository or TetraVox. The
+reference data, originals of what was condensed here, the checksums and a manifest of what was removed with sizes are
+`derivatives/ti-toolbox/tract_validation/README.md` in Dataset 000.
+
+**Why.** The maintainer's instruction: "everything should either be under the ti-toolbox or tetravox projects. no need for this
+intermediary path. any testing and output should go to the 000 dataset." The removal includes the ernie and CHN LH2 simulations,
+the only copies, by that instruction.
+
+**Kept beyond the data TetraVox's checks read.** `v1_compare/mrtrix_act`, the two iFOD2 + ACT runs. `mrtrix_ref` is the no-ACT run,
+so without them the like-for-like comparison would need the MRtrix environment rebuilt and tracking rerun, which is stochastic.
+
+**Alternatives rejected.** Images or data in git (a public repository, and the data are gigabytes); the participant inventory and full
+secondary-analysis plan in git (unpublished study detail, see ROADMAP; the originals stay in Dataset 000).

@@ -1,0 +1,112 @@
+--- a/contracts/tetravox-viewspec-v2.schema.json
++++ b/contracts/tetravox-viewspec-v2.schema.json
+@@ -30,7 +30,8 @@
+       "items": {
+         "oneOf": [
+           { "$ref": "#/$defs/VolumeLayer" },
+-          { "$ref": "#/$defs/MeshLayer" }
++          { "$ref": "#/$defs/MeshLayer" },
++          { "$ref": "#/$defs/TractsLayer" }
+         ]
+       }
+     },
+@@ -108,7 +109,7 @@
+       "required": ["id", "kind", "name", "path", "fingerprint"],
+       "properties": {
+         "id": { "type": "string" },
+-        "kind": { "enum": ["volume", "mesh"] },
++        "kind": { "enum": ["volume", "mesh", "tractogram"] },
+         "name": { "type": "string" },
+         "path": {
+           "type": "string",
+@@ -126,7 +127,39 @@
+             "lut": { "$ref": "#/$defs/SidecarRef" },
+             "opt": { "$ref": "#/$defs/SidecarRef" }
+           }
++        },
++        "tract": {
++          "type": "object",
++          "description": "tractogram refs only. TetraVox package.json advertises it with tractLayerProtocol: 1; never send a tractogram to a copy without that field.",
++          "properties": {
++            "maxPoints": { "type": ["integer", "null"], "minimum": 1 },
++            "seed": { "type": "integer", "minimum": 0 },
++            "samples": {
++              "type": "array",
++              "items": { "$ref": "#/$defs/TractSampleSpec" }
++            }
++          }
+         }
++      }
++    },
++    "TractSampleSpec": {
++      "type": "object",
++      "required": ["tractogramId", "sourceId", "op"],
++      "properties": {
++        "tractogramId": { "type": "string" },
++        "sourceId": { "type": "string" },
++        "field": {
++          "type": "object",
++          "required": ["source", "name"],
++          "properties": {
++            "source": { "enum": ["node", "elm"] },
++            "name": { "type": "string" }
++          }
++        },
++        "volumeIndex": { "type": "integer", "minimum": 0 },
++        "op": { "enum": ["value", "magnitude", "dot", "abs-dot", "abs-cross"] },
++        "basis": { "enum": ["world", "voxel"] },
++        "name": { "type": "string" }
+       }
+     },
+     "LayerBase": {
+@@ -306,6 +339,50 @@
+         }
+       ]
+     },
++    "TractsLayer": {
++      "allOf": [
++        { "$ref": "#/$defs/LayerBase" },
++        {
++          "type": "object",
++          "required": [
++            "kind",
++            "colorMode",
++            "solidColor",
++            "colormap",
++            "scale",
++            "threshold",
++            "lineWidthPx",
++            "slabMm"
++          ],
++          "properties": {
++            "kind": { "const": "tracts" },
++            "colorMode": { "enum": ["direction", "solid", "vertex", "streamline", "group"] },
++            "solidColor": { "$ref": "#/$defs/vec4" },
++            "field": {
++              "type": "string",
++              "description": "a dpv for colorMode vertex, a dps for colorMode streamline, or a TractSampleSpec name"
++            },
++            "colormap": { "type": "string" },
++            "colormapNegative": { "type": "string" },
++            "scale": { "$ref": "#/$defs/Scale" },
++            "threshold": { "$ref": "#/$defs/Threshold" },
++            "streamlineFilter": {
++              "type": "object",
++              "required": ["field", "lo", "hi"],
++              "properties": {
++                "field": { "type": "string" },
++                "lo": { "type": ["number", "null"] },
++                "hi": { "type": ["number", "null"] }
++              }
++            },
++            "groupField": { "type": "string" },
++            "visibleGroups": { "type": "array", "items": { "type": "number" } },
++            "lineWidthPx": { "type": "number", "exclusiveMinimum": 0 },
++            "slabMm": { "type": "number", "minimum": 0 }
++          }
++        }
++      ]
++    },
+     "SliceView": {
+       "type": "object",
+       "required": ["id", "mode", "normal", "up", "camera"],

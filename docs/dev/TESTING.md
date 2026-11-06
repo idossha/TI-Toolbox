@@ -303,9 +303,9 @@ byte by byte; `tests/numerical/test_tract_mask.py` pins the mask against the kno
 real DIPY (image leg). `desktop/tests/e2e/scene-lines.spec.ts` is the analytic pane check: two
 synthetic streamlines' midpoint pixels equal their swatches and picks return each group. The mock flow
 is `desktop/tests/e2e/network-target.spec.ts`. `desktop/tests/e2e/real/network-target.spec.ts` runs the
-whole path on a project holding sub-CHN's tractography (rebuild the network, mask, one flex and one ex
-job, rank); Dataset 000 has no network, so its smoke row `tract_track` only proves the refusal at
-submission. `desktop/tests/e2e/real/network-chain.spec.ts` runs the chain end to end through the app on
+whole path on a project holding sub-CHN's tractography, such as Dataset 000 (rebuild the network, mask, one
+flex and one ex job, rank); the smoke row `tract_track` uses sub-101, which has no QSIPrep output, so it only
+proves the refusal at submission. `desktop/tests/e2e/real/network-chain.spec.ts` runs the chain end to end through the app on
 a disposable subject (`TIT_E2E_CHAIN_SUBJECT`: QSIPrep output, m2m, leadfield, no tractography):
 tractography from the Pre-processing row, a posterior preset's mask in both same-side states, an
 ex-search, All-montage ranking, one simulation, then the Networks tab's automatic assess and render of
@@ -315,6 +315,12 @@ preset resolution and the same-side counts, the file names, and the caption's me
 `streamline_stats`; `desktop/tests/unit/network-target.test.ts` and
 `visual-exporter-network-run.test.tsx` pin the picker's pure functions and Run's assess-then-render;
 `tests/test_network_presets_realdata.py` (`TIT_DATASET_000`) checks the presets on sub-CHN's real labels.
+
+The MRtrix3 reference for a cross-tool comparison is reference data in Dataset 000, not in git:
+`derivatives/ti-toolbox/tract_validation/` holds the no-ACT run (`mrtrix_ref/`), the two ACT runs on a 5TT from
+charm (`v1_compare/mrtrix_act/`) and the comparison's scripts, with a `README.md` and `SHA256SUMS`. No test
+reads it automatically; TetraVox's real-data tract checks read it through their own variables. MRtrix is not in the
+image, and the README has the install line. The comparison's result and its limits are in DECISIONS.
 
 ### Documentation screenshots
 
