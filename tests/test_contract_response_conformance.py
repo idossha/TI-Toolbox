@@ -223,9 +223,9 @@ KNOWN_VIOLATIONS: dict[str, tuple[str, str]] = {
         "(contracts owner).",
     ),
     "/api/system": (
-        r"(disk_docker|docker/own): None is not of type 'object'",
+        r"(disk_docker|docker/own|docker/df): None is not of type 'object'",
         "the server sends null for an optional block it cannot read (no Docker socket, "
-        "no visible /var/lib/docker), where tit/server/schemas.py says such fields are "
+        "no visible /var/lib/docker, a `docker system df` past its timeout), where tit/server/schemas.py says such fields are "
         "omitted and the contract types them object-only; omit them or allow null.",
     ),
 }

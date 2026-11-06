@@ -4840,3 +4840,14 @@ colours stays for that path alone.
 user's. **Alternatives rejected.** A hash in the folder name: not the toolbox's convention, and it reads no better. A `<name>_<datetime>` folder: the name is what
 was asked to go.
 
+## 2026-11-06 — One network run can render both colourings into one folder
+
+**Decision.** The form's "Colour by" is two checkboxes, fibre direction ticked by default as before. `TractVisualConfig.extra_metrics` adds colours to `metric`; `run_tract` reads
+the tractogram, setup, shell and metrics once and renders each colour in turn into one dated folder with one `network.json`. The assess job is not doubled, and a colour added in a
+later run gets its own folder. Amends "A network's render is a dated folder" (2026-11-06) on a second colour being a second folder. One `network.blend` holds the first colour, TI_max when both are ticked.
+
+**Why.** The maintainer asked for both colours together in one folder. Measured: 3.54 GB and 109 s for one colour against 4.07 GB and 169 s for two (BENCHMARKS), so the 6 GB claim stands at preview.
+
+**Alternatives rejected.** Two jobs into one folder: refused by the shared-output rule, and the tractogram would be read twice. One Blender session switching materials: less process work, but a second render path for a saving not
+shown to matter. A `.blend` per colour: two large files that differ by a material; `network.json` says which colour it holds.
+
