@@ -986,16 +986,25 @@ def _plan_blender(
     will_overwrite = exists
     resolved = None
     if type(config).__name__ == "TractVisualConfig":
-        from tit.blender.tract_publication import replaced_outputs
+        from tit.blender.tract_publication import (
+            blend_size_mb,
+            planned_outputs,
+            replaced_outputs,
+        )
 
-        # A network's folder holds its other colours and views: only these are replaced.
+        # A network's folder holds its other colours: only this colour's files are replaced.
         setup = _network_setup(pm, config)
-        views = setup["values"]["views"] if setup else None
-        replaced = replaced_outputs(config, output_dir, views)
+        replaced = replaced_outputs(config, output_dir)
         will_overwrite = bool(replaced)
-        resolved = {"replaced_outputs": replaced}
+        resolved = {
+            "planned_outputs": planned_outputs(config),
+            "replaced_outputs": replaced,
+        }
         if setup:
             resolved["network_setup"] = setup
+        if config.export_blend:
+            n_drawn = setup["n_drawn"] if setup else config.max_streamlines
+            resolved["blend_size_mb"] = blend_size_mb(n_drawn)
     return [
         PlanJob(
             kind=kind,

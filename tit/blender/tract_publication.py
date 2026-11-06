@@ -6,13 +6,15 @@ and the subject's anatomy, then writes:
 ``visual_exports/sub-<id>/<sim>/networks/<network>/``, one folder per network (``all`` for a
 render of the whole tractogram):
 
-- ``<colour>_<view>.png`` and ``<colour>_turntable.mp4``, which Blender renders from a temporary
-  bundle (``bundle_<colour>/``, ``manifest.json`` plus ``.npz`` arrays) that
+- ``<colour>.png``, one figure of four panels, and ``<colour>_turntable.mp4``: the model and its
+  tractography and nothing else, which Blender renders from a temporary bundle
+  (``bundle_<colour>/``, ``manifest.json`` plus ``.npz`` arrays) that
   :mod:`tit.blender.tract_scene` reads in Blender's own Python. The bundle is deleted after a
   successful render, and kept after a failed one or with ``keep_bundle``;
+- ``network.blend`` when asked for: the scene that render used, whole;
 - ``network.json``: per colour the config that re-renders it
-  (``simnibs_python -m tit.blender network.json <colour>``), the resolved setup, the counts and
-  the files, with the selection and the code version;
+  (``simnibs_python -m tit.blender network.json <colour>``), the resolved setup and the files,
+  and ``metrics``, the numbers a figure no longer carries, with the selection and the code version;
 - ``tract_viewer.html`` (:mod:`tit.plotting.tract_web`) and ``connectome_<metric>.png``
   (:mod:`tit.plotting.tract_connectome`) when asked for.
 
@@ -34,14 +36,13 @@ import numpy as np
 
 from tit.blender import tract_data as td
 from tit.blender.network_setup import (
-    ALL_VIEWS,
-    LABEL_MAX_REGIONS,
+    PANELS,
     region_hemi,
     region_words,
     resolve_network_setup,
 )
 from tit.tract.config import Selection
-from tit.tract.presets import FRONTAL, POSTERIOR, THALAMI, removed_sentence
+from tit.tract.presets import FRONTAL, POSTERIOR, THALAMI
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +54,9 @@ CONTEXT_STEP_MM = 3.0
 TUBE_R0, TUBE_R1 = 0.12, 0.12
 #: One tube radius, mm, for every fibre of a named network (thousands, all drawn).
 NETWORK_RADIUS = 0.09
-#: Regions named on a still, and regions lit: a bundle can reach dozens of regions, and
-#: lighting them all washed the cortex (sub-CHN insula_lh: 41).
-N_LABELS, N_LIT = 3, 6
+#: Regions lit: a bundle can reach dozens of regions, and lighting them all washed the cortex
+#: (sub-CHN insula_lh: 41).
+N_LIT = 6
 #: A selection lights its busiest parcels only: all 64 of a hippocampal-cortical set wash the cortex.
 MAX_LIT_PARCELS = 24
 #: Glow of highlighted regions (e.g. both thalami in a named network): soft, not white.
@@ -71,6 +72,18 @@ FRONT_MAX_FRAMES = 240
 #: Triangle budgets for the Blender glass brain and scalp.
 GLASS_TRIANGLES = 200_000
 SCALP_TRIANGLES = 60_000
+#: A network's saved scene.
+BLEND_NAME = "network.blend"
+#: ``network.blend``'s size, measured (BENCHMARKS.md): the glass brain, scalp and shell, then fibres.
+BLEND_BASE_MB, BLEND_MB_PER_STREAMLINE = 9.0, 0.0012
+#: Where the panels sit in the figure, as ``network.json`` says it.
+PANEL_ORDER = "two to a row, left to right, top to bottom"
+#: The direction colouring's key: |x|, |y|, |z| of the local tangent as red, green, blue.
+DIRECTION_KEY = {
+    "red": "left – right",
+    "green": "anterior – posterior",
+    "blue": "superior – inferior",
+}
 #: The thalamocortical sequence's networks: thalami to DK40 parcels (frontal, then posterior).
 THALAMOCORTICAL = {
     "frontal": ("Frontal thalamocortical network", FRONTAL),
@@ -239,25 +252,6 @@ def _end_regions(tracts: td.Tracts, edges: dict[int, dict]) -> list[tuple[str, s
     return out
 
 
-def bundle_statement(name: str, n: int, summary: dict) -> str:
-    """``"insula_lh, 1,232 streamlines: median ti_along 0.12 V/m, align_index 1.01"``.
-
-    Bundle-level field statistics are what hold across tractography tools; which single
-    edge ranks first does not, so captions lead with the bundle.
-    """
-    stats = (summary.get("bundles") or {}).get(name) or {}
-
-    def median(key):
-        value = stats.get(key)
-        return value.get("median") if isinstance(value, dict) else value
-
-    text = f"{name}, {n:,} streamlines"
-    along, align = median("ti_along_mean"), median("align_index")
-    if along is not None and align is not None:
-        text += f": median ti_along {along:.3f} V/m, align_index {align:.2f}"
-    return text
-
-
 def prune_by_ti_max(tracts: td.Tracts, keep: float):
     """Rank a network's streamlines by mean TI_max along each one; keep the top *keep*.
 
@@ -287,32 +281,97 @@ def edges_between(edges: dict[int, dict], side_a, side_b) -> set[int]:
     }
 
 
-def network_statement(name: str, tracts: td.Tracts, n_drawn: int | None = None) -> str:
-    """Two caption lines: the network's name, n and how many are drawn, then neutral medians.
+def network_medians(tracts: td.Tracts) -> dict[str, float | None]:
+    """Neutral medians over a whole network, whatever share of it is drawn.
 
     Per streamline: the arc-length mean of TI_max and of ti_along (the mean the assess stage
-    reports), and align_index = mean ti_along / mean ti_avg, its definition. The caption gives
-    their medians over the whole network, whatever share of it is drawn.
+    reports), and align_index = mean ti_along / mean ti_avg, its definition; ``None`` for a
+    tractogram with no ti_avg.
     """
 
     def mean(key):
         return td.arc_length_mean(tracts, tracts.dpv[key])
 
-    along, peak = mean("ti_along"), mean("ti_max")
-    drawn = (
-        "all drawn"
-        if n_drawn is None or n_drawn >= tracts.n
-        else f"{n_drawn:,} drawn, evenly sampled"
-    )
-    text = (
-        f"{name} · n={tracts.n:,} streamlines ({drawn})\n"
-        f"median TI_max {np.median(peak):.3f} V/m · median ti_along {np.median(along):.3f} V/m"
-    )
+    along, align = mean("ti_along"), None
     if "ti_avg" in tracts.dpv:
         avg = mean("ti_avg")
-        align = np.divide(along, avg, out=np.ones_like(along), where=avg > 0)
-        text += f" · median align_index {np.median(align):.2f}"
-    return text
+        ratio = np.divide(along, avg, out=np.ones_like(along), where=avg > 0)
+        align = round(float(np.median(ratio)), 4)
+    return {
+        "median_ti_max_v_per_m": round(float(np.median(mean("ti_max"))), 4),
+        "median_ti_along_v_per_m": round(float(np.median(along)), 4),
+        "median_align_index": align,
+    }
+
+
+def region_counts(tracts: td.Tracts, edges: dict[int, dict]) -> dict[str, int]:
+    """Streamlines ending in each region, most first; one with both ends in a region counts once."""
+    count: dict[str, int] = {}
+    for pair in _end_regions(tracts, edges):
+        for name in {n for n in pair if n}:
+            count[name] = count.get(name, 0) + 1
+    return dict(sorted(count.items(), key=lambda item: (-item[1], item[0])))
+
+
+def montage_record(electrodes: list[dict]) -> list[dict]:
+    """The montage per electrode: its label if it has one, and where it sits, to 0.1 mm."""
+    return [
+        {
+            "channel": e["channel"],
+            # A montage placed by coordinates names its electrodes by them: no label to keep.
+            "label": None if e["name"].startswith("[") else e["name"],
+            "xyz_mm": [round(c, 1) for c in e["xyz"]],
+        }
+        for e in electrodes
+    ]
+
+
+def network_metrics(
+    network: td.Tracts,
+    n_total: int,
+    edges: dict[int, dict],
+    electrodes: list[dict],
+    setup: dict | None,
+    *,
+    synthetic: bool,
+) -> dict:
+    """What holds for the network whichever colour or budget renders it; no metric is singled out."""
+    return {
+        "synthetic": synthetic,
+        "streamlines_total": int(n_total),
+        "opposite_hemisphere_removed": setup.get("opposite_removed") if setup else None,
+        "streamlines_per_region": region_counts(network, edges),
+        **network_medians(network),
+        "montage": montage_record(electrodes),
+    }
+
+
+def image_metrics(manifest: dict) -> dict:
+    """What holds for one render: how much it drew, its shell, and how to read its colours."""
+    record = {
+        "streamlines_drawn": manifest["n_drawn"],
+        "shell": manifest["shell_record"],
+        "lateral_side": "left" if manifest["lateral_side"] < 0 else "right",
+    }
+    if manifest["metric"] == "direction":
+        record["colour_key"] = DIRECTION_KEY
+    else:
+        record["colour_scale"] = {
+            "label": manifest["label"],
+            "units": manifest["units"],
+            "range": [round(manifest["vmin"], 4), round(manifest["vmax"], 4)],
+            "colour_map": (
+                "coolwarm, log2 about 1" if manifest["diverging"] else "plasma"
+            ),
+            "smoothing_mm": manifest["smoothing_mm"],
+        }
+    return record
+
+
+def sequence_caption(name: str, n_total: int, n_drawn: int) -> str:
+    """``"<who> · n=1,407 streamlines (all drawn)"``: the sequence video's title and subject line."""
+    drawn = "all drawn" if n_drawn >= n_total else f"{n_drawn:,} drawn, evenly sampled"
+    return f"{name} · n={n_total:,} streamlines ({drawn})"
 
 
 def ti_iso_shell(mesh_path: str, percentile: float, step_mm: float = 1.5):
@@ -346,23 +405,18 @@ def ti_iso_shell(mesh_path: str, percentile: float, step_mm: float = 1.5):
     return (verts * step_mm + lo).astype(np.float32), faces.astype(np.int32), level
 
 
-def select_network(
-    cfg, tract_dir: str, everything: td.Tracts, edges, summary
-) -> tuple[td.Tracts, str, list[dict]]:
+def select_network(cfg, tract_dir: str, everything: td.Tracts, summary) -> td.Tracts:
     """The foreground: the configured bundle plus the run's top stimulated edges.
 
     Top edges come from ``summary.json``'s ``top_edges`` (the pipeline's own ranking), kept
-    when they have at least ``network_min_streamlines`` streamlines. Returns the streamlines,
-    a one-line description and the edges used.
+    when they have at least ``network_min_streamlines`` streamlines.
     """
-    parts, words = [], []
+    parts = []
     if cfg.network_bundle:
         path = os.path.join(tract_dir, f"{cfg.network_bundle}.trx")
         if not os.path.isfile(path):
             raise FileNotFoundError(f"Network bundle not found: {path}")
-        bundle = td.load_trx(path)
-        parts.append(bundle)
-        words.append(bundle_statement(cfg.network_bundle, bundle.n, summary))
+        parts.append(td.load_trx(path))
     ranked = summary.get("top_edges") or []
     top = [
         e for e in ranked if e.get("n_streamlines", 0) >= cfg.network_min_streamlines
@@ -372,9 +426,6 @@ def select_network(
         ids = {int(e["edge_id"]) for e in top}
         pick = np.flatnonzero(np.isin(everything.dps["edge_id"], list(ids)))
         parts.append(td.select(everything, pick))
-        words.append(
-            f"its {len(top)} strongest edges (≥ {cfg.network_min_streamlines} streamlines each)"
-        )
     if not parts:
         raise ValueError("network mode needs network_bundle or summary.json top_edges")
     network = parts[0] if len(parts) == 1 else td.concat(parts)
@@ -383,7 +434,7 @@ def select_network(
         network = td.select(
             network, td.subsample(weight, cfg.max_streamlines, cfg.seed)
         )
-    return network, " + ".join(words), top
+    return network
 
 
 def network_slug(cfg) -> str:
@@ -407,31 +458,33 @@ def bundle_folder(cfg) -> str:
     return f"bundle_{cfg.metric}"
 
 
-def planned_outputs(cfg, views=None) -> list[str]:
-    """The files this config's run writes, named as they will be. *views*: the resolved ones."""
+def planned_outputs(cfg) -> list[str]:
+    """The files this config's run writes, named as they will be."""
     if cfg.thalamocortical_sequence:
         return ["ti_max_sequence.mp4"]
     metric = str(cfg.metric)
     names = []
     if cfg.stills:
-        chosen = views or cfg.views or ALL_VIEWS[:3]
-        names += [f"{metric}_{view}.png" for view in chosen]
+        names.append(f"{metric}.png")
     if cfg.turntable:
         names.append(f"{metric}_turntable.mp4")
     if cfg.propagation:
         names.append(f"{metric}_propagation.mp4")
+    if cfg.export_blend:
+        names.append(BLEND_NAME)
     if cfg.web:
         names.append("tract_viewer.html")
     return names
 
 
-def replaced_outputs(cfg, out_dir: str, views=None) -> list[str]:
+def replaced_outputs(cfg, out_dir: str) -> list[str]:
     """The files in *out_dir* this config's run would replace; the Plan's "will overwrite"."""
-    return [
-        n
-        for n in planned_outputs(cfg, views)
-        if os.path.isfile(os.path.join(out_dir, n))
-    ]
+    return [n for n in planned_outputs(cfg) if os.path.isfile(os.path.join(out_dir, n))]
+
+
+def blend_size_mb(n_drawn: int) -> int:
+    """About how large ``network.blend`` will be, from the render's streamline budget."""
+    return round(BLEND_BASE_MB + BLEND_MB_PER_STREAMLINE * n_drawn)
 
 
 def _remove_bundles(cfg, out: str, folders: list[str]) -> None:
@@ -442,11 +495,14 @@ def _remove_bundles(cfg, out: str, folders: list[str]) -> None:
         shutil.rmtree(os.path.join(out, folder), ignore_errors=True)
 
 
-def write_network_record(out: str, cfg, original, setup: dict | None) -> str:
-    """``network.json``: what each colour of this network was rendered from, and how.
+def write_network_record(
+    out: str, cfg, original, setup: dict | None, metrics=None, image=None
+) -> str:
+    """``network.json``: the sidecar of this network's renders.
 
-    One entry per colour, replaced when that colour is rendered again. ``config`` re-renders it:
-    ``simnibs_python -m tit.blender network.json <colour>``.
+    One entry per colour, replaced when that colour is rendered again; ``config`` re-renders it:
+    ``simnibs_python -m tit.blender network.json <colour>``. ``metrics`` holds the network's numbers
+    and, under ``images``, each image's; ``blend`` says which colour ``network.blend`` holds.
     """
     from datetime import datetime, timezone
 
@@ -459,19 +515,45 @@ def write_network_record(out: str, cfg, original, setup: dict | None) -> str:
         with open(path, encoding="utf-8") as stream:
             record = json.load(stream)
     selection = cfg.selection
-    views = setup["values"]["views"] if setup else None
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    files = [n for n in planned_outputs(cfg) if os.path.isfile(os.path.join(out, n))]
     colours = dict(record.get("colours") or {})
+    # A turntable after a figure leaves the figure in the folder, so its record stays too.
+    kept = (colours.get(str(cfg.metric)) or {}).get("files") or []
     colours[str(cfg.metric)] = {
         "config": serialize_config(original),
         "setup": setup,
-        "files": [
-            n
-            for n in planned_outputs(cfg, views)
-            if os.path.isfile(os.path.join(out, n))
-        ],
-        "rendered_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "files": sorted(
+            {n for n in kept if os.path.isfile(os.path.join(out, n))}
+            | {n for n in files if n != BLEND_NAME}
+        ),
+        "rendered_at": now,
     }
-    record = {
+    blend = record.get("blend")
+    if cfg.export_blend:
+        blend = {
+            "file": BLEND_NAME,
+            "colour": str(cfg.metric),
+            "bytes": os.path.getsize(os.path.join(out, BLEND_NAME)),
+            "rendered_at": now,
+        }
+    drawn = {n for colour in colours.values() for n in colour["files"]}
+    images = dict((record.get("metrics") or {}).get("images") or {})
+    for name in files:
+        if name.endswith(".png"):
+            images[name] = {
+                "panels": list(PANELS),
+                "panel_order": PANEL_ORDER,
+                **(image or {}),
+            }
+        elif name.endswith(".mp4"):
+            images[name] = dict(image or {})
+            if (
+                cfg.turntable_crossfade
+            ):  # it opens in direction colours, then fades to the metric
+                images[name]["colour_key"] = DIRECTION_KEY
+    images = {name: images[name] for name in images if name in drawn}
+    updated = {
         "network": network_slug(cfg),
         "subject_id": cfg.subject_id.strip(),
         "simulation": cfg.simulation_name.strip(),
@@ -479,9 +561,11 @@ def write_network_record(out: str, cfg, original, setup: dict | None) -> str:
         "preset": cfg.preset,
         "code_version": tit.__version__,
         "colours": colours,
+        "metrics": {**metrics, "images": images} if metrics else None,
+        "blend": blend,
     }
     with open(path + ".tmp", "w", encoding="utf-8") as stream:
-        json.dump(record, stream, indent=1, allow_nan=False)
+        json.dump(updated, stream, indent=1, allow_nan=False)
     os.replace(path + ".tmp", path)
     return path
 
@@ -496,7 +580,6 @@ def _simplified(vertices: np.ndarray, triangles: np.ndarray, budget: int):
 def export_scene(
     cfg,
     tracts: td.Tracts,
-    n_total: int,
     glass: tuple[np.ndarray, np.ndarray, int],
     scalp: tuple[np.ndarray, np.ndarray] | None,
     electrodes: list[dict],
@@ -611,7 +694,7 @@ def export_scene(
     keep_full = np.zeros(len(glass[0]), np.float32)
     lab_full = np.zeros(len(glass[0]), np.float32)  # 1-based label colour index, 0 none
     frame_full = np.full(len(glass[0]), 1e6, np.float32)
-    labels, sub_v, sub_t, sub_lit, sub_frame = [], [], [], [], []
+    sub_v, sub_t, sub_lit, sub_frame = [], [], [], []
     keep_labels = []
     if regions is not None:
         cortical, subcortical = regions
@@ -687,27 +770,12 @@ def export_scene(
                 ix = cortical[name]
                 lit_full[ix] = np.maximum(lit_full[ix], level)
                 frame_full[ix] = np.minimum(frame_full[ix], when[name])
-                centre = glass[0][ix].mean(0) if len(ix) else None
             else:
                 v, t = subcortical[name]
                 sub_t.append(t + sum(len(x) for x in sub_v))
                 sub_v.append(v)
                 sub_lit.append(np.full(len(v), level, np.float32))
                 sub_frame.append(np.full(len(v), when[name], np.float32))
-                centre = v.mean(0)
-            if (
-                centre is not None
-                and cfg.region_labels
-                and len(labels) < (LABEL_MAX_REGIONS if cfg.selection else N_LABELS)
-            ):
-                shown_name = region_words(name) if cfg.selection else name
-                labels.append(
-                    {
-                        "name": f"{shown_name} (n={count.get(name, 0)})",
-                        "xyz": [float(c) for c in centre],
-                        "hemi": region_hemi(name),
-                    }
-                )
     np.savez(
         os.path.join(bundle_dir, "glass.npz"),
         vertices=gv,
@@ -743,26 +811,19 @@ def export_scene(
         ticks = [[f, f"{f * vmax:.2f}"] for f in (0.0, 0.5, 1.0)]
     travel = float(np.percentile(arrive.max(1), 98))
     frames = int(min(FRONT_MAX_FRAMES, np.ceil(travel) + FRONT_HOLD_FRAMES))
-    shown_text = (caption or f"{tracts.n:,} of {n_total:,} streamlines") + (
-        ""
-        if named
-        else f" · colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm"
-    )
-    if context is not None and context.n:
-        shown_text += f" · grey: {context.n:,} other streamlines"
     manifest = {
         "title": title,
         "synthetic": synthetic,
         "metric": metric,
         "label": label,
         "units": units,
+        "vmin": 1.0 / vmax if metric in td.DIVERGING else 0.0,
         "vmax": vmax,
         "ticks": ticks,
         "stops": td.stops_for(metric),
         "diverging": metric in td.DIVERGING,
-        "caption": shown_text,
-        "n_shown": tracts.n,
-        "n_total": int(n_total),
+        "caption": caption,
+        "n_drawn": int(tracts.n),
         "smoothing_mm": td.SMOOTH_MM,
         "lateral_side": side,
         "tracts": "tracts.npz",
@@ -770,15 +831,21 @@ def export_scene(
         "glass": "glass.npz",
         "regions": "regions.npz" if sub_v else None,
         "shell": "shell.npz" if shell is not None else None,
-        "shell_level": float(shell[2]) if shell is not None else None,
-        "shell_percentile": float(cfg.iso_shell_percentile or 0),
+        "shell_record": (
+            {
+                "level_v_per_m": round(float(shell[2]), 4),
+                "percentile": float(cfg.iso_shell_percentile),
+                "chosen_by": "volume-weighted percentile of TI_max over the brain's tetrahedra",
+            }
+            if shell is not None
+            else None
+        ),
         "crossfade": bool(cfg.turntable_crossfade),
         "network": named,
         "setup": setup,
         "prune": prune,
         "keep_labels": keep_labels,
         "smoothing_note": f"colour averaged along each fibre over ±{td.SMOOTH_MM:g} mm",
-        "labels": labels,
         "scalp": "scalp.npz" if scalp is not None else None,
         "electrodes": electrodes,
         "roi": (
@@ -789,7 +856,8 @@ def export_scene(
         "output_dir": "..",
         "stem": metric,
         "stills": bool(cfg.stills),
-        "views": list(cfg.views),
+        "panels": list(PANELS),
+        "export_blend": bool(cfg.export_blend),
         "preview": str(cfg.quality) == "preview",
         "still_size": [int(cfg.width), int(cfg.height)],
         "turntable": bool(cfg.turntable),
@@ -921,11 +989,8 @@ def _apply_setup(cfg, pm, everything: td.Tracts, edges: dict[int, dict]):
     return (
         replace(
             cfg,
-            network_name=values["title"],
-            views=list(values["views"]),
             lateral_side=int(values["lateral_side"]),
             highlight_regions=list(values["highlight_regions"]),
-            region_labels=bool(values["region_labels"]),
             max_streamlines=int(values["max_streamlines"]),
             vmax_v_per_m=values["vmax_v_per_m"],
             iso_shell_percentile=values["iso_shell_percentile"],
@@ -934,15 +999,13 @@ def _apply_setup(cfg, pm, everything: td.Tracts, edges: dict[int, dict]):
     )
 
 
-def _named_network(
-    cfg, pm, everything, edges, electrodes, glass, shell, log, setup=None
-):
-    """A named network's streamlines to draw, and :func:`export_scene`'s kwargs.
+def _named_network(cfg, pm, everything, edges, glass, log, setup=None):
+    """A named network, the streamlines of it to draw, and :func:`export_scene`'s kwargs.
 
     ``network_from`` <-> ``network_to`` draws every streamline; a selection an even sample of at
-    most ``max_streamlines``, never by field, with the caption saying how many.
+    most ``max_streamlines``, never by field, with ``network.json`` saying how many.
     """
-    sid, sim = cfg.subject_id.strip(), cfg.simulation_name.strip()
+    sid = cfg.subject_id.strip()
     selection = cfg.selection
     ids = (
         _edge_ids(edges, selection.pairs)
@@ -961,16 +1024,8 @@ def _named_network(
         tracts = td.select(
             network, np.sort(rng.choice(network.n, cfg.max_streamlines, replace=False))
         )
-    pairs = " + ".join(
-        "–".join(e["name"] for e in electrodes if e["channel"] == c)
-        for c in sorted({e["channel"] for e in electrodes})
-    )
-    caption = network_statement(
-        f"sub-{sid} · {sim} montage ({pairs})", network, tracts.n
-    )
     removed = setup.get("opposite_removed") if setup else None
     if removed:
-        caption += f"\n{removed_sentence(removed)}"
         # Both surfaces' mean x sit either side of the plane the hemispheres share.
         midline = float(
             (glass[0][: glass[2]][:, 0].mean() + glass[0][glass[2] :][:, 0].mean()) / 2
@@ -981,29 +1036,25 @@ def _named_network(
             "margin_mm": MIDLINE_MARGIN_MM,
             "space": "m2m T1 world",
         }
-    if shell is not None:
-        caption += (
-            f"\ntranslucent shell: TI_max = {shell[2]:.3f} V/m "
-            f"(brain p{cfg.iso_shell_percentile:g}, volume-weighted)"
-        )
-    if setup and setup["values"]["caption"]:
-        caption = setup["values"]["caption"]
     ends = {r for p in selection.pairs for r in p} if selection else set(cfg.network_to)
     names = sorted(set(cfg.highlight_regions) | ends)
     regions = region_geometry(
         pm.m2m(sid), label_volume(pm, sid), names, glass[0], glass[2]
     )
     log.info(
-        f"network {cfg.network_name}: {len(ids)} edges, {network.n} streamlines, "
+        f"network {network_slug(cfg)}: {len(ids)} edges, {network.n} streamlines, "
         f"{tracts.n} drawn"
     )
-    return tracts, {
-        "edges": edges,
-        "regions": regions,
-        "caption": caption,
-        "highlight": list(cfg.highlight_regions),
-        "setup": setup,
-    }
+    return (
+        network,
+        tracts,
+        {
+            "edges": edges,
+            "regions": regions,
+            "highlight": list(cfg.highlight_regions),
+            "setup": setup,
+        },
+    )
 
 
 def sequence_configs(cfg, everything, edges) -> dict:
@@ -1025,7 +1076,6 @@ def sequence_configs(cfg, everything, edges) -> dict:
             metric=type(cfg).Metric.TI_MAX,
             network_from=THALAMI,
             highlight_regions=THALAMI,
-            region_labels=False,
             lateral_side=-1,
             iso_shell_percentile=95.0,
             max_streamlines=1_000_000,
@@ -1045,13 +1095,11 @@ def _render_sequence(
     pm,
     out,
     everything,
-    n_total,
     edges,
     electrodes,
     glass,
     scalp,
     *,
-    title,
     synthetic,
     log,
 ):
@@ -1061,16 +1109,17 @@ def _render_sequence(
     first = next(iter(configs.values()))
     shell = ti_iso_shell(pm.ti_mesh(sid, sim), first.iso_shell_percentile)
     log.info(f"TI_max iso-shell at {shell[2]:.3f} V/m (brain p95)")
+    pairs = " + ".join(
+        "–".join(e["name"] for e in electrodes if e["channel"] == c)
+        for c in sorted({e["channel"] for e in electrodes})
+    )
     manifests = []
     for key, net in configs.items():
-        tracts, kwargs = _named_network(
-            net, pm, everything, edges, electrodes, glass, shell, log
-        )
+        network, tracts, kwargs = _named_network(net, pm, everything, edges, glass, log)
         manifests.append(
             export_scene(
                 net,
                 tracts,
-                n_total,
                 glass,
                 scalp,
                 electrodes,
@@ -1078,6 +1127,9 @@ def _render_sequence(
                 title=net.network_name,
                 synthetic=synthetic,
                 shell=shell,
+                caption=sequence_caption(
+                    f"sub-{sid} · {sim} montage ({pairs})", network.n, tracts.n
+                ),
                 **kwargs,
             )
         )
@@ -1182,12 +1234,10 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 pm,
                 out,
                 everything,
-                n_total,
                 edges,
                 electrodes,
                 glass,
                 scalp,
-                title=title,
                 synthetic=synthetic,
                 log=log,
             )
@@ -1195,6 +1245,7 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             return out
         kwargs = {}
         setup = None
+        network = everything
         if (cfg.network_bundle or "").strip() and not cfg.network_top_edges:
             cfg = _bundle_as_selection(cfg, everything, edges)
         if cfg.selection:
@@ -1208,26 +1259,16 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                 f"(brain p{cfg.iso_shell_percentile:g})"
             )
         if cfg.network_from or cfg.selection:
-            tracts, network_kwargs = _named_network(
-                cfg,
-                pm,
-                everything,
-                edges,
-                electrodes,
-                glass,
-                kwargs.get("shell"),
-                log,
-                setup,
+            network, tracts, network_kwargs = _named_network(
+                cfg, pm, everything, edges, glass, log, setup
             )
             kwargs.update(network_kwargs)
             title = (cfg.network_name or title) + (
                 " · synthetic tracts" if cfg.selection and synthetic else ""
             )
-            n_total = setup["n_streamlines"] if setup else n_total
+            n_total = network.n
         elif cfg.focus:
-            network, words, top = select_network(
-                cfg, tract_dir, everything, edges, summary
-            )
+            network = select_network(cfg, tract_dir, everything, summary)
             names = sorted(
                 {n for pair in _end_regions(network, edges) for n in pair if n}
             )
@@ -1240,19 +1281,14 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
                     np.ones(everything.n), cfg.context_streamlines, cfg.seed
                 )
                 context = td.select(everything, keep)
-            caption = (
-                words.replace(" + ", "\n+ ", 1)
-                + f" · {network.n:,} of {n_total:,} drawn"
+            log.info(
+                f"network: {network.n} of {n_total} drawn; {len(names)} endpoint regions"
             )
-            log.info(f"network: {caption}; {len(names)} endpoint regions")
-            kwargs.update(
-                context=context, edges=edges, regions=regions, caption=caption
-            )
+            kwargs.update(context=context, edges=edges, regions=regions)
             tracts = network
         manifest = export_scene(
             cfg,
             tracts,
-            n_total,
             glass,
             scalp,
             electrodes,
@@ -1262,6 +1298,22 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
             **kwargs,
         )
         render(manifest)
-        write_network_record(out, cfg, original, setup)
+        with open(manifest, encoding="utf-8") as stream:
+            image = image_metrics(json.load(stream))
+        image["sampling"] = (
+            "all drawn"
+            if tracts.n >= n_total
+            else "even sample" if cfg.selection else "weighted by ti_along_max"
+        )
+        write_network_record(
+            out,
+            cfg,
+            original,
+            setup,
+            network_metrics(
+                network, n_total, edges, electrodes, setup, synthetic=synthetic
+            ),
+            image,
+        )
         _remove_bundles(cfg, out, [bundle_folder(cfg)])
     return out

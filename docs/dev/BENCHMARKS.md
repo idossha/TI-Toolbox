@@ -273,3 +273,25 @@ Reproduce: `docker run --rm --platform linux/amd64 --entrypoint bash -e PYTHONPA
 -v <checkout>/tit:/ti-toolbox/tit:ro -v <project>:/mnt/proj -v <cfg>:/cfg:ro
 idossha/ti-toolbox:v3.1.2 -c 'simnibs_python -m tit.sim /cfg/sim.json'` with a config naming
 that montage, once per checkout.
+
+## A network's figure and scene — 2026-11-05
+
+Dataset 000/sub-CHN, the amd64 dev container under emulation on the Apple M2 host, `idossha/ti-toolbox:v3.1.3` with the
+checkout mounted, each job submitted from the Networks tab at Fast preview (four panels of 800x800 at 8 samples). Peak is the
+job's `rss_peak` and time its `started_at` to `finished_at`, from `status.json`; repeat with
+`desktop/tests/e2e/real/network-figures.spec.ts`, which writes them to `figures-results.json`.
+
+| Network | Streamlines drawn | Colour | Peak | Time | `network.blend` |
+|---|---:|---|---:|---:|---:|
+| `2_regions_to_4_regions_v3` | 552 | TI_max / direction | 3.55 GB | 71 s | |
+| `posterior_thalamocortical` | 1,407 | TI_max with scene / direction | 3.69 / 3.72 GB | 96 s | 10.84 MB |
+| `interhemispheric_cortical` | 3,716 | TI_max / direction | 4.47 / 5.00 GB | 244 s | |
+| `basal_ganglia_cortical_v3` | 8,000 of 19,035 | TI_max with scene | 4.89 GB | 272 s | 18.67 MB |
+| `posterior_tc` (an existing file) | 1,598 | direction | 4.28 GB | 108 s | |
+| `posterior_tc`, its turntable alone (96 frames, 960x540 at 6 samples) | 1,598 | direction | 5.30 GB | 50 min | |
+
+Before this form, with two 960x640 stills, the same 1,407 and 8,000 peaked at 3.93 and 4.13 GB, so the 6 GB claim of a network's
+render (`TRACT_RENDER_MEM_GB`) still holds at preview. Final quality (four 2000x2000 panels at 32 samples) was not measured, then or
+now. `blend_size_mb`'s 9 MB plus 1.2 kB per streamline is a line through the two scenes above, for the Plan's "about"; a network's
+fibre length and its shell move it. The assess job the render may wait for peaks near 6 GB by itself (5.9 to 6.15 GB).
+

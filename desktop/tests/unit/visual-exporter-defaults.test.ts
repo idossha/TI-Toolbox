@@ -135,9 +135,9 @@ describe("networks mode", () => {
     simulationName: "thalamus",
     network: "cst_lh",
     metric: "ti_max" as const,
-    views: ["oblique"],
     stills: true,
     turntable: true,
+    exportBlend: true,
     quality: "preview" as const,
     sequence: false,
   };
@@ -149,9 +149,7 @@ describe("networks mode", () => {
 
   it("reads a bundle as its own tractogram and draws only it", () => {
     const config = buildNetworkConfig(form);
-    expect(config).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", quality: "preview" });
-    // Its views come from the automatic setup, like any network's.
-    expect(config).not.toHaveProperty("views");
+    expect(config).toMatchObject({ tractogram: "cst_lh.trx", network_bundle: "cst_lh", network_top_edges: 0, metric: "ti_max", quality: "preview", export_blend: true });
   });
 
   const selection = { name: "posterior_thalamocortical", kind: "edges" as const, regions: ["Left-Thalamus-Proper"], pairs: [["Left-Thalamus-Proper", "lh.lingual"]] as [string, string][] };
@@ -161,8 +159,16 @@ describe("networks mode", () => {
     expect(validate("TractVisualConfig", config)).toMatchObject({ valid: true, errors: [] });
     expect(config).toMatchObject({ selection, preset: "posterior_thalamocortical", overrides: { lateral_side: 1 }, turntable_crossfade: true, turntable_frames: 96 });
     expect(config).not.toHaveProperty("tractogram");
-    expect(config).not.toHaveProperty("views");
     expect(config).not.toHaveProperty("network_bundle");
+  });
+
+  it("a figure is square, each of its four panels a quarter of it, at each quality", () => {
+    expect(buildNetworkConfig(form)).toMatchObject({ width: 1600, height: 1600 });
+    expect(buildNetworkConfig({ ...form, quality: "final" })).toMatchObject({ width: 4000, height: 4000 });
+  });
+
+  it("the sequence saves no scene, whatever the box says", () => {
+    expect(buildNetworkConfig({ ...form, sequence: true })).not.toHaveProperty("export_blend");
   });
 
   it("a video in direction colours has nothing to fade to", () => {

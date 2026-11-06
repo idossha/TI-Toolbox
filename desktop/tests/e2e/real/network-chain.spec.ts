@@ -256,7 +256,7 @@ async function runExport(): Promise<string[]> {
   return ids;
 }
 
-test("5. the Networks tab assesses and renders the chosen network, and the stills reach the gallery", async () => {
+test("5. the Networks tab assesses and renders the chosen network, and its figure reaches the gallery", async () => {
   test.setTimeout(JOB_TIMEOUT);
   await openNetworksTab();
   await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
@@ -274,12 +274,9 @@ test("5. the Networks tab assesses and renders the chosen network, and the still
   for (const id of ids) await succeeded(id);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  // Bilateral: the automatic setup's two views.
-  for (const view of ["posterior", "superior"]) {
-    const still = renders.getByRole("img", { name: `posterior_thalamocortical, TI_max · ${view}` });
-    await expect(still).toBeVisible({ timeout: 30_000 });
-    await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
-  }
+  const still = renders.getByRole("img", { name: "posterior_thalamocortical, TI_max", exact: true });
+  await expect(still).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1600);
   await shot("10_networks_gallery");
   record("render", { jobs: ids, minutes: (Date.now() - started) / 60_000 });
 });
@@ -288,17 +285,17 @@ test("6. another network renders beside the first, and each way of choosing is o
   test.setTimeout(JOB_TIMEOUT);
   await page.getByTestId("network-presets").getByRole("option", { name: /Frontal thalamocortical/ }).click();
   await expect(page.getByTestId("network-mask-name")).toHaveValue("frontal_thalamocortical");
-  // Setup is still open from the last step: one view, set by hand.
-  await page.getByRole("checkbox", { name: "Automatic", exact: true }).click();
-  for (const view of ["Superior"]) await page.getByRole("checkbox", { name: view, exact: true }).click();
+  // Setup is still open from the last step: its side, set by hand.
+  await page.locator("#ve-setup-side").click();
+  await page.getByRole("option", { name: "Right" }).click();
   await shot("11_networks_advanced");
   const ids = await runExport();
   for (const id of ids) await succeeded(id);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: "frontal_thalamocortical, TI_max · posterior" })).toBeVisible({ timeout: 30_000 });
+  await expect(renders.getByRole("img", { name: "frontal_thalamocortical, TI_max", exact: true })).toBeVisible({ timeout: 30_000 });
   await renders.locator('details[data-network="posterior_thalamocortical"] > summary').click();
-  await expect(renders.getByRole("img", { name: "posterior_thalamocortical, TI_max · superior" })).toBeVisible();
+  await expect(renders.getByRole("img", { name: "posterior_thalamocortical, TI_max", exact: true })).toBeVisible();
   await shot("12_two_networks_in_gallery");
   await page.getByRole("radio", { name: "Scene", exact: true }).click();
   const body = await server<{ networks: string[]; has_edges: boolean; assessed: { name: string; n_streamlines: number }[] }>(`/api/catalog/simulations/${SIMULATION}/networks?subject=${SUBJECT}`);

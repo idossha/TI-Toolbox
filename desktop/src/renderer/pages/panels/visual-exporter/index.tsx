@@ -43,7 +43,7 @@ import { emptyRoi, type NetworkRoiValue, type RoiValue } from "../../_shared/roi
 import { NetworkChooser, NETWORK_NAME_RE, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
 import { AssessNetworks } from "./AssessNetworks";
 import { NetworkAdvanced, type NetworkSetupRecord } from "./NetworkSetup";
-import { NetworkRenders } from "./NetworkRenders";
+import { isPicture, NetworkRenders } from "./NetworkRenders";
 import { ExportPreview } from "./ExportPreview";
 import { readExportMontage } from "./previewModel";
 import { getTextFile } from "../../results/api";
@@ -86,8 +86,6 @@ const NETWORK_QUALITY_OPTIONS = [
   { value: "preview", label: "Fast preview" },
   { value: "final", label: "Final" },
 ];
-/** `all` is not a network with an automatic setup, so it alone is asked for its views. */
-const ALL_FILE_VIEWS = ["lateral", "superior", "oblique"];
 const FRESH_NETWORK: NetworkRoiValue = { ...(emptyRoi("network") as NetworkRoiValue), how: "preset" };
 
 /** The two atlases the Qt combo offered (`const.ATLAS_DK40`, `const.ATLAS_A2009S`). */
@@ -162,9 +160,9 @@ function VisualExporterPanel() {
   const [networkOverrides, setNetworkOverrides] = usePageSession<Record<string, unknown>>("networkOverrides", {});
   const [network, setNetwork] = usePageSession("network", "");
   const [networkMetric, setNetworkMetric] = usePageSession<NetworksForm["metric"]>("networkMetric", "direction");
-  const [networkViews, setNetworkViews] = usePageSession<string[]>("networkViews", ALL_FILE_VIEWS);
   const [networkStills, setNetworkStills] = usePageSession("networkStills", true);
   const [networkTurntable, setNetworkTurntable] = usePageSession("networkTurntable", false);
+  const [networkExportBlend, setNetworkExportBlend] = usePageSession("networkExportBlend", false);
   const [networkQuality, setNetworkQuality] = usePageSession<NetworksForm["quality"]>("networkQuality", "preview");
   const [networkSequence, setNetworkSequence] = usePageSession("networkSequence", false);
 
@@ -271,8 +269,7 @@ function VisualExporterPanel() {
     else if (chooserActive && networkValue.name === "all") clientErrors.push(NAME_IS_RESERVED);
     else if (chooserActive && countQuery.error) clientErrors.push(countQuery.error.message);
     else if (chooserActive && assessing === null) clientErrors.push("Reading this network's streamline count…");
-    else if (!networkSequence && !networkStills && !networkTurntable) clientErrors.push("Choose stills, a turntable or both.");
-    else if (networkFromFile && chosenNetwork === "all" && networkStills && networkViews.length === 0) clientErrors.push("Choose at least one view.");
+    else if (!networkSequence && !networkStills && !networkTurntable) clientErrors.push("Choose a figure, a turntable or both.");
   }
   let subcorticalLabels: number[] = [];
   if (mode === "subcortical") {
@@ -339,9 +336,9 @@ function VisualExporterPanel() {
             overrides: networkOverrides,
             network: chosenNetwork,
             metric: networkMetric,
-            views: networkViews,
             stills: networkStills,
             turntable: networkTurntable,
+            exportBlend: networkExportBlend,
             quality: networkQuality,
             sequence: networkSequence,
           }),
@@ -381,9 +378,9 @@ function VisualExporterPanel() {
     networkOverrides,
     chosenNetwork,
     networkMetric,
-    networkViews,
     networkStills,
     networkTurntable,
+    networkExportBlend,
     networkQuality,
     networkSequence,
   ]);
@@ -405,7 +402,9 @@ function VisualExporterPanel() {
   const serverErrors = validateQuery.data?.errors.map((e) => `${e.path ? `${e.path}: ` : ""}${e.message}`) ?? [];
   const loading = head !== null && (validateQuery.isPending || planQuery.isFetching);
   const networkSetup = planQuery.data?.resolved?.network_setup as NetworkSetupRecord | undefined;
+  const plannedFiles = (planQuery.data?.resolved?.planned_outputs as string[] | undefined) ?? [];
   const replacedFiles = (planQuery.data?.resolved?.replaced_outputs as string[] | undefined) ?? [];
+  const blendMb = planQuery.data?.resolved?.blend_size_mb as number | undefined;
   const networkRenders = networksQuery.data?.renders ?? [];
 
   function handleRunClick() {
@@ -465,13 +464,14 @@ function VisualExporterPanel() {
               ? networkPlanLine({
                   jobs: 1 + (selection && assessing && assessing !== "ready" ? 1 : 0),
                   memGb: planQuery.data?.cost.mem_gb,
-                  title: networkSetup?.values.title ?? (selection ? selection.name : undefined),
+                  network: selection?.name ?? (networkFromFile ? chosenNetwork : undefined),
                   streamlines: countQuery.data,
+                  blendMb,
                   replaced: replacedFiles,
                 })
               : undefined
           }
-          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.length}`, content: <NetworkRenders renders={networkRenders} current={networkFromFile ? chosenNetwork : selection?.name} /> } : undefined}
+          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.filter(isPicture).length}`, content: <NetworkRenders renders={networkRenders} current={networkFromFile ? chosenNetwork : selection?.name} /> } : undefined}
           sceneFocusKey={mode === "networks" && chooserActive ? `${networkValue.how}|${networkValue.preset}|${networkValue.pairs.length}|${networkValue.includeOpposite}` : undefined}
           plan={<>
             <PlanSummary plan={planQuery.data} loading={loading}
@@ -483,7 +483,12 @@ function VisualExporterPanel() {
                 A tract job assesses this network first (about 3 min: fields along every streamline), and the render waits for it.
               </p>
             )}
-            {replacedFiles.length > 0 && <p className="field-help" data-testid="ve-replaced-files">Replaces: {replacedFiles.join(", ")}</p>}
+            {plannedFiles.length > 0 && (
+              <p className="field-help" data-testid="ve-planned-files">
+                Writes: {plannedFiles.map((file) => (file === "network.blend" && blendMb !== undefined ? `${file} (about ${blendMb} MB, the ${networkMetric === "direction" ? "fibre direction" : "TI_max"} scene)` : file)).join(", ")}
+              </p>
+            )}
+            {replacedFiles.length > 0 && <p className="field-help" data-testid="ve-replaced-files">Replaces: {replacedFiles.join(", ")}. This network's other colours stay.</p>}
             {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
           </>}
           scene={<ExportPreview
@@ -813,20 +818,9 @@ function VisualExporterPanel() {
                               options={NETWORK_METRIC_OPTIONS}
                             />
                           </Field>
-                          <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Stills" />
-                          {networkStills && networkFromFile && chosenNetwork === "all" && (
-                            <div style={{ display: "flex", gap: "var(--space-3)" }}>
-                              {ALL_FILE_VIEWS.map((view) => (
-                                <Checkbox
-                                  key={view}
-                                  checked={networkViews.includes(view)}
-                                  onCheckedChange={(on) => setNetworkViews(ALL_FILE_VIEWS.filter((v) => (v === view ? on : networkViews.includes(v))))}
-                                  label={view[0]!.toUpperCase() + view.slice(1)}
-                                />
-                              ))}
-                            </div>
-                          )}
+                          <Checkbox checked={networkStills} onCheckedChange={setNetworkStills} label="Figure: lateral, top, front and back" />
                           <Checkbox checked={networkTurntable} onCheckedChange={setNetworkTurntable} label="Turntable video" />
+                          <Checkbox checked={networkExportBlend} onCheckedChange={setNetworkExportBlend} label="Export .blend" />
                           {!(networkFromFile && chosenNetwork === "all") && (
                             <NetworkAdvanced subject={subjectId} overrides={networkOverrides} onChange={setNetworkOverrides} setup={networkSetup} />
                           )}

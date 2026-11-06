@@ -182,19 +182,19 @@ export interface NetworksForm {
   /** A stem of `Simulations/<sim>/tract/*.trx`; ignored by the sequence, which reads `all.trx`. */
   network: string;
   metric: "direction" | "ti_max";
-  /** Only `all`, which has no automatic setup, is asked for its views here. */
-  views: string[];
+  /** One figure of four fixed panels. */
   stills: boolean;
   turntable: boolean;
+  exportBlend: boolean;
   quality: "preview" | "final";
   sequence: boolean;
 }
 
-/** Resolution and video length of each quality; `quality` itself sets samples and video size. */
+/** The figure's size (each panel a quarter of it) and video length of each quality; `quality` itself sets samples and video size. */
 const NETWORK_QUALITY = {
   // 96: a crossfade alone takes 48 frames (tract_scene.CROSSFADE_FRAMES).
-  preview: { width: 960, height: 640, turntable_frames: 96 },
-  final: { width: 2400, height: 1600, turntable_frames: 120 },
+  preview: { width: 1600, height: 1600, turntable_frames: 96 },
+  final: { width: 4000, height: 4000, turntable_frames: 120 },
 } as const;
 
 /**
@@ -217,6 +217,7 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
     metric: form.metric,
     stills: form.stills,
     turntable: form.turntable,
+    export_blend: form.exportBlend,
     // The reference video: fibre directions first, then a scalar metric.
     turntable_crossfade: form.turntable && form.metric !== "direction",
     width,
@@ -225,7 +226,7 @@ export function buildNetworkConfig(form: NetworksForm): TractVisualConfig {
   };
   const overrides = form.overrides ?? {};
   if (form.selection) return { ...base, ...outputs, selection: form.selection, preset: form.preset ?? "", overrides } as unknown as TractVisualConfig;
-  if (form.network === "all") return { ...base, ...outputs, tractogram: "all.trx", views: form.views } as TractVisualConfig;
+  if (form.network === "all") return { ...base, ...outputs, tractogram: "all.trx" } as TractVisualConfig;
   return { ...base, ...outputs, tractogram: `${form.network}.trx`, network_bundle: form.network, network_top_edges: 0, overrides } as TractVisualConfig;
 }
 
@@ -271,11 +272,12 @@ export function buildAssessConfig(subjectId: string, simulationName: string): Tr
 }
 
 /** The Plan as one line: what Run queues, what it draws, and what it replaces. */
-export function networkPlanLine(plan: { jobs: number; memGb?: number; title?: string; streamlines?: number; replaced: readonly string[] }): string {
+export function networkPlanLine(plan: { jobs: number; memGb?: number; network?: string; streamlines?: number; blendMb?: number; replaced: readonly string[] }): string {
   const parts = [`${plan.jobs} job${plan.jobs === 1 ? "" : "s"}`];
   if (plan.memGb !== undefined) parts.push(`${plan.memGb} GB`);
-  if (plan.title) parts.push(plan.title);
+  if (plan.network) parts.push(plan.network);
   if (plan.streamlines !== undefined) parts.push(`${plan.streamlines.toLocaleString("en-US")} streamlines`);
+  if (plan.blendMb !== undefined) parts.push(`network.blend about ${plan.blendMb} MB`);
   parts.push(plan.replaced.length ? `will overwrite ${plan.replaced.length} file${plan.replaced.length === 1 ? "" : "s"}` : "replaces nothing");
   return parts.join(" · ");
 }

@@ -786,8 +786,8 @@ function mockNetworkSetup(cfg) {
   const preset = TRACT_PRESETS.find((p) => p.id === cfg.preset);
   const held = preset?.same_side && !preset.opposite_pairs.some(([a, b]) => selection.pairs.some((p) => p.includes(a) && p.includes(b)));
   return {
-    values: { title: selection.name, caption: null, highlight_regions: selection.regions, views: ["lateral", "oblique"], lateral_side: -1, region_labels: true, max_streamlines: 8000, tube_radius_mm: 0.09, vmax_v_per_m: null, iso_shell_percentile: 95, ...overrides },
-    reasons: { views: "It lies mostly in one hemisphere." },
+    values: { highlight_regions: selection.regions, lateral_side: -1, max_streamlines: 8000, tube_radius_mm: 0.09, vmax_v_per_m: null, iso_shell_percentile: 95, ...overrides },
+    reasons: { lateral_side: "The left side holds more of its ends." },
     overridden: Object.keys(overrides).sort(),
     n_streamlines: n,
     n_drawn: n,
@@ -917,7 +917,13 @@ function resolveMontageSources(montageSources, ids) {
 function resolvedFor(kind, config, montageSources, ids) {
   const cfg = config && typeof config === "object" ? config : {};
   if (kind === "blender" && cfg._type === "TractVisualConfig") {
-    return { replaced_outputs: ids.flatMap((subject) => replacedRenders(subject, cfg)), ...(cfg.selection ? { network_setup: mockNetworkSetup(cfg) } : {}) };
+    const metric = cfg.metric ?? "ti_along";
+    return {
+      planned_outputs: [...(cfg.stills === false ? [] : [`${metric}.png`]), ...(cfg.turntable ? [`${metric}_turntable.mp4`] : []), ...(cfg.export_blend ? ["network.blend"] : [])],
+      replaced_outputs: ids.flatMap((subject) => replacedRenders(subject, cfg)),
+      ...(cfg.export_blend ? { blend_size_mb: 40 } : {}),
+      ...(cfg.selection ? { network_setup: mockNetworkSetup(cfg) } : {}),
+    };
   }
   if (kind === "sim") {
     const montages = [...(Array.isArray(cfg.montages) ? cfg.montages : []), ...resolveMontageSources(montageSources, ids)];
@@ -1657,8 +1663,8 @@ function finishJob(job) {
       const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
       const network = tractNetworkName(cfg);
       const colour = cfg.metric ?? "ti_along";
-      const name = `${colour}_lateral.png`;
-      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), network, colour, view: "lateral" };
+      const name = `${colour}.png`;
+      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), network, colour, view: "" };
       simulationNetworks[key] = { ...earlier, renders: [render, ...earlier.renders.filter((r) => r.path !== render.path)] };
     }
   }

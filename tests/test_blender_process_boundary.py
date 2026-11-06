@@ -278,6 +278,169 @@ print('Montage geometry and camera assertions passed')
     assert reopened.returncode == 0, reopened.stdout + reopened.stderr
 
 
+def test_real_network_figure_and_blend_reopen_as_the_scene_that_rendered(tmp_path):
+    """Opt-in image leg: four panels tile into one figure, and network.blend is that scene.
+
+    The expected picture is Blender's own second render of the top-left panel from the reopened
+    file, compared with the figure's top-left quadrant; both come through different code paths.
+    """
+    import os
+
+    executable = os.environ.get("TIT_TEST_BLENDER_BIN")
+    if not executable:
+        pytest.skip(
+            "set TIT_TEST_BLENDER_BIN to the image standalone Blender executable"
+        )
+    bundle = tmp_path / "bundle"
+    bundle.mkdir()
+    # An octahedron for the glass brain, two straight fibres through it.
+    vertices = np.array(
+        [
+            [90.0, 0, 0],
+            [-90.0, 0, 0],
+            [0, 110.0, 0],
+            [0, -110.0, 0],
+            [0, 0, 80.0],
+            [0, 0, -80.0],
+        ],
+        np.float32,
+    )
+    faces = np.array(
+        [
+            [0, 2, 4],
+            [2, 1, 4],
+            [1, 3, 4],
+            [3, 0, 4],
+            [2, 0, 5],
+            [1, 2, 5],
+            [3, 1, 5],
+            [0, 3, 5],
+        ],
+        np.int32,
+    )
+    points = np.array(
+        [[-40.0, 0, 0], [0, 0, 20], [40, 0, 0], [0, -60, 0], [0, 0, 0], [0, 60, 0]],
+        np.float32,
+    )
+    n = len(points)
+    np.savez(
+        bundle / "tracts.npz",
+        points=points,
+        offsets=np.array([0, 3, 6], np.int64),
+        v=np.linspace(0.2, 1.0, n, dtype=np.float32),
+        r=np.full(n, 2.0, np.float32),
+        d=np.zeros(n, np.float32),
+        gain=np.ones(n, np.float32),
+        tangent=np.tile(np.array([1.0, 0, 0], np.float32), (n, 1)),
+    )
+    np.savez(
+        bundle / "glass.npz",
+        vertices=vertices,
+        triangles=faces,
+        lit=np.zeros(6, np.float32),
+        frame=np.full(6, 1e6, np.float32),
+    )
+    manifest = {
+        "metric": "ti_max",
+        "stops": [[0.0, 0.0, 0.5], [1.0, 0.8, 0.1]],
+        "diverging": False,
+        "network": True,
+        "tracts": "tracts.npz",
+        "glass": "glass.npz",
+        "electrodes": [
+            {"name": "E1", "xyz": [90.0, 0.0, 0.0], "channel": 0},
+            # A montage placed by coordinates: its raw name in an object crashed Blender 5.1.
+            {"name": "[73.979, -18.586, 38.58809280395508]", "xyz": [0.0, 110.0, 0.0], "channel": 0},
+        ],
+        "front": {"speed": 1.5, "start": 18, "frames": 40},
+        "output_dir": "..",
+        "stem": "ti_max",
+        "lateral_side": -1,
+        "stills": True,
+        "panels": ["lateral", "superior", "anterior", "posterior"],
+        "export_blend": True,
+        "preview": True,
+        "still_size": [128, 128],
+        "turntable": False,
+        "propagation": False,
+    }
+    (bundle / "manifest.json").write_text(json.dumps(manifest))
+    env = {
+        key: value
+        for key, value in os.environ.items()
+        if key not in {"PYTHONPATH", "PYTHONHOME", "LD_LIBRARY_PATH"}
+    }
+
+    def blender(*args: str) -> None:
+        done = subprocess.run(
+            [executable, "--background", "--factory-startup"]
+            + ["--python-exit-code", "1", *args],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=480,
+        )
+        assert done.returncode == 0, done.stdout + done.stderr
+
+    scene_py = str(ROOT / "tit/blender/tract_scene.py")
+    run = ("--python", scene_py, "--", str(bundle / "manifest.json"))
+    blender(*run)
+    blender(*run)  # over the first: a save must leave no network.blend1 beside it
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "bundle",
+        "network.blend",
+        "ti_max.png",
+    ]
+    png = (tmp_path / "ti_max.png").read_bytes()
+    # The PNG header's own width and height: two panels by two.
+    assert int.from_bytes(png[16:20], "big") == 128
+    assert int.from_bytes(png[20:24], "big") == 128
+
+    final, figure = str(tmp_path / "network.blend"), str(tmp_path / "ti_max.png")
+    again = str(tmp_path / "again.png")
+    # Blender reads a moved file: a machine without the bundle has only the .blend.
+    (bundle / "tracts.npz").unlink()
+    (bundle / "glass.npz").unlink()
+    blender(
+        "--python-expr",
+        f"""import bpy
+import numpy as np
+bpy.ops.wm.open_mainfile(filepath={final!r})
+assert bpy.utils.blend_paths(absolute=True) == [], bpy.utils.blend_paths(absolute=True)
+objects = bpy.data.objects
+assert not [o for o in objects if o.type == 'FONT']
+assert sorted(o.name for o in objects if o.type == 'CAMERA') == ['Camera_anterior', 'Camera_lateral', 'Camera_posterior', 'Camera_superior']
+assert len({{round(o.data.ortho_scale, 3) for o in objects if o.type == 'CAMERA'}}) == 1
+assert sorted(o.name for o in objects if o.type == 'MESH') == ['Electrode_2', 'Electrode_E1', 'Fibres', 'GlassBrain']
+assert objects['Fibres'].modifiers['Tubes'].node_group is not None
+assert len(objects['Fibres'].data.vertices) == 6
+assert 'r' in objects['Fibres'].data.attributes
+assert objects['GlassBrain'].data.materials[0].name == 'Glass'
+assert {{'Fibres', 'Glass'}} <= {{m.name for m in bpy.data.materials}}
+scene = bpy.context.scene
+assert scene.camera.name == 'Camera_lateral'
+assert scene.render.engine == 'BLENDER_EEVEE_NEXT'
+assert (scene.render.resolution_x, scene.render.resolution_y) == (64, 64)
+scene.render.filepath = {again!r}
+bpy.ops.render.render(write_still=True)
+def pixels(path):
+    image = bpy.data.images.load(path)
+    width, height = image.size
+    out = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(out)
+    return out.reshape(height, width, 4)
+whole, panel = pixels({figure!r}), pixels({again!r})
+assert whole.shape == (128, 128, 4), whole.shape
+top_left, bottom_right = whole[64:, :64], whole[:64, 64:]
+difference = float(np.abs(top_left - panel).max())
+assert difference <= 2 / 255, difference
+assert top_left[..., :3].max() > 0.2
+assert float(np.abs(top_left - bottom_right).max()) > 0.1
+print('Network figure and scene assertions passed')
+""",
+    )
+
+
 def test_prepared_electrodes_preserve_simnibs_row_selection():
     from tit.blender.montage_publication import read_electrodes
 

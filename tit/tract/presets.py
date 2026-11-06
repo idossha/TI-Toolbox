@@ -241,13 +241,3 @@ def opposite_removed(resolved: dict, selection_pairs) -> dict | None:
         "right_thalamus_to_left_cortex": resolved["right_thalamus_to_left_cortex"],
         "left_thalamus_to_right_cortex": resolved["left_thalamus_to_right_cortex"],
     }
-
-
-def removed_sentence(removed: dict) -> str:
-    """``"1,407 of 1,598; 191 opposite-hemisphere removed (right thalamus to left cortex 167, ...)"``."""
-    return (
-        f"{removed['n_kept']:,} of {removed['n_with_opposite']:,}; "
-        f"{removed['n_removed']:,} opposite-hemisphere removed "
-        f"(right thalamus to left cortex {removed['right_thalamus_to_left_cortex']:,}, "
-        f"left thalamus to right cortex {removed['left_thalamus_to_right_cortex']:,})"
-    )

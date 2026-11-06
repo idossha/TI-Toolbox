@@ -314,7 +314,7 @@ class SimulationList(BaseModel):
 class NetworkRender(BaseModel):
     path: str
     name: str
-    kind: Literal["image", "video"]
+    kind: Literal["image", "video", "scene"]
     modified_at: str
     network: str
     colour: str

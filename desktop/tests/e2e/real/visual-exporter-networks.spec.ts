@@ -5,7 +5,7 @@ import { expect, test, type ElectronApplication, type Page } from "@playwright/t
 import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, setServerPanels, waitForJobTerminal } from "../_helpers";
 
 /**
- * The Visual exporter's Networks tab against a real server: from the tab, a low-resolution still and
+ * The Visual exporter's Networks tab against a real server: from the tab, a low-resolution figure and
  * then a short turntable render in the image's Blender, and both appear in the Scene pane.
  *
  * Needs a simulation with `tract/` outputs, which Dataset 000 does not have, so it is opt-in:
@@ -88,30 +88,20 @@ test.afterAll(async () => {
   await app?.close();
 });
 
-test("one low-resolution still renders from the tab", async () => {
+test("one low-resolution figure renders from the tab", async () => {
   test.setTimeout(45 * 60_000);
-  // One view is an override of the automatic setup.
-  await page.getByTestId("network-advanced").locator("summary").click();
-  await page.getByRole("checkbox", { name: "Automatic", exact: true }).click();
-  // A file's Plan names the edges it holds, so its automatic views are checked here; leave oblique.
-  for (const view of ["Posterior", "Superior", "Lateral"]) {
-    const box = page.getByRole("checkbox", { name: view, exact: true });
-    if ((await box.getAttribute("aria-checked")) === "true") await box.click();
-  }
-  const oblique = page.getByRole("checkbox", { name: "Oblique", exact: true });
-  if ((await oblique.getAttribute("aria-checked")) !== "true") await oblique.click();
   await shot("02-networks-still-options");
   await runAndWait(40);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
-  const still = page.getByTestId("network-renders").getByRole("img", { name: `${NETWORK}, Fibre direction · oblique` });
+  const still = page.getByTestId("network-renders").getByRole("img", { name: `${NETWORK}, Fibre direction`, exact: true });
   await expect(still).toBeVisible({ timeout: 30_000 });
-  await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(960);
+  await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1600);
   await shot("03-networks-still-rendered");
 });
 
 test("one short turntable renders from the tab and plays", async () => {
   test.setTimeout(3 * 60 * 60_000);
-  await page.getByRole("checkbox", { name: "Stills" }).click();
+  await page.getByRole("checkbox", { name: /^Figure/ }).click();
   await page.getByRole("checkbox", { name: "Turntable video" }).click();
   await shot("04-networks-turntable-options");
   await runAndWait(170);

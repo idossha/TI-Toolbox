@@ -118,7 +118,8 @@ describe("choosing a network", () => {
 
 describe("what the column says", () => {
   it("the Plan as one line says what it queues, draws and replaces", () => {
-    expect(networkPlanLine({ jobs: 1, memGb: 6, title: "Cingulate cortical network", streamlines: 4332, replaced: ["a.png", "b.png"] })).toBe("1 job · 6 GB · Cingulate cortical network · 4,332 streamlines · will overwrite 2 files");
+    expect(networkPlanLine({ jobs: 1, memGb: 6, network: "cingulate", streamlines: 4332, replaced: ["a.png", "b.png"] })).toBe("1 job · 6 GB · cingulate · 4,332 streamlines · will overwrite 2 files");
+    expect(networkPlanLine({ jobs: 1, blendMb: 38, replaced: [] })).toBe("1 job · network.blend about 38 MB · replaces nothing");
     expect(networkPlanLine({ jobs: 2, replaced: [] })).toBe("2 jobs · replaces nothing");
   });
 
@@ -127,6 +128,12 @@ describe("what the column says", () => {
     expect(summarizeRegions(cingulate)).toBe("8 cingulate regions");
     expect(summarizeRegions(["lh.a", "rh.b", "Brain-Stem", "lh.c"])).toBe("4 regions");
     expect(summarizeRegions(["Left-Thalamus-Proper", "Right-Thalamus-Proper"])).toBe("Left-Thalamus-Proper, Right-Thalamus-Proper");
+  });
+
+  it("a colour's figure reads as its colour, a video and an older folder's still with their view", () => {
+    expect(renderLabel({ colour: "ti_max", view: "" })).toBe("TI_max");
+    expect(renderLabel({ colour: "ti_max", view: "turntable" })).toBe("TI_max · turntable");
+    expect(renderLabel({ colour: "direction", view: "oblique" })).toBe("Fibre direction · oblique");
   });
 
   it("renders group by network, newest network first, and read as colour and view", () => {

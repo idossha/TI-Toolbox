@@ -1,11 +1,11 @@
 {
   "id": "visual-exporter/networks-nothing-chosen",
   "page": "visual-exporter",
-  "title": "Networks with neither stills nor a turntable",
+  "title": "Networks with neither a figure nor a turntable",
   "jobs": [],
   "desktop": {
     "accepts": false,
-    "reason": "Choose stills, a turntable or both."
+    "reason": "Choose a figure, a turntable or both."
   },
   "expect": {
     "blender_types": []

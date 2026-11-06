@@ -4709,3 +4709,39 @@ absence, not the crash.
 
 **Alternatives rejected.** Keeping SimNIBS out of the worker (every Plan's config import would need rewriting, and one later import would bring it
 back); restoring `SIG_IGN` after the import (no one place knows when that happens).
+
+## 2026-11-05 — A network's render is one figure with no text; its numbers live in network.json
+
+**Decision.** A network's render is one image per colouring, four fixed panels on one scale (lateral, superior, anterior, posterior),
+holding only the model and its fibres; a turntable holds no text either. `network.json` carries what the caption and legend carried, and
+an opt-in `network.blend` holds the scene. This supersedes the automatic choice of two views and the on-image title, caption, region names
+and colour key of 2026-11-05's "One network definition", and their settings are gone rather than hidden: `title`, `caption`, `views` and
+`region_labels` in `overrides` and `TractVisualConfig`. The thalamocortical sequence, explicitly out of scope, and the propagation video,
+which the form does not offer, keep their overlays.
+
+**Why.** The maintainer, looking at a still with title, caption, region labels and legend burned in: "remove all the text from the figure
+regarding metrics etc. just keep the model and tractography"; "instead of multipl figures just have a single figure in multiple fixed
+directions. like lateral, top, etc."; "have a sidecar like a .json with metric if needed"; "an option to export also the .blend file like we
+do with the other blender 3d output". A number burned into pixels cannot be read back or restyled for a journal. Fixed panels also make two
+networks comparable side by side, which a view chosen per network did not.
+
+**Layout choices.** Two to a row, lateral and superior above, anterior and posterior below, in the order the maintainer named them; no gutter,
+since the panels share a black background. Lateral shows the network's side, left when each hemisphere holds a quarter of its ends or
+more (`BILATERAL_MIN_SHARE`); before, a bilateral network with more ends on the right showed the right. Panels are square at the
+pixels per millimetre of the old stills, so fibres keep their width on screen: preview 800 px per panel (3.2 px/mm on sub-CHN's 251 mm panel,
+the old 3.2), final 2000 (8.0, the old 8.0). The frame runs from the crown to the chin, 55 mm below the brain.
+
+**Sidecar shape.** What holds whichever colour or budget renders the network sits in `metrics`; what depends on one render (drawn, sampling,
+shell, colours) in `metrics.images.<file>`, so re-rendering one colour with another budget cannot contradict the other's image. Per-region
+counts cover the whole network, where the old labels counted what was drawn; the two differ only above the 8,000-streamline budget.
+
+**.blend.** One `network.blend` per network, as asked, holding the colour just rendered, with `network.json` naming which: two colours would
+need a material switch nobody asked for. It is written by `save_as_mainfile` as the montage's is, and needs no packing because the scene holds
+no external file; the check opens it with the bundle gone and asserts `bpy.utils.blend_paths` is empty. Electrode objects of a montage placed by
+coordinates are named by index: named by those coordinates, truncated to fit, the file made by Blender 4.4 crashed Blender 5.1 on opening
+(`stoi: out of range`), which reads the digits after the last dot as a numeric suffix.
+
+**Alternatives rejected.** Keeping per-view PNGs as well (a second form of the same output); a colour bar as a separate PNG (the sidecar has the
+map and range); composing the figure in `simnibs_python` (a kept bundle must re-render in another Blender); migrating or re-rendering older
+folders (the gallery reads them as they are; nothing else touches them).
+

@@ -4,24 +4,18 @@
  */
 import type { ReactNode } from "react";
 import { useTractManifest } from "../../_shared/roi/tract";
-import { Field, TextInput } from "../../../ui/Field";
+import { Field } from "../../../ui/Field";
 import { NumberInput } from "../../../ui/NumberInput";
 import { Select } from "../../../ui/Select";
 import { SelectionPicker } from "../../../ui/SelectionList";
-import { Checkbox } from "../../../ui/Toggle";
 import { removedSentence, type TractPreset } from "../../_shared/roi/networkChoice";
 
-export const NETWORK_VIEWS = ["posterior", "superior", "lateral", "oblique"];
 const AUTO = "auto";
 
 export interface NetworkSetupRecord {
   values: {
-    title: string;
-    caption: string | null;
     highlight_regions: string[];
-    views: string[];
     lateral_side: number;
-    region_labels: boolean;
     max_streamlines: number;
     tube_radius_mm: number;
     vmax_v_per_m: number | null;
@@ -60,15 +54,13 @@ export function summarizeRegions(regions: readonly string[]): string {
 export function setupSummary(setup: NetworkSetupRecord): string {
   const v = setup.values;
   const drawn = setup.n_drawn < setup.n_streamlines ? `${count(setup.n_drawn)} of ${count(setup.n_streamlines)} drawn` : null;
-  return [v.views.join(" + "), v.lateral_side < 0 ? "left side" : "right side", drawn, v.iso_shell_percentile === null ? "no shell" : `shell p${v.iso_shell_percentile}`].filter(Boolean).join(" · ");
+  return [v.lateral_side < 0 ? "left side" : "right side", drawn, v.iso_shell_percentile === null ? "no shell" : `shell p${v.iso_shell_percentile}`].filter(Boolean).join(" · ");
 }
 
 function rows(setup: NetworkSetupRecord): [string, string, ReactNode][] {
   const v = setup.values;
   const drawn = setup.n_drawn < setup.n_streamlines ? `${count(setup.n_drawn)} of ${count(setup.n_streamlines)}, evenly sampled` : `all ${count(setup.n_streamlines)}`;
   return [
-    ["title", "Title", v.title],
-    ["caption", "Caption", v.caption ?? "Network, streamlines drawn, medians along the fibres"],
     [
       "highlight_regions",
       "Lit regions",
@@ -81,9 +73,7 @@ function rows(setup: NetworkSetupRecord): [string, string, ReactNode][] {
         summarizeRegions(v.highlight_regions)
       ),
     ],
-    ["views", "Views", v.views.join(", ")],
-    ["lateral_side", "Side shown", v.lateral_side < 0 ? "left" : "right"],
-    ["region_labels", "Region names", v.region_labels ? "drawn" : "none"],
+    ["lateral_side", "Lateral panel", v.lateral_side < 0 ? "left" : "right"],
     ["max_streamlines", "Streamlines drawn", drawn],
     ["tube_radius_mm", "Tube radius", `${v.tube_radius_mm.toFixed(2)} mm`],
     ["vmax_v_per_m", "Top of the colours", v.vmax_v_per_m === null ? "99.5th percentile, at render" : `${v.vmax_v_per_m} V/m`],
@@ -135,31 +125,19 @@ export function NetworkAdvanced({ subject, overrides, onChange, setup, disabled 
   setup?: NetworkSetupRecord;
   disabled?: boolean;
 }) {
-  const auto = setup?.values;
   const manifest = useTractManifest(subject);
   const regionItems = (manifest.data?.regions ?? []).map((r) => ({ id: r.name, label: r.name, detail: r.cortical ? "cortical" : "subcortical", search: r.name }));
   const set = (key: string, value: unknown) => onChange(withKey(overrides, key, value));
   const number = (key: string, value: number | undefined) => set(key, value === undefined || !(value > 0) ? undefined : value);
-  const views = overrides.views as string[] | undefined;
   const shell = "iso_shell_percentile" in overrides ? (overrides.iso_shell_percentile === null ? "off" : "set") : AUTO;
   return (
     <details data-testid="network-advanced">
       <summary className="card-title">Setup{setup ? <span className="field-help" data-testid="network-setup-summary"> · {setupSummary(setup)}</span> : null}</summary>
       {setup && <NetworkSetupPlan setup={setup} />}
       <div className="form-grid" style={{ marginTop: "var(--space-2)" }}>
-        <Field label="Title" htmlFor="ve-setup-title">
-          <TextInput id="ve-setup-title" value={(overrides.title as string) ?? ""} placeholder={auto?.title ?? "Automatic"} disabled={disabled} onChange={(e) => set("title", e.target.value || undefined)} />
-        </Field>
-        <Field label="Caption" htmlFor="ve-setup-caption">
-          <TextInput id="ve-setup-caption" value={(overrides.caption as string) ?? ""} placeholder="Automatic" disabled={disabled} onChange={(e) => set("caption", e.target.value || undefined)} />
-        </Field>
-        <Field label="Side shown" htmlFor="ve-setup-side">
+        <Field label="Lateral panel" htmlFor="ve-setup-side">
           <Select id="ve-setup-side" disabled={disabled} value={overrides.lateral_side === undefined ? AUTO : String(overrides.lateral_side)} onValueChange={(v) => set("lateral_side", v === AUTO ? undefined : Number(v))}
             options={[{ value: AUTO, label: "Automatic" }, { value: "-1", label: "Left" }, { value: "1", label: "Right" }]} />
-        </Field>
-        <Field label="Region names" htmlFor="ve-setup-labels">
-          <Select id="ve-setup-labels" disabled={disabled} value={overrides.region_labels === undefined ? AUTO : String(overrides.region_labels)} onValueChange={(v) => set("region_labels", v === AUTO ? undefined : v === "true")}
-            options={[{ value: AUTO, label: "Automatic" }, { value: "true", label: "Drawn" }, { value: "false", label: "None" }]} />
         </Field>
         <Field label="Most streamlines drawn" help="An even sample above this.">
           <NumberInput value={overrides.max_streamlines as number | undefined} min={1} step={500} disabled={disabled} placeholder="Automatic" onValueChange={(v) => number("max_streamlines", v)} />
@@ -193,21 +171,6 @@ export function NetworkAdvanced({ subject, overrides, onChange, setup, disabled 
           placeholder="Automatic"
           disabled={disabled}
         />
-      </Field>
-      <Field label="Views">
-        <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
-          <Checkbox checked={!views} disabled={disabled} onCheckedChange={(on) => set("views", on ? undefined : (auto?.views ?? NETWORK_VIEWS))} label="Automatic" />
-          {views &&
-            NETWORK_VIEWS.map((view) => (
-              <Checkbox
-                key={view}
-                checked={views.includes(view)}
-                disabled={disabled}
-                onCheckedChange={(on) => set("views", NETWORK_VIEWS.filter((v) => (v === view ? on : views.includes(v))))}
-                label={view[0]!.toUpperCase() + view.slice(1)}
-              />
-            ))}
-        </div>
       </Field>
     </details>
   );

@@ -934,8 +934,9 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     ``assess`` stage); ``assessed`` what ``summary.json`` recorded of those made from region
     pairs, for telling a network already assessed from one that only shares its name;
     ``has_edges`` whether the assess stage has run here at all, which is what gives ``edges.json``;
-    ``renders`` the PNG and MP4 files in ``visual_exports/sub-<id>/<sim>/networks/<network>/``,
-    each with its network, colour and view, newest first.
+    ``renders`` the PNG, MP4 and ``.blend`` files in
+    ``visual_exports/sub-<id>/<sim>/networks/<network>/``, each with its network, colour and view,
+    newest first; a colour's figure has no view, and a ``.blend`` neither.
     ``None`` if subject or simulation is unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
     ``GET /api/catalog/simulations`` is a :func:`simulation_detail`.
     """
@@ -957,17 +958,27 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     )
     renders = []
     if networks_dir and os.path.isdir(networks_dir):
+        from tit.blender.config import TractVisualConfig
+
+        colours = {str(metric) for metric in TractVisualConfig.Metric}
         for network in sorted(os.listdir(networks_dir)):
             folder = _jailed(pm, os.path.join(networks_dir, network))
             if not folder or not os.path.isdir(folder):
                 continue
             for name in sorted(os.listdir(folder)):
                 stem, extension = os.path.splitext(name)
-                kind = {".png": "image", ".mp4": "video"}.get(extension)
+                kind = {".png": "image", ".mp4": "video", ".blend": "scene"}.get(
+                    extension
+                )
                 path = _jailed(pm, os.path.join(folder, name))
                 if kind and path and os.path.isfile(path):
-                    # <colour>_<view>: a colour may hold an underscore, a view does not.
-                    colour, _, view = stem.rpartition("_")
+                    # <colour>.png, or <colour>_<view>: a colour may hold an underscore, a view does
+                    # not. A folder rendered before the one-figure form has a view on every still.
+                    colour, view = stem, ""
+                    if kind == "scene":
+                        colour = ""
+                    elif stem not in colours and "_" in stem:
+                        colour, _, view = stem.rpartition("_")
                     renders.append(
                         {
                             "path": path,
@@ -975,7 +986,7 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
                             "kind": kind,
                             "modified_at": _mtime_iso(path),
                             "network": network,
-                            "colour": colour or stem,
+                            "colour": colour,
                             "view": view,
                         }
                     )

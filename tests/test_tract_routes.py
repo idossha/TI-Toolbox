@@ -962,14 +962,39 @@ def test_the_plan_of_a_render_names_exactly_what_it_replaces(
 
     out = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks"
     (out / "other").mkdir(parents=True)
-    (out / "other" / "ti_max_lateral.png").touch()
-    # The network here (one edge, left and midline) lies on one side: lateral and oblique.
+    (out / "other" / "ti_max.png").touch()
     assert replaced("mine") == (False, [], str(out / "mine"))
     (out / "mine").mkdir()
-    (out / "mine" / "ti_max_lateral.png").touch()
-    (out / "mine" / "ti_max_superior.png").touch()  # not a view this run draws
-    assert replaced("mine")[:2] == (True, ["ti_max_lateral.png"])
+    (out / "mine" / "ti_max.png").touch()
+    (out / "mine" / "ti_max_superior.png").touch()  # an older folder's still: not this run's
+    assert replaced("mine")[:2] == (True, ["ti_max.png"])
     assert replaced("mine", "direction")[:2] == (False, [])
+
+
+def test_the_plan_of_a_render_states_its_files_and_a_blends_size(
+    client: TestClient, project: Path
+) -> None:
+    from tit.blender.tract_publication import blend_size_mb
+
+    def resolved(**fields) -> dict:
+        config = {**_render("mine"), **fields}
+        return client.post(
+            "/api/plan/blender", json={"config": config, "subject_ids": ["S1"]}
+        ).json()["resolved"]
+
+    plain = resolved()
+    assert plain["planned_outputs"] == ["ti_max.png"]
+    assert "blend_size_mb" not in plain
+    asked = resolved(export_blend=True)
+    assert asked["planned_outputs"] == ["ti_max.png", "network.blend"]
+    assert asked["replaced_outputs"] == []
+    assert asked["blend_size_mb"] == blend_size_mb(6)  # COUNTS above
+
+    folder = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks/mine"
+    folder.mkdir(parents=True)
+    (folder / "network.blend").touch()
+    assert resolved(export_blend=True)["replaced_outputs"] == ["network.blend"]
+    assert resolved()["replaced_outputs"] == []
 
 
 def test_the_plan_of_a_render_states_its_automatic_setup_from_the_network(
@@ -1009,7 +1034,7 @@ def test_the_plan_of_an_existing_bundle_states_the_setup_of_the_edges_it_holds(
         },
     ).json()
     values = body["resolved"]["network_setup"]["values"]
-    assert values["title"] == "Brain-Stem – L precentral"
+    assert values["highlight_regions"] == ["Brain-Stem", "lh.precentral"]
     assert body["resolved"]["network_setup"]["n_streamlines"] == 6  # COUNTS above
 
 
@@ -1047,6 +1072,67 @@ def test_catalog_records_what_a_bundle_holds_and_that_edges_exist(
         {"name": "a", "pairs": [["x", "y"]], "n_streamlines": 3}
     ]
     assert answer["has_edges"] is True
+
+
+def test_the_gallery_reads_a_figure_a_video_a_scene_and_an_older_folder(
+    client: TestClient, project: Path
+) -> None:
+    from unittest import mock
+
+    from tit import catalog
+    from tit.server.schemas import SimulationNetworks
+
+    root = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks"
+    new, old = root / "new", root / "old"
+    new.mkdir(parents=True)
+    old.mkdir()
+    for name in (
+        "ti_max.png",
+        "direction.png",
+        "ti_max_turntable.mp4",
+        "network.blend",
+        "network.json",
+        "ti_max.png.part",
+    ):
+        (new / name).touch()
+    # A folder from before the one-figure form, and files no render writes.
+    for name in ("direction_lateral.png", "ti_max_posterior.png", "stray.png", ".DS_Store"):
+        (old / name).touch()
+    (old / "network.json").write_text('{"colours": {"direction": {"files": []}}}')
+    pm = get_path_manager()
+    with (
+        mock.patch.object(catalog, "_simulation_names", return_value=["sim1"]),
+        mock.patch.object(catalog, "subject_ids", return_value=["S1"]),
+    ):
+        answer = catalog.simulation_networks(pm, "S1", "sim1")
+    SimulationNetworks(**answer)  # what the route's response model must accept
+    seen = {
+        (r["network"], r["name"]): (r["kind"], r["colour"], r["view"])
+        for r in answer["renders"]
+    }
+    assert seen == {
+        ("new", "ti_max.png"): ("image", "ti_max", ""),
+        ("new", "direction.png"): ("image", "direction", ""),
+        ("new", "ti_max_turntable.mp4"): ("video", "ti_max", "turntable"),
+        ("new", "network.blend"): ("scene", "", ""),
+        ("old", "direction_lateral.png"): ("image", "direction", "lateral"),
+        ("old", "ti_max_posterior.png"): ("image", "ti_max", "posterior"),
+        ("old", "stray.png"): ("image", "stray", ""),
+    }
+
+
+def test_two_jobs_claim_one_blend_but_a_colour_each() -> None:
+    from tit.server.overwrite_policy import _network_claims
+
+    def claims(metric: str, **fields) -> set[str]:
+        config = {"_type": "TractVisualConfig", "metric": metric, **fields}
+        return _network_claims("blender", config, {"/net"})
+
+    assert not claims("ti_max") & claims("direction")
+    assert not claims("ti_max", export_blend=True) & claims("direction")
+    assert claims("ti_max", export_blend=True) & claims("direction", export_blend=True) == {
+        "/net/network.blend"
+    }
 
 
 def test_two_jobs_claim_a_network_each_in_one_folder() -> None:

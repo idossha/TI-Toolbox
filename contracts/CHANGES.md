@@ -1377,6 +1377,18 @@ absent fields reproduce the previous render. Behaviour that moves: a render's `w
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-05 — A network's render is one figure, and its numbers are in network.json
+
+`TractVisualConfig` loses `views` and `region_labels` and gains `export_blend`; `width` and `height` are the
+figure's and default to 3200. `overrides` no longer takes `title`, `caption`, `views` or `region_labels`, and
+`resolved.network_setup.values` no longer holds them: an old `overrides` with one of these keys is refused. Other
+removed fields in a stored config are ignored, as any unknown key is, and an older folder's `network.json` renders
+the new form. `POST /api/plan/blender` gains `resolved.planned_outputs` and, with `export_blend`,
+`resolved.blend_size_mb`. `SimulationNetworks.renders[]`: `kind` gains `scene`, for `network.blend`; `view` is
+empty for a colour's figure and a scene, and `colour` empty for a scene. Regenerated
+`contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
 ## 2026-11-05 — A network's outputs are one folder
 
 `TractVisualConfig` gains `keep_bundle`. `POST /api/plan/blender` names `networks/<network>` and returns

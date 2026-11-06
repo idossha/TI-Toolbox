@@ -13,22 +13,15 @@ never favours a metric. Standard library only.
 from __future__ import annotations
 
 import math
-import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from typing import Any
 
-#: The two stills of a network: from behind and above when both hemispheres hold it, where a side
-#: view shows half; from its own side and obliquely when it lies mostly on one.
-BILATERAL_VIEWS = ("posterior", "superior")
-ONE_SIDE_VIEWS = ("lateral", "oblique")
-#: Every view a config may ask for.
-ALL_VIEWS = ("lateral", "superior", "oblique", "posterior")
+#: A network's figure: these four panels, two to a row, left to right and top to bottom.
+PANELS = ("lateral", "superior", "anterior", "posterior")
 
-#: Each hemisphere holds at least this share of the ends: a side view shows half a network.
+#: Each hemisphere holds at least this share of the ends: bilateral, and its lateral panel shows left.
 BILATERAL_MIN_SHARE = 0.25
-#: Above this many regions names cover the picture (20 regions: sub-CHN's posterior network).
-LABEL_MAX_REGIONS = 6
 #: Highlighted when no seed names itself: the two busiest ends of the network.
 BUSIEST_ENDPOINTS = 2
 #: Above this many streamlines tubes merge into one mass; an even sample is drawn and stated.
@@ -43,23 +36,16 @@ SHELL_PERCENTILE = 95.0
 #: Below this many streamlines there are too few fibres to judge against a shell, which hides them.
 SHELL_MIN_STREAMLINES = 10
 
-#: What a preset's name gains when its opposite-hemisphere edges are asked for.
-WITH_OPPOSITE_SUFFIX = "_with_opposite"
-
 OVERRIDABLE = (
-    "title",
-    "caption",
     "highlight_regions",
-    "views",
     "lateral_side",
-    "region_labels",
     "max_streamlines",
     "tube_radius_mm",
     "vmax_v_per_m",
     "iso_shell_percentile",
 )
 
-#: DK40 parcel names as words, for on-screen labels and titles.
+#: DK40 parcel names as words, for the thalamocortical sequence's labels.
 DK40_WORDS = {
     "superiorfrontal": "superior frontal",
     "rostralmiddlefrontal": "rostral middle frontal",
@@ -120,9 +106,6 @@ def validate_overrides(overrides: Mapping[str, Any]) -> None:
     unknown = sorted(set(overrides) - set(OVERRIDABLE))
     if unknown:
         raise ValueError(f"unknown overrides {unknown}; allowed: {OVERRIDABLE}")
-    views = overrides.get("views", ALL_VIEWS)
-    if not views or set(views) - set(ALL_VIEWS):
-        raise ValueError(f"overrides.views must be some of {ALL_VIEWS}")
     if overrides.get("lateral_side", -1) not in (-1, 1):
         raise ValueError("overrides.lateral_side is -1 or 1")
     for key in ("max_streamlines", "tube_radius_mm", "vmax_v_per_m"):
@@ -132,19 +115,6 @@ def validate_overrides(overrides: Mapping[str, Any]) -> None:
     shell = overrides.get("iso_shell_percentile")
     if shell is not None and not 0 < shell < 100:
         raise ValueError("overrides.iso_shell_percentile must be in (0, 100), or null")
-
-
-def network_title(name: str, regions: Sequence[str]) -> str:
-    """Two regions are named in words; a longer list by the network's own name."""
-    if len(regions) == 2:
-        return " – ".join(region_words(r) for r in regions)
-    top = re.fullmatch(r"top_(\d+)_by_(\w+)", name)
-    if top:
-        return f"Top {top[1]} connections by {top[2]}"
-    stem, marked, _ = name.partition(WITH_OPPOSITE_SUFFIX)
-    words = re.sub(r"\b([lr])h\b", lambda m: m[1].upper(), stem.replace("_", " "))
-    title = words[0].upper() + words[1:] + " network"
-    return f"{title}, with opposite-hemisphere connections" if marked else title
 
 
 def resolve_network_setup(
@@ -181,12 +151,8 @@ def resolve_network_setup(
     seeds = [r for r in selection.regions if ends.get(r)]
 
     values: dict[str, Any] = {
-        "title": network_title(selection.name, regions),
-        "caption": None,
         "highlight_regions": seeds or regions[:BUSIEST_ENDPOINTS],
-        "views": list(BILATERAL_VIEWS if bilateral else ONE_SIDE_VIEWS),
-        "lateral_side": 1 if right > left else -1,
-        "region_labels": len(regions) <= LABEL_MAX_REGIONS,
+        "lateral_side": 1 if right > left and not bilateral else -1,
         "max_streamlines": STREAMLINE_BUDGET,
         "tube_radius_mm": TUBE_RADIUS_MM
         * min(
@@ -200,26 +166,19 @@ def resolve_network_setup(
     }
     side = "left" if values["lateral_side"] < 0 else "right"
     reasons = {
-        "title": "Two regions are named; a longer list goes by the network's name.",
-        "caption": "Who, how many drawn, and neutral medians along the fibres.",
         "highlight_regions": (
             "The regions it was chosen by."
             if seeds
             else "No seed: the busiest ends of the network."
         ),
-        "views": (
-            "Both hemispheres hold a quarter of its ends or more: a side view shows half of it."
+        "lateral_side": (
+            f"Both hemispheres hold a quarter of its ends or more ({left} left, {right} right): "
+            "the lateral panel shows the left."
             if bilateral
-            else "It lies mostly in one hemisphere."
-        ),
-        "lateral_side": f"The {side} side holds more of its ends ({left} left, {right} right).",
-        "region_labels": (
-            f"Names drawn, each only on a view that faces it: {len(regions)} regions."
-            if values["region_labels"]
-            else f"No names: {len(regions)} regions would cover the picture."
+            else f"The {side} side holds more of its ends ({left} left, {right} right)."
         ),
         "max_streamlines": (
-            f"Above {STREAMLINE_BUDGET:,} an even sample is drawn, and the caption says so."
+            f"Above {STREAMLINE_BUDGET:,} an even sample is drawn, and network.json says so."
         ),
         "tube_radius_mm": "A thin network's tubes widen so a few fibres can be seen.",
         "vmax_v_per_m": "The top of the colours: the 99.5th percentile along the drawn fibres.",

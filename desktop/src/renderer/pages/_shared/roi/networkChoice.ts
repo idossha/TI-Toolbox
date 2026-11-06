@@ -15,7 +15,7 @@ interface EdgeLike {
   n: number;
 }
 
-/** `tit.blender.network_setup.WITH_OPPOSITE_SUFFIX`. */
+/** What a preset's name gains when its opposite-hemisphere edges are asked for. */
 const WITH_OPPOSITE_SUFFIX = "_with_opposite";
 
 /** What a top-N list may be ordered by, named as the caption and tables name them. */
@@ -112,7 +112,7 @@ export function presetTotals(preset: TractPreset, includeOpposite: boolean): { s
     : { streamlines: preset.n_streamlines, edges: preset.n_edges };
 }
 
-/** `tit.tract.presets.removed_sentence`, for the picker's count line: what same-side left out. */
+/** The picker's count line and the Plan: what same-side left out. */
 export function removedSentence(preset: TractPreset): string {
   const count = (n: number) => n.toLocaleString("en-US");
   return (

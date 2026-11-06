@@ -4796,18 +4796,18 @@ components:
           description: Whether the assess stage has written this simulation's edges.json.
         renders:
           type: array
-          description: PNG and MP4 files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.
+          description: PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.
           items:
             type: object
             required: [path, name, kind, modified_at, network, colour, view]
             properties:
               path: { type: string }
               name: { type: string }
-              kind: { type: string, enum: [image, video] }
+              kind: { type: string, enum: [image, video, scene], description: "scene: the network.blend" }
               modified_at: { type: string }
               network: { type: string }
-              colour: { type: string, description: "what the fibres are coloured by" }
-              view: { type: string, description: "a still's view, or turntable, propagation or sequence" }
+              colour: { type: string, description: "what the fibres are coloured by; empty for a scene" }
+              view: { type: string, description: "turntable, propagation or sequence; empty for a colour's figure or a scene; a still's view in a folder rendered before the one-figure form" }
     SimulationDetail:
       description: v0 Simulation plus montages, fields, spaces, reports, niftis, meshes
       allOf:
@@ -5389,6 +5389,13 @@ components:
           type: array
           items: { type: string }
           description: blender, a tract render - the files of its folder this run would replace.
+        planned_outputs:
+          type: array
+          items: { type: string }
+          description: blender, a tract render - the files this run writes.
+        blend_size_mb:
+          type: integer
+          description: blender, a tract render with export_blend - about how large network.blend will be.
         montages:
           type: array
           items: { type: object, additionalProperties: true }

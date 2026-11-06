@@ -207,6 +207,12 @@ test("an existing file still renders, a preset is chosen in its place, and the s
   await page.locator("#ve-network-metric").click();
   await page.getByRole("option", { name: "TI_max", exact: true }).click();
   await page.getByRole("checkbox", { name: "Turntable video" }).click();
+  // No Title, Caption, Region names or Views to set: a figure has four fixed panels and no text.
+  await page.getByTestId("network-advanced").locator("summary").click();
+  for (const gone of ["Title", "Caption", "Region names", "Views"]) await expect(page.getByTestId("network-advanced").getByText(gone, { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId("ve-planned-files")).toHaveText("Writes: ti_max.png, ti_max_turntable.mp4");
+  await page.getByRole("checkbox", { name: "Export .blend" }).click();
+  await expect(page.getByTestId("ve-planned-files")).toContainText("network.blend (about 40 MB, the TI_max scene)");
   const job = await submittedJob(() => page.getByTestId("run-button").click());
   expect(job).toMatchObject({ kind: "blender", subject_ids: ["ernie"] });
   expect(job.config).toMatchObject({
@@ -217,8 +223,12 @@ test("an existing file still renders, a preset is chosen in its place, and the s
     metric: "ti_max",
     stills: true,
     turntable: true,
+    export_blend: true,
+    width: 1600,
+    height: 1600,
     quality: "preview",
   });
+  expect(job.config).not.toHaveProperty("views");
 
   await page.getByRole("checkbox", { name: /Thalamocortical sequence/ }).click();
   const sequence = await submittedJob(async () => {
@@ -231,7 +241,8 @@ test("an existing file still renders, a preset is chosen in its place, and the s
 
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  // By network, labelled by what it shows: the mock's fixture still, of the network called all.
+  // By network, labelled by what it shows: the mock's fixture is a folder from before the one-figure
+  // form, of the network called all, and it still reads.
   await expect(renders.getByRole("img", { name: "all, Fibre direction · lateral" })).toBeVisible();
   await expect(renders.locator("figcaption").first()).toHaveText("Fibre direction · lateral");
   await page.screenshot({ path: join(ARTIFACTS, "panel-visual-exporter-networks.png") });
@@ -312,7 +323,7 @@ test("a render of one network leaves another's files alone, and asks only about 
   await rendersTab.click();
   // One group for each; the newer open, the older a header until it is asked for.
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: "precentral_brainstem, Fibre direction · lateral" })).toBeVisible();
+  await expect(renders.getByRole("img", { name: "precentral_brainstem, Fibre direction", exact: true })).toBeVisible();
   await expect(renders.locator("details")).toHaveCount(2);
   await expect(renders.locator('details[data-network="all"]')).not.toHaveAttribute("open");
   await page.getByTestId("run-button").click();

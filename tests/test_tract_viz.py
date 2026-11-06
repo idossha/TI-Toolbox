@@ -9,9 +9,11 @@ What this pins (2026-11-04)
     - :func:`tit.plotting.tract_web.viewer_payload` round-trips positions to 0.005 mm and field
       values to one uint16 step, and a 15 000-streamline page stays under 12 MB.
     - The connectome helpers order hemispheres and pick the top edges.
-    - ``TractVisualConfig``'s views, quality and thalamocortical sequence options: refused when
-      they cannot run, carried into the manifest, and the sequence's two networks share one
-      TI_max window (p99 over both, the approved render's; 2026-11-05).
+    - ``TractVisualConfig``'s quality and thalamocortical sequence options: refused when they
+      cannot run, carried into the manifest, and the sequence's two networks share one TI_max
+      window (p99 over both, the approved render's; 2026-11-05).
+    - A run writes one figure per colour and ``network.json``'s metrics, and leaves another colour
+      alone (2026-11-05).
 
 Where the expectations come from
     Closed forms (a straight line's arc length and tangent, a helix's), a plain Python loop
@@ -251,7 +253,6 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
     tp.export_scene(
         cfg,
         three,
-        99,
         (*sphere, len(sphere[0])),
         None,
         electrodes,
@@ -261,18 +262,12 @@ def test_export_scene_draws_whole_fibres_and_lights_their_regions(tmp_path, thre
         context=three,
         edges=edges,
         regions=(cortical, {"Left-B": blob}),
-        caption="network",
     )
     manifest = json.loads((tmp_path / "b" / "manifest.json").read_text())
-    assert manifest["n_shown"] == 3 and manifest["n_total"] == 99
-    assert manifest["caption"].startswith("network · colour averaged")
+    assert manifest["n_drawn"] == 3
     assert manifest["roi"] == {"center": [1, 2, 3], "radius": 10.0}
-    # n counts streamlines per region; lh.c holds one streamline with both ends in it
-    assert {l["name"] for l in manifest["labels"]} == {
-        "lh.a (n=2)",
-        "lh.c (n=2)",
-        "Left-B (n=1)",
-    }
+    assert manifest["panels"] == ["lateral", "superior", "anterior", "posterior"]
+    assert not {"labels", "views"} & set(manifest)
     with np.load(tmp_path / "b" / "tracts.npz") as t:
         offsets = t["offsets"]
         np.testing.assert_array_equal(
@@ -326,7 +321,6 @@ def test_highlighted_deep_regions_glow_softly_and_parcels_by_count(
     tp.export_scene(
         TractVisualConfig(subject_id="x", simulation_name="s"),
         three,
-        3,
         (*sphere, len(sphere[0])),
         None,
         [],
@@ -649,16 +643,15 @@ def test_edges_between_matches_either_orientation():
     assert edges_between(edges, thal, ["rh.precuneus", "lh.superiorfrontal"]) == {1, 2}
 
 
-def test_network_statement_reports_streamline_medians(three):
-    from tit.blender.tract_publication import network_statement
+def test_network_medians_are_over_the_streamlines(three):
+    from tit.blender.tract_publication import network_medians
 
     three.dpv["ti_avg"] = (three.dpv["ti_max"] * 0.5).astype(np.float32)
-    text = network_statement("Frontal TC", three)
+    medians = network_medians(three)
     per = td.arc_length_mean(three, three.dpv["ti_max"])
-    assert text.startswith("Frontal TC · n=3 streamlines (all drawn)\n")
-    assert f"median TI_max {np.median(per):.3f} V/m" in text
-    assert (
-        "median align_index 1.40" in text
+    assert medians["median_ti_max_v_per_m"] == pytest.approx(np.median(per), abs=1e-4)
+    assert medians["median_align_index"] == pytest.approx(
+        1.4
     )  # ti_along 0.7 ti_max over ti_avg 0.5 ti_max
 
 
@@ -702,15 +695,13 @@ def test_region_words_name_dk40_parcels_with_hemisphere():
     assert region_words("Left-Thalamus-Proper") == "Left-Thalamus-Proper"
 
 
-# -- views, quality, the thalamocortical sequence (the Visual exporter's Networks tab) -------------
+# -- figure, quality, the thalamocortical sequence (the Visual exporter's Networks tab) ------------
 
 
 def test_render_options_are_refused_when_they_cannot_run():
     from tit.blender.config import TractVisualConfig
 
     base = dict(subject_id="x", simulation_name="s")
-    with pytest.raises(ValueError, match="unknown views"):
-        TractVisualConfig(**base, views=["front"])
     with pytest.raises(ValueError):
         TractVisualConfig(**base, quality="draft")
     with pytest.raises(ValueError, match="runs alone"):
@@ -731,9 +722,7 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
     selection = Selection(
         name="net", kind="edges", regions=["lh.a"], pairs=[["lh.a", "rh.b"]]
     )
-    cfg = TractVisualConfig(
-        "x", "s", selection=selection, metric="ti_max", views=["lateral"]
-    )
+    cfg = TractVisualConfig("x", "s", selection=selection, metric="ti_max")
     setup = resolve_network_setup(selection, {("lh.a", "rh.b"): 3})
     cortical = {"lh.a": np.arange(0, 20), "rh.b": np.arange(40, 50)}
     sphere = _sphere()
@@ -741,7 +730,6 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
     tp.export_scene(
         cfg,
         three,
-        3,
         (*sphere, len(sphere[0])),
         None,
         [],
@@ -762,13 +750,8 @@ def test_a_selection_exports_with_its_setup_under_its_own_name(tmp_path, three):
     assert manifest["stem"] == "ti_max"
     assert manifest["network"] is True
     assert manifest["setup"] == setup
-    # The stills land in the network's folder, one level up from the bundle.
+    # The figure lands in the network's folder, one level up from the bundle.
     assert (bundle / manifest["output_dir"]).resolve() == out.resolve()
-    # Words, and which hemisphere each name belongs to.
-    assert {(label["name"], label["hemi"]) for label in manifest["labels"]} == {
-        ("L a (n=3)", -1),
-        ("R b (n=3)", 1),
-    }
     # One tube radius, the setup's: a width that does not encode the field.
     radii = np.load(bundle / "tracts.npz")["r"]
     assert radii.max() == pytest.approx(setup["values"]["tube_radius_mm"])
@@ -784,9 +767,7 @@ def test_a_selection_lights_only_its_busiest_parcels(tmp_path, three, monkeypatc
     selection = Selection(
         name="net", kind="edges", pairs=[["lh.a", "lh.b"], ["lh.a", "lh.c"]]
     )
-    cfg = TractVisualConfig(
-        "x", "s", selection=selection, metric="ti_max", region_labels=False
-    )
+    cfg = TractVisualConfig("x", "s", selection=selection, metric="ti_max")
     # Streamlines 0 and 1 end in lh.b, one in lh.c: lh.a is the seed, lh.b the busiest parcel.
     three.dps["edge_id"] = np.array([0, 0, 1])
     edges = {
@@ -803,7 +784,6 @@ def test_a_selection_lights_only_its_busiest_parcels(tmp_path, three, monkeypatc
     tp.export_scene(
         cfg,
         three,
-        3,
         (*sphere, len(sphere[0])),
         None,
         [],
@@ -884,14 +864,15 @@ def _selection_config(**fields):
 
 
 def _still_writer(manifest_path, *rest):
-    """What Blender does with a bundle: write the manifest's stills beside it."""
+    """What Blender does with a bundle: write the figure and, if asked, the scene beside it."""
     manifest = json.loads(Path(manifest_path).read_text())
     base = Path(manifest_path).parent / manifest["output_dir"]
-    for view in manifest["views"]:
-        (base / f"{manifest['stem']}_{view}.png").write_bytes(b"png")
+    (base / f"{manifest['stem']}.png").write_bytes(b"png")
+    if manifest["export_blend"]:
+        (base / "network.blend").write_bytes(b"blend" * 10)
 
 
-def test_a_run_leaves_the_stills_and_network_json_and_can_be_run_again_from_it(
+def test_a_run_leaves_one_figure_and_network_json_and_can_be_run_again_from_it(
     tmp_path, monkeypatch, three
 ):
     from tit.blender import tract_publication as tp
@@ -901,29 +882,52 @@ def test_a_run_leaves_the_stills_and_network_json_and_can_be_run_again_from_it(
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     out = Path(tp.run_tract(_selection_config()))
     assert out.parts[-3:] == ("s", "networks", "net")
-    # lh.a and rh.b hold one hemisphere each: from behind and above.
-    assert sorted(p.name for p in out.iterdir()) == [
-        "network.json",
-        "ti_max_posterior.png",
-        "ti_max_superior.png",
-    ]
+    assert sorted(p.name for p in out.iterdir()) == ["network.json", "ti_max.png"]
     record = json.loads((out / "network.json").read_text())
     assert record["network"] == "net"
     assert record["selection"]["pairs"] == [["lh.a", "rh.b"]]
     assert record["code_version"]
     entry = record["colours"]["ti_max"]
-    assert entry["files"] == ["ti_max_posterior.png", "ti_max_superior.png"]
+    assert entry["files"] == ["ti_max.png"]
     assert entry["setup"]["n_streamlines"] == 3
     assert entry["setup"]["n_drawn"] == 3
+    metrics = record["metrics"]
+    assert metrics["streamlines_total"] == 3
+    assert metrics["streamlines_per_region"] == {"lh.a": 3, "rh.b": 3}
+    assert metrics["median_ti_max_v_per_m"] > 0
+    image = metrics["images"]["ti_max.png"]
+    assert image["panels"] == ["lateral", "superior", "anterior", "posterior"]
+    assert image["streamlines_drawn"] == 3
+    assert image["sampling"] == "all drawn"
+    assert image["lateral_side"] == "left"
+    assert image["colour_scale"]["units"] == "V/m"
+    assert image["shell"] is None  # under 10 streamlines, which a shell would hide
+    assert record["blend"] is None
 
     # Re-render: what network.json holds is a config, the same one, and it runs.
-    (out / "ti_max_posterior.png").unlink()
+    (out / "ti_max.png").unlink()
     config = dict(entry["config"])
     config.pop("project_dir")
     again = deserialize_config(TractVisualConfig, config)
     assert again.selection == _selection_config().selection
     tp.run_tract(again)
-    assert (out / "ti_max_posterior.png").exists()
+    assert (out / "ti_max.png").exists()
+
+
+def test_a_shell_is_recorded_with_its_level_and_how_it_was_chosen(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    out = Path(
+        tp.run_tract(_selection_config(overrides={"iso_shell_percentile": 90.0}))
+    )
+    record = json.loads((out / "network.json").read_text())
+    shell = record["metrics"]["images"]["ti_max.png"]["shell"]
+    assert shell["level_v_per_m"] == 0.3  # _run_tract_project's stub
+    assert shell["percentile"] == 90.0
+    assert "volume-weighted" in shell["chosen_by"]
 
 
 def test_rendering_another_colour_keeps_the_first_in_network_json(
@@ -937,13 +941,111 @@ def test_rendering_another_colour_keeps_the_first_in_network_json(
     cfg = _selection_config()
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, metric="direction"))
-    assert set(json.loads((out / "network.json").read_text())["colours"]) == {
-        "ti_max",
-        "direction",
-    }
-    assert (out / "ti_max_posterior.png").exists() and (
-        out / "direction_posterior.png"
-    ).exists()
+    record = json.loads((out / "network.json").read_text())
+    assert set(record["colours"]) == {"ti_max", "direction"}
+    assert (out / "ti_max.png").exists() and (out / "direction.png").exists()
+    # Each image keeps how to read it, whichever colour was rendered last.
+    images = record["metrics"]["images"]
+    assert images["ti_max.png"]["colour_scale"]["label"]
+    assert images["direction.png"]["colour_key"]["red"] == "left – right"
+
+
+def test_a_colour_rendered_again_replaces_only_its_own_record(
+    tmp_path, monkeypatch, three
+):
+    from dataclasses import replace
+
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    cfg = _selection_config()
+    out = Path(tp.run_tract(cfg))
+    tp.run_tract(replace(cfg, metric="direction"))
+    first = json.loads((out / "network.json").read_text())
+    tp.run_tract(replace(cfg, overrides={"max_streamlines": 2}))
+    again = json.loads((out / "network.json").read_text())
+    assert again["colours"]["direction"] == first["colours"]["direction"]
+    images = again["metrics"]["images"]
+    assert images["ti_max.png"]["streamlines_drawn"] == 2
+    assert images["ti_max.png"]["sampling"] == "even sample"
+    assert images["direction.png"]["streamlines_drawn"] == 3
+
+
+def test_a_blend_is_recorded_with_its_colour_and_size_and_survives_a_plain_render(
+    tmp_path, monkeypatch, three
+):
+    from dataclasses import replace
+
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    cfg = _selection_config(export_blend=True)
+    out = Path(tp.run_tract(cfg))
+    # A blend outlives the bundle, which a successful render deletes.
+    assert not (out / "bundle_ti_max").exists()
+    record = json.loads((out / "network.json").read_text())
+    assert record["blend"]["file"] == "network.blend"
+    assert record["blend"]["colour"] == "ti_max"
+    assert record["blend"]["bytes"] == 50
+    assert "network.blend" not in record["colours"]["ti_max"]["files"]
+    tp.run_tract(replace(cfg, metric="direction", export_blend=False))
+    kept = json.loads((out / "network.json").read_text())
+    assert kept["blend"] == record["blend"]
+    tp.run_tract(replace(cfg, metric="direction"))
+    assert json.loads((out / "network.json").read_text())["blend"]["colour"] == "direction"
+
+
+def test_a_turntable_after_a_figure_keeps_the_figures_record(
+    tmp_path, monkeypatch, three
+):
+    from dataclasses import replace
+
+    from tit.blender import tract_publication as tp
+
+    def writer(manifest_path, *rest):
+        manifest = json.loads(Path(manifest_path).read_text())
+        base = Path(manifest_path).parent / manifest["output_dir"]
+        if manifest["stills"]:
+            (base / "ti_max.png").write_bytes(b"png")
+        if manifest["turntable"]:
+            (base / "ti_max_turntable.mp4").write_bytes(b"mp4")
+
+    _run_tract_project(tmp_path, monkeypatch, three, writer)
+    cfg = _selection_config()
+    out = Path(tp.run_tract(cfg))
+    tp.run_tract(replace(cfg, stills=False, turntable=True))
+    record = json.loads((out / "network.json").read_text())
+    assert record["colours"]["ti_max"]["files"] == [
+        "ti_max.png",
+        "ti_max_turntable.mp4",
+    ]
+    assert set(record["metrics"]["images"]) == {"ti_max.png", "ti_max_turntable.mp4"}
+    # A file gone from the folder leaves the record with the next render.
+    (out / "ti_max_turntable.mp4").unlink()
+    tp.run_tract(cfg)
+    record = json.loads((out / "network.json").read_text())
+    assert record["colours"]["ti_max"]["files"] == ["ti_max.png"]
+    assert set(record["metrics"]["images"]) == {"ti_max.png"}
+
+
+def test_a_turntable_opening_in_direction_colours_carries_both_keys(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+
+    def writer(manifest_path, *rest):
+        _still_writer(manifest_path)
+        base = Path(manifest_path).parent / ".."
+        (base / "ti_max_turntable.mp4").write_bytes(b"mp4")
+
+    _run_tract_project(tmp_path, monkeypatch, three, writer)
+    out = Path(tp.run_tract(_selection_config(turntable=True, turntable_crossfade=True)))
+    images = json.loads((out / "network.json").read_text())["metrics"]["images"]
+    video = images["ti_max_turntable.mp4"]
+    assert video["colour_key"]["green"] == "anterior – posterior"
+    assert video["colour_scale"]["units"] == "V/m"
+    assert "panels" not in video
+    assert "colour_key" not in images["ti_max.png"]
 
 
 def test_a_bundle_is_kept_when_asked_for(tmp_path, monkeypatch, three):
@@ -1015,15 +1117,18 @@ def test_a_network_drawn_in_part_is_an_even_sample_that_says_so(three):
     edges = {0: {"region_a": "lh.a", "region_b": "lh.b"}}
     picks = tp._picked(three, tp._edge_ids(edges, [["lh.b", "lh.a"]]))
     assert picks.tolist() == [0, 1, 2]  # either way round
-    assert "(1 drawn, evenly sampled)" in tp.network_statement("n", three, 1)
+    assert "(1 drawn, evenly sampled)" in tp.sequence_caption("n", three.n, 1)
 
 
-def test_absent_options_keep_the_final_three_view_render():
+def test_absent_options_keep_the_final_figure_and_no_scene():
     from tit.blender.config import TractVisualConfig
 
     cfg = TractVisualConfig(subject_id="x", simulation_name="s")
     assert (
-        cfg.views == [] and cfg.quality == "final" and not cfg.thalamocortical_sequence
+        cfg.quality == "final"
+        and cfg.stills
+        and not cfg.export_blend
+        and not cfg.thalamocortical_sequence
     )
 
 

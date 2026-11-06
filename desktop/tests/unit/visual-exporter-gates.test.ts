@@ -147,9 +147,9 @@ describe("visual exporter networks gate", () => {
 
   it("refuses a run that would render nothing", async () => {
     const base = { mode: "networks", subjectId: "101", simulationName: "L_Insula", networkFromFile: true };
-    expect((await render({ ...base, networkStills: false })).title).toBe("Choose stills, a turntable or both.");
-    expect((await render({ ...base, networkViews: [] })).title).toBe("Choose at least one view.");
-    expect((await render({ ...base, networkViews: [], networkTurntable: true, networkStills: false })).title).toBeNull();
+    expect((await render({ ...base, networkStills: false })).title).toBe("Choose a figure, a turntable or both.");
+    expect((await render({ ...base, networkStills: false, networkExportBlend: true })).title).toBe("Choose a figure, a turntable or both.");
+    expect((await render({ ...base, networkTurntable: true, networkStills: false })).title).toBeNull();
   });
 });
 

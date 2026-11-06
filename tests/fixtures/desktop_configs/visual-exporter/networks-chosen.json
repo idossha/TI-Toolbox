@@ -7,7 +7,8 @@
       "config": {
         "_type": "TractVisualConfig",
         "connectome": false,
-        "height": 640,
+        "export_blend": false,
+        "height": 1600,
         "metric": "ti_max",
         "overrides": {
           "lateral_side": 1
@@ -34,7 +35,7 @@
         "turntable_crossfade": false,
         "turntable_frames": 96,
         "web": false,
-        "width": 960
+        "width": 1600
       },
       "kind": "blender",
       "subject_ids": [

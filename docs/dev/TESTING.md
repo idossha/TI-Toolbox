@@ -310,9 +310,16 @@ a disposable subject (`TIT_E2E_CHAIN_SUBJECT`: QSIPrep output, m2m, leadfield, n
 tractography from the Pre-processing row, a posterior preset's mask in both same-side states, an
 ex-search, All-montage ranking, one simulation, then the Networks tab's automatic assess and render of
 two networks. It writes `chain-results.json` beside its screenshots; comparing the tractogram and mask
-with a reference is the operator's step. `tests/test_network_setup.py` pins each automatic-setup rule,
-preset resolution and the same-side counts, the file names, and the caption's mean against
-`streamline_stats`; `desktop/tests/unit/network-target.test.ts` and
+with a reference is the operator's step. `desktop/tests/e2e/real/network-figures.spec.ts`
+(`TIT_E2E_FIGURES_SUBJECT`, `TIT_E2E_FIGURES_SIMULATION`, `TIT_E2E_PROJECT_HOST`) renders a thalamocortical
+preset with its `.blend`, a network chosen by connection and a bilateral preset in both colours, renders one
+colour again, and writes each job's peak memory and time to `figures-results.json`; no text in the pixels is
+judged by eye from its copies. `tests/test_network_setup.py` pins each automatic-setup rule, preset
+resolution and the same-side counts, the file names, the panels and their one scale, and `network.json`'s
+medians against `streamline_stats`; `tests/test_blender_process_boundary.py` (`TIT_TEST_BLENDER_BIN`, in the
+image) renders a small bundle in the real Blender, opens `network.blend` with the bundle gone, checks its
+objects, materials, cameras and that it names no external file, and compares a render from it with the
+figure's top-left panel; `desktop/tests/unit/network-target.test.ts` and
 `visual-exporter-network-run.test.tsx` pin the picker's pure functions and Run's assess-then-render;
 `tests/test_network_presets_realdata.py` (`TIT_DATASET_000`) checks the presets on sub-CHN's real labels.
 
@@ -427,10 +434,10 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   force. Renders are judged by eye: `python3 dev/tract_synthetic.py <m2m> <out>` makes a tractogram
   in a real brain, a `TractVisualConfig` job with `tractogram` pointing at it renders, and
   `blender --background --python tit/blender/tract_scene.py -- <out>/bundle_<colour>/manifest.json
-  turntable,propagation` re-renders the bundle in another Blender. The Networks tab's request and
+  stills,turntable` re-renders the bundle in another Blender. The Networks tab's request and
   gates are pinned by `desktop/tests/unit/visual-exporter-*.test.ts` and
   `desktop/tests/e2e/visual-exporter.spec.ts`; `desktop/tests/e2e/real/visual-exporter-networks.spec.ts`
-  renders a low-resolution still and a short turntable through the app when `TIT_E2E_NETWORKS_SUBJECT`
+  renders a low-resolution figure and a short turntable through the app when `TIT_E2E_NETWORKS_SUBJECT`
   and `TIT_E2E_NETWORKS_SIMULATION` name a simulation with `tract/` outputs, and skips otherwise.
 - An isolated `tests/test_scene_guide.py` pass diagnoses order-dependent state leakage; it never
   waives a failed full suite. Scope mock changes so subsequent tests restore real module state.

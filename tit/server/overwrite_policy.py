@@ -74,7 +74,10 @@ def _network_claims(kind: str, config: dict[str, Any], folders: set[str]) -> set
     """A tract folder holds many networks and a network's folder many colours: a job claims its own."""
     if kind == "blender" and config.get("_type") == "TractVisualConfig":
         metric = config.get("metric", "ti_along")
-        return {f"{folder}/{metric}*" for folder in folders}
+        claims = {f"{folder}/{metric}*" for folder in folders}
+        if config.get("export_blend"):
+            claims |= {f"{folder}/network.blend" for folder in folders}
+        return claims
     if kind == "tract" and isinstance(config.get("assess"), dict):
         names = [s.get("name") for s in config["assess"].get("selections", [{}])]
         return {

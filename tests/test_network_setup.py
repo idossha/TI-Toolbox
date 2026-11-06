@@ -1,9 +1,9 @@
-"""A named network's automatic render setup, its presets, names and arc-length caption (2026-11-05).
+"""A named network's automatic render setup, its presets, names and sidecar numbers (2026-11-05).
 
 What this pins
     Each rule of ``tit.blender.network_setup.resolve_network_setup`` from counts written here,
     ``tit.tract.presets`` on a synthetic network, the file names that let networks coexist, the
-    per-view label rule, and the caption's agreement with what the assess stage reports.
+    figure's panels and scale, and ``network.json``'s medians against what the assess stage reports.
 
 Where the numbers come from
     Counts per edge are authored in this file. The posterior figures in
@@ -26,8 +26,7 @@ import pytest
 from tit.blender import tract_data as td
 from tit.blender.config import TractVisualConfig
 from tit.blender.network_setup import (
-    BILATERAL_VIEWS,
-    ONE_SIDE_VIEWS,
+    PANELS,
     REFERENCE_STREAMLINES,
     SHELL_MIN_STREAMLINES,
     STREAMLINE_BUDGET,
@@ -38,10 +37,15 @@ from tit.blender.network_setup import (
 )
 from tit.blender.tract_publication import (
     bundle_folder,
+    image_metrics,
+    montage_record,
+    network_medians,
     network_output_dir,
     network_slug,
-    network_statement,
+    planned_outputs,
+    region_counts,
     replaced_outputs,
+    sequence_caption,
 )
 from tit.tract import geometry
 from tit.tract.config import Selection
@@ -71,11 +75,9 @@ def test_the_reference_network_keeps_its_approved_look() -> None:
     out = setup(counts, THALAMI, name="posterior_thalamocortical")
     values = out["values"]
     assert out["n_streamlines"] == out["n_drawn"] == REFERENCE_STREAMLINES
-    assert values["title"] == "Posterior thalamocortical network"
     assert values["highlight_regions"] == THALAMI
     assert values["iso_shell_percentile"] == 95.0
-    assert values["lateral_side"] == -1  # 1,703 left ends against 1,493 right
-    assert values["views"] == list(BILATERAL_VIEWS)
+    assert values["lateral_side"] == -1  # bilateral
     assert values["tube_radius_mm"] == TUBE_RADIUS_MM
     assert values["vmax_v_per_m"] is None
 
@@ -99,24 +101,16 @@ def test_a_tie_shows_the_left_side_whatever_order_the_pairs_came_in() -> None:
     assert setup({("lh.insula", "rh.insula"): 5})["values"]["lateral_side"] == -1
 
 
-def test_a_network_on_one_side_skips_the_views_that_show_both() -> None:
-    assert setup({("lh.insula", "lh.precuneus"): 90, ("lh.insula", "rh.insula"): 10})[
-        "values"
-    ]["views"] == list(ONE_SIDE_VIEWS)
-
-
-def test_the_bilateral_rule_is_a_quarter_of_the_ends() -> None:
-    # 100 ends: 75 left and 25 right is bilateral, 76 and 24 is not.
-    both = {("lh.a", "lh.b"): 25, ("lh.a", "rh.b"): 25}
-    assert setup(both)["values"]["views"] == list(BILATERAL_VIEWS)
-    one = {("lh.a", "lh.b"): 26, ("lh.a", "rh.b"): 24}
-    assert setup(one)["values"]["views"] == list(ONE_SIDE_VIEWS)
+def test_a_bilateral_network_shows_the_left_even_with_more_ends_on_the_right() -> None:
+    # 100 ends: 25 left and 75 right is bilateral, 24 and 76 is not.
+    both = {("lh.a", "rh.b"): 25, ("rh.a", "rh.b"): 25}
+    assert setup(both)["values"]["lateral_side"] == -1
+    one = {("lh.a", "rh.b"): 24, ("rh.a", "rh.b"): 26}
+    assert setup(one)["values"]["lateral_side"] == 1
 
 
 def test_a_midline_network_counts_as_bilateral() -> None:
-    assert setup({("Brain-Stem", "Brain-Stem"): 5})["values"]["views"] == list(
-        BILATERAL_VIEWS
-    )
+    assert setup({("Brain-Stem", "Brain-Stem"): 5})["values"]["lateral_side"] == -1
 
 
 def test_seeds_are_highlighted_only_when_they_hold_streamlines() -> None:
@@ -138,13 +132,6 @@ def test_without_a_seed_the_busiest_ends_are_highlighted_and_the_tie_is_by_name(
     assert setup(counts)["values"]["highlight_regions"] == ["lh.a", "lh.b"]
     tied = {("lh.z", "lh.y"): 3}
     assert setup(tied)["values"]["highlight_regions"] == ["lh.y", "lh.z"]
-
-
-def test_regions_are_named_only_while_they_fit() -> None:
-    six = {("lh.a", "lh.b"): 1, ("lh.c", "lh.d"): 1, ("lh.e", "lh.f"): 1}
-    assert setup(six)["values"]["region_labels"] is True
-    seven = {**six, ("lh.g", "lh.a"): 1}
-    assert setup(seven)["values"]["region_labels"] is False
 
 
 def test_a_dense_network_is_sampled_down_and_says_how_many() -> None:
@@ -176,27 +163,6 @@ def test_the_shell_goes_off_only_under_its_stated_count() -> None:
     assert str(SHELL_MIN_STREAMLINES) in below["reasons"]["iso_shell_percentile"]
 
 
-def test_two_regions_title_in_words_and_a_list_by_its_name() -> None:
-    assert setup({("lh.frontalpole", "Brain-Stem"): 9})["values"]["title"] == (
-        "Brain-Stem – L frontal pole"
-    )
-    three = {("lh.a", "lh.b"): 2, ("lh.b", "lh.c"): 1}
-    assert setup(three, name="my_regions")["values"]["title"] == "My regions network"
-
-
-def test_a_title_says_what_the_name_stands_for() -> None:
-    long = {("lh.a", "lh.b"): 2, ("lh.b", "lh.c"): 1}
-    assert setup(long, name="posterior_thalamocortical_with_opposite")["values"][
-        "title"
-    ] == ("Posterior thalamocortical network, with opposite-hemisphere connections")
-    assert setup(long, name="lh_insula_to_3_regions")["values"]["title"] == (
-        "L insula to 3 regions network"
-    )
-    assert setup(long, name="top_10_by_ti_max_mean")["values"]["title"] == (
-        "Top 10 connections by ti_max_mean"
-    )
-
-
 def test_every_automatic_value_says_why_and_an_override_replaces_it() -> None:
     counts = {("lh.a", "lh.b"): 100}
     auto = setup(counts)
@@ -208,22 +174,16 @@ def test_every_automatic_value_says_why_and_an_override_replaces_it() -> None:
         overrides={
             "lateral_side": 1,
             "iso_shell_percentile": None,
-            "views": ["posterior"],
             "max_streamlines": 10,
-            "title": "Mine",
         },
     )
     assert out["overridden"] == [
         "iso_shell_percentile",
         "lateral_side",
         "max_streamlines",
-        "title",
-        "views",
     ]
     assert out["values"]["lateral_side"] == 1
     assert out["values"]["iso_shell_percentile"] is None
-    assert out["values"]["views"] == ["posterior"]
-    assert out["values"]["title"] == "Mine"
     assert out["n_drawn"] == 10
     assert "lateral_side" not in out["reasons"]
 
@@ -280,8 +240,10 @@ def test_a_selection_draws_pairs_and_is_the_only_network() -> None:
     "overrides",
     [
         {"nonsense": 1},
-        {"views": []},
-        {"views": ["frontal"]},
+        {"views": ["lateral"]},
+        {"title": "Mine"},
+        {"caption": "Mine"},
+        {"region_labels": True},
         {"lateral_side": 0},
         {"max_streamlines": 0},
         {"tube_radius_mm": -1},
@@ -296,12 +258,15 @@ def test_an_override_no_render_can_use_is_refused(overrides) -> None:
 
 def test_overrides_need_a_selection() -> None:
     with pytest.raises(ValueError, match="adjust a selection"):
-        config(overrides={"views": ["lateral"]})
+        config(overrides={"lateral_side": 1})
 
 
-def test_posterior_is_a_real_view_and_empty_views_keep_their_old_meaning() -> None:
-    assert config(views=["posterior"]).views == ["posterior"]
-    assert config().views == []
+def test_a_blend_needs_a_render_and_stays_out_of_the_sequence() -> None:
+    assert config(export_blend=True, stills=False, turntable=True).export_blend
+    with pytest.raises(ValueError, match="export_blend"):
+        config(export_blend=True, stills=False)
+    with pytest.raises(ValueError, match="runs alone"):
+        config(thalamocortical_sequence=True, stills=False, export_blend=True)
 
 
 # ---- names: networks of one simulation coexist ----------------------------------------------
@@ -333,24 +298,25 @@ def test_a_bundle_and_a_display_name_become_a_safe_folder() -> None:
     assert network_slug(named) == "Posterior_TC__L_"
 
 
-def test_the_plan_replaces_exactly_this_colours_files_for_these_views(
-    tmp_path: Path,
-) -> None:
+def test_the_plan_replaces_exactly_this_colours_figure(tmp_path: Path) -> None:
     cfg = config(selection=net([["a", "b"]], name="alpha"), metric="ti_max", web=False)
-    for name in (
-        "ti_max_posterior.png",
-        "ti_max_lateral.png",
-        "direction_posterior.png",
-    ):
+    # An older folder's stills are neither planned nor replaced.
+    for name in ("ti_max.png", "ti_max_posterior.png", "direction.png"):
         (tmp_path / name).touch()
-    assert replaced_outputs(cfg, str(tmp_path), ["posterior", "superior"]) == [
-        "ti_max_posterior.png"
-    ]
-    assert replaced_outputs(cfg, str(tmp_path), ["superior"]) == []
+    assert planned_outputs(cfg) == ["ti_max.png"]
+    assert replaced_outputs(cfg, str(tmp_path)) == ["ti_max.png"]
     other = config(selection=net([["a", "b"]]), metric="direction", web=False)
-    assert replaced_outputs(other, str(tmp_path), ["posterior"]) == [
-        "direction_posterior.png"
-    ]
+    assert replaced_outputs(other, str(tmp_path)) == ["direction.png"]
+    third = config(selection=net([["a", "b"]]), metric="align_index", web=False)
+    assert replaced_outputs(third, str(tmp_path)) == []
+
+
+def test_a_blend_is_planned_and_replaced_only_when_asked_for(tmp_path: Path) -> None:
+    (tmp_path / "network.blend").touch()
+    assert replaced_outputs(config(web=False, stills=True), str(tmp_path)) == []
+    asked = config(web=False, stills=True, export_blend=True)
+    assert planned_outputs(asked) == ["ti_along.png", "network.blend"]
+    assert replaced_outputs(asked, str(tmp_path)) == ["network.blend"]
 
 
 def test_a_video_is_replaced_only_when_a_video_is_asked_for(tmp_path: Path) -> None:
@@ -371,20 +337,53 @@ def _scene_module():
     return module
 
 
-def test_a_side_view_names_only_the_regions_it_faces() -> None:
-    labels_for_view = _scene_module().labels_for_view
-    left = {"name": "L postcentral", "hemi": -1}
-    right = {"name": "R postcentral", "hemi": 1}
-    midline = {"name": "Brain-Stem", "hemi": 0}
-    unmarked = {"name": "an older bundle's label"}
-    every = [left, right, midline, unmarked]
-    assert labels_for_view(every, "lateral", 1) == [right, midline, unmarked]
-    assert labels_for_view(every, "oblique", -1) == [left, midline, unmarked]
-    assert labels_for_view(every, "superior", 1) == every
-    assert labels_for_view(every, "posterior", -1) == every
+def test_the_panels_are_anatomical_views_in_a_fixed_order() -> None:
+    scene = _scene_module()
+    assert PANELS == ("lateral", "superior", "anterior", "posterior")
+    views = scene.panel_views(-1)
+    assert set(views) == set(PANELS)
+
+    def screen(view: str):
+        _forward, right, up = scene._axes(*views[view])
+        return right.tolist(), up.tolist()
+
+    # World axes are +x subject right, +y anterior, +z up.
+    assert screen("lateral") == ([0, -1, 0], [0, 0, 1])  # from the left, the nose to the left
+    assert screen("superior") == ([1, 0, 0], [0, 1, 0])  # from above, anterior at the top
+    assert screen("anterior") == ([-1, 0, 0], [0, 0, 1])  # facing it: its left on our right
+    assert screen("posterior") == ([1, 0, 0], [0, 0, 1])  # behind it: its right on our right
+    assert scene._axes(*scene.panel_views(1)["lateral"])[1].tolist() == [0, 1, 0]
 
 
-# ---- the caption and the assess stage ---------------------------------------------------------
+def test_every_panel_has_one_scale_the_widest_view_sets() -> None:
+    scene = _scene_module()
+    box = np.array(
+        [[x, y, z] for x in (-50, 50) for y in (-100, 100) for z in (0, 150)], float
+    )
+    views = list(scene.panel_views(-1).values())
+    # 200 mm anterior to posterior, the widest of 100, 200 and 150.
+    assert scene.figure_scale(box, views, (640, 640)) == pytest.approx(
+        200 / scene.PANEL_FILL
+    )
+    # A panel twice as wide as tall: 200 mm must fit its height, half its width.
+    assert scene.figure_scale(box, views, (800, 400)) == pytest.approx(
+        400 / scene.PANEL_FILL
+    )
+
+
+def test_panels_tile_left_to_right_and_top_to_bottom_in_a_bottom_first_buffer() -> None:
+    scene = _scene_module()
+    panels = [np.full((3, 4, 4), float(k), np.float32) for k in range(4)]
+    tiled = scene.tile_panels(panels)
+    assert tiled.shape == (6, 8, 4)
+    # Blender's row 0 is the image's bottom row.
+    assert tiled[-1, 0, 0] == 0  # top left: lateral
+    assert tiled[-1, -1, 0] == 1  # top right: superior
+    assert tiled[0, 0, 0] == 2  # bottom left: anterior
+    assert tiled[0, -1, 0] == 3  # bottom right: posterior
+
+
+# ---- network.json's numbers and the assess stage ----------------------------------------------
 
 
 def _line(values: list[float]) -> td.Tracts:
@@ -428,19 +427,89 @@ def test_the_arc_length_mean_is_the_statistic_the_assess_stage_reports() -> None
     )
 
 
-def test_the_caption_quotes_the_assess_statistic_and_states_what_is_drawn() -> None:
+def test_the_medians_are_the_arc_length_means_and_say_when_a_tractogram_has_no_ti_avg() -> None:
     tracts = _line([0.0, 1.0, 4.0])
-    assert "median ti_along 1.500 V/m" in network_statement("x", tracts)
-    assert "(all drawn)" in network_statement("x", tracts, 1)
-    many = td.Tracts(
+    assert network_medians(tracts) == {
+        "median_ti_max_v_per_m": 1.5,
+        "median_ti_along_v_per_m": 1.5,
+        "median_align_index": None,
+    }
+    # ti_along over ti_avg, each an arc-length mean: 1.5 over 3.
+    tracts.dpv["ti_avg"] = np.array([0.0, 2.0, 8.0], np.float32)
+    assert network_medians(tracts)["median_align_index"] == 0.5
+
+
+def test_a_streamline_counts_once_per_region_it_ends_in() -> None:
+    tracts = td.Tracts(
         points=np.zeros((6, 3), np.float32) + np.arange(6)[:, None],
         offsets=np.array([0, 2, 4, 6], dtype=np.int64),
-        dpv={"ti_along": np.ones(6, np.float32), "ti_max": np.ones(6, np.float32)},
-        dps={},
+        dpv={},
+        dps={"edge_id": np.array([0, 0, 1])},
     )
-    assert "n=3 streamlines (2 drawn, evenly sampled)" in network_statement(
-        "x", many, 2
+    edges = {
+        0: {"region_a": "lh.a", "region_b": "lh.b"},
+        1: {"region_a": "lh.a", "region_b": "lh.a"},
+    }
+    assert list(region_counts(tracts, edges).items()) == [("lh.a", 3), ("lh.b", 2)]
+
+
+def test_a_montage_keeps_its_labels_and_rounds_coordinates_named_after_themselves() -> None:
+    raw = [73.97953796386719, -18.586177825927734, 38.58809280395508]
+    assert montage_record(
+        [
+            {"name": str(raw), "xyz": raw, "channel": 0},
+            {"name": "F7", "xyz": [-60.04, 30.0, 10.0], "channel": 1},
+        ]
+    ) == [
+        {"channel": 0, "label": None, "xyz_mm": [74.0, -18.6, 38.6]},
+        {"channel": 1, "label": "F7", "xyz_mm": [-60.0, 30.0, 10.0]},
+    ]
+
+
+MANIFEST = {
+    "metric": "ti_max",
+    "label": "TI_max at the fibre",
+    "units": "V/m",
+    "vmin": 0.0,
+    "vmax": 0.75219,
+    "diverging": False,
+    "smoothing_mm": 3.0,
+    "n_drawn": 552,
+    "shell_record": None,
+    "lateral_side": 1,
+}
+
+
+def test_an_image_says_how_to_read_its_colours() -> None:
+    scale = image_metrics(MANIFEST)
+    assert scale["colour_scale"]["range"] == [0.0, 0.7522]
+    assert scale["colour_scale"]["colour_map"] == "plasma"
+    assert scale["streamlines_drawn"] == 552
+    assert scale["lateral_side"] == "right"
+    assert "colour_key" not in scale
+    key = image_metrics({**MANIFEST, "metric": "direction"})
+    assert key["colour_key"] == {
+        "red": "left – right",
+        "green": "anterior – posterior",
+        "blue": "superior – inferior",
+    }
+    assert "colour_scale" not in key
+    log2 = image_metrics(
+        {**MANIFEST, "metric": "align_index", "vmin": 0.25, "vmax": 4.0, "diverging": True}
     )
+    assert log2["colour_scale"]["colour_map"] == "coolwarm, log2 about 1"
+
+
+def test_no_metric_is_called_preferred_anywhere_in_a_record() -> None:
+    words = str(image_metrics(MANIFEST)) + str(network_medians(_line([1.0, 2.0])))
+    for word in ("preferred", "recommended", "compliance", "best"):
+        assert word not in words
+
+
+def test_the_sequence_keeps_the_line_its_video_splits_on() -> None:
+    # tract_scene.render_sequence splits on " · n=": what is before names the subject, after the count.
+    assert sequence_caption("sub-x", 3, 3) == "sub-x · n=3 streamlines (all drawn)"
+    assert sequence_caption("sub-x", 3, 2) == "sub-x · n=3 streamlines (2 drawn, evenly sampled)"
 
 
 def test_crossing_twice_counts_only_kept_fibres_past_the_margin() -> None:
@@ -539,13 +608,15 @@ def test_the_direction_of_a_crossed_edge_is_read_from_its_labels_either_way_roun
     assert out["n_opposite"] == 191
     assert out["right_thalamus_to_left_cortex"] == 167
     assert out["left_thalamus_to_right_cortex"] == 24
-    from tit.tract.presets import opposite_removed, removed_sentence
+    from tit.tract.presets import opposite_removed
 
-    removed = opposite_removed(out, out["pairs"])
-    assert removed_sentence(removed) == (
-        "1,407 of 1,598; 191 opposite-hemisphere removed "
-        "(right thalamus to left cortex 167, left thalamus to right cortex 24)"
-    )
+    assert opposite_removed(out, out["pairs"]) == {
+        "n_kept": 1407,
+        "n_with_opposite": 1598,
+        "n_removed": 191,
+        "right_thalamus_to_left_cortex": 167,
+        "left_thalamus_to_right_cortex": 24,
+    }
 
 
 def test_asking_for_the_opposite_edges_removes_nothing() -> None:

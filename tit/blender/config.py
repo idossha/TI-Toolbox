@@ -36,7 +36,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
-from tit.blender.network_setup import ALL_VIEWS, validate_overrides
+from tit.blender.network_setup import validate_overrides
 from tit.tract.config import Selection
 
 # ── Simulation inputs (shared by the runners and tit.jobs.preflight) ─────────
@@ -218,8 +218,9 @@ class TractVisualConfig:
     """Tractography renders of one simulation's ``tract/`` outputs.
 
     Streamlines become emissive tubes in a glass brain, coloured by a field metric along
-    each fibre. Stills, the web viewer and the connectome figure are on by default; the
-    turntable and the propagation animation are opt-in because they render many frames.
+    each fibre. The figure, the web viewer and the connectome figure are on by default; the
+    turntable and the propagation animation are opt-in because they render many frames. A figure
+    or turntable holds only the model and its tractography; what it shows is in ``network.json``.
 
     Attributes
     ----------
@@ -234,7 +235,7 @@ class TractVisualConfig:
         (``ti_along / ti_avg``: field along the fibre over a random direction's, diverging
         about 1) or ``direction``.
     focus : bool
-        Network-focused stills and videos: the bundle and top edges as full tubes, the rest
+        Network-focused figures and videos: the bundle and top edges as full tubes, the rest
         of the tractogram as faint context, their endpoint regions lit from the subject's own
         labels. ``False`` draws a subsample of the whole tractogram.
     network_bundle : str
@@ -258,23 +259,21 @@ class TractVisualConfig:
     preset : str
         The :mod:`tit.tract.presets` id ``selection`` came from, if any. It adds nothing to what is
         drawn; a same-side preset's opposite-hemisphere edges left out of ``selection`` are stated
-        in the caption and the manifest from it, with their count.
+        in the Plan and ``network.json`` from it, with their count.
     overrides : dict
         With ``selection`` (or one bundle, ``network_top_edges`` 0), the keys of :data:`tit.blender.network_setup.OVERRIDABLE` replacing the
         automatic value (``iso_shell_percentile: null`` draws no shell).
     highlight_regions : list of str
         Regions lit evenly (e.g. both thalami) in place of the strongest endpoint regions.
-    region_labels : bool
-        Name the lit regions on the still.
     lateral_side : int
-        -1 left, 1 right, 0 the side of the strongest field.
+        The side the lateral panel shows: -1 left, 1 right, 0 the side of the strongest field.
     iso_shell_percentile : float or None
         Draw one translucent TI_max isosurface of the brain at this volume-weighted percentile.
     prune_keep_fraction : float or None
         In a named-network turntable sequence, sweep away all but this fraction of the
         streamlines, the strongest by mean TI_max along each, then name where they end.
     label_regions : int
-        How many cortical regions the pruned network names.
+        How many cortical regions the sequence names once pruned.
     turntable_crossfade : bool
         The turntable shows direction colours for its first half, crossfades over 2 s, then
         shows ``metric`` (a scalar metric) for the second half.
@@ -284,21 +283,23 @@ class TractVisualConfig:
         Top of the colour window; ``None`` uses the 99.5th percentile of the shown metric.
         Fix it to compare runs on one scale (``ti_ratio`` always spans 0-1).
     stills, turntable, propagation, web, connectome : bool
-        Which outputs to write.
-    views : list of str
-        The stills to render: ``lateral``, ``superior``, ``oblique``, ``posterior``. Empty renders
-        the first three (with ``selection``, the views :mod:`tit.blender.network_setup` chooses).
+        Which outputs to write. ``stills`` is the one figure per colour, ``<colour>.png``: the
+        panels of :data:`tit.blender.network_setup.PANELS` on one scale.
+    export_blend : bool
+        Also save the rendered scene as ``network.blend`` in the network's folder, whole, so it
+        opens on another machine. It holds the colour just rendered, and the figure's scene when
+        both a figure and a turntable are asked for. It needs one of them to save.
     quality : Quality
-        ``final`` (32 samples per still; videos 1920x1080 at 16) or ``preview`` (8 samples per
-        still; videos 960x540 at 6), for checking a choice before a long render.
+        ``final`` (32 samples per panel; videos 1920x1080 at 16) or ``preview`` (8 samples per
+        panel; videos 960x540 at 6), for checking a choice before a long render.
     thalamocortical_sequence : bool
         One video of ``all.trx``: the frontal, then the posterior thalamocortical network (DK40
         parcels), each going from direction colours to TI_max on one shared window, pruned to
         its strongest 15 % by mean TI_max, with the regions those fibres reach named in their
         own colours. It sets its own network, metric and shell, so it runs alone: ``stills``,
-        ``turntable``, ``propagation`` and the network fields must be off or empty.
+        ``turntable``, ``propagation``, ``export_blend`` and the network fields must be off or empty.
     width, height : int
-        Still resolution in pixels.
+        The figure's size in pixels; each panel is a quarter of it.
     turntable_frames, turntable_degrees : int, float
         Orbit length (24 fps) and sweep.
     front_speed_mm_per_frame : float
@@ -347,7 +348,6 @@ class TractVisualConfig:
     preset: str = ""
     overrides: dict[str, Any] = field(default_factory=dict)
     highlight_regions: list[str] = field(default_factory=list)
-    region_labels: bool = True
     lateral_side: int = 0
     iso_shell_percentile: float | None = None
     turntable_crossfade: bool = False
@@ -358,11 +358,11 @@ class TractVisualConfig:
     propagation: bool = False
     web: bool = True
     connectome: bool = True
-    views: list[str] = field(default_factory=list)
+    export_blend: bool = False
     quality: Quality = Quality.FINAL
     thalamocortical_sequence: bool = False
-    width: int = 2400
-    height: int = 1600
+    width: int = 4000
+    height: int = 4000
     turntable_frames: int = 120
     turntable_degrees: float = 360.0
     front_speed_mm_per_frame: float = 1.5
@@ -379,9 +379,6 @@ class TractVisualConfig:
             raise ValueError("simulation_name is required")
         self.metric = TractVisualConfig.Metric(self.metric)
         self.quality = TractVisualConfig.Quality(self.quality)
-        unknown = set(self.views) - set(ALL_VIEWS)
-        if unknown:
-            raise ValueError(f"unknown views: {sorted(unknown)}")
         if self.selection is not None:
             if self.selection.kind != "edges":
                 raise ValueError("selection draws region pairs: kind must be 'edges'")
@@ -403,13 +400,16 @@ class TractVisualConfig:
             self.stills
             or self.turntable
             or self.propagation
+            or self.export_blend
             or self.network_from
             or self.network_bundle
         ):
             raise ValueError(
-                "thalamocortical_sequence runs alone: stills, turntable, propagation "
-                "and the network fields must be off or empty"
+                "thalamocortical_sequence runs alone: stills, turntable, propagation, "
+                "export_blend and the network fields must be off or empty"
             )
+        if self.export_blend and not (self.stills or self.turntable):
+            raise ValueError("export_blend saves a render's scene: ask for one too")
         if self.max_streamlines <= 0:
             raise ValueError("max_streamlines must be > 0")
         if self.vmax_v_per_m is not None and not self.vmax_v_per_m > 0:

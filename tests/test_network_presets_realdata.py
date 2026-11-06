@@ -21,7 +21,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from tit.blender.network_setup import BILATERAL_VIEWS, resolve_network_setup
+from tit.blender.network_setup import resolve_network_setup
 from tit.tract.config import Selection
 from tit.tract.presets import PRESETS, resolve_preset
 
@@ -84,7 +84,5 @@ def test_the_reference_network_is_set_up_as_it_was_approved(network) -> None:
     values = setup["values"]
     assert setup["n_drawn"] == 1598
     assert values["lateral_side"] == -1
-    assert values["views"] == list(BILATERAL_VIEWS)
     assert values["highlight_regions"] == out["seeds"]
     assert values["iso_shell_percentile"] == 95.0
-    assert values["region_labels"] is False

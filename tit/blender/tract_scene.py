@@ -1,8 +1,8 @@
-"""Tract renders, the Blender half: a render bundle in, stills and MP4s out.
+"""Tract renders, the Blender half: a render bundle in, a four-panel figure and MP4s out.
 
 Run with ``blender --background --factory-startup --python tract_scene.py -- manifest.json
 [stills,turntable,propagation]``; the optional second argument overrides which outputs the
-manifest asks for. :mod:`tit.blender.tract_publication` writes the bundle. Works on Blender
+manifest asks for, and ``export_blend`` in the manifest saves the rendered scene. :mod:`tit.blender.tract_publication` writes the bundle. Works on Blender
 4.4 (the image) and 5.x (a host build); the few API differences are handled where they occur.
 No SimNIBS, SciPy or nibabel imports are permitted in this process.
 
@@ -73,6 +73,10 @@ GLASS_COLOUR = (0.55, 0.68, 0.9)
 REGION_COLOUR = (1.0, 0.62, 0.28)
 ROI_COLOUR = (0.2, 0.95, 0.85)
 VIDEO_SIZE = (1920, 1080)
+#: The share of a panel the head fills across its widest view, in every panel alike.
+PANEL_FILL = 0.94
+#: The figure frames the head down to the chin, this far below the brain, not the neck under it.
+CHIN_BELOW_BRAIN_MM = 55.0
 PREVIEW_FRAME_STEP = 4
 CAPTION_4D = (
     "Fronts run from each fibre's field maximum to both ends; brightness = that fibre's peak "
@@ -440,86 +444,6 @@ def _context_material():
     return mat
 
 
-def labels_for_view(labels, view: str, side: float) -> list[dict]:
-    """The labels a view may name: a side view faces one hemisphere, and midline regions."""
-    if view in ("superior", "posterior"):
-        return list(labels)
-    return [label for label in labels if label.get("hemi", 0) in (0, side)]
-
-
-def place_labels(
-    scene, camera, overlay, labels, hh: float, material, *, edge: float = 0.45
-) -> None:
-    """Region names at their centroids' projections onto *camera* (overlay coordinates).
-
-    Text sits right of its point, or left of it beyond *edge* (toward the colour bar), on a
-    dark translucent plate so it reads over bright fibres; a small white dot in 3-D marks the
-    point itself. Labels within a line of each other are pushed apart vertically.
-    """
-    import bpy
-    from mathutils import Vector
-
-    for obj in [o for o in overlay.children if o.name.startswith("RegionLabel")]:
-        bpy.data.objects.remove(obj, do_unlink=True)
-    bpy.context.view_layer.update()
-    size = 0.026 * hh * 2
-    spots = []
-    half = (
-        camera.data.ortho_scale / 2
-    )  # stills are orthographic: overlay units = local / half
-    to_camera = camera.matrix_world.inverted()
-    for label in labels:
-        local = to_camera @ Vector(label["xyz"])
-        spots.append([local.x / half, local.y / half, label["name"]])
-    spots.sort(key=lambda spot: -spot[1])
-    for above, below in zip(spots, spots[1:]):
-        if above[1] - below[1] < 1.5 * size:
-            below[1] = above[1] - 1.5 * size
-    plate = bpy.data.materials.get("RegionLabelPlate") or _plate_material()
-    for i, (ox, oy, name) in enumerate(spots):
-        # Flip left of the point when the text (~0.5 em per glyph) would reach the colour bar.
-        right = ox > edge or ox + 0.012 + 0.5 * size * len(name) > 0.82
-        text = _text(
-            f"RegionLabel{i}",
-            name,
-            size,
-            (ox - 0.012 if right else ox + 0.012, oy - 0.008, 0.0),
-            overlay,
-            align="RIGHT" if right else "LEFT",
-            material=material,
-        )
-        bpy.context.view_layer.update()
-        width = text.dimensions.x / max(overlay.scale.x, 1e-9)
-        x0 = text.location.x - width if right else text.location.x
-        pad = 0.25 * size
-        box = _mesh_object(
-            f"RegionLabelPlate{i}",
-            [
-                (x0 - pad, oy - 0.008 - pad, -0.002),
-                (x0 + width + pad, oy - 0.008 - pad, -0.002),
-                (x0 + width + pad, oy - 0.008 + size, -0.002),
-                (x0 - pad, oy - 0.008 + size, -0.002),
-            ],
-            faces=[(0, 1, 2, 3)],
-        )
-        box.parent = overlay
-        box.data.materials.append(plate)
-
-
-def _plate_material():
-    import bpy
-
-    mat = bpy.data.materials.new("RegionLabelPlate")
-    mat.surface_render_method = "BLENDED"
-    m = _Nodes(mat)
-    mix = m.new("ShaderNodeMixShader")
-    m.feed(mix.inputs[0], 0.6)
-    m.feed(mix.inputs[1], m.transparent())
-    m.feed(mix.inputs[2], m.emission((0.0, 0.0, 0.0), 0.0))
-    m.finish(mix.outputs[0])
-    return mat
-
-
 def fading_material(name, colour, strength, keys):
     """Emission over transparency whose strength follows *keys* (text that fades in or out)."""
     import bpy
@@ -671,12 +595,10 @@ def _legend(
         )
 
 
-def build_overlay(manifest, camera, *, caption: str, distance: float, swap=None):
-    """Colour key, title and caption in camera space; returns its root empty.
+def build_overlay(manifest, camera, *, caption: str, distance: float):
+    """Colour key, title and caption of a perspective video; returns its root empty.
 
-    Built at half-width 1 (x right, y up); :func:`fit_overlay` scales it to a camera. A
-    manifest with ``"bare": true`` gets only the root (region labels still hang from it).
-    *swap* = ``(out_keys, in_keys)`` crossfades the direction key out and the metric's in.
+    Built at half-width 1 (x right, y up); :func:`fit_overlay` scales it to the camera.
     """
     import bpy
 
@@ -685,18 +607,9 @@ def build_overlay(manifest, camera, *, caption: str, distance: float, swap=None)
     root.parent = camera
     root.location = (0.0, 0.0, -distance)
     text = flat_material("OverlayText", (TEXT_GREY,) * 3, 1.0)
-    w, h = manifest["still_size"] if camera.data.type == "ORTHO" else VIDEO_SIZE
-    hh = h / w
+    hh = VIDEO_SIZE[1] / VIDEO_SIZE[0]
     size = 0.034 * hh * 2
-    if manifest.get(
-        "bare"
-    ):  # a panel for a composed figure: it brings its own bar and text
-        return root
-    if swap:
-        _legend(root, manifest, "direction", hh, size, swap[0], tag="Out")
-        _legend(root, manifest, manifest["metric"], hh, size, swap[1], tag="In")
-    else:
-        _legend(root, manifest, manifest["metric"], hh, size)
+    _legend(root, manifest, manifest["metric"], hh, size)
     _text(
         "Title",
         manifest["title"],
@@ -720,50 +633,76 @@ def build_overlay(manifest, camera, *, caption: str, distance: float, swap=None)
 
 
 def fit_overlay(root, camera, distance: float) -> None:
-    """Scale the unit overlay to the camera's visible half-width at *distance*."""
+    """Scale the unit overlay to a perspective camera's visible half-width at *distance*."""
     data = camera.data
-    half = (
-        data.ortho_scale / 2
-        if data.type == "ORTHO"
-        else distance * data.sensor_width / 2 / data.lens
-    )
+    half = distance * data.sensor_width / 2 / data.lens
     root.scale = (half, half, half)
 
 
 # ── framing ──────────────────────────────────────────────────────────────────
 
 
+def _axes(direction, up) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """(forward, right, up) of a camera looking along -*direction*, as unit vectors."""
+    forward = -np.asarray(direction, dtype=np.float64)
+    forward /= np.linalg.norm(forward)
+    right = np.cross(forward, np.asarray(up, dtype=np.float64))
+    right /= np.linalg.norm(right)
+    return forward, right, np.cross(right, forward)
+
+
 def _basis(direction, up):
     from mathutils import Vector
 
-    forward = -Vector(direction).normalized()  # camera looks along -direction
-    right = forward.cross(Vector(up)).normalized()
-    return forward, right, right.cross(forward)
+    return tuple(Vector(axis.tolist()) for axis in _axes(direction, up))
 
 
-def aim_ortho(camera, cloud: np.ndarray, direction, up, size, *, bar: bool) -> None:
-    """Orthographic camera along *direction* fitting *cloud*, leaving room for the bar."""
+def panel_views(side: float) -> dict[str, tuple[tuple, tuple]]:
+    """Each panel's (direction to the camera, up); world axes are +x right, +y anterior, +z up."""
+    return {
+        "lateral": ((side, 0.0, 0.0), (0, 0, 1)),
+        "superior": ((0.0, 0.0, 1.0), (0, 1, 0)),
+        "anterior": ((0.0, 1.0, 0.0), (0, 0, 1)),
+        "posterior": ((0.0, -1.0, 0.0), (0, 0, 1)),
+    }
+
+
+def figure_scale(cloud: np.ndarray, views, size) -> float:
+    """The one orthographic width, mm across a panel of *size*, fitting *cloud* in all *views*."""
+    w, h = size
+    spans = []
+    for direction, up in views:
+        _forward, right, true_up = _axes(direction, up)
+        spans.append(max(np.ptp(cloud @ right), np.ptp(cloud @ true_up) * w / h))
+    return float(max(spans) / PANEL_FILL)
+
+
+def aim_ortho(camera, cloud: np.ndarray, direction, up, scale: float) -> None:
+    """Orthographic camera along *direction*, of width *scale*, centred on *cloud*."""
     from mathutils import Vector
 
     forward, right, true_up = _basis(direction, up)
     xs, ys = cloud @ np.asarray(right), cloud @ np.asarray(true_up)
-    w, h = size
-    usable = 0.80 if bar else 0.94
-    scale = max(np.ptp(xs) / usable, np.ptp(ys) * w / h / 0.84)
-    centre_x = (xs.max() + xs.min()) / 2 + (0.5 - usable / 2 - 0.02) * scale * (
-        1 if bar else 0
-    )
-    centre_y = (ys.max() + ys.min()) / 2 - 0.015 * scale * h / w
     zs = cloud @ np.asarray(forward)
     target = (
-        Vector(right) * centre_x
-        + Vector(true_up) * centre_y
-        + Vector(forward) * zs.mean()
+        right * ((xs.max() + xs.min()) / 2)
+        + true_up * ((ys.max() + ys.min()) / 2)
+        + forward * zs.mean()
     )
     camera.data.type = "ORTHO"
     camera.data.ortho_scale = scale
     camera.location = target - Vector(forward) * (np.ptp(zs) + 400.0)
     camera.rotation_euler = _look_rotation(forward, true_up)
+
+
+def tile_panels(panels: list[np.ndarray], columns: int = 2) -> np.ndarray:
+    """One image of *panels*, read left to right and top to bottom.
+
+    Each is ``(h, w, channels)`` with its bottom row first, as Blender's pixel buffers run, so the
+    first row of panels comes last.
+    """
+    rows = [np.hstack(panels[i : i + columns]) for i in range(0, len(panels), columns)]
+    return np.vstack(rows[::-1])
 
 
 def _look_rotation(forward, up):
@@ -1048,9 +987,8 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
         with np.load(os.path.join(base, manifest["scalp"])) as s:
             scalp = _mesh_object("Scalp", s["vertices"], faces=s["triangles"])
             centre = s["vertices"].mean(0)
-            # Frame the cranium, not the neck: a ghost cut by the frame edge reads as a crop.
             frame_cloud = s["vertices"][
-                s["vertices"][:, 2] > glass_v[:, 2].min() - 10.0
+                s["vertices"][:, 2] > glass_v[:, 2].min() - CHIN_BELOW_BRAIN_MM
             ]
         scalp.data.materials.append(
             glass_material(
@@ -1066,7 +1004,10 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
             vertices=40, radius=3.5, depth=1.0, location=position + normal * 0.5
         )
         disc = bpy.context.active_object
-        disc.name = f"Electrode_{electrode['name']}"
+        # A montage placed by coordinates names its electrodes by them. Truncated to fit a name,
+        # those digits crash Blender 5.1 opening the file: it reads them as a numeric suffix.
+        name = electrode["name"]
+        disc.name = f"Electrode_{i + 1 if name.startswith('[') else name}"
         disc.rotation_euler = Vector((0, 0, 1)).rotation_difference(normal).to_euler()
         colour = CHANNEL_COLOURS[electrode["channel"] % len(CHANNEL_COLOURS)]
         mat = flat_material(f"Electrode{i}", colour, 0.9 * recede.get("electrode", 1.0))
@@ -1082,14 +1023,6 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
             ):
                 socket.default_value = value
                 socket.keyframe_insert("default_value", frame=frame)
-    for i, label in enumerate(manifest.get("labels") or []):
-        bpy.ops.mesh.primitive_uv_sphere_add(
-            segments=16, ring_count=8, radius=1.4, location=label["xyz"]
-        )
-        bpy.context.active_object.name = f"RegionPoint{i}"
-        bpy.context.active_object.data.materials.append(
-            flat_material(f"RegionPoint{i}", (1, 1, 1), 1.0)
-        )
     if manifest.get("roi"):
         roi = manifest["roi"]
         bpy.ops.mesh.primitive_uv_sphere_add(
@@ -1101,65 +1034,84 @@ def build_scene(manifest, base: str, *, animated: bool, crossfade=None, visible=
     return glass_v, np.concatenate([glass_v, frame_cloud])
 
 
-def render_stills(manifest, base, out_dir) -> list[str]:
+def _read_pixels(path: str) -> np.ndarray:
+    """A PNG's pixels as Blender holds them: ``(h, w, 4)`` floats, bottom row first."""
+    import bpy
+
+    image = bpy.data.images.load(path)
+    width, height = image.size
+    pixels = np.empty(width * height * 4, np.float32)
+    image.pixels.foreach_get(pixels)
+    bpy.data.images.remove(image)
+    return pixels.reshape(height, width, 4)
+
+
+def _write_pixels(pixels: np.ndarray, path: str) -> None:
+    import bpy
+
+    height, width = pixels.shape[:2]
+    image = bpy.data.images.new("Figure", width, height)
+    image.pixels.foreach_set(pixels.ravel())
+    image.filepath_raw = path
+    image.file_format = "PNG"
+    image.save()
+    bpy.data.images.remove(image)
+
+
+def render_figure(manifest, base, out_dir) -> str:
+    """``<stem>.png``: one panel per view, on one scale, moved into *out_dir* only when whole."""
     import bpy
 
     scene = bpy.context.scene
-    size = manifest["still_size"]
+    width, height = manifest["still_size"]
+    size = (width // 2, height // 2)
     # 32: smooth dithering; 48 took 15 min/still emulated
     configure(scene, size, samples=8 if manifest.get("preview") else 32)
     _brain, cloud = build_scene(manifest, base, animated=False)
-    camera = bpy.data.objects.new("StillCamera", bpy.data.cameras.new("StillCamera"))
-    scene.collection.objects.link(camera)
-    camera.data.type = "ORTHO"
-    camera.data.clip_start, camera.data.clip_end = 1.0, 5000.0
-    scene.camera = camera
-    shown = manifest.get("caption") or (
-        f"{manifest['n_shown']:,} of {manifest['n_total']:,} streamlines · colour averaged "
-        f"along each fibre over ±{manifest.get('smoothing_mm', 0):g} mm"
+    views = panel_views(manifest["lateral_side"])
+    scale = figure_scale(cloud, [views[v] for v in manifest["panels"]], size)
+    working = tempfile.mkdtemp(prefix="tit-panels-")
+    try:
+        panels, cameras = [], []
+        for view in manifest["panels"]:
+            camera = bpy.data.objects.new(
+                f"Camera_{view}", bpy.data.cameras.new(f"Camera_{view}")
+            )
+            scene.collection.objects.link(camera)
+            camera.data.clip_start, camera.data.clip_end = 1.0, 5000.0
+            aim_ortho(camera, cloud, *views[view], scale)
+            cameras.append(camera)
+            scene.camera = camera
+            scene.render.filepath = os.path.join(working, f"{view}.png")
+            scene.render.image_settings.file_format = "PNG"
+            started = time.time()
+            bpy.ops.render.render(write_still=True)
+            print(f"rendered {view} in {time.time() - started:.1f} s", flush=True)
+            panels.append(_read_pixels(scene.render.filepath))
+        scene.camera = cameras[0]
+        figure = os.path.join(working, "figure.png")
+        _write_pixels(tile_panels(panels), figure)
+        final = os.path.join(out_dir, f"{manifest['stem']}.png")
+        part = f"{final}.part"
+        shutil.copyfile(figure, part)
+        os.replace(part, final)
+        return final
+    finally:
+        shutil.rmtree(working, ignore_errors=True)
+
+
+def save_blend(out_dir: str) -> str:
+    """The scene just rendered as ``network.blend``: every mesh and material is in the file."""
+    import bpy
+
+    bpy.context.scene.render.filepath = (
+        "//"  # the render's own went with its temporary folder
     )
-    overlay = build_overlay(manifest, camera, caption=shown, distance=10.0)
-    label_material = flat_material("RegionLabelText", (1.0, 0.86, 0.7), 1.0)
-    side = manifest["lateral_side"]
-    views = {
-        "lateral": ((side, 0.0, 0.0), (0, 0, 1)),
-        "superior": ((0.0, 0.0, 1.0), (0, 1, 0)),
-        "oblique": ((side * 0.78, 0.5, 0.38), (0, 0, 1)),
-        "posterior": ((0.0, -1.0, 0.0), (0, 0, 1)),
-    }
-    if manifest.get("views"):  # a subset, e.g. one quick check view
-        views = {k: views[k] for k in manifest["views"]}
-    written = []
-    for view, (direction, up) in views.items():
-        aim_ortho(
-            camera,
-            cloud,
-            direction,
-            up,
-            size,
-            bar=not manifest.get("bare"),  # the direction key needs the column too
-        )
-        fit_overlay(overlay, camera, 10.0)
-        labels = manifest.get("labels") or []
-        named = labels_for_view(labels, view, side)
-        for i, label in enumerate(labels):
-            bpy.data.objects[f"RegionPoint{i}"].hide_render = label not in named
-        place_labels(
-            scene,
-            camera,
-            overlay,
-            named,
-            size[1] / size[0],
-            label_material,
-            edge=0.62 if manifest.get("bare") else 0.45,
-        )
-        scene.render.filepath = os.path.join(out_dir, f"{manifest['stem']}_{view}.png")
-        scene.render.image_settings.file_format = "PNG"
-        started = time.time()
-        bpy.ops.render.render(write_still=True)
-        print(f"rendered {view} in {time.time() - started:.1f} s", flush=True)
-        written.append(scene.render.filepath)
-    return written
+    bpy.context.preferences.filepaths.save_version = 0  # no network.blend1 beside it
+    path = os.path.join(out_dir, "network.blend")
+    # Blender writes beside the target and renames, so a killed save leaves the old file whole.
+    bpy.ops.wm.save_as_mainfile(filepath=path, compress=True)
+    return path
 
 
 def render_turntable(manifest, base, out_dir) -> str:
@@ -1169,21 +1121,14 @@ def render_turntable(manifest, base, out_dir) -> str:
     size, samples = ((960, 540), 6) if manifest.get("preview") else (VIDEO_SIZE, 16)
     configure(scene, size, samples=samples)
     n, degrees = manifest["turntable_frames"], manifest["turntable_degrees"]
-    swap = crossfade = None
+    crossfade = None
     if manifest.get("crossfade"):  # direction for the first half, then the metric
         a, b = n // 2 - CROSSFADE_FRAMES // 2, n // 2 + CROSSFADE_FRAMES // 2
         crossfade = [(a, 0.0), (b, 1.0)]
-        # The keys share one place: the direction key leaves before the colour bar arrives.
-        mid = (a + b) // 2
-        swap = ([(a, 1.0), (mid, 0.0)], [(mid, 0.0), (b, 1.0)])
     cloud, _head = build_scene(manifest, base, animated=False, crossfade=crossfade)
     side = manifest["lateral_side"]
     pivot, camera = perspective_rig(cloud, (side * 0.9, 0.15, 0.32), (0, 0, 1))
     scene.camera = camera
-    overlay = build_overlay(
-        manifest, camera, caption=manifest.get("caption", ""), distance=60.0, swap=swap
-    )
-    fit_overlay(overlay, camera, 60.0)
     scene.frame_start, scene.frame_end = 1, n
     step = math.radians(degrees) / (
         n if degrees >= 360 else n - 1
@@ -1541,8 +1486,11 @@ def main(argv: list[str]) -> None:
         else {k for k in ("stills", "turntable", "propagation") if manifest[k]}
     )
     out_dir = os.path.normpath(os.path.join(base, manifest["output_dir"]))
+    blend = manifest["export_blend"]
     if "stills" in wanted:
-        print("\n".join(render_stills(manifest, base, out_dir)), flush=True)
+        print(render_figure(manifest, base, out_dir), flush=True)
+        if blend:
+            print(save_blend(out_dir), flush=True)
     for kind, run in (
         ("turntable", render_turntable),
         ("propagation", render_propagation),
@@ -1553,6 +1501,8 @@ def main(argv: list[str]) -> None:
                 f"{run(manifest, base, out_dir)} in {time.time() - started:.0f} s",
                 flush=True,
             )
+            if kind == "turntable" and blend and "stills" not in wanted:
+                print(save_blend(out_dir), flush=True)
 
 
 if __name__ == "__main__":
