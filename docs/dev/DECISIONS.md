@@ -4694,3 +4694,18 @@ so without them the like-for-like comparison would need the MRtrix environment r
 
 **Alternatives rejected.** Images or data in git (a public repository, and the data are gigabytes); the participant inventory and full
 secondary-analysis plan in git (unpublished study detail, see ROADMAP; the originals stay in Dataset 000).
+
+## 2026-11-05 — The server keeps PETSc's signal handler out of its own process
+
+**Decision.** `tit.server` sets `-no_signal_handler` in `PETSC_OPTIONS` at startup, as job runners already do (2026-09-03).
+
+**Why.** A Plan's config import loads SimNIBS and PETSc into the server's worker, and PETSc's handler turns SIGPIPE, which Python ignores, into
+`MPI_Abort`: when a page left a playing `<video>` in the Renders gallery the worker died, the reloader kept the port, and every request hung
+(once in the real Networks spec; log `Caught signal number 13 Broken Pipe`). Read from `/proc/<worker>/status` after a Plan: `SigCgt` held SIGPIPE
+before this and does not now. Forty dropped streams through Docker's port proxy did not reproduce the death, so the check is the handler's
+absence, not the crash.
+
+**Lost in exchange.** PETSc's own message on a crash of the server process, which runs no solver.
+
+**Alternatives rejected.** Keeping SimNIBS out of the worker (every Plan's config import would need rewriting, and one later import would bring it
+back); restoring `SIG_IGN` after the import (no one place knows when that happens).
