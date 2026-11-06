@@ -11,14 +11,13 @@ import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, 
  * Needs a simulation with `all.trx`, so a preset needs no assess; it is opt-in:
  *   TIT_E2E_NETWORKS_SUBJECT=CHN TIT_E2E_NETWORKS_SIMULATION=posterior_along \
  *   TIT_E2E_NETWORKS_SHOTS=<dir> npx playwright test --project=real tests/e2e/real/visual-exporter-networks.spec.ts
- * It renders under a name of its own, TIT_E2E_NETWORKS_NAME. Emulated Blender takes tens of minutes for
+ * It renders into new dated folders. Emulated Blender takes tens of minutes for
  * the turntable. What the pictures show is judged by eye from the screenshots.
  */
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
 const SUBJECT = process.env.TIT_E2E_NETWORKS_SUBJECT;
 const SIMULATION = process.env.TIT_E2E_NETWORKS_SIMULATION;
-const NETWORK = process.env.TIT_E2E_NETWORKS_NAME ?? "exporter_spec_posterior";
 const SHOTS = process.env.TIT_E2E_NETWORKS_SHOTS ?? join(tmpdir(), "tit-networks-shots");
 
 test.skip(!SUBJECT || !SIMULATION, "skipping: TIT_E2E_NETWORKS_SUBJECT and TIT_E2E_NETWORKS_SIMULATION name no simulation with tract outputs");
@@ -74,7 +73,6 @@ test.beforeAll(async () => {
   await page.locator("#ve-simulation").click();
   await page.getByRole("option", { name: SIMULATION!, exact: true }).click();
   await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
-  await page.getByTestId("network-mask-name").fill(NETWORK);
 });
 
 test.afterAll(async () => {
@@ -87,7 +85,7 @@ test("one low-resolution figure renders from the tab", async () => {
   await shot("02-networks-still-options");
   await runAndWait(40);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
-  const still = page.getByTestId("network-renders").getByRole("img", { name: `${NETWORK}, Fibre direction`, exact: true });
+  const still = page.getByTestId("network-renders").getByRole("img", { name: /^Posterior thalamocortical · .*, Fibre direction$/ }).first();
   await expect(still).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1600);
   await shot("03-networks-still-rendered");

@@ -257,7 +257,7 @@
    "jobs": [
     {
      "subject": "001",
-     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/networks/all"
+     "output_dir": "derivatives/ti-toolbox/visual_exports/sub-001/Thalamus/networks/<datetime>"
     }
    ]
   },

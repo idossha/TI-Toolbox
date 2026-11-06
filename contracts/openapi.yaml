@@ -4834,16 +4834,17 @@ components:
           description: The files the user loaded that this simulation has assessed (tract/own_<name>/).
         renders:
           type: array
-          description: PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.
+          description: PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<datetime>/ (older folders by name), newest first.
           items:
             type: object
-            required: [path, name, kind, modified_at, network, colour, view]
+            required: [path, name, kind, modified_at, network, label, colour, view]
             properties:
               path: { type: string }
               name: { type: string }
               kind: { type: string, enum: [image, video, scene], description: "scene: the network.blend" }
               modified_at: { type: string }
-              network: { type: string }
+              network: { type: string, description: "the folder under networks/: a datetime, or an older folder's name" }
+              label: { type: string, description: "what to call it: what the network is and when, or an older folder's name" }
               colour: { type: string, description: "what the fibres are coloured by; empty for a scene" }
               view: { type: string, description: "turntable, propagation or sequence; empty for a colour's figure or a scene; a still's view in a folder rendered before the one-figure form" }
     SimulationDetail:
@@ -5423,10 +5424,6 @@ components:
           description: >-
             blender, a named network only: tit.blender.network_setup.resolve_network_setup's values,
             reasons, overridden, n_streamlines, n_drawn, and opposite_removed for a same-side preset.
-        replaced_outputs:
-          type: array
-          items: { type: string }
-          description: blender, a tract render - the files of its folder this run would replace.
         planned_outputs:
           type: array
           items: { type: string }

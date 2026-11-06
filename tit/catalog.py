@@ -936,8 +936,8 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
     ``has_edges`` whether the assess stage has run here at all, which is what gives ``edges.json``;
     ``own_assessed`` the files the user loaded that this simulation has assessed;
     ``renders`` the PNG, MP4 and ``.blend`` files in
-    ``visual_exports/sub-<id>/<sim>/networks/<network>/``, each with its network, colour and view,
-    newest first; a colour's figure has no view, and a ``.blend`` neither.
+    ``visual_exports/sub-<id>/<sim>/networks/<datetime>/``, each with its folder as ``network``,
+    :func:`_network_label`'s ``label``, its colour and its view, newest first; a colour's figure has no view, and a ``.blend`` neither.
     ``None`` if subject or simulation is unknown. A separate read for the reason :func:`simulation_figures` is: every list item of
     ``GET /api/catalog/simulations`` is a :func:`simulation_detail`.
     """
@@ -966,6 +966,7 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
             folder = _jailed(pm, os.path.join(networks_dir, network))
             if not folder or not os.path.isdir(folder):
                 continue
+            label = _network_label(folder, network)
             for name in sorted(os.listdir(folder)):
                 stem, extension = os.path.splitext(name)
                 kind = {".png": "image", ".mp4": "video", ".blend": "scene"}.get(
@@ -987,6 +988,7 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
                             "kind": kind,
                             "modified_at": _mtime_iso(path),
                             "network": network,
+                            "label": label,
                             "colour": colour,
                             "view": view,
                         }
@@ -1026,6 +1028,40 @@ def simulation_networks(pm: PathManager, sid: str, sim: str) -> dict | None:
         and os.path.isfile(os.path.join(tract_dir, "edges.json")),
         "renders": renders,
     }
+
+
+def _network_label(folder: str, network: str) -> str:
+    """What a dated network folder shows and when, from its ``network.json``.
+
+    A folder named before networks were dated says what it is by its name, which is the label.
+    """
+    stamp = re.fullmatch(r"(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})", network)
+    if not stamp:
+        return network
+    y, mo, d, h, mi, s = stamp.groups()
+    when = f"{y}-{mo}-{d} {h}:{mi}:{s}"
+    try:
+        with open(os.path.join(folder, "network.json"), encoding="utf-8") as stream:
+            record = json.load(stream)
+    except (OSError, ValueError):
+        return when
+    from tit.tract.presets import PRESETS
+
+    source = (record.get("metrics") or {}).get("source") or {}
+    selection = record.get("selection") or {}
+    regions = list(selection.get("regions") or [])
+    regions = regions or sorted({r for p in selection.get("pairs") or [] for r in p})
+    preset = next((p.label for p in PRESETS if p.id == record.get("preset")), "")
+    if source.get("source_filename"):
+        what = source["source_filename"]
+    elif preset:
+        what = preset
+    elif regions:
+        rest = f" and {len(regions) - 2} more" if len(regions) > 2 else ""
+        what = ", ".join(regions[:2]) + rest
+    else:
+        what = "All streamlines"
+    return f"{what} · {when}"
 
 
 def simulation_figures(pm: PathManager, sid: str, sim: str) -> list[dict] | None:

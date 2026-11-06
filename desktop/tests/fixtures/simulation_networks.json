@@ -19,6 +19,7 @@
         "kind": "image",
         "modified_at": "2026-11-05T00:00:00+00:00",
         "network": "all",
+        "label": "all",
         "colour": "direction",
         "view": "lateral"
       }

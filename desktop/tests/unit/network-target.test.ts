@@ -117,10 +117,10 @@ describe("choosing a network", () => {
 });
 
 describe("what the column says", () => {
-  it("the Plan as one line says what it queues, draws and replaces", () => {
-    expect(networkPlanLine({ jobs: 1, memGb: 6, network: "cingulate", streamlines: 4332, replaced: ["a.png", "b.png"] })).toBe("1 job · 6 GB · cingulate · 4,332 streamlines · will overwrite 2 files");
-    expect(networkPlanLine({ jobs: 1, blendMb: 38, replaced: [] })).toBe("1 job · network.blend about 38 MB · replaces nothing");
-    expect(networkPlanLine({ jobs: 2, replaced: [] })).toBe("2 jobs · replaces nothing");
+  it("the Plan as one line says what it queues, draws and that it writes a new folder", () => {
+    expect(networkPlanLine({ jobs: 1, memGb: 6, network: "mine.tck", streamlines: 4332 })).toBe("1 job · 6 GB · mine.tck · 4,332 streamlines · a new dated folder");
+    expect(networkPlanLine({ jobs: 1, blendMb: 38 })).toBe("1 job · network.blend about 38 MB · a new dated folder");
+    expect(networkPlanLine({ jobs: 2 })).toBe("2 jobs · a new dated folder");
   });
 
   it("a long region list is summarised, by the word running through it when there is one", () => {
@@ -137,9 +137,10 @@ describe("what the column says", () => {
   });
 
   it("renders group by network, newest network first, and read as colour and view", () => {
-    const render = (network: string, colour: string, view: string) => ({ path: `/${network}/${colour}_${view}.png`, name: `${colour}_${view}.png`, kind: "image" as const, modified_at: "t", network, colour, view });
+    const render = (network: string, colour: string, view: string) => ({ path: `/${network}/${colour}_${view}.png`, name: `${colour}_${view}.png`, label: `${network} label`, kind: "image" as const, modified_at: "t", network, colour, view });
     const groups = groupRenders([render("b", "ti_max", "superior"), render("a", "direction", "lateral"), render("b", "ti_max", "posterior")]);
     expect(groups.map((g) => g.network)).toEqual(["b", "a"]);
+    expect(groups[0]!.label).toBe("b label");
     expect(groups[0]!.renders.map(renderLabel)).toEqual(["TI_max · posterior", "TI_max · superior"]);
     expect(renderLabel({ colour: "direction", view: "lateral" })).toBe("Fibre direction · lateral");
   });

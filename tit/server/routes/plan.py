@@ -955,7 +955,7 @@ def _blender_output_dir(pm: PathManager, config: Any) -> str:
     ``VectorConfig``       ``visual_exports/sub-<id>/<sim>/vectors``    (vector_field_exporter.py)
     ``MontageConfig``      ``visual_exports/sub-<id>/montage_publication`` (montage_publication.py)
     ``SubcorticalConfig``  ``visual_exports/sub-<id>/sub-cortical``     (subcortical_exporter.py)
-    ``TractVisualConfig``  ``visual_exports/sub-<id>/<sim>/networks/<network>`` (tract_publication.py)
+    ``TractVisualConfig``  ``visual_exports/sub-<id>/<sim>/networks/<datetime>`` (tract_publication.py)
 
     An ``output_dir`` already on the config always wins -- montage and sub-cortical both
     accept one, and a caller that set it means it.
@@ -999,23 +999,12 @@ def _plan_blender(
             "This export's output directory cannot be resolved from the configuration yet."
         )
     exists = _dir_exists(output_dir)
-    will_overwrite = exists
     resolved = None
     if type(config).__name__ == "TractVisualConfig":
-        from tit.blender.tract_publication import (
-            blend_size_mb,
-            planned_outputs,
-            replaced_outputs,
-        )
+        from tit.blender.tract_publication import blend_size_mb, planned_outputs
 
-        # A network's folder holds its other colours: only this colour's files are replaced.
         setup = _network_setup(pm, config)
-        replaced = replaced_outputs(config, output_dir)
-        will_overwrite = bool(replaced)
-        resolved = {
-            "planned_outputs": planned_outputs(config),
-            "replaced_outputs": replaced,
-        }
+        resolved = {"planned_outputs": planned_outputs(config)}
         if setup:
             resolved["network_setup"] = setup
         if config.export_blend:
@@ -1027,7 +1016,7 @@ def _plan_blender(
             subject=config.subject_id,
             output_dir=output_dir,
             exists=exists,
-            will_overwrite=will_overwrite,
+            will_overwrite=exists,
         )
     ], resolved
 

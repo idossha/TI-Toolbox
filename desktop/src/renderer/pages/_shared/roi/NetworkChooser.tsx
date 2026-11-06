@@ -48,8 +48,9 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
   simulation?: string;
   disabled?: boolean;
   defaultHow?: NetworkHow;
-  nameLabel: string;
-  nameHelp: string;
+  /** The name field of a choice that keeps one, as a mask does; a dated render has none. */
+  nameLabel?: string;
+  nameHelp?: string;
   /** What the Strongest tab offers while this simulation has no assessed edges. */
   strongestEmpty?: ReactNode;
   /** One more way in, beside the four (the user's own file). A subject with no network has only this. */
@@ -339,15 +340,15 @@ export function NetworkChooser({ value, onChange, subject, simulation, disabled,
             {how === "preset" && chosenPreset?.same_side && !value.includeOpposite && value.pairs.length > 0 && <span data-testid="network-removed"> · {removedSentence(chosenPreset)}</span>}
           </p>
 
-          <Field label={nameLabel} required help={nameHelp} htmlFor="network-mask-name">
+          {nameLabel && <Field label={nameLabel} required help={nameHelp} htmlFor="network-mask-name">
             <TextInput id="network-mask-name" data-testid="network-mask-name" value={value.name} disabled={disabled} placeholder="e.g. thalamocortical_lh"
               onChange={(e) => {
                 const typed = e.target.value;
                 // Clearing the field hands the name back to the choice.
                 onChange(withNetworkEdit(value, typed === "" ? { name: autoNetworkName(value), nameEdited: false } : { name: typed, nameEdited: true }));
               }} />
-          </Field>
-          {value.name !== "" && !nameValid && <p className="field-help" role="alert">Use letters, digits, _ and - only.</p>}
+          </Field>}
+          {nameLabel && value.name !== "" && !nameValid && <p className="field-help" role="alert">Use letters, digits, _ and - only.</p>}
         </>
       )}
     </div>

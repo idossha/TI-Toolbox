@@ -1,7 +1,7 @@
 /**
  * A network's figure through the app, on a simulation of a subject with tractography: one thalamocortical
  * preset with a .blend, one network chosen by connection and one bilateral preset, each in TI_max and fibre
- * direction, then the same colour again, which replaces only itself. Each job's peak memory and time go to
+ * direction, then the same colour again, in a folder of its own. Each job's peak memory and time go to
  * `figures-results.json` beside the screenshots; whether the pictures hold only the model and its fibres is
  * judged by eye from the copies the spec leaves there.
  *
@@ -9,14 +9,14 @@
  *   TIT_E2E_FIGURES_SHOTS=<dir> TIT_E2E_SERVER_URL=... TIT_E2E_TOKEN=... TIT_E2E_OFFSCREEN=1 \
  *     bash scripts/e2e-quiet-check.sh npx playwright test --project=real tests/e2e/real/network-figures.spec.ts
  *
- * It assesses and renders networks into the simulation's own folders, with names this spec owns, and
- * renders at Fast preview. The numbers are read back from network.json, not pinned: the subject is not
+ * It assesses networks and renders them into new dated folders of the simulation, and renders at
+ * Fast preview. The numbers are read back from network.json, not pinned: the subject is not
  * committed. An eighth optional render, TIT_E2E_FIGURES_LARGEST_SIMULATION, draws the largest preset for
  * the job's memory claim.
  */
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
 import { connectReal, expectPage, getServerPanels, gotoPage, launchElectronApp, setServerPanels, waitForJobTerminal } from "../_helpers";
 
@@ -48,8 +48,8 @@ interface NetworkRecord {
   };
 }
 
-function folder(simulation: string, network: string): string {
-  return join(PROJECT!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, simulation, "networks", network);
+function networks(simulation: string): string {
+  return join(PROJECT!, "derivatives", "ti-toolbox", "visual_exports", `sub-${SUBJECT}`, simulation, "networks");
 }
 
 async function openNetworks(simulation: string): Promise<void> {
@@ -62,8 +62,9 @@ async function openNetworks(simulation: string): Promise<void> {
   await page.getByRole("radio", { name: "Networks" }).click();
 }
 
-/** Run with what the form holds, answering Replace if asked, and wait for every job it queues. */
-async function run(key: string, replace = false): Promise<void> {
+/** Run with what the form holds, wait for every job it queues, and return the one new folder it made. */
+async function run(key: string, simulation: string): Promise<string> {
+  const before = new Set(existsSync(networks(simulation)) ? readdirSync(networks(simulation)) : []);
   const ids: string[] = [];
   const onResponse = async (r: import("@playwright/test").Response) => {
     if (r.url().endsWith("/api/jobs") && r.request().method() === "POST" && r.status() < 300) ids.push(((await r.json()) as { id: string }).id);
@@ -71,7 +72,6 @@ async function run(key: string, replace = false): Promise<void> {
   page.on("response", onResponse);
   await expect(page.getByTestId("run-button")).not.toHaveAttribute("title", /.+/, { timeout: 60_000 });
   await page.getByTestId("run-button").click();
-  if (replace) await page.getByTestId("existing-outputs-replace").click();
   await expect.poll(() => ids.length, { timeout: 30_000 }).toBeGreaterThan(0);
   await page.waitForTimeout(3_000);
   page.off("response", onResponse);
@@ -85,6 +85,11 @@ async function run(key: string, replace = false): Promise<void> {
     };
   }
   writeFileSync(join(SHOTS, "figures-results.json"), JSON.stringify(results, null, 1));
+  const made = readdirSync(networks(simulation)).filter((name) => !before.has(name));
+  expect(made, "a folder of its own").toHaveLength(1);
+  expect(made[0]).toMatch(/^\d{8}_\d{6}$/);
+  await expect(page.getByTestId("existing-outputs-replace")).toHaveCount(0);
+  return join(networks(simulation), made[0]!);
 }
 
 async function colour(name: "TI_max" | "Fibre direction (RGB)"): Promise<void> {
@@ -92,41 +97,46 @@ async function colour(name: "TI_max" | "Fibre direction (RGB)"): Promise<void> {
   await page.getByRole("option", { name, exact: true }).click();
 }
 
-/** Render in both colours and check the sidecar, the gallery and that the folder holds one image per colour. */
-async function renderBoth(simulation: string, network: string, firstWithBlend = false): Promise<NetworkRecord> {
-  const out = folder(simulation, network);
+/** Render in both colours, each its own folder, and check the sidecars, the gallery and one image per folder. */
+async function renderBoth(simulation: string, network: string, firstWithBlend = false): Promise<{ record: NetworkRecord; out: string; direction: string }> {
   await colour("TI_max");
-  // Run answers from the Plan, which follows the form after a debounce and a request: this folder is
-  // new, so the last network's "will overwrite" must be gone before Run is pressed.
-  await expect(page.getByTestId("extension-plan-line")).toContainText(new RegExp(`${network} .*replaces nothing`), { timeout: 30_000 });
+  await expect(page.getByTestId("extension-plan-line")).toContainText("a new dated folder", { timeout: 30_000 });
   const blend = page.getByRole("checkbox", { name: "Export .blend" });
   if (firstWithBlend) {
     await blend.click();
     await expect(page.getByTestId("ve-planned-files")).toContainText(/network\.blend \(about \d+ MB/, { timeout: 30_000 });
   }
   await page.screenshot({ path: join(SHOTS, `plan_${network}.png`) });
-  await run(`${network}/ti_max`);
+  const out = await run(`${network}/ti_max`, simulation);
   if (firstWithBlend) await blend.click();
   await colour("Fibre direction (RGB)");
   await expect(page.getByTestId("ve-planned-files")).toHaveText("Writes: direction.png", { timeout: 30_000 });
-  await run(`${network}/direction`);
+  const direction = await run(`${network}/direction`, simulation);
 
-  const record = JSON.parse(readFileSync(join(out, "network.json"), "utf-8")) as NetworkRecord;
-  for (const [file, label] of [["ti_max.png", "TI_max"], ["direction.png", "Fibre direction"]] as const) {
-    expect(existsSync(join(out, file)), file).toBe(true);
-    copyFileSync(join(out, file), join(SHOTS, `${network}_${file}`));
-    expect(record.metrics.images[file]!.panels).toEqual(["lateral", "superior", "anterior", "posterior"]);
+  const records: Record<string, NetworkRecord> = {};
+  for (const [folder, file] of [[out, "ti_max.png"], [direction, "direction.png"]] as const) {
+    records[file] = JSON.parse(readFileSync(join(folder, "network.json"), "utf-8")) as NetworkRecord;
+    expect(existsSync(join(folder, file)), file).toBe(true);
+    copyFileSync(join(folder, file), join(SHOTS, `${network}_${file}`));
+    expect(records[file]!.metrics.images[file]!.panels).toEqual(["lateral", "superior", "anterior", "posterior"]);
     await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
-    const figure = page.getByTestId("network-renders").getByRole("img", { name: `${network}, ${label}`, exact: true });
+    const group = page.getByTestId("network-renders").locator(`details[data-network="${basename(folder)}"]`);
+    await expect(group).toBeVisible({ timeout: 30_000 });
+    await expect(group.locator("> summary")).toContainText(/ · \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/);
+    await group.evaluate((details: HTMLDetailsElement) => {
+      details.open = true;
+    });
+    const figure = group.getByRole("img");
     await expect(figure).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => figure.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1600);
     await page.getByRole("radio", { name: "Scene", exact: true }).click();
   }
+  const record = records["ti_max.png"]!;
   expect(record.metrics.images["ti_max.png"]!.colour_scale.range[1]!).toBeGreaterThan(0);
-  expect(record.metrics.images["direction.png"]!.colour_key.red).toBe("left – right");
+  expect(records["direction.png"]!.metrics.images["direction.png"]!.colour_key.red).toBe("left – right");
   expect(record.metrics.median_ti_max_v_per_m).toBeGreaterThan(0);
   results[`${network}/metrics`] = { total: record.metrics.streamlines_total, drawn: record.metrics.images["ti_max.png"]!.streamlines_drawn, blend: record.blend };
-  return record;
+  return { record, out, direction };
 }
 
 test.beforeAll(async () => {
@@ -150,11 +160,10 @@ test("a thalamocortical preset: one figure per colour, its .blend, and what same
   test.setTimeout(3 * JOB_MINUTES * 60_000);
   await openNetworks(SIMULATION!);
   await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
-  const record = await renderBoth(SIMULATION!, "posterior_thalamocortical", true);
+  await expect(page.getByTestId("network-mask-name")).toHaveCount(0);
+  const { record, out } = await renderBoth(SIMULATION!, "posterior_thalamocortical", true);
   expect(record.metrics.opposite_hemisphere_removed!.n_removed).toBeGreaterThan(0);
   expect(record.blend).toMatchObject({ file: "network.blend", colour: "ti_max" });
-  const out = folder(SIMULATION!, "posterior_thalamocortical");
   expect(statSync(join(out, "network.blend")).size).toBe(record.blend!.bytes);
   expect(existsSync(join(out, "bundle_ti_max"))).toBe(false);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
@@ -163,7 +172,7 @@ test("a thalamocortical preset: one figure per colour, its .blend, and what same
   await page.getByRole("radio", { name: "Scene", exact: true }).click();
 });
 
-test("a network chosen by connection, under a new name, and the same colour again replaces only itself", async () => {
+test("a network chosen by connection, and the same colour again goes to a new folder and replaces nothing", async () => {
   test.setTimeout(3 * JOB_MINUTES * 60_000);
   await openNetworks(SIMULATION!);
   await page.getByRole("radio", { name: "By connection" }).click();
@@ -173,18 +182,16 @@ test("a network chosen by connection, under a new name, and the same colour agai
   for (const parcel of ["rostralmiddlefrontal", "caudalmiddlefrontal", "lateralorbitofrontal", "medialorbitofrontal"]) {
     await page.getByTestId("network-edges").getByRole("option", { name: new RegExp(`(Left-Thalamus-Proper.*lh\\.${parcel}|lh\\.${parcel}.*Left-Thalamus-Proper)`) }).click();
   }
-  const name = "2_regions_to_4_regions_v3";
-  await page.getByTestId("network-mask-name").fill(name);
-  await renderBoth(SIMULATION!, name);
+  const name = "by_connection";
+  const { out, direction } = await renderBoth(SIMULATION!, name);
   await page.screenshot({ path: join(SHOTS, "plan_setup_after.png") });
 
-  const out = folder(SIMULATION!, name);
-  const before = { direction: statSync(join(out, "direction.png")).mtimeMs, ti_max: statSync(join(out, "ti_max.png")).mtimeMs };
+  const before = { direction: statSync(join(direction, "direction.png")).mtimeMs, ti_max: statSync(join(out, "ti_max.png")).mtimeMs };
   await colour("TI_max");
-  await expect(page.getByTestId("ve-replaced-files")).toHaveText("Replaces: ti_max.png. This network's other colours stay.", { timeout: 30_000 });
-  await run(`${name}/ti_max_again`, true);
-  expect(statSync(join(out, "ti_max.png")).mtimeMs).toBeGreaterThan(before.ti_max);
-  expect(statSync(join(out, "direction.png")).mtimeMs).toBe(before.direction);
+  const again = await run(`${name}/ti_max_again`, SIMULATION!);
+  expect(existsSync(join(again, "ti_max.png"))).toBe(true);
+  expect(statSync(join(out, "ti_max.png")).mtimeMs).toBe(before.ti_max);
+  expect(statSync(join(direction, "direction.png")).mtimeMs).toBe(before.direction);
   // An older folder of the same simulation reads in the gallery beside the new ones.
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
@@ -199,9 +206,7 @@ test("a bilateral preset shows the left in its lateral panel", async () => {
   await openNetworks(SIMULATION!);
   await page.getByRole("radio", { name: "Preset", exact: true }).click();
   await page.getByTestId("network-presets").getByRole("option", { name: /Interhemispheric/ }).click();
-  // A name typed in the last test stays until another is typed.
-  await page.getByTestId("network-mask-name").fill("interhemispheric_cortical");
-  const record = await renderBoth(SIMULATION!, "interhemispheric_cortical");
+  const { record } = await renderBoth(SIMULATION!, "interhemispheric_cortical");
   expect(record.metrics.images["ti_max.png"]!.lateral_side).toBe("left");
 });
 
@@ -211,11 +216,9 @@ test("the largest preset, for the job's memory claim", async () => {
   await openNetworks(LARGEST!);
   await page.getByRole("radio", { name: "Preset", exact: true }).click();
   await page.getByTestId("network-presets").getByRole("option", { name: /Basal ganglia/ }).click();
-  await page.getByTestId("network-mask-name").fill("basal_ganglia_cortical_v3");
   await colour("TI_max");
   await page.getByRole("checkbox", { name: "Export .blend" }).click();
-  await run("basal_ganglia_cortical_v3/ti_max");
-  const out = folder(LARGEST!, "basal_ganglia_cortical_v3");
+  const out = await run("basal_ganglia_cortical_v3/ti_max", LARGEST!);
   copyFileSync(join(out, "ti_max.png"), join(SHOTS, "basal_ganglia_cortical_v3_ti_max.png"));
   const record = JSON.parse(readFileSync(join(out, "network.json"), "utf-8")) as NetworkRecord;
   expect(record.metrics.images["ti_max.png"]!.sampling).toBe("even sample");

@@ -33,6 +33,7 @@ from pathlib import Path
 
 import base64
 import json
+import re
 import os
 
 import numpy as np
@@ -834,7 +835,8 @@ def test_a_run_leaves_one_figure_and_network_json_and_can_be_run_again_from_it(
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     out = Path(tp.run_tract(_selection_config()))
-    assert out.parts[-3:] == ("s", "networks", "net")
+    assert out.parts[-3:-1] == ("s", "networks")
+    assert re.fullmatch(r"\d{8}_\d{6}", out.name)
     assert sorted(p.name for p in out.iterdir()) == ["network.json", "ti_max.png"]
     record = json.loads((out / "network.json").read_text())
     assert record["network"] == "net"
@@ -863,8 +865,8 @@ def test_a_run_leaves_one_figure_and_network_json_and_can_be_run_again_from_it(
     config.pop("project_dir")
     again = deserialize_config(TractVisualConfig, config)
     assert again.selection == _selection_config().selection
-    tp.run_tract(again)
-    assert (out / "ti_max.png").exists()
+    rendered = Path(tp.run_tract(again))
+    assert rendered != out and (rendered / "ti_max.png").exists()
 
 
 def test_a_shell_is_recorded_with_its_level_and_how_it_was_chosen(
@@ -883,6 +885,20 @@ def test_a_shell_is_recorded_with_its_level_and_how_it_was_chosen(
     assert "volume-weighted" in shell["chosen_by"]
 
 
+def test_each_run_gets_a_folder_of_its_own_and_leaves_the_last_one_alone(
+    tmp_path, monkeypatch, three
+):
+    from tit.blender import tract_publication as tp
+
+    _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
+    first = Path(tp.run_tract(_selection_config()))
+    before = (first / "network.json").read_bytes()
+    second = Path(tp.run_tract(_selection_config()))
+    assert first != second and first.parent == second.parent
+    assert (first / "network.json").read_bytes() == before
+    assert (second / "ti_max.png").exists()
+
+
 def test_rendering_another_colour_keeps_the_first_in_network_json(
     tmp_path, monkeypatch, three
 ):
@@ -892,6 +908,7 @@ def test_rendering_another_colour_keeps_the_first_in_network_json(
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config()
+    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, metric="direction"))
     record = json.loads((out / "network.json").read_text())
@@ -912,6 +929,7 @@ def test_a_colour_rendered_again_replaces_only_its_own_record(
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config()
+    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, metric="direction"))
     first = json.loads((out / "network.json").read_text())
@@ -933,6 +951,7 @@ def test_a_blend_is_recorded_with_its_colour_and_size_and_survives_a_plain_rende
 
     _run_tract_project(tmp_path, monkeypatch, three, _still_writer)
     cfg = _selection_config(export_blend=True)
+    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     # A blend outlives the bundle, which a successful render deletes.
     assert not (out / "bundle_ti_max").exists()
@@ -965,6 +984,7 @@ def test_a_turntable_after_a_figure_keeps_the_figures_record(
 
     _run_tract_project(tmp_path, monkeypatch, three, writer)
     cfg = _selection_config()
+    cfg = replace(cfg, output_dir=str(tmp_path / "named"))  # one folder only if a config names it
     out = Path(tp.run_tract(cfg))
     tp.run_tract(replace(cfg, stills=False, turntable=True))
     record = json.loads((out / "network.json").read_text())
@@ -1020,7 +1040,8 @@ def test_a_failed_render_keeps_its_bundle_and_writes_no_record(
     pm = _run_tract_project(tmp_path, monkeypatch, three, failing)
     with pytest.raises(RuntimeError, match="Blender died"):
         tp.run_tract(_selection_config())
-    out = Path(pm.ti_toolbox(), "visual_exports", "sub-x", "s", "networks", "net")
+    root = Path(pm.ti_toolbox(), "visual_exports", "sub-x", "s", "networks")
+    out = next(root.iterdir())
     assert (out / "bundle_ti_max" / "manifest.json").exists()
     assert not (out / "network.json").exists()
 

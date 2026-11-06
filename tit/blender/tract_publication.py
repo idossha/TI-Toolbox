@@ -29,6 +29,7 @@ import logging
 import os
 import shutil
 import subprocess
+import time
 from dataclasses import asdict, replace
 from pathlib import Path
 
@@ -417,9 +418,12 @@ def network_slug(cfg) -> str:
 
 
 def network_output_dir(cfg, simulation_exports: str) -> str:
-    """``networks/<network>/`` of a simulation's exports, or the ``output_dir`` the config names."""
+    """``networks/<datetime>/`` of a simulation's exports, named as an ex-search run's folder is,
+    or the ``output_dir`` the config names."""
     explicit = (cfg.output_dir or "").strip()
-    return explicit or os.path.join(simulation_exports, "networks", network_slug(cfg))
+    return explicit or os.path.join(
+        simulation_exports, "networks", time.strftime("%Y%m%d_%H%M%S")
+    )
 
 
 def bundle_folder(cfg) -> str:
@@ -444,11 +448,6 @@ def planned_outputs(cfg) -> list[str]:
     return names
 
 
-def replaced_outputs(cfg, out_dir: str) -> list[str]:
-    """The files in *out_dir* this config's run would replace; the Plan's "will overwrite"."""
-    return [n for n in planned_outputs(cfg) if os.path.isfile(os.path.join(out_dir, n))]
-
-
 def blend_size_mb(n_drawn: int) -> int:
     """About how large ``network.blend`` will be, from the render's streamline budget."""
     return round(BLEND_BASE_MB + BLEND_MB_PER_STREAMLINE * n_drawn)
@@ -467,7 +466,7 @@ def write_network_record(
 ) -> str:
     """``network.json``: the sidecar of this network's renders.
 
-    One entry per colour, replaced when that colour is rendered again; ``config`` re-renders it:
+    One entry per colour; ``config`` renders it again, in a new folder:
     ``simnibs_python -m tit.blender network.json <colour>``. ``metrics`` holds the network's numbers
     and, under ``images``, each image's; ``blend`` says which colour ``network.blend`` holds.
     """
@@ -1019,13 +1018,17 @@ def run_tract(cfg, *, logger_override: logging.Logger | None = None) -> str:
     )
     tract_dir = os.path.dirname(path)
     original = cfg
-    out = network_output_dir(
-        cfg,
-        os.path.join(
-            pm.ti_toolbox(), "visual_exports", f"{const.PREFIX_SUBJECT}{sid}", sim
-        ),
+    exports = os.path.join(
+        pm.ti_toolbox(), "visual_exports", f"{const.PREFIX_SUBJECT}{sid}", sim
     )
-    os.makedirs(out, exist_ok=True)
+    # Each run its own folder: two started within one second must not share one.
+    while True:
+        out = network_output_dir(cfg, exports)
+        try:
+            os.makedirs(out, exist_ok=bool((cfg.output_dir or "").strip()))
+            break
+        except FileExistsError:
+            time.sleep(1)
 
     summary = {}
     if os.path.isfile(os.path.join(tract_dir, "summary.json")):

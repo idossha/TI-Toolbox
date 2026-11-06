@@ -4,17 +4,17 @@
  * assessed, set up and rendered, and match that network's figure and numbers.
  *
  * The files come from `dev/export_own_network_fixture.py`. Its reference is `network-figures.spec.ts`'s
- * `2_regions_to_4_regions_v3`, so run that first:
+ * by-connection network, so run that first:
  *   docker exec -w /ti-toolbox <c> simnibs_python dev/export_own_network_fixture.py /mnt/000 CHN <dir in the container> \
  *     "lh.rostralmiddlefrontal|Left-Thalamus-Proper" "lh.caudalmiddlefrontal|Left-Thalamus-Proper" \
  *     "lh.lateralorbitofrontal|Left-Thalamus-Proper" "lh.medialorbitofrontal|Left-Thalamus-Proper"
  *   TIT_E2E_OWN_FILES=<the same dir on the host> TIT_E2E_OWN_SUBJECT=CHN TIT_E2E_OWN_SIMULATION=left_insula_mean \
  *   TIT_E2E_PROJECT_HOST=<project> TIT_E2E_OWN_SHOTS=<dir> ... npx playwright test --project=real tests/e2e/real/network-own-file.spec.ts
  *
- * What it writes under the subject (`tractography/own/`, `tract/own_*`, `networks/own_*`) it removes;
+ * What it writes under the subject (`tractography/own/`, `tract/own_*`, its dated `networks/` folders) it removes;
  * the figures and sidecars stay as copies in the shots folder.
  */
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test, type ElectronApplication, type Page } from "@playwright/test";
@@ -27,7 +27,19 @@ const SUBJECT = process.env.TIT_E2E_OWN_SUBJECT;
 const SIMULATION = process.env.TIT_E2E_OWN_SIMULATION;
 const PROJECT = process.env.TIT_E2E_PROJECT_HOST;
 const SHOTS = process.env.TIT_E2E_OWN_SHOTS ?? join(tmpdir(), "tit-own-shots");
-const REFERENCE = "2_regions_to_4_regions_v3";
+/** The figures spec's by-connection network: the newest dated folder with these streamlines, not from a file. */
+function referenceFolder(nStreamlines: number): string {
+  const dated = readdirSync(networks()).filter((name) => /^\d{8}_\d{6}$/.test(name)).sort().reverse();
+  const found = dated.find((name) => {
+    const path = join(networks(), name, "network.json");
+    if (!existsSync(path)) return false;
+    const record = JSON.parse(readFileSync(path, "utf-8"));
+    return record.metrics.streamlines_total === nStreamlines && !record.metrics.source && record.colours.ti_max;
+  });
+  expect(found, "a by-connection render from network-figures.spec.ts").toBeTruthy();
+  return join(networks(), found!);
+}
+const createdFolders: string[] = [];
 
 test.skip(!FILES || !SUBJECT || !SIMULATION || !PROJECT, "skipping: TIT_E2E_OWN_FILES, _SUBJECT, _SIMULATION and TIT_E2E_PROJECT_HOST name no files or simulation");
 test.describe.configure({ mode: "serial" });
@@ -43,10 +55,8 @@ const ownFolder = () => join(derivatives(), "SimNIBS", `sub-${SUBJECT}`, "tracto
 
 function removeWhatThisSpecWrites(): void {
   rmSync(ownFolder(), { recursive: true, force: true });
-  for (const name of ["own_spec_tck", "own_spec_trx"]) {
-    rmSync(join(networks(), `own_${name}`), { recursive: true, force: true });
-    rmSync(join(simTract(), `own_${name}`), { recursive: true, force: true });
-  }
+  for (const name of ["own_spec_tck", "own_spec_trx"]) rmSync(join(simTract(), `own_${name}`), { recursive: true, force: true });
+  for (const folder of createdFolders.splice(0)) rmSync(folder, { recursive: true, force: true });
 }
 
 test.beforeAll(async () => {
@@ -135,9 +145,11 @@ for (const [file, stored] of [["own_spec_tck.tck", "own_spec_tck"], ["own_spec_t
       await page.keyboard.press("Escape");
     }
     // Two jobs: the assess, and the render that waits for it.
-    await expect(page.getByTestId("extension-plan-line")).toContainText(new RegExp(`2 jobs .*${stored} .*replaces nothing`), { timeout: 60_000 });
+    await expect(page.getByTestId("extension-plan-line")).toContainText(new RegExp(`2 jobs .*${stored} .*a new dated folder`), { timeout: 60_000 });
     await expect(page.getByTestId("ve-assess-first")).toBeAttached();
     await page.screenshot({ path: join(SHOTS, `own_file_plan_${stored}.png`) });
+    const reference = referenceFolder(552);
+    const before = new Set(readdirSync(networks()));
     const ids: string[] = [];
     const onResponse = async (r: import("@playwright/test").Response) => {
       if (r.url().endsWith("/api/jobs") && r.request().method() === "POST" && r.status() < 300) ids.push(((await r.json()) as { id: string }).id);
@@ -150,25 +162,29 @@ for (const [file, stored] of [["own_spec_tck.tck", "own_spec_tck"], ["own_spec_t
       const job = await waitForJobTerminal(page, { url: SERVER_URL, token: TOKEN, jobId: id, timeoutMs: 25 * 60_000, pollMs: 10_000 });
       expect(job.state, `job ${id}`).toBe("succeeded");
     }
-    const folder = join(networks(), `own_${stored}`);
+    const made = readdirSync(networks()).filter((name) => !before.has(name));
+    expect(made, "a folder of its own").toHaveLength(1);
+    expect(made[0]).toMatch(/^\d{8}_\d{6}$/);
+    const folder = join(networks(), made[0]!);
+    createdFolders.push(folder);
     const own = JSON.parse(readFileSync(join(folder, "network.json"), "utf-8"));
-    const reference = JSON.parse(readFileSync(join(networks(), REFERENCE, "network.json"), "utf-8"));
+    const referenced = JSON.parse(readFileSync(join(reference, "network.json"), "utf-8"));
     copyFileSync(join(folder, "ti_max.png"), join(SHOTS, `own_${stored}_ti_max.png`));
     copyFileSync(join(folder, "network.json"), join(SHOTS, `own_${stored}_network.json`));
     expect(own.metrics.source.source_filename).toBe(file);
     expect(own.metrics.source.checks.fraction_points_in_brain).toBeGreaterThanOrEqual(0.95);
     expect(own.metrics.source.n_unlabelled).toBe(0);
-    expect(own.metrics.streamlines_total).toBe(reference.metrics.streamlines_total);
-    expect(own.metrics.streamlines_per_region).toEqual(reference.metrics.streamlines_per_region);
+    expect(own.metrics.streamlines_total).toBe(referenced.metrics.streamlines_total);
+    expect(own.metrics.streamlines_per_region).toEqual(referenced.metrics.streamlines_per_region);
     for (const key of ["median_ti_max_v_per_m", "median_ti_along_v_per_m", "median_align_index"]) {
-      expect(Math.abs(own.metrics[key] - reference.metrics[key]), key).toBeLessThanOrEqual(0.001);
+      expect(Math.abs(own.metrics[key] - referenced.metrics[key]), key).toBeLessThanOrEqual(0.001);
     }
-    const seen = await difference(join(folder, "ti_max.png"), join(networks(), REFERENCE, "ti_max.png"));
-    console.log(`${stored} against ${REFERENCE}: ${JSON.stringify(seen)}`);
+    const seen = await difference(join(folder, "ti_max.png"), join(reference, "ti_max.png"));
+    console.log(`${stored} against ${reference}: ${JSON.stringify(seen)}`);
     expect(seen.width).toBe(1600);
     expect(seen.mean, "the same streamlines, the same picture").toBeLessThan(0.002);
     await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
-    await expect(page.getByTestId("network-renders").getByRole("img", { name: `own_${stored}, TI_max`, exact: true })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("network-renders").getByRole("img", { name: new RegExp(`^${stored}\\.t[a-z]+ · [0-9: -]+, TI_max$`) })).toBeVisible({ timeout: 30_000 });
     await page.screenshot({ path: join(SHOTS, `own_file_gallery_${stored}.png`) });
     await page.getByRole("radio", { name: "Scene", exact: true }).click();
   });

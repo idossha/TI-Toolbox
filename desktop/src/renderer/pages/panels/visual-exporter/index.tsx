@@ -40,7 +40,7 @@ import { PlanSummary } from "../PlanSummary";
 import { ExtensionRunPanel, useExtensionJobs } from "../ExtensionRunPanel";
 import { ExistingOutputsDialog, isExistingOutputsConflict } from "../../_shared/run/ExistingOutputsDialog";
 import { emptyRoi, type NetworkRoiValue, type RoiValue } from "../../_shared/roi/types";
-import { NetworkChooser, NETWORK_NAME_RE, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
+import { NetworkChooser, autoNetworkName, networkSelection, pairTotals, presetTotals, getTractEdges, getTractConnections, getTractPresets, type TractConnection, type TractPreset } from "../../_shared/roi";
 import { AssessNetworks } from "./AssessNetworks";
 import { OwnNetworkPicker } from "./OwnNetworkPicker";
 import { NetworkAdvanced, type NetworkSetupRecord } from "./NetworkSetup";
@@ -55,14 +55,13 @@ import {
   buildNetworkAssessConfig,
   buildNetworkConfig,
   buildOwnAssessConfig,
+  bundleName,
   buildRegionConfigs,
   buildSubcorticalConfig,
   buildVectorConfig,
   networkPlanLine,
   CHOOSE_A_FILE,
   CHOOSE_A_NETWORK,
-  NAME_IS_RESERVED,
-  NAME_THE_NETWORK,
   NO_RECORDED_NET,
   outputHint,
   PERCENTILE_ORDER,
@@ -190,7 +189,11 @@ function VisualExporterPanel() {
   const chooserActive = mode === "networks" && !networkOwnFile;
   const ownActive = mode === "networks" && networkOwnFile;
   const ownNeedsAssess = ownActive && !!ownNetwork && !!networksQuery.data && !networksQuery.data.own_assessed.includes(ownNetwork);
-  const selection = useMemo(() => (chooserActive && networkValue.pairs.length > 0 ? networkSelection(networkValue) : null), [chooserActive, networkValue]);
+  const selection = useMemo(() => {
+    if (!chooserActive || networkValue.pairs.length === 0) return null;
+    const chosen = networkSelection(networkValue);
+    return { ...chosen, name: bundleName(autoNetworkName(networkValue), chosen.pairs, networksQuery.data) };
+  }, [chooserActive, networkValue, networksQuery.data]);
   // The count an assessed bundle must hold to be this network, from the same answer the picker shows.
   const countQuery = useQuery({
     queryKey: ["ve-network-count", subjectId, simulationName, networkValue.how, networkValue.preset, networkValue.includeOpposite, networkValue.pairs],
@@ -264,8 +267,6 @@ function VisualExporterPanel() {
     else if (networksQuery.error) clientErrors.push(networksQuery.error.message);
     else if (ownActive && !ownNetwork) clientErrors.push(CHOOSE_A_FILE);
     else if (chooserActive && !selection) clientErrors.push(CHOOSE_A_NETWORK);
-    else if (chooserActive && !NETWORK_NAME_RE.test(networkValue.name)) clientErrors.push(NAME_THE_NETWORK);
-    else if (chooserActive && networkValue.name === "all") clientErrors.push(NAME_IS_RESERVED);
     else if (chooserActive && countQuery.error) clientErrors.push(countQuery.error.message);
     else if (chooserActive && assessing === null) clientErrors.push("Reading this network's streamline count…");
     else if (!networkStills && !networkTurntable) clientErrors.push("Choose a figure, a turntable or both.");
@@ -401,7 +402,6 @@ function VisualExporterPanel() {
   const loading = head !== null && (validateQuery.isPending || planQuery.isFetching);
   const networkSetup = planQuery.data?.resolved?.network_setup as NetworkSetupRecord | undefined;
   const plannedFiles = (planQuery.data?.resolved?.planned_outputs as string[] | undefined) ?? [];
-  const replacedFiles = (planQuery.data?.resolved?.replaced_outputs as string[] | undefined) ?? [];
   const blendMb = planQuery.data?.resolved?.blend_size_mb as number | undefined;
   const networkRenders = networksQuery.data?.renders ?? [];
 
@@ -411,7 +411,7 @@ function VisualExporterPanel() {
       return;
     }
     // The plan answers first, so the question comes before the assess job is queued.
-    if ((selection || ownActive) && (assessing === "replace" || planQuery.data?.jobs.some((job) => job.will_overwrite))) {
+    if (assessing === "replace") {
       setRefused(configs);
       return;
     }
@@ -439,7 +439,7 @@ function VisualExporterPanel() {
         queued += 1;
       }
       const n = batch.length;
-      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName, ownActive ? `own_${ownNetwork}` : selection?.name)}`);
+      notify.success(`Queued: ${n === 1 ? "1 export" : `${n} exports`} → ${outputHint(mode, subjectId, simulationName)}`);
     } catch (error) {
       // The export exists: ask, and on Replace resend only the jobs not already queued.
       if (!overwrite && isExistingOutputsConflict(error)) setRefused(batch.slice(queued));
@@ -467,14 +467,13 @@ function VisualExporterPanel() {
               ? networkPlanLine({
                   jobs: 1 + ((selection && assessing && assessing !== "ready") || ownNeedsAssess ? 1 : 0),
                   memGb: planQuery.data?.cost.mem_gb,
-                  network: ownActive ? ownNetwork : selection?.name,
+                  network: ownActive ? ownNetwork : undefined,
                   streamlines: ownActive ? undefined : countQuery.data,
                   blendMb,
-                  replaced: replacedFiles,
                 })
               : undefined
           }
-          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.filter(isPicture).length}`, content: <NetworkRenders renders={networkRenders} current={ownActive ? `own_${ownNetwork}` : selection?.name} /> } : undefined}
+          extraTab={mode === "networks" ? { label: `Renders ${networkRenders.filter(isPicture).length}`, content: <NetworkRenders renders={networkRenders} /> } : undefined}
           sceneFocusKey={mode === "networks" && chooserActive ? `${networkValue.how}|${networkValue.preset}|${networkValue.pairs.length}|${networkValue.includeOpposite}` : undefined}
           plan={<>
             <PlanSummary plan={planQuery.data} loading={loading}
@@ -496,7 +495,6 @@ function VisualExporterPanel() {
                 Writes: {plannedFiles.map((file) => (file === "network.blend" && blendMb !== undefined ? `${file} (about ${blendMb} MB, the ${networkMetric === "direction" ? "fibre direction" : "TI_max"} scene)` : file)).join(", ")}
               </p>
             )}
-            {replacedFiles.length > 0 && <p className="field-help" data-testid="ve-replaced-files">Replaces: {replacedFiles.join(", ")}. This network's other colours stay.</p>}
             {configs.length > 1 && <p className="field-help">Cortical exports queue STL and PLY jobs; both logs stay available here.</p>}
           </>}
           scene={<ExportPreview
@@ -777,8 +775,6 @@ function VisualExporterPanel() {
                             subject={subjectId}
                             simulation={simulationName}
                             defaultHow="preset"
-                            nameLabel="Network name"
-                            nameHelp="Letters, digits, _ and -. It names this network's files, so networks of one simulation sit side by side."
                             strongestEmpty={<AssessNetworks subjectId={subjectId} simulationName={simulationName} onQueued={(job) => { jobs.trackJob(job); jobs.setPinnedJobId(job.id); }} />}
                             extra={{
                               label: "Your own file",

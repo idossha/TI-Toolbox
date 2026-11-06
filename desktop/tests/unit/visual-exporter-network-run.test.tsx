@@ -124,25 +124,34 @@ describe("Run on a chosen network", () => {
     run.done();
   });
 
-  it("asks before replacing a bundle of this name that holds other edges, and queues nothing until Replace", async () => {
+  it("a bundle of this name holding other edges is left alone: the selection takes a name of its own", async () => {
     outputs.networks = ["posterior_thalamocortical"];
     outputs.assessed = [{ name: "posterior_thalamocortical", pairs: [["a", "b"]], n_streamlines: 7 }];
+    const run = await press();
+    expect(run.asked).toBe(false);
+    expect(vi.mocked(api.createTractJob).mock.calls[0]![0].assess!.selections![0]!.name).toBe("posterior_thalamocortical_2");
+    expect(vi.mocked(api.createBlenderJob).mock.calls[0]!.slice(2)).toEqual([false, ["assess"]]);
+    run.done();
+  });
+
+  it("reuses the assessed bundle that holds these edges, whatever it is called", async () => {
+    outputs.networks = ["an_older_name"];
+    outputs.assessed = [{ name: "an_older_name", pairs: PAIRS, n_streamlines: 7 }];
+    const run = await press();
+    expect(api.createTractJob).not.toHaveBeenCalled();
+    expect(vi.mocked(api.createBlenderJob).mock.calls[0]![0]).toMatchObject({ selection: { name: "an_older_name" } });
+    run.done();
+  });
+
+  it("asks before replacing its own bundle when the network was rebuilt under it, and queues nothing until Replace", async () => {
+    outputs.networks = ["posterior_thalamocortical"];
+    outputs.assessed = [{ name: "posterior_thalamocortical", pairs: PAIRS, n_streamlines: 6 }];
     const run = await press();
     expect(run.asked).toBe(true);
     expect(api.createTractJob).not.toHaveBeenCalled();
     expect(api.createBlenderJob).not.toHaveBeenCalled();
     await run.replace();
     expect(vi.mocked(api.createTractJob).mock.calls[0]![2]).toBe(true);
-    expect(vi.mocked(api.createBlenderJob).mock.calls[0]!.slice(2)).toEqual([true, ["assess"]]);
-    run.done();
-  });
-
-  it("asks before replacing this network's own stills, and only them", async () => {
-    outputs.networks = ["all"];
-    plan.overwrite = true;
-    const run = await press();
-    expect(run.asked).toBe(true);
-    expect(api.createBlenderJob).not.toHaveBeenCalled();
     run.done();
   });
 });

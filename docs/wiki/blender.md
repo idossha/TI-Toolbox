@@ -38,7 +38,7 @@ Missing inputs produce a preview message; the preview does not substitute anothe
 ### Networks
 
 This mode renders white-matter networks of a simulation as one PNG figure per colouring, an optional MP4
-turntable and an optional Blender scene, under `visual_exports/sub-<id>/<sim>/networks/<network>/`. It needs the subject's tractogram and network; without them the
+turntable and an optional Blender scene, under `visual_exports/sub-<id>/<sim>/networks/<datetime>/`. It needs the subject's tractogram and network; without them the
 tab says what to run (**Pre-processing ▸ Diffusion ▸ Tractography**).
 
 **Choosing a network.** Four ways, all ending in the same list of region pairs, which the 3D pane
@@ -98,11 +98,11 @@ region names, colour bar or panel labels. Four panels on one scale and one black
 | top | **lateral**, the side the network is on, left for a bilateral one | **superior**, anterior at the top |
 | bottom | **anterior**, facing the head | **posterior** |
 
-**Where renders go.** One folder per network:
+**Where renders go.** One folder per run:
 
 ```
-visual_exports/sub-<id>/<sim>/networks/<network>/
-  ti_max.png  direction.png
+visual_exports/sub-<id>/<sim>/networks/<datetime>/
+  ti_max.png            (or direction.png)
   ti_max_turntable.mp4
   network.blend
   network.json
@@ -117,11 +117,12 @@ range (`colour_scale`) or the direction key (`colour_key`), and the panel order.
 another. Beside `metrics` it holds the selection, the code version and, per colour, the automatic setup used,
 the files, and the config to render it again: `simnibs_python -m tit.blender network.json ti_max`.
 
-The same network and colour replaces its own files and nothing else; the Plan names what it writes and what
-it would replace, and you are asked before anything is queued. The render's working bundle is deleted when
+Each run has a folder of its own, named by date and time as an ex-search run is (`20261106_143022`), so a render
+never replaces an earlier one and there is nothing to name. The Plan names what it writes. The render's working bundle is deleted when
 the render succeeds, and kept when it fails (`bundle_<colour>/`), or always with `keep_bundle` in the config.
-The **Renders** tab beside **Terminal** and **Scene** shows them by network, one network open at a time; it
-also reads folders rendered before this form, with one still per view.
+The **Renders** tab beside **Terminal** and **Scene** shows them by run, labelled with what the network is (its
+preset, its regions or your file's name) and the date and time, one open at a time; it also reads folders rendered
+before this form, under their own names.
 
 **The Scene pane** fills the column while you choose. The Plan is one line above it, opening on a click, and
 **Layers** at the pane's corner opens the legend and the opacity sliders over the canvas.
@@ -144,10 +145,10 @@ Other options:
   along each fibre averaged over ±3 mm for display. A turntable in TI_max opens in fibre direction and
   crossfades.
 - **Figure**, and a **Turntable video**, which is off until you ask for it and holds no text either.
-- **Export .blend**, off until you ask for it: `network.blend` in the network's folder, the scene the
+- **Export .blend**, off until you ask for it: `network.blend` in the run's folder, the scene the
   render used, with its meshes and materials in the file so it opens on another machine. It has a camera
   per panel. It holds one colour, the one just rendered, and the figure's scene when a figure and a
-  turntable are both asked for; ticking it again for another colour replaces it, and `network.json` says
+  turntable are both asked for; `network.json` says
   which it holds. The Plan states its approximate size, and `network.json` its size in bytes.
 - **Quality:** **Fast preview** (a 1600x1600 figure, a 4 s turntable at 960x540) checks a choice before
   **Final** (a 4000x4000 figure, a 5 s turntable at 1920x1080).
@@ -169,7 +170,7 @@ this subject: another subject's file in a similar space, or one flipped left to 
 Each streamline's two ends get a region from the head model's atlas, and the form says how many have an end
 in no region. Those are still drawn. **Run** assesses the file on the simulation first if needed, then
 renders every streamline with the same automatic setup as any network, to
-`networks/own_<name>/`. `network.json` records the source filename, the checks and the unlabelled count under
+`networks/<datetime>/`. `network.json` records the source filename, the checks and the unlabelled count under
 `metrics.source`. A file cannot be a target in the Optimizer.
 
 ### Cortical Regions

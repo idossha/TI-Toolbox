@@ -312,11 +312,11 @@ ex-search, All-montage ranking, one simulation, then the Networks tab's automati
 two networks. It writes `chain-results.json` beside its screenshots; comparing the tractogram and mask
 with a reference is the operator's step. `desktop/tests/e2e/real/network-figures.spec.ts`
 (`TIT_E2E_FIGURES_SUBJECT`, `TIT_E2E_FIGURES_SIMULATION`, `TIT_E2E_PROJECT_HOST`) renders a thalamocortical
-preset with its `.blend`, a network chosen by connection and a bilateral preset in both colours, renders one
-colour again, and writes each job's peak memory and time to `figures-results.json`; no text in the pixels is
+preset with its `.blend`, a network chosen by connection and a bilateral preset in both colours, each in a new dated
+folder, renders one colour again and checks the first folders are untouched, and writes each job's peak memory and time to `figures-results.json`; no text in the pixels is
 judged by eye from its copies. `desktop/tests/e2e/real/network-own-file.spec.ts` (`TIT_E2E_OWN_FILES`, from
 `dev/export_own_network_fixture.py`) loads the TCK and TRX of a network's own streamlines through the file
-picker, renders them on the same overrides as that network and compares the figures in pixels, and has a
+picker, renders them on the same overrides as that network's newest dated folder and compares the figures in pixels, and has a
 shifted and an empty file refused with nothing queued. `desktop/tests/e2e/real/atlas-borders.spec.ts`
 (`TIT_E2E_ATLAS_SUBJECT`, `TIT_E2E_ATLAS_SIMULATION`) counts islands and tooth pixels of the region colours
 in the Networks pane's drawing buffer, at a fixed camera; it needs a build with the scene hooks

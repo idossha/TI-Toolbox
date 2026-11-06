@@ -1377,6 +1377,14 @@ absent fields reproduce the previous render. Behaviour that moves: a render's `w
 `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and
 `desktop/src/renderer/api/schema.d.ts`.
 
+## 2026-11-06 — A network's render is a dated folder of its own
+
+A tract render's `output_dir` is `networks/<datetime>/`, so its plan never overwrites; `POST /api/plan/blender` loses
+`resolved.replaced_outputs`. `SimulationNetworks.renders[]` gains required `label`, what to call the folder; `network`
+stays the folder's name. `network.json`, `TractVisualConfig` and `Selection` are unchanged. A stored config now renders
+in a new folder unless it names `output_dir`. Regenerated `contracts/generated/openapi.json` and
+`desktop/src/renderer/api/schema.d.ts`.
+
 ## 2026-11-06 — A network from the user's own file; the thalamocortical sequence is gone
 
 `TractVisualConfig` loses `thalamocortical_sequence`, `prune_keep_fraction` and `label_regions`, and gains

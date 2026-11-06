@@ -830,7 +830,7 @@ read on ernie; a job would add queueing and a lock for no benefit).
 reads a simulation's `tract/` directory (`<bundle_or_all>.trx` with per-vertex `ti_along`/`ti_max`
 in m2m world mm, `edges.json`, `connectome_<metric>.npz`; the reader is
 [`tract_data.py`](../../tit/blender/tract_data.py)), subsamples to `max_streamlines` with odds rising
-with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/networks/<network>/` a
+with each streamline's `ti_along_max`, and writes into `visual_exports/sub-<id>/<sim>/networks/<datetime>/` a
 self-contained web viewer and a connectome figure (on by default) and, through a
 `bundle_<colour>/manifest.json` bundle rendered by [`tract_scene.py`](../../tit/blender/tract_scene.py)
 in the pinned Blender's own Python, one PNG figure per colour and opt-in turntable and propagation MP4s.
@@ -887,10 +887,10 @@ propagation video, reachable by config and offered by no form, keeps overlays (`
 files to crop and align by hand for what is one figure); composing panels in `simnibs_python` with PIL
 (a kept bundle must re-render in another Blender, which has only numpy and `bpy`).
 
-**One folder per network.** `visual_exports/sub-<id>/<sim>/networks/<network>/` (`all` for a whole
-tractogram) holds `<colour>.png`,
+**One folder per run.** `visual_exports/sub-<id>/<sim>/networks/<datetime>/`, named `%Y%m%d_%H%M%S` as an
+ex-search run's folder is, holds `<colour>.png`,
 `<colour>_turntable.mp4`, an opt-in `network.blend` and `network.json`: the selection, code version,
-per colour the config that re-renders it (`-m tit.blender network.json <colour>`), the setup and files, and
+per colour the config that renders it again in a new folder (`-m tit.blender network.json <colour>`), the setup and files, and
 `metrics`: what holds for the network (streamlines total, opposite-hemisphere counts with the QC count,
 streamlines per region, median TI_max, ti_along and align_index over the network, montage) and in
 `metrics.images` per file what holds for that render (streamlines drawn and sampling, shell level and

@@ -23,9 +23,7 @@ export const PERCENTILE_ORDER = "Magnitude-scale percentiles must rise: blue ≤
 
 export const CHOOSE_A_FILE = "Load a file, or choose one already loaded.";
 export const CHOOSE_A_NETWORK = "Choose a network.";
-export const NAME_THE_NETWORK = "Name the network: letters, digits, _ and -.";
 /** `all.trx` is the whole tractogram's file, which an assess of a network must not replace. */
-export const NAME_IS_RESERVED = "A network cannot be called all: that is the whole tractogram's file.";
 
 export type Mode = "regions" | "vectors" | "montage" | "subcortical" | "networks";
 
@@ -265,19 +263,31 @@ export function assessState(selection: NetworkSelection, nStreamlines: number, o
   return outputs.networks.includes("all") ? "ready" : "assess";
 }
 
-/** The Plan as one line: what Run queues, what it draws, and what it replaces. */
-export function networkPlanLine(plan: { jobs: number; memGb?: number; network?: string; streamlines?: number; blendMb?: number; replaced: readonly string[] }): string {
+/**
+ * What the assessed bundle under `tract/` is called, which the user never sees. A bundle holding
+ * these edges is reused whatever it is called, and another selection's is never taken.
+ */
+export function bundleName(auto: string, pairs: readonly string[][], outputs?: { networks: string[]; assessed: { name: string; pairs: string[][] }[] }): string {
+  const same = outputs?.assessed.find((bundle) => samePairSet(bundle.pairs, pairs));
+  if (same) return same.name;
+  let name = auto;
+  for (let n = 2; outputs?.networks.includes(name); n += 1) name = `${auto}_${n}`;
+  return name;
+}
+
+/** The Plan as one line: what Run queues, what it draws, and that it replaces nothing. */
+export function networkPlanLine(plan: { jobs: number; memGb?: number; network?: string; streamlines?: number; blendMb?: number }): string {
   const parts = [`${plan.jobs} job${plan.jobs === 1 ? "" : "s"}`];
   if (plan.memGb !== undefined) parts.push(`${plan.memGb} GB`);
   if (plan.network) parts.push(plan.network);
   if (plan.streamlines !== undefined) parts.push(`${plan.streamlines.toLocaleString("en-US")} streamlines`);
   if (plan.blendMb !== undefined) parts.push(`network.blend about ${plan.blendMb} MB`);
-  parts.push(plan.replaced.length ? `will overwrite ${plan.replaced.length} file${plan.replaced.length === 1 ? "" : "s"}` : "replaces nothing");
+  parts.push("a new dated folder");
   return parts.join(" · ");
 }
 
 /** The one-line "what this Run writes" the action bar and the toast both say. */
-export function outputHint(mode: Mode, subjectId: string, simulationName: string, network = "all"): string {
+export function outputHint(mode: Mode, subjectId: string, simulationName: string): string {
   const sub = `sub-${subjectId}`;
   switch (mode) {
     case "regions":
@@ -290,6 +300,6 @@ export function outputHint(mode: Mode, subjectId: string, simulationName: string
     case "subcortical":
       return `visual_exports/${sub}/sub-cortical`;
     case "networks":
-      return `visual_exports/${sub}/${simulationName}/networks/${network}`;
+      return `visual_exports/${sub}/${simulationName}/networks/<datetime>`;
   }
 }

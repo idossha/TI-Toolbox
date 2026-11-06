@@ -740,7 +740,7 @@ function outputDirFor(kind, subject, config) {
       const sim = String(cfg.simulation_name ?? "").trim();
       if (!sim) return "";
       if (type === "VectorConfig") return `${veBase}/${sim}/vectors`;
-      if (type === "TractVisualConfig") return `${veBase}/${sim}/networks/${tractNetworkName(cfg)}`;
+      if (type === "TractVisualConfig") return `${veBase}/${sim}/networks/${networkStamp()}`;
       if (type === "RegionConfig") return `${veBase}/${sim}/${String(cfg.format ?? "stl").toLowerCase()}`;
       return "";
     }
@@ -764,20 +764,10 @@ function assessReplaces(subject, cfg) {
   const names = (cfg.assess?.selections ?? [{ name: "all" }]).map((s) => s.name);
   return !!outputs && (names.length ? names.some((name) => outputs.networks.includes(name)) : outputs.has_edges);
 }
-/** `tit.blender.tract_publication.network_slug`. */
-function tractNetworkName(cfg) {
-  return cfg.own_network ? `own_${cfg.own_network}` : (cfg.selection?.name ?? cfg.network_bundle ?? "all");
-}
-function tractRendersOf(subject, cfg) {
-  return (simulationNetworks[`${subject}/${cfg.simulation_name}`]?.renders ?? []).filter((r) => r.network === tractNetworkName(cfg));
-}
-/** `planned_outputs`: this mock's renders are one lateral still per network and colour. */
-function replacedRenders(subject, cfg) {
-  const metric = cfg.metric ?? "ti_along";
-  return tractRendersOf(subject, cfg).filter((r) => r.colour === metric).map((r) => r.name);
-}
-function renderReplaces(subject, cfg) {
-  return replacedRenders(subject, cfg).length > 0;
+/** `tit.blender.tract_publication.network_output_dir`: the time now, as an ex-search run's folder is named. */
+function networkStamp(now = new Date()) {
+  const two = (n) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}${two(now.getMonth() + 1)}${two(now.getDate())}_${two(now.getHours())}${two(now.getMinutes())}${two(now.getSeconds())}`;
 }
 /** `resolve_network_setup`'s answer in the shape the Plan reads, from the mock's own edge counts. */
 function mockNetworkSetup(cfg) {
@@ -821,8 +811,8 @@ function existsForFixture(kind, subject, config) {
   if (kind === "leadfield") return (leadfields[subject] ?? []).some((l) => l.net === cfg.eeg_net && l.exists);
   // A `simulation_networks.json` entry is a simulation with a `tract/` folder, listed bundles or not.
   if (kind === "tract") return isTractAssess(cfg) && `${subject}/${cfg.assess.simulations?.[0]}` in simulationNetworks;
-  // `_plan_blender`: a tract render's folder exists once something is rendered there.
-  if (kind === "blender" && cfg._type === "TractVisualConfig") return tractRendersOf(subject, cfg).length > 0;
+  // `_plan_blender`: each tract render has a folder of its own.
+  if (kind === "blender" && cfg._type === "TractVisualConfig") return false;
   const name = cfg.name || cfg.run_name;
   if (!name) return false;
   if (kind === "sim") return (simulations[subject] ?? []).some((s) => s.name === name);
@@ -921,7 +911,6 @@ function resolvedFor(kind, config, montageSources, ids) {
     const metric = cfg.metric ?? "ti_along";
     return {
       planned_outputs: [...(cfg.stills === false ? [] : [`${metric}.png`]), ...(cfg.turntable ? [`${metric}_turntable.mp4`] : []), ...(cfg.export_blend ? ["network.blend"] : [])],
-      replaced_outputs: ids.flatMap((subject) => replacedRenders(subject, cfg)),
       ...(cfg.export_blend ? { blend_size_mb: 40 } : {}),
       ...(cfg.selection ? { network_setup: mockNetworkSetup(cfg) } : {}),
     };
@@ -1104,7 +1093,7 @@ function planFor(kind, config, subjectIds, overwrite, montageSources) {
     const output_dir = outputDirFor(kind, subject, cfg);
     const exists = existsForFixture(kind, subject, cfg);
     // `_plan_leadfield`: a leadfield is replaced when its config asks to compute (`overwrite`).
-    const replaces = kind === "leadfield" ? !!cfg.overwrite : kind === "tract" ? assessReplaces(subject, cfg) : kind === "blender" && cfg._type === "TractVisualConfig" ? renderReplaces(subject, cfg) : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
+    const replaces = kind === "leadfield" ? !!cfg.overwrite : kind === "tract" ? assessReplaces(subject, cfg) : REPLACES_WHEN_EXISTS_KINDS.has(kind) || !!overwrite;
     return { kind, subject, output_dir, exists, will_overwrite: exists && replaces };
   });
   const lock_conflicts = [];
@@ -1663,10 +1652,11 @@ function finishJob(job) {
     if (job.status.kind === "blender" && cfg._type === "TractVisualConfig" && (cfg.selection || cfg.own_network)) {
       const key = `${cfg.subject_id}/${cfg.simulation_name}`;
       const earlier = simulationNetworks[key] ?? { networks: [], assessed: [], has_edges: false, renders: [] };
-      const network = tractNetworkName(cfg);
+      const network = `${networkStamp()}_${job.status.id ?? job.id}`;
+      const label = `${cfg.own_network ? `${cfg.own_network}.tck` : (cfg.preset ?? (cfg.selection?.regions ?? []).slice(0, 2).join(", "))} · 2026-11-06 12:00:00`;
       const colour = cfg.metric ?? "ti_along";
       const name = `${colour}.png`;
-      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), network, colour, view: "" };
+      const render = { path: `/mnt/example/derivatives/ti-toolbox/visual_exports/sub-${cfg.subject_id}/${cfg.simulation_name}/networks/${network}/${name}`, name, kind: "image", modified_at: nowIso(), label, network, colour, view: "" };
       simulationNetworks[key] = { ...earlier, renders: [render, ...earlier.renders.filter((r) => r.path !== render.path)] };
     }
   }

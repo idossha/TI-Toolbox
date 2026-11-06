@@ -4818,3 +4818,25 @@ comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub
 checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
 "same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
 
+## 2026-11-06 — A network's render is a dated folder, and asks for no name
+
+**Decision.** Each render writes `networks/<datetime>/`, `%Y%m%d_%H%M%S` as `tit/opt/ex/ex.py` names an ex-search run. The Visual exporter's Network
+name field, its checks and the replace question for renders are gone. Supersedes "A network's renders are one folder" (2026-11-05) on names and on a colour
+replacing itself, and a second colour of one network is now a second folder. Existing folders are not renamed and list under their own names.
+
+**Why.** The maintainer: "under networks, we should name the output using datetime convention instead of something like this '2_regions_to_4_regions'".
+A generated name said little, a repeat overwrote the last figure, and the name field was one more thing to fill in for a choice already made.
+
+**Gallery.** `tit.catalog._network_label` reads the folder's `network.json`: the source filename, else the preset's label, else two region names and how many
+more, then the datetime. A folder without a dated name is labelled by that name, since it says what it is.
+
+**Kept.** The assessed bundle under `Simulations/<sim>/tract/` is a separate artifact, with the name the choice generates (`autoNetworkName`), hidden now.
+`bundleName` reuses a bundle whose `summary.json` entry holds the same edges under any name, and otherwise adds `_2`, `_3` to a name taken by other edges, so a
+repeat costs no assessment and no selection replaces another's bundle. The one question left is a bundle holding these edges at another streamline count, after
+the network was rebuilt. Optimizer masks keep their names and field. A config naming `output_dir` still writes there, for scripts, so `network.json`'s merging of
+colours stays for that path alone.
+
+**Cost.** Two colours of one network no longer sit in one folder, and a stored config renders into a new folder, so renders accumulate; deleting old ones is the
+user's. **Alternatives rejected.** A hash in the folder name: not the toolbox's convention, and it reads no better. A `<name>_<datetime>` folder: the name is what
+was asked to go.
+

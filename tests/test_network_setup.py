@@ -18,6 +18,7 @@ Reproduce: ``.venv/bin/python -m pytest tests/test_network_setup.py -q``.
 from __future__ import annotations
 
 import importlib.util
+import re
 from pathlib import Path
 
 import numpy as np
@@ -44,7 +45,6 @@ from tit.blender.tract_publication import (
     network_slug,
     planned_outputs,
     region_counts,
-    replaced_outputs,
 )
 from tit.tract import geometry
 from tit.tract.config import Selection
@@ -269,17 +269,15 @@ def test_a_blend_needs_a_render_and_stays_out_of_the_sequence() -> None:
 # ---- names: networks of one simulation coexist ----------------------------------------------
 
 
-def test_each_network_has_a_folder_and_each_colour_its_own_bundle() -> None:
+def test_each_render_has_a_dated_folder_named_as_an_ex_search_run_is() -> None:
     a = config(selection=net([["a", "b"]], name="alpha"), metric="ti_max")
     b = config(selection=net([["a", "b"]], name="beta"), metric="direction")
-    assert network_output_dir(a, "/x/sim") == "/x/sim/networks/alpha"
-    assert network_output_dir(b, "/x/sim") == "/x/sim/networks/beta"
+    assert re.fullmatch(r"/x/sim/networks/\d{8}_\d{6}", network_output_dir(a, "/x/sim"))
+    assert re.fullmatch(
+        r"/x/sim/networks/\d{8}_\d{6}", network_output_dir(config(), "/x/sim")
+    )
     assert bundle_folder(a) == "bundle_ti_max"
     assert bundle_folder(b) == "bundle_direction"
-
-
-def test_a_render_of_the_whole_tractogram_is_the_network_called_all() -> None:
-    assert network_output_dir(config(), "/x/sim") == "/x/sim/networks/all"
 
 
 def test_the_config_can_name_its_own_folder() -> None:
@@ -295,32 +293,14 @@ def test_a_bundle_and_a_display_name_become_a_safe_folder() -> None:
     assert network_slug(named) == "Posterior_TC__L_"
 
 
-def test_the_plan_replaces_exactly_this_colours_figure(tmp_path: Path) -> None:
+def test_a_run_plans_its_colours_files_and_a_blend_only_when_asked_for() -> None:
     cfg = config(selection=net([["a", "b"]], name="alpha"), metric="ti_max", web=False)
-    # An older folder's stills are neither planned nor replaced.
-    for name in ("ti_max.png", "ti_max_posterior.png", "direction.png"):
-        (tmp_path / name).touch()
     assert planned_outputs(cfg) == ["ti_max.png"]
-    assert replaced_outputs(cfg, str(tmp_path)) == ["ti_max.png"]
-    other = config(selection=net([["a", "b"]]), metric="direction", web=False)
-    assert replaced_outputs(other, str(tmp_path)) == ["direction.png"]
-    third = config(selection=net([["a", "b"]]), metric="align_index", web=False)
-    assert replaced_outputs(third, str(tmp_path)) == []
-
-
-def test_a_blend_is_planned_and_replaced_only_when_asked_for(tmp_path: Path) -> None:
-    (tmp_path / "network.blend").touch()
-    assert replaced_outputs(config(web=False, stills=True), str(tmp_path)) == []
     asked = config(web=False, stills=True, export_blend=True)
     assert planned_outputs(asked) == ["ti_along.png", "network.blend"]
-    assert replaced_outputs(asked, str(tmp_path)) == ["network.blend"]
-
-
-def test_a_video_is_replaced_only_when_a_video_is_asked_for(tmp_path: Path) -> None:
-    (tmp_path / "ti_along_turntable.mp4").touch()
-    assert replaced_outputs(config(web=False), str(tmp_path)) == []
-    asked = config(web=False, stills=False, turntable=True)
-    assert replaced_outputs(asked, str(tmp_path)) == ["ti_along_turntable.mp4"]
+    assert planned_outputs(config(web=False, stills=False, turntable=True)) == [
+        "ti_along_turntable.mp4"
+    ]
 
 
 # ---- labels -----------------------------------------------------------------------------------
@@ -345,10 +325,22 @@ def test_the_panels_are_anatomical_views_in_a_fixed_order() -> None:
         return right.tolist(), up.tolist()
 
     # World axes are +x subject right, +y anterior, +z up.
-    assert screen("lateral") == ([0, -1, 0], [0, 0, 1])  # from the left, the nose to the left
-    assert screen("superior") == ([1, 0, 0], [0, 1, 0])  # from above, anterior at the top
-    assert screen("anterior") == ([-1, 0, 0], [0, 0, 1])  # facing it: its left on our right
-    assert screen("posterior") == ([1, 0, 0], [0, 0, 1])  # behind it: its right on our right
+    assert screen("lateral") == (
+        [0, -1, 0],
+        [0, 0, 1],
+    )  # from the left, the nose to the left
+    assert screen("superior") == (
+        [1, 0, 0],
+        [0, 1, 0],
+    )  # from above, anterior at the top
+    assert screen("anterior") == (
+        [-1, 0, 0],
+        [0, 0, 1],
+    )  # facing it: its left on our right
+    assert screen("posterior") == (
+        [1, 0, 0],
+        [0, 0, 1],
+    )  # behind it: its right on our right
     assert scene._axes(*scene.panel_views(1)["lateral"])[1].tolist() == [0, 1, 0]
 
 
@@ -424,7 +416,9 @@ def test_the_arc_length_mean_is_the_statistic_the_assess_stage_reports() -> None
     )
 
 
-def test_the_medians_are_the_arc_length_means_and_say_when_a_tractogram_has_no_ti_avg() -> None:
+def test_the_medians_are_the_arc_length_means_and_say_when_a_tractogram_has_no_ti_avg() -> (
+    None
+):
     tracts = _line([0.0, 1.0, 4.0])
     assert network_medians(tracts) == {
         "median_ti_max_v_per_m": 1.5,
@@ -450,7 +444,9 @@ def test_a_streamline_counts_once_per_region_it_ends_in() -> None:
     assert list(region_counts(tracts, edges).items()) == [("lh.a", 3), ("lh.b", 2)]
 
 
-def test_a_montage_keeps_its_labels_and_rounds_coordinates_named_after_themselves() -> None:
+def test_a_montage_keeps_its_labels_and_rounds_coordinates_named_after_themselves() -> (
+    None
+):
     raw = [73.97953796386719, -18.586177825927734, 38.58809280395508]
     assert montage_record(
         [
@@ -492,7 +488,13 @@ def test_an_image_says_how_to_read_its_colours() -> None:
     }
     assert "colour_scale" not in key
     log2 = image_metrics(
-        {**MANIFEST, "metric": "align_index", "vmin": 0.25, "vmax": 4.0, "diverging": True}
+        {
+            **MANIFEST,
+            "metric": "align_index",
+            "vmin": 0.25,
+            "vmax": 4.0,
+            "diverging": True,
+        }
     )
     assert log2["colour_scale"]["colour_map"] == "coolwarm, log2 about 1"
 

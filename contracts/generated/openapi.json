@@ -10111,7 +10111,7 @@
           },
           "renders": {
             "type": "array",
-            "description": "PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first.",
+            "description": "PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<datetime>/ (older folders by name), newest first.",
             "items": {
               "type": "object",
               "required": [
@@ -10120,6 +10120,7 @@
                 "kind",
                 "modified_at",
                 "network",
+                "label",
                 "colour",
                 "view"
               ],
@@ -10143,7 +10144,12 @@
                   "type": "string"
                 },
                 "network": {
-                  "type": "string"
+                  "type": "string",
+                  "description": "the folder under networks/: a datetime, or an older folder's name"
+                },
+                "label": {
+                  "type": "string",
+                  "description": "what to call it: what the network is and when, or an older folder's name"
                 },
                 "colour": {
                   "type": "string",
@@ -11359,13 +11365,6 @@
             "type": "object",
             "additionalProperties": true,
             "description": "blender, a named network only: tit.blender.network_setup.resolve_network_setup's values, reasons, overridden, n_streamlines, n_drawn, and opposite_removed for a same-side preset."
-          },
-          "replaced_outputs": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "blender, a tract render - the files of its folder this run would replace."
           },
           "planned_outputs": {
             "type": "array",

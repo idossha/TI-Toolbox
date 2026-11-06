@@ -317,6 +317,7 @@ class NetworkRender(BaseModel):
     kind: Literal["image", "video", "scene"]
     modified_at: str
     network: str
+    label: str
     colour: str
     view: str
 

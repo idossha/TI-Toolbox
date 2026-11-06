@@ -20,36 +20,36 @@ export function renderLabel(render: Pick<Render, "colour" | "view">): string {
 export const isPicture = (render: Pick<Render, "kind">): boolean => render.kind !== "scene";
 
 /** Each network's renders together, the most recently rendered network first. */
-export function groupRenders(renders: readonly Render[]): { network: string; renders: Render[] }[] {
+export function groupRenders(renders: readonly Render[]): { network: string; label: string; renders: Render[] }[] {
   const groups = new Map<string, Render[]>();
   for (const render of renders) groups.set(render.network, [...(groups.get(render.network) ?? []), render]);
   const labelled = (a: Render, b: Render) => renderLabel(a).localeCompare(renderLabel(b));
-  return [...groups].map(([network, rows]) => ({ network, renders: [...rows].sort(labelled) }));
+  return [...groups].map(([network, rows]) => ({ network, label: rows[0]!.label, renders: [...rows].sort(labelled) }));
 }
 
 /**
- * A simulation's renders by network, one open at a time by default (the chosen one, else the newest),
- * so a big set does not saturate the page.
+ * A simulation's renders by run, labelled by what each network is and when, the newest open by
+ * default, so a big set does not saturate the page.
  */
-export function NetworkRenders({ renders, current }: { renders: SimulationNetworks["renders"]; current?: string }) {
+export function NetworkRenders({ renders }: { renders: SimulationNetworks["renders"] }) {
   const groups = useMemo(() => groupRenders(renders), [renders]);
   if (renders.length === 0) return <p className="field-help">Rendered figures and videos of this simulation appear here.</p>;
-  const open = groups.some((group) => group.network === current) ? current : groups[0]!.network;
+  const open = groups[0]!.network;
   return (
     <div className="network-render-groups" data-testid="network-renders">
       {groups.map((group) => (
         <details key={group.network} open={group.network === open} data-network={group.network}>
           <summary>
-            {group.network} <span className="field-help tabular">{group.renders.filter(isPicture).length}</span>
+            {group.label} <span className="field-help tabular">{group.renders.filter(isPicture).length}</span>
           </summary>
           <div className="network-renders">
             {group.renders.filter(isPicture).map((render) => (
               <figure key={render.path}>
                 {render.kind === "video" ? (
-                  <video src={rawUrl(render.path, render.modified_at)} controls preload="metadata" aria-label={`${group.network}, ${renderLabel(render)}`} />
+                  <video src={rawUrl(render.path, render.modified_at)} controls preload="metadata" aria-label={`${group.label}, ${renderLabel(render)}`} />
                 ) : (
                   <a href={rawUrl(render.path, render.modified_at)} target="_blank" rel="noreferrer">
-                    <img src={rawUrl(render.path, render.modified_at)} alt={`${group.network}, ${renderLabel(render)}`} loading="lazy" />
+                    <img src={rawUrl(render.path, render.modified_at)} alt={`${group.label}, ${renderLabel(render)}`} loading="lazy" />
                   </a>
                 )}
                 <figcaption>{renderLabel(render)}</figcaption>

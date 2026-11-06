@@ -20,6 +20,7 @@ Reproduce: ``.venv/bin/python -m pytest tests/test_tract_routes.py -q``.
 from __future__ import annotations
 
 import json
+import re
 import struct
 import zipfile
 from pathlib import Path
@@ -945,30 +946,19 @@ def _render(name: str, metric: str = "ti_max") -> dict:
     }
 
 
-def test_the_plan_of_a_render_names_exactly_what_it_replaces(
+def test_the_plan_of_a_render_is_a_new_dated_folder_that_replaces_nothing(
     client: TestClient, project: Path
 ) -> None:
-    def replaced(name: str, metric: str = "ti_max") -> tuple[bool, list[str], str]:
-        body = client.post(
-            "/api/plan/blender",
-            json={"config": _render(name, metric), "subject_ids": ["S1"]},
-        ).json()
-        job = body["jobs"][0]
-        return (
-            job["will_overwrite"],
-            body["resolved"]["replaced_outputs"],
-            job["output_dir"],
-        )
-
     out = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks"
-    (out / "other").mkdir(parents=True)
-    (out / "other" / "ti_max.png").touch()
-    assert replaced("mine") == (False, [], str(out / "mine"))
-    (out / "mine").mkdir()
+    (out / "mine").mkdir(parents=True)
     (out / "mine" / "ti_max.png").touch()
-    (out / "mine" / "ti_max_superior.png").touch()  # an older folder's still: not this run's
-    assert replaced("mine")[:2] == (True, ["ti_max.png"])
-    assert replaced("mine", "direction")[:2] == (False, [])
+    job = client.post(
+        "/api/plan/blender",
+        json={"config": _render("mine"), "subject_ids": ["S1"]},
+    ).json()["jobs"][0]
+    assert job["will_overwrite"] is False and job["exists"] is False
+    assert Path(job["output_dir"]).parent == out
+    assert re.fullmatch(r"\d{8}_\d{6}", Path(job["output_dir"]).name)
 
 
 def test_the_plan_of_a_render_states_its_files_and_a_blends_size(
@@ -987,14 +977,7 @@ def test_the_plan_of_a_render_states_its_files_and_a_blends_size(
     assert "blend_size_mb" not in plain
     asked = resolved(export_blend=True)
     assert asked["planned_outputs"] == ["ti_max.png", "network.blend"]
-    assert asked["replaced_outputs"] == []
     assert asked["blend_size_mb"] == blend_size_mb(6)  # COUNTS above
-
-    folder = project / "derivatives/ti-toolbox/visual_exports/sub-S1/sim1/networks/mine"
-    folder.mkdir(parents=True)
-    (folder / "network.blend").touch()
-    assert resolved(export_blend=True)["replaced_outputs"] == ["network.blend"]
-    assert resolved()["replaced_outputs"] == []
 
 
 def test_the_plan_of_a_render_states_its_automatic_setup_from_the_network(
@@ -1096,7 +1079,12 @@ def test_the_gallery_reads_a_figure_a_video_a_scene_and_an_older_folder(
     ):
         (new / name).touch()
     # A folder from before the one-figure form, and files no render writes.
-    for name in ("direction_lateral.png", "ti_max_posterior.png", "stray.png", ".DS_Store"):
+    for name in (
+        "direction_lateral.png",
+        "ti_max_posterior.png",
+        "stray.png",
+        ".DS_Store",
+    ):
         (old / name).touch()
     (old / "network.json").write_text('{"colours": {"direction": {"files": []}}}')
     pm = get_path_manager()
@@ -1141,7 +1129,9 @@ def test_a_loaded_file_is_kept_after_its_checks_and_a_refusal_is_said_plainly(
     assert "choose a .trx, .tck or .trk" in post("mask.nii").json()["detail"]
     assert post("mine.tck", b"").json()["detail"] == "This file is empty."
     assert post("mine.tck", b"").status_code == 422
-    assert post("x.tck", b"bytes").status_code == 422  # nibabel is mocked: no streamlines
+    assert (
+        post("x.tck", b"bytes").status_code == 422
+    )  # nibabel is mocked: no streamlines
 
     record = {
         "name": "mine",
@@ -1183,7 +1173,11 @@ def test_a_loaded_files_assess_and_render_write_its_own_folders(
         {
             "subject_id": "S1",
             "stages": ["assess"],
-            "assess": {"simulations": ["sim1"], "selections": [], "own_network": "mine"},
+            "assess": {
+                "simulations": ["sim1"],
+                "selections": [],
+                "own_network": "mine",
+            },
         },
     )
     assert assess["jobs"][0]["output_dir"].endswith("sim1/tract/own_mine")
@@ -1197,7 +1191,7 @@ def test_a_loaded_files_assess_and_render_write_its_own_folders(
             "metric": "ti_max",
         },
     )
-    assert render["jobs"][0]["output_dir"].endswith("networks/own_mine")
+    assert re.search(r"networks/\d{8}_\d{6}$", render["jobs"][0]["output_dir"])
     assert render["cost"]["mem_gb"] == 6
 
 
@@ -1227,9 +1221,9 @@ def test_two_jobs_claim_one_blend_but_a_colour_each() -> None:
 
     assert not claims("ti_max") & claims("direction")
     assert not claims("ti_max", export_blend=True) & claims("direction")
-    assert claims("ti_max", export_blend=True) & claims("direction", export_blend=True) == {
-        "/net/network.blend"
-    }
+    assert claims("ti_max", export_blend=True) & claims(
+        "direction", export_blend=True
+    ) == {"/net/network.blend"}
 
 
 def test_two_jobs_claim_a_network_each_in_one_folder() -> None:

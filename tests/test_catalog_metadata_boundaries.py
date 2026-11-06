@@ -4,6 +4,7 @@ Authored temporary trees distinguish root and leaf symlinks; internal aliases ar
 positive controls. Run: python3 -m pytest tests/test_catalog_metadata_boundaries.py -q
 """
 
+import json
 from pathlib import Path
 
 import pytest
@@ -57,6 +58,43 @@ def test_simulation_figure_leaf_alias(tree, internal):
     leaf.symlink_to(target)
     figures = catalog.simulation_figures(pm, "001", "simA")
     assert bool(figures) is internal
+
+
+def test_a_dated_network_folder_is_labelled_from_its_sidecar_and_an_older_one_by_name(
+    tree,
+):
+    pm, _root, _outside = tree
+    Path(pm.simulation("001", "simA")).mkdir(parents=True)
+    base = Path(pm.ti_toolbox()) / "visual_exports" / "sub-001" / "simA" / "networks"
+    records = {
+        "20261106_120000": {"preset": "posterior_thalamocortical"},
+        "20261106_120001": {
+            "selection": {"regions": ["a", "b", "c"], "pairs": [["a", "x"]]}
+        },
+        "20261106_120002": {"selection": {"pairs": [["a", "x"]]}},
+        "20261106_120003": {"metrics": {"source": {"source_filename": "mine.tck"}}},
+        "20261106_120004": {},
+        "2_regions_to_4_regions": {"preset": "posterior_thalamocortical"},
+    }
+    for name, record in records.items():
+        (base / name).mkdir(parents=True)
+        (base / name / "network.json").write_text(json.dumps(record))
+        (base / name / "ti_max.png").touch()
+    (base / "20261106_120005").mkdir()  # a run that never wrote its sidecar
+    (base / "20261106_120005" / "ti_max.png").touch()
+    labels = {
+        r["network"]: r["label"]
+        for r in catalog.simulation_networks(pm, "001", "simA")["renders"]
+    }
+    assert labels == {
+        "20261106_120000": "Posterior thalamocortical · 2026-11-06 12:00:00",
+        "20261106_120001": "a, b and 1 more · 2026-11-06 12:00:01",
+        "20261106_120002": "a, x · 2026-11-06 12:00:02",
+        "20261106_120003": "mine.tck · 2026-11-06 12:00:03",
+        "20261106_120004": "All streamlines · 2026-11-06 12:00:04",
+        "20261106_120005": "2026-11-06 12:00:05",
+        "2_regions_to_4_regions": "2_regions_to_4_regions",
+    }
 
 
 def test_simulation_networks_lists_trx_stems_and_finished_renders(tree):

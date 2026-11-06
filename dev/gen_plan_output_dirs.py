@@ -28,6 +28,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import re
 import sys
 import tempfile
 from pathlib import Path
@@ -223,9 +224,11 @@ def build() -> dict[str, Any]:
             jobs = [
                 {
                     "subject": job["subject"],
-                    "output_dir": Path(
-                        os.path.relpath(job["output_dir"], project)
-                    ).as_posix(),
+                    "output_dir": re.sub(
+                        r"/networks/\d{8}_\d{6}$",
+                        "/networks/<datetime>",
+                        Path(os.path.relpath(job["output_dir"], project)).as_posix(),
+                    ),
                 }
                 for job in response.json()["jobs"]
             ]

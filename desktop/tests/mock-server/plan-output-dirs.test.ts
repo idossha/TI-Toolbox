@@ -115,7 +115,7 @@ describe("POST /api/plan: the output folder the real server plans", () => {
       const plan = (await res.json()) as { jobs: { subject: string; output_dir: string }[] };
       const relative = plan.jobs.map((j) => ({
         subject: j.subject,
-        output_dir: j.output_dir.startsWith(`${projectRoot}/`) ? j.output_dir.slice(projectRoot.length + 1) : j.output_dir,
+        output_dir: (j.output_dir.startsWith(`${projectRoot}/`) ? j.output_dir.slice(projectRoot.length + 1) : j.output_dir).replace(/\/networks\/\d{8}_\d{6}$/, "/networks/<datetime>"),
       }));
       expect(relative).toEqual(c.jobs);
     });

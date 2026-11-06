@@ -270,7 +270,6 @@ test("a preset is chosen, says what same-side left out, and Run assesses it befo
   const count = page.getByTestId("network-count");
   await expect(count).toContainText("95 streamlines · 1 edge");
   await expect(page.getByTestId("network-removed")).toHaveText("· 95 of 107; 12 opposite-hemisphere removed (right thalamus to left cortex 12, left thalamus to right cortex 0)");
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
   await expect(page.getByTestId("ve-assess-first")).toContainText("assesses this network first");
   await page.getByTestId("network-advanced").locator("summary").click();
   await expect(page.getByTestId("network-setup-removed")).toContainText("12 opposite-hemisphere removed");
@@ -280,9 +279,7 @@ test("a preset is chosen, says what same-side left out, and Run assesses it befo
   await opposite.click();
   await expect(count).toContainText("107 streamlines · 2 edges");
   await expect(page.getByTestId("network-removed")).toHaveCount(0);
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical_with_opposite");
   await opposite.click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
 
   const accepted: { kind: string; config: Record<string, unknown>; after?: string[]; id?: string }[] = [];
   page.on("request", (r) => {
@@ -296,27 +293,27 @@ test("a preset is chosen, says what same-side left out, and Run assesses it befo
   await expect(page.getByTestId("page-right-pane").getByTestId("job-terminal-identity")).toBeVisible({ timeout: 20_000 });
 });
 
-test("a render of one network leaves another's files alone, and asks only about its own", async () => {
+test("each render has a folder of its own: the same network again replaces nothing and asks nothing", async () => {
   await openNetworksOf("ernie", "Thalamus");
-  const first = page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ });
-  await first.click();
+  await page.getByTestId("network-presets").getByRole("option", { name: /Precentral-brainstem/ }).click();
+  await expect(page.getByTestId("network-mask-name")).toHaveCount(0);
+  await expect(page.getByTestId("extension-plan-line")).toContainText("a new dated folder");
   const job = await submittedJob(() => page.getByTestId("run-button").click());
   expect(job).toMatchObject({ kind: "blender" });
   const rendersTab = page.getByRole("radio", { name: /^Renders \d+$/ });
   await expect(page.getByRole("radio", { name: "Renders 2" })).toBeVisible({ timeout: 30_000 });
   await rendersTab.click();
-  // One group for each; the newer open, the older a header until it is asked for.
+  // One group for each, labelled by what it is; the newer open, the older a header until it is asked for.
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: "precentral_brainstem, Fibre direction", exact: true })).toBeVisible();
+  await expect(renders.getByRole("img", { name: /^precentral_brainstem · .*, Fibre direction$/ })).toBeVisible();
   await expect(renders.locator("details")).toHaveCount(2);
   await expect(renders.locator('details[data-network="all"]')).not.toHaveAttribute("open");
-  await page.getByTestId("run-button").click();
-  await expect(page.getByTestId("existing-outputs-replace")).toBeVisible({ timeout: 10_000 });
-  await page.getByTestId("existing-outputs-skip").click();
-  await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
-  const other = await submittedJob(() => page.getByTestId("run-button").click());
-  expect(other.config).toMatchObject({ selection: { name: "posterior_thalamocortical" } });
+  await expect(renders.locator('details[data-network="all"] > summary')).toContainText("all");
+  const again = await submittedJob(() => page.getByTestId("run-button").click());
+  expect(again.config).toMatchObject({ preset: "precentral_brainstem" });
+  await expect(page.getByTestId("existing-outputs-replace")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "Renders 3" })).toBeVisible({ timeout: 30_000 });
+  await expect(renders.locator("details")).toHaveCount(3);
 });
 
 test("by region: from a seed alone, then narrowed by a to", async () => {
@@ -326,12 +323,10 @@ test("by region: from a seed alone, then narrowed by a to", async () => {
   await page.getByRole("dialog").getByRole("option", { name: /^lh\.precentral/ }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("network-count")).toContainText("707 streamlines · 3 edges"); // 600 + 95 + 12; the 3 fall under minN 5
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("lh_precentral");
   await page.getByTestId("network-to").click();
   await page.getByRole("dialog").getByRole("option", { name: /^Brain-Stem/ }).click();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("network-count")).toContainText("600 streamlines · 1 edge");
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("lh_precentral_to_Brain-Stem");
   const accepted = await submittedJob(() => page.getByTestId("run-button").click());
   expect(accepted).toMatchObject({ kind: "tract" });
   expect(accepted.config).toMatchObject({ assess: { selections: [{ name: "lh_precentral_to_Brain-Stem", regions: ["lh.precentral"], pairs: [["lh.precentral", "Brain-Stem"]] }] } });
@@ -345,7 +340,6 @@ test("by connection: the table is the choice, and a line in the pane is too", as
   await page.keyboard.press("Escape");
   await page.getByTestId("network-edges").getByRole("option", { name: /Left-Thalamus-Proper/ }).click();
   await expect(page.getByTestId("network-count")).toContainText("300 streamlines · 1 edge");
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("lh_insula_Left-Thalamus-Proper");
   await expect(page.getByTestId("run-pane-panel-scene")).toBeVisible();
 });
 
@@ -359,7 +353,6 @@ test("strongest here: no metric is chosen for you, and the list follows the one 
   await page.getByRole("option", { name: "Median TI_max (V/m)" }).click();
   await page.getByTestId("network-chooser").locator(".field", { hasText: "Connections" }).locator("input").fill("1");
   await expect(page.getByTestId("network-count")).toContainText("600 streamlines · 1 edge");
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("top_1_by_ti_max_mean");
   await page.locator("#network-metric").click();
   await page.getByRole("option", { name: "Median align_index" }).click();
   await expect(page.getByTestId("network-count")).toContainText("300 streamlines · 1 edge");

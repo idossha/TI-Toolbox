@@ -260,7 +260,7 @@ test("5. the Networks tab assesses and renders the chosen network, and its figur
   test.setTimeout(JOB_TIMEOUT);
   await openNetworksTab();
   await page.getByTestId("network-presets").getByRole("option", { name: /Posterior thalamocortical/ }).click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("posterior_thalamocortical");
+  await expect(page.getByTestId("network-mask-name")).toHaveCount(0);
   await page.locator("#ve-network-metric").click();
   await page.getByRole("option", { name: "TI_max", exact: true }).click();
   await page.getByTestId("network-advanced").locator("summary").click();
@@ -274,7 +274,7 @@ test("5. the Networks tab assesses and renders the chosen network, and its figur
   for (const id of ids) await succeeded(id);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  const still = renders.getByRole("img", { name: "posterior_thalamocortical, TI_max", exact: true });
+  const still = renders.getByRole("img", { name: /^Posterior thalamocortical · .*, TI_max$/ });
   await expect(still).toBeVisible({ timeout: 30_000 });
   await expect.poll(() => still.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(1600);
   await shot("10_networks_gallery");
@@ -284,7 +284,6 @@ test("5. the Networks tab assesses and renders the chosen network, and its figur
 test("6. another network renders beside the first, and each way of choosing is on screen", async () => {
   test.setTimeout(JOB_TIMEOUT);
   await page.getByTestId("network-presets").getByRole("option", { name: /Frontal thalamocortical/ }).click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("frontal_thalamocortical");
   // Setup is still open from the last step: its side, set by hand.
   await page.locator("#ve-setup-side").click();
   await page.getByRole("option", { name: "Right" }).click();
@@ -293,9 +292,9 @@ test("6. another network renders beside the first, and each way of choosing is o
   for (const id of ids) await succeeded(id);
   await page.getByRole("radio", { name: /^Renders \d+$/ }).click();
   const renders = page.getByTestId("network-renders");
-  await expect(renders.getByRole("img", { name: "frontal_thalamocortical, TI_max", exact: true })).toBeVisible({ timeout: 30_000 });
-  await renders.locator('details[data-network="posterior_thalamocortical"] > summary').click();
-  await expect(renders.getByRole("img", { name: "posterior_thalamocortical, TI_max", exact: true })).toBeVisible();
+  await expect(renders.getByRole("img", { name: /^Frontal thalamocortical · .*, TI_max$/ })).toBeVisible({ timeout: 30_000 });
+  await renders.locator("details", { hasText: "Posterior thalamocortical" }).locator("> summary").click();
+  await expect(renders.getByRole("img", { name: /^Posterior thalamocortical · .*, TI_max$/ })).toBeVisible();
   await shot("12_two_networks_in_gallery");
   await page.getByRole("radio", { name: "Scene", exact: true }).click();
   const body = await server<{ networks: string[]; has_edges: boolean; assessed: { name: string; n_streamlines: number }[] }>(`/api/catalog/simulations/${SIMULATION}/networks?subject=${SUBJECT}`);
@@ -309,7 +308,6 @@ test("6. another network renders beside the first, and each way of choosing is o
   await page.getByRole("radio", { name: "Strongest here" }).click();
   await page.locator("#network-metric").click();
   await page.getByRole("option", { name: "Median TI_max (V/m)" }).click();
-  await expect(page.getByTestId("network-mask-name")).toHaveValue("top_10_by_ti_max_mean");
   await page.waitForFunction(() => (window.__scene?.lines?.streamlines ?? 0) > 0, null, { timeout: 60_000 });
   await shot("15_strongest_here");
   await page.getByRole("radio", { name: "Your own file" }).click();

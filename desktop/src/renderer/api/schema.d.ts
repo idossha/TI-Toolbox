@@ -6688,7 +6688,7 @@ export interface components {
             has_edges: boolean;
             /** @description The files the user loaded that this simulation has assessed (tract/own_<name>/). */
             own_assessed: string[];
-            /** @description PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<network>/, newest first. */
+            /** @description PNG, MP4 and .blend files in visual_exports/sub-<id>/<sim>/networks/<datetime>/ (older folders by name), newest first. */
             renders: {
                 path: string;
                 name: string;
@@ -6698,7 +6698,10 @@ export interface components {
                  */
                 kind: "image" | "video" | "scene";
                 modified_at: string;
+                /** @description the folder under networks/: a datetime, or an older folder's name */
                 network: string;
+                /** @description what to call it: what the network is and when, or an older folder's name */
+                label: string;
                 /** @description what the fibres are coloured by; empty for a scene */
                 colour: string;
                 /** @description turntable, propagation or sequence; empty for a colour's figure or a scene; a still's view in a folder rendered before the one-figure form */
@@ -7041,8 +7044,6 @@ export interface components {
             network_setup?: {
                 [key: string]: unknown;
             };
-            /** @description blender, a tract render - the files of its folder this run would replace. */
-            replaced_outputs?: string[];
             /** @description blender, a tract render - the files this run writes. */
             planned_outputs?: string[];
             /** @description blender, a tract render with export_blend - about how large network.blend will be. */
