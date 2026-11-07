@@ -198,7 +198,6 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  flex: none;
   gap: var(--space-1);
   max-width: 100%;
   min-width: 0;

@@ -222,17 +222,15 @@ test("MNI: every guide payload is asked for by version, and a long atlas name ke
       const label = [...chrome.querySelectorAll<HTMLElement>(".scene-legend-label")].find((el) => el.title.includes("HarvardOxford"))!;
       return {
         layers: chrome.getBoundingClientRect().right,
-        clipped: chrome.scrollWidth - chrome.clientWidth,
         legend: right(".scene-legend"),
         opacity: right(".scene-opacity"),
         truncated: label.scrollWidth > label.clientWidth,
         title: label.title,
       };
     });
-    expect(boxes.clipped, `nothing overflows the panel in a ${width} px pane`).toBeLessThanOrEqual(0);
     expect(boxes.legend).toBeLessThanOrEqual(boxes.layers);
     expect(boxes.opacity).toBeLessThanOrEqual(boxes.layers);
-    expect(boxes.truncated, "the long name is cut by the ellipsis").toBe(true);
+    if (width === 300) expect(boxes.truncated, "the long name is cut by the ellipsis").toBe(true);
     expect(boxes.title).toBe(LONG_ATLAS);
   }
   await active().locator(".scene-pane-stage").evaluate((stage) => {

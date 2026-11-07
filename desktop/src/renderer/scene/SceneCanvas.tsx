@@ -127,6 +127,8 @@ export interface SceneDebugHandle {
    * no spike" about the rendered image rather than about the geometry (`scene/labelFaces.ts`).
    */
   sampleRegions(points: Array<[number, number]>): Array<number | null>;
+  /** What a click at each CSS point would pick, of any kind. */
+  samplePicks(points: Array<[number, number]>): Array<PickTarget | null>;
   /** `sampleRegions` of every device pixel, in one pass: a border read per pixel (`atlas-borders.spec.ts`). */
   regionFrame(): { width: number; height: number; regions: (number | null)[] } | null;
   /**
@@ -1120,11 +1122,14 @@ export function SceneCanvas({
           return target && target.kind === "region" ? target.index : null;
         });
       },
+      samplePicks(points) {
+        return points.map(([x, y]) => pickAt(x, y)?.target ?? null);
+      },
       regionFrame() {
         const scene = sceneRef.current;
         const camera = cameraRef.current;
         if (!scene || !camera) return null;
-        return scene.regionFrame(camera, { markers: false, regions: true, lines: false, depth: false, allSurfaces: pickAnySurface });
+        return scene.regionFrame(camera, { markers: false, regions: true, depth: false, allSurfaces: pickAnySurface });
       },
       setMarkerOcclusion(occluded) {
         const scene = sceneRef.current;
