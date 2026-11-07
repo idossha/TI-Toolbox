@@ -14,6 +14,12 @@ little-endian; a big-endian reader would have to byte-swap and there is none)::
     ...    4*I    uint32 indices           (triangles)
     ...    2*V    uint16 labels            when flags bit0; padded to 4 bytes
 
+With flags bit1 a labels payload leaves the positions to the surface it colours
+and carries that surface's first and last vertex, enough to check it was built
+for that surface: at offset 32, 24 bytes of float32 x y z x y z, then the labels.
+``indexCount`` is 0 and ``vertexCount`` still counts the labels. A reader that
+sees the bit clear reads the layout above, so older payloads stay valid.
+
 Why a hand-rolled 32-byte header rather than glTF: decision S3 — four
 primitives (positions, indices, optional labels, a bbox in the manifest) do
 not justify pulling glTF/three.js into either side. Normals are computed in
@@ -41,14 +47,17 @@ __all__ = [
     "VERSION",
     "HEADER_SIZE",
     "FLAG_LABELS",
+    "FLAG_ENDS_ONLY",
     "TvscPayload",
     "encode",
+    "encode_labels",
     "decode",
 ]
 
 MAGIC = b"TVSC"
 VERSION = 1
 FLAG_LABELS = 1 << 0
+FLAG_ENDS_ONLY = 1 << 1
 
 #: ``<`` = little-endian: ``4s`` magic, four ``u32`` (version, vertexCount,
 #: indexCount, flags) = 20 bytes, then the 12 reserved bytes -> exactly 32.
@@ -68,13 +77,15 @@ class TvscPayload:
     ``flags`` itself.
     """
 
-    positions: np.ndarray  # (V, 3) float32
+    positions: np.ndarray  # (V, 3) float32; (2, 3) with FLAG_ENDS_ONLY
     indices: np.ndarray  # (T, 3) uint32
     labels: np.ndarray | None  # (V,) uint16 or None
 
     @property
     def vertex_count(self) -> int:
-        return int(self.positions.shape[0])
+        return int(
+            self.labels.shape[0] if self.labels is not None else self.positions.shape[0]
+        )
 
     @property
     def triangle_count(self) -> int:
@@ -145,6 +156,29 @@ def encode(
     return header + pos.tobytes() + tri.tobytes() + label_bytes
 
 
+def encode_labels(positions: np.ndarray, labels: np.ndarray) -> bytes:
+    """Labels for the surface whose vertices are *positions*, without repeating them.
+
+    The whole central surfaces' 12 bytes per vertex here were 86 % of an atlas' payload, all of it
+    already fetched with the surface; the first and last vertex still catch a mismatched surface.
+    """
+    pos = np.ascontiguousarray(positions, dtype=np.float32)
+    lab = np.ascontiguousarray(labels, dtype=np.uint16)
+    if pos.ndim != 2 or pos.shape[1] != 3 or not len(pos):
+        raise ValueError(f"positions must be (V, 3) with V > 0, got {pos.shape}")
+    if lab.shape != (len(pos),):
+        raise ValueError(f"labels must be ({len(pos)},), got {lab.shape}")
+    ends = pos[[0, -1]]
+    if not np.isfinite(ends).all():
+        raise ValueError("positions contain non-finite values")
+    label_bytes = lab.tobytes()
+    label_bytes += b"\x00" * (-len(label_bytes) % 4)
+    header = _HEADER.pack(
+        MAGIC, VERSION, len(pos), 0, FLAG_LABELS | FLAG_ENDS_ONLY, b"\x00" * 12
+    )
+    return header + ends.tobytes() + label_bytes
+
+
 def decode(blob: bytes | bytearray | memoryview) -> TvscPayload:
     """Parse ``TVSC1`` bytes back into arrays, or raise ``ValueError``.
 
@@ -165,7 +199,8 @@ def decode(blob: bytes | bytearray | memoryview) -> TvscPayload:
         raise ValueError(f"indexCount {n_indices} is not a multiple of 3")
 
     offset = HEADER_SIZE
-    pos_bytes = 12 * n_vertices
+    n_positions = 2 if flags & FLAG_ENDS_ONLY else n_vertices
+    pos_bytes = 12 * n_positions
     idx_bytes = 4 * n_indices
     lab_bytes = 2 * n_vertices if flags & FLAG_LABELS else 0
     need = offset + pos_bytes + idx_bytes + lab_bytes
@@ -173,8 +208,8 @@ def decode(blob: bytes | bytearray | memoryview) -> TvscPayload:
         raise ValueError(f"TVSC blob is {len(data)} bytes, header requires {need}")
 
     positions = np.frombuffer(
-        data, dtype="<f4", count=3 * n_vertices, offset=offset
-    ).reshape(n_vertices, 3)
+        data, dtype="<f4", count=3 * n_positions, offset=offset
+    ).reshape(n_positions, 3)
     offset += pos_bytes
     indices = np.frombuffer(data, dtype="<u4", count=n_indices, offset=offset).reshape(
         -1, 3

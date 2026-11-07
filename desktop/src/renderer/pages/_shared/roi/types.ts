@@ -143,7 +143,7 @@ export function withRoiSpace(value: RoiValue, space: RoiSpace): RoiValue {
 export function spaceChangeNote(value: RoiValue, space: RoiSpace): string | null {
   if (value.space === space) return null;
   if (value.mode !== "cortical" && value.mode !== "subcortical") return null;
-  if (value.atlas === undefined && value.regions.length === 0) return null;
+  if (value.regions.length === 0) return null;
   const where = space === "mni" ? "MNI" : "subject";
   return `${value.atlas ?? "The atlas"} and its ${value.regions.length} selected region(s) have no ${where}-space equivalent, so the selection was cleared.`;
 }

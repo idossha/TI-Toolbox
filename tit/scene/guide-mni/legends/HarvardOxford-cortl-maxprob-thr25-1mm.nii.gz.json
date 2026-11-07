@@ -1,10 +1,10 @@
 {
  "atlas": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
  "space": "guide-ras",
- "aligned_to": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
- "vertices": 52075,
- "radius_mm": 0,
- "labelled_fraction": 1,
+ "aligned_to": "gm",
+ "vertices": 256686,
+ "radius_mm": 3.0,
+ "labelled_fraction": 0.9525,
  "legend": [
   {
    "id": 1,

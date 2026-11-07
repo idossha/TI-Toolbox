@@ -10,9 +10,10 @@ a target on the Optimizer, a verified ROI on the Analyzer. Everything a
 preview; building it a second time here is exactly what the microservice split
 exists to prevent.
 
-What it does do: extract the two surfaces a pane draws (skin tag 1005, grey
-matter tag 1002) out of a 184 MB head mesh, get grey matter under the §S3
-budget, carry an atlas' per-vertex labels onto the surface it actually serves,
+What it does do: extract the two surfaces a pane draws (skin tag 1005 out of a
+184 MB head mesh, and the whole central surfaces as the cortex, or grey matter tag
+1002 clustered to the §S3 budget for a head without them), carry an atlas'
+per-vertex labels onto the surface it actually serves,
 read an EEG net's electrode coordinates, and cache all of it under
 ``.ti-toolbox/cache/scene/``.
 

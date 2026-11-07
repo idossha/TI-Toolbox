@@ -187,6 +187,7 @@ function CapsPanel() {
               mode="montage"
               subject={subject}
               placedMarkers={markers ?? NO_MARKERS}
+              placedOccluded
               selectedMarkers={selectedRow === null ? undefined : [selectedRow]}
               onPlacedPick={(index) => setSelectedRow(index)}
               note={

@@ -127,6 +127,10 @@ export interface SceneDebugHandle {
    * no spike" about the rendered image rather than about the geometry (`scene/labelFaces.ts`).
    */
   sampleRegions(points: Array<[number, number]>): Array<number | null>;
+  /** What a click at each CSS point would pick, of any kind. */
+  samplePicks(points: Array<[number, number]>): Array<PickTarget | null>;
+  /** `sampleRegions` of every device pixel, in one pass: a border read per pixel (`atlas-borders.spec.ts`). */
+  regionFrame(): { width: number; height: number; regions: (number | null)[] } | null;
   /**
    * Overrides `markersOccluded` on the live renderer until the next render that changes the prop.
    *
@@ -1118,6 +1122,15 @@ export function SceneCanvas({
           return target && target.kind === "region" ? target.index : null;
         });
       },
+      samplePicks(points) {
+        return points.map(([x, y]) => pickAt(x, y)?.target ?? null);
+      },
+      regionFrame() {
+        const scene = sceneRef.current;
+        const camera = cameraRef.current;
+        if (!scene || !camera) return null;
+        return scene.regionFrame(camera, { markers: false, regions: true, depth: false, allSurfaces: pickAnySurface });
+      },
       setMarkerOcclusion(occluded) {
         const scene = sceneRef.current;
         if (!scene) return false;
@@ -1187,7 +1200,7 @@ export function SceneCanvas({
         <ul className="scene-legend scene-legend-static" data-testid="scene-legend">
           {legendRows.map((row) => (
             <li key={row.key}>
-              <span className="scene-legend-label">{row.label}</span>
+              <span className="scene-legend-label" title={row.label}>{row.label}</span>
               {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
             </li>
           ))}
@@ -1262,7 +1275,7 @@ export function SceneCanvas({
             {legendRows.map((row) => (
               <li key={row.key}>
                 <span className="scene-legend-swatch" style={{ background: swatch(row.color) }} aria-hidden />
-                <span className="scene-legend-label">{row.label}</span>
+                <span className="scene-legend-label" title={row.label}>{row.label}</span>
                 {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
               </li>
             ))}

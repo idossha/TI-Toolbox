@@ -140,19 +140,21 @@ export function useGuideManifest(guide: GuideId = "default"): UseQueryResult<Gui
 }
 
 export function useGuideElectrodes(net: string | null, guide: GuideId = "default"): UseQueryResult<GuideElectrodes> {
+  const version = useGuideManifest(guide).data?.content_hash;
   return useQuery({
-    queryKey: ["guide", "electrodes", guide, net],
-    queryFn: () => getGuideElectrodes(net as string, guide),
-    enabled: !!net,
+    queryKey: ["guide", "electrodes", guide, net, version],
+    queryFn: () => getGuideElectrodes(net as string, guide, version),
+    enabled: !!net && !!version,
     ...GUIDE_QUERY,
   });
 }
 
 export function useGuideRegions(atlas: string | null, guide: GuideId = "default"): UseQueryResult<GuideRegions> {
+  const version = useGuideManifest(guide).data?.content_hash;
   return useQuery({
-    queryKey: ["guide", "regions", guide, atlas],
-    queryFn: () => getGuideRegions(atlas as string, guide),
-    enabled: !!atlas,
+    queryKey: ["guide", "regions", guide, atlas, version],
+    queryFn: () => getGuideRegions(atlas as string, guide, version),
+    enabled: !!atlas && !!version,
     ...GUIDE_QUERY,
   });
 }
@@ -161,9 +163,9 @@ export function useGuideRegions(atlas: string | null, guide: GuideId = "default"
  * Both guide surfaces, in the manifest's own order, decoded.
  *
  * The URLs come from `parts[].url` when the manifest carries one, so adding a part is a server
- * change rather than a renderer change. `staleTime`/`gcTime` are `Infinity`: these bytes ship with
- * the installation and are served `Cache-Control: immutable`, so a refetch could only re-fetch
- * what cannot have changed — and re-uploading 145 k triangles is not free.
+ * change rather than a renderer change. `staleTime`/`gcTime` are `Infinity`: each URL names one
+ * version of these bytes (`versionParam`) and is served `Cache-Control: immutable`, so a refetch
+ * could only re-fetch what cannot have changed — and re-uploading 145 k triangles is not free.
  */
 export function useGuideSurfaces(parts: { id: string; url: string }[]): UseQueryResult<Tvsc1 | null>[] {
   return useQueries({
@@ -180,10 +182,11 @@ export function useGuideSurfaces(parts: { id: string; url: string }[]): UseQuery
 /** The per-vertex atlas labels aligned to `gm`, as TVSC1. Enabled only once the legend is in hand:
  *  labels with no legend can highlight a region the pane cannot name. */
 export function useGuideLabels(atlas: string | null, ready: boolean, guide: GuideId = "default"): UseQueryResult<Tvsc1 | null> {
+  const version = useGuideManifest(guide).data?.content_hash;
   return useQuery({
-    queryKey: ["guide", "labels", guide, atlas],
-    queryFn: () => getGuideTvsc(guideLabelsUrl(atlas as string, guide)),
-    enabled: !!atlas && ready,
+    queryKey: ["guide", "labels", guide, atlas, version],
+    queryFn: () => getGuideTvsc(guideLabelsUrl(atlas as string, guide, version)),
+    enabled: !!atlas && ready && !!version,
     ...GUIDE_QUERY,
   });
 }
@@ -196,7 +199,7 @@ export function useGuideSurfaceRequests(manifest: GuideManifest | undefined, gui
       (manifest?.parts ?? []).map((part) => ({
         id: String(part.id),
         // The packaged manifest's `url` has no `format`, and TVSC1 is what this renderer reads.
-        url: guideSurfaceUrl(String(part.id), guide),
+        url: guideSurfaceUrl(String(part.id), guide, manifest?.content_hash),
       })),
     [manifest, guide],
   );

@@ -4217,6 +4217,78 @@ one kind still accepted with a missing input: it queued, started and died with a
 that can disagree with argparse); checking every tool's positionals (inputs and outputs are not
 distinguishable without each tool's own parser); a readable error inside the tool (it would still
 queue a job that cannot run).
+## 2026-11-06 — A subject's cortex in every pane is its central surfaces, whole
+
+**Decision.** `tit/scene/build.py` builds a subject's `gm` part from `surfaces/{lh,rh}.central.gii`, unsimplified, whenever both
+exist, in place of the head mesh's tag 1002 clustered to the budget. The labels' path is unchanged: nearest central vertex, now at
+distance 0, then the one-ring mode filter, then the flat `vLabel` shading of "Native pane anatomy and labels" (2026-09-06, commit
+`c5c36bfe`). That earlier fix stays; it was already active here and could not reach this cause. The packaged guides are not rebuilt.
+
+**Why.** The maintainer: "the atlas on the cortex renders broken". Measured on sub-CHN. Tag 1002 stops where grey matter meets no CSF:
+361,185 triangles with 7,482 boundary edges in 392 loops, 121 of them on the lateral surface. Clustering to 147,838 triangles made it
+worse: 1,090 loops, 368 lateral, 3,361 non-manifold edges, up to 3.11 mm off, with 1.95 mm mean edges against a label map defined on
+0.71 mm ones, which is the teeth. The central surfaces hold 983,040 triangles, 0 boundary and 0 non-manifold edges, and every vertex's
+label exactly. TetraVox (central plus annot) and Blender's glass (central) already read them, so the panes were the ones that differed.
+At one camera in a subject's pane the region borders go from 123 islands and 3.19 % tooth pixels to 53 and 1.74 %, at 122 fps both.
+`desktop/tests/e2e/real/atlas-borders.spec.ts` holds this and fails on the old path.
+
+**Cost.** 17.7 MB for the part on sub-CHN, about three times the old budget, over the local connection. The panes lose the cerebellum and
+brainstem, which were never labelled; the head's framing keeps their floor (`mesh_floor_z`). This supersedes the `gm` line of the plan's §S3
+budget for subject scenes, and a future `guide_build` run would inherit it.
+
+**Alternatives rejected.** Clustering the central surfaces to the budget: holes come back (2,471 boundary edges at 150,000 triangles, 969 at
+500,000). Filling the holes in tag 1002: a second cortical mesh to maintain beside the one the labels are on. A pane-only path: the defect was
+in the shared scene service, so every pane gets the fix from it. Blender's glass still clusters the central surfaces to 200,000 triangles
+for its translucent shell, where no region border is drawn (`GLASS_TRIANGLES`); it does not show this defect and was left.
+
+**Revisit if.** A subject without central surfaces is common enough that the fallback's look matters, or a pane over a remote connection
+makes 18 MB matter; then measure a real decimator, not a grid.
+
+## 2026-11-07 — The midlayer is the cortex on every head, MNI cortical volumes are painted on it, and whole cortices got cheap
+
+**Decision.** The maintainer: "use the midlayer surface. make sure it renders quickly and efficiently. make sure it also works for the MNI as in many cases we use MNI for visualization. for the sub-cortical regions, keep using the nifti volumes." So:
+
+1. Both packaged guides' `gm` is the head's whole central surfaces, rebuilt by `guide_build`, which now refuses a head without them. The 2026-11-06 entry's "the packaged guides are not rebuilt" is superseded.
+2. On the MNI guide, a cortical label volume (Harvard-Oxford cortical, Schaefer, Glasser) becomes per-vertex labels on that cortex (`guide_build.paint_on_cortex`, reusing `labels_from_nearest` and the mode filter, each vertex looking only on its own side of the midline), listed first so the template opens on its cortex. Its ROI is still the label volume: `kind` stays `subcortical`, and `aligned_to` is `gm`. Schaefer and Glasser can now be clicked; the 256-region limit was the marching-cubes surface's. Explode is off for these, a cortex being one sheet.
+3. Every sub-cortical atlas stays a surface of its own NIfTI, byte-identical on the MNI guide. The pane draws it with the skin and not the cortex, as before; nothing here changed that.
+4. Waste removed, each from a measurement: the mode filter looks only at triangles of mixed labels (15.6 s of `np.unique` on 5.9 M edges, sub-CHN, same output on real data); `gii` is written on a `format=gii` request (39 % of a whole-cortex surface build, and no pane reads it); a labels payload carries its surface's first and last vertex instead of all of them (`tvsc.encode_labels`, flags bit1: 86 % of 6.9 MB, older payloads still read); the guide's `gm` and the labels on it ship `tvsc` only (66 MB nobody read); and a pane waits for the subject's manifest before fetching the guide (a 12–18 MB head fetched and replaced at every open).
+
+**What MNI means, case by case.**
+
+| Case | What it draws now |
+|---|---|
+| Target space = MNI (Optimizer, Analyzer), cortical volume atlas | `guide-mni`: template midlayer, labels from the volume |
+| Target space = MNI, sub-cortical volume atlas | `guide-mni`: that NIfTI's own surface, skin |
+| `sub-MNI152` as a project subject | The subject path: its midlayer, grey until its `segmentation/*.annot` exist, as any head; `subject_atlas` then labels 93.7 % of it with DK40 |
+| Subject-space sub-cortical target | The Ernie guide's surface of its own `labeling.nii.gz`, unchanged; the job uses the subject's own volume |
+| Viewer / TetraVox `_MNI_` field volumes, group NIfTI averages, target preview | No pane cortex; unchanged |
+
+**Why not ship annotations on the template.** The MNI route targets volumes (`RoiPicker` offers no cortical atlas in MNI, and `Cortical + MNI` has no meaning to `mni2subject`). DK40 on the template would draw a region the row cannot target.
+
+**Nothing published.** The guides are tracked files here, and the head models were already in `ti-toolbox-example-data`. Dataset 000's `m2m_ernie` has no `segmentation/`, so the Ernie rebuild used a scratch copy with `labeling.nii.gz` from `/Volumes/IDO2` (sha256 equal to the manifest's) and fresh `subject_atlas` annots; its head mesh is byte-equal there and in 000 and differs from the 184 MB one the old guide was built from, so its skin, nets and sub-cortical surface also moved (77,032 to 112,064 skin triangles), one coherent head.
+
+**Registration, read by nibabel against charm's `final_tissues`** (`tests/numerical/test_guide_cortex_registration.py`): the midlayer lands on grey matter at 95.9 % (ernie) and 97.1 % (MNI152), and in brain tissue at 99.9 %; volume surfaces are in brain tissue at 90.4–100 %. A painted atlas agrees with the voxel holding the vertex at 96.4–98.6 %, the rest being the mode filter.
+
+**Cost.** MNI region outlines step at the 1 mm voxel scale: 100 islands and 2.98 % tooth pixels against 53 and 1.74 % for an annotation, and more filter passes do not help (27,549 mixed triangles at 3 passes, 27,087 at 20). Glasser is in NLin2009cAsym and the head in NLin6Asym, so its outlines are up to the ~1.3 mm between templates off. 95 % of the template's vertices are labelled; the medial wall and each atlas' gaps stay grey. The first surface in a fresh profile now takes 0.4–1.7 s where the 300 ms budget in `scene-atlas-border.spec.ts` assumed a 2.6 MB cortex; that budget is 2 s and says why. The guides' cortices add 15.6 MB to the repository's history, offset by the `gii` removals in the tree: 21 and 31 MB against 21 and 25 MB.
+
+**Alternatives rejected.** Gzip on the wire or at rest: 33 % smaller (17.7 to 11.8 MB, indices no better than positions) for a second serving path. Decimating the central surfaces: holes come back (2026-11-06). Drawing cortex translucent around a sub-cortical atlas: not asked for and a behaviour change, though `final/` has pictures of it from a temporary build. Annotations on the template: above.
+
+## 2026-11-07 — A guide payload's URL names the guide's version; the Simulator has no cortex; a net is drawn one way
+
+The maintainer reported Harvard-Oxford and Glasser on MNI as all grey on a puffy, torn cortex, with the other atlases good.
+
+**Cause.** The renderer's own HTTP cache, not the data. `/api/guide/*` is `immutable` for a year per URL, and those URLs did not change when df955a10 replaced the cortex. The maintainer's Electron profile (`ti-toolbox-desktop/Cache`) held `surface?part=gm&format=tvsc&guide=mni` at 2 541 377 bytes from 2026-10-21: the pre-midlayer surface (2 540 768 bytes in `df955a10~1`, 66 544 vertices), with the new labels fetched beside it at 2026-11-06. `labelsAlignment` then refused them, 256 686 against 66 544, and nothing said so. Serving those old bytes to a fresh profile reproduces the report (`final/MNI_REPRODUCED_report_stale_cached_cortex.png`). The profile holds no Schaefer entry, so it was never opened there; it would have looked the same. Sub-cortical atlases have their own surfaces, unchanged, which is why they looked good. The packaged midlayer is sound: 256 686 vertices, 0 degenerate triangles, longest edge 1.72 mm. Its folds are broader than a subject's, with 1 888 cm² of surface to the Ernie guide's 2 151, as expected of a template averaged over many brains; that stays.
+
+**Decisions.**
+
+1. The guide manifest, which is never cached, carries `content_hash`: a hash of the manifest, which names every payload's SHA-256. The client sends it as `v` on surface, labels, regions and electrodes, so a changed package is new URLs. The payload hooks wait for the manifest. A new install's old cache entries are simply never asked for again.
+2. A label failure is stated: `atlasLabelsStatus` drives one line over the stage. Loading appears after 250 ms, so a cached atlas shows nothing (measured on sub-101: 167 ms from a warm server cache, no line; about 2.3 s from a cold one, line shown). A misaligned or failed payload is a sentence. A regions failure stays in the hint, unchanged.
+3. `ScenePane.cortex={false}` on the Simulator only. Other `montage` panes (results candidates, the exporter's preview, EEG caps) keep theirs: the request named the Simulator. The scalp's depth pre-pass hides far-side electrodes at every skin opacity on its own.
+4. `ScenePane.placedOccluded` on EEG caps: its markers are a whole net, so they take the Simulator's route (posed on the scalp, occluded, normal scale) instead of the free-hand one, which stays unhidden (2026-09-06). Not `net=`: caps draws a second net to compare, and colours collapsed electrodes.
+
+**Alternatives rejected.** `v=guide_version`: needs someone to remember a bump, the same defect later. Per-file hashes: three fields and a wider contract, to save one re-download after a rebuild. `no-cache` with the existing ETag: an entry already cached as `immutable` is never revalidated, so the user's would have stayed stale; URLs had to change anyway. Telling users to clear a cache: every user who updates would hit it.
+
+Verified by `tests/e2e/scene-pane-status.spec.ts`, `tests/unit/scene-labels-status.test.ts`, `tests/test_guide_routes.py::test_content_hash_is_a_version_a_client_can_put_in_its_urls`.
 
 ## 2026-11-05 — The server keeps PETSc's signal handler out of its own process
 

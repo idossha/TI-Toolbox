@@ -296,6 +296,13 @@ is not a test's. Keep functional assertions and native
 visibility/focus certification separate. Do not rerun solely to replace unresolved shared-host
 process attribution with a more convenient result.
 
+### Cortex scenes
+
+`desktop/tests/e2e/real/atlas-borders.spec.ts` (`TIT_E2E_ATLAS_SUBJECT`) counts islands and tooth pixels of the region
+colours in the Optimizer pane's drawing buffer on the MNI template's cortex, at a fixed camera; it needs a build with the
+scene hooks (`npm run pree2e`). `tests/numerical/test_guide_cortex_registration.py` reads the packaged cortices against
+charm's tissues.
+
 ### Documentation screenshots
 
 The app screenshots in `docs/assets/imgs/v3/` come from

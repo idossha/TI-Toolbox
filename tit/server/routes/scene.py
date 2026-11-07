@@ -243,9 +243,9 @@ def _building_response(payload: dict) -> Response:
     )
 
 
-def _surface_work(pm, subject: str) -> Callable[[], Any]:
+def _surface_work(pm, subject: str, fmt: str = "tvsc") -> Callable[[], Any]:
     def work() -> Any:
-        return build.build_surfaces(pm, subject)
+        return build.build_surfaces(pm, subject, gii=fmt == "gii")
 
     return work
 
@@ -264,9 +264,9 @@ def _surface_ready(pm, subject: str, part: str, fmt: str = "tvsc") -> Callable[[
     return ready
 
 
-def _labels_work(pm, subject: str, atlas: str) -> Callable[[], Any]:
+def _labels_work(pm, subject: str, atlas: str, fmt: str = "tvsc") -> Callable[[], Any]:
     def work() -> Any:
-        return build.build_labels(pm, subject, atlas)
+        return build.build_labels(pm, subject, atlas, gii=fmt == "gii")
 
     return work
 
@@ -291,7 +291,8 @@ def _labels_ready(pm, subject: str, atlas: str, fmt: str = "tvsc") -> Callable[[
 #: ``tvsc`` is the frozen compatibility payload from :mod:`tit.scene.tvsc`;
 #: ``gii`` is GIfTI, a standard mesh any external viewer (TetraVox included)
 #: reads with no bespoke decoder on either side. Both are built from the same vertices and
-#: triangles by one call to :func:`tit.scene.build.build_surfaces`.
+#: triangles by one call to :func:`tit.scene.build.build_surfaces`; ``gii`` only when a request
+#: names it, since no pane reads it.
 #:
 #: The default remains ``tvsc`` until the compatibility route is intentionally
 #: retired: moving a default would change what existing clients receive from a
@@ -495,7 +496,7 @@ def surface(
         pm,
         subject,
         "surfaces",
-        _surface_work(pm, subject),
+        _surface_work(pm, subject, fmt),
         _surface_ready(pm, subject, part, fmt),
         wait,
     )
@@ -535,7 +536,7 @@ def labels(
         pm,
         subject,
         f"labels:{atlas}",
-        _labels_work(pm, subject, atlas),
+        _labels_work(pm, subject, atlas, fmt),
         _labels_ready(pm, subject, atlas, fmt),
         wait,
     )

@@ -164,19 +164,24 @@ export type GuideId = "default" | "mni";
 /** `&guide=mni`, or nothing at all for the default — so every existing URL is byte-identical. */
 const guideParam = (guide: GuideId | undefined): string => (guide && guide !== "default" ? `&guide=${guide}` : "");
 
+/** `&v=<manifest content_hash>`. These answers are cached for a year per URL, so a URL must name the
+ *  version of the guide it wants: an updated guide under the old URL is the old bytes, and a new
+ *  atlas' labels on a year-old cortex silently paint nothing. */
+const versionParam = (version: string | undefined): string => (version ? `&v=${version}` : "");
+
 export async function getGuideManifest(guide?: GuideId): Promise<GuideManifest> {
   const suffix = guide && guide !== "default" ? `?guide=${guide}` : "";
   const { body } = await getJson<GuideManifest>(`/api/guide/manifest${suffix}`, "no-store");
   return body;
 }
 
-export async function getGuideRegions(atlas: string, guide?: GuideId): Promise<GuideRegions> {
-  const { body } = await getJson<GuideRegions>(`/api/guide/regions?atlas=${q(atlas)}${guideParam(guide)}`);
+export async function getGuideRegions(atlas: string, guide?: GuideId, version?: string): Promise<GuideRegions> {
+  const { body } = await getJson<GuideRegions>(`/api/guide/regions?atlas=${q(atlas)}${guideParam(guide)}${versionParam(version)}`);
   return body;
 }
 
-export async function getGuideElectrodes(net: string, guide?: GuideId): Promise<GuideElectrodes> {
-  const { body } = await getJson<GuideElectrodes>(`/api/guide/electrodes?net=${q(net)}${guideParam(guide)}`);
+export async function getGuideElectrodes(net: string, guide?: GuideId, version?: string): Promise<GuideElectrodes> {
+  const { body } = await getJson<GuideElectrodes>(`/api/guide/electrodes?net=${q(net)}${guideParam(guide)}${versionParam(version)}`);
   return body;
 }
 
@@ -194,12 +199,12 @@ export async function getGuideTvsc(url: string): Promise<Tvsc1 | null> {
   return parseTvsc1(await res.arrayBuffer());
 }
 
-export function guideSurfaceUrl(part: string, guide?: GuideId): string {
-  return `/api/guide/surface?part=${q(part)}&format=tvsc${guideParam(guide)}`;
+export function guideSurfaceUrl(part: string, guide?: GuideId, version?: string): string {
+  return `/api/guide/surface?part=${q(part)}&format=tvsc${guideParam(guide)}${versionParam(version)}`;
 }
 
-export function guideLabelsUrl(atlas: string, guide?: GuideId): string {
-  return `/api/guide/labels?atlas=${q(atlas)}&format=tvsc${guideParam(guide)}`;
+export function guideLabelsUrl(atlas: string, guide?: GuideId, version?: string): string {
+  return `/api/guide/labels?atlas=${q(atlas)}&format=tvsc${guideParam(guide)}${versionParam(version)}`;
 }
 
 export type { Tvsc1 };

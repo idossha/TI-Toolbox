@@ -147,7 +147,7 @@ def project(tmp_path, monkeypatch):
     # and counts how often the head mesh would have been read.
     skin = {"nodes": np.array([[10.0, 0, 92]]), "simplified": False, "builds": 0}
 
-    def build_surfaces(pm, sid):
+    def build_surfaces(pm, sid, **_):
         skin["builds"] += 1
         fp = build.surface_fingerprint(pm, sid)
         blob = tvsc.encode(skin["nodes"].astype(np.float32))

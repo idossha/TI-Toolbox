@@ -273,6 +273,41 @@ Reproduce: `docker run --rm --platform linux/amd64 --entrypoint bash -e PYTHONPA
 -v <checkout>/tit:/ti-toolbox/tit:ro -v <project>:/mnt/proj -v <cfg>:/cfg:ro
 idossha/ti-toolbox:v3.1.2 -c 'simnibs_python -m tit.sim /cfg/sim.json'` with a config naming
 that montage, once per checkout.
+## Whole-cortex scenes, cold and warm — 2026-11-07
+
+Dataset 000, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted, emulated amd64. Before is commit 63e408ec, after the commit of the same date's decision. Build times are `build_surfaces` and `build_labels` called in one process with `simnibs` imported. Pane times are Playwright against a real server, from the click to the frame with the subject's cortex; a fresh profile refetches, a second launch revalidates by ETag. Transfer through the Docker port dominates and varies with the machine, so ranges are all the runs.
+
+| sub-CHN (983,040 triangles), DK40 | Before | After |
+|---|---|---|
+| Cold `build_surfaces` | 4.71 s | 2.78 s |
+| Cold `build_labels` | 19.65 s (mode filter 16.55 s) | 1.46 s (0.69 s) |
+| Mode filter alone, same output | 11.7–12.5 s | 0.69 s |
+| `gm` payload | 17.69 MB | 17.69 MB |
+| DK40 labels payload | 6.88 MB | 0.98 MB |
+| Cache for the two parts and one atlas, on disk | 59.3 MB | 19.9 MB |
+| Fresh profile, to cortex drawn / labelled | 2.0–6.7 s / the same | 0.35–2.3 s / the same |
+| Second launch, to labelled | 0.33 s | 0.23–0.66 s |
+| Longest main-thread task while loading | 72 ms | 71 ms |
+| Orbit | 120 fps | 120 fps (display cap) |
+
+| MNI | Before | After |
+|---|---|---|
+| Pane on opening | CIT168 blocks, 47,298 triangles | Harvard-Oxford on the midlayer, 513,364 triangles |
+| Fetched on opening | 3.1 MB, plus 4.9 MB of Ernie guide discarded | 11.8 MB |
+| Switch of space, to cortex drawn | 0.5–1.1 s | 0.26–0.39 s |
+| Switch to Harvard-Oxford cortical | 0.34–0.38 s (2.6 MB) | under 20 ms (labels cached) to 40 ms (0.5 MB) |
+| Orbit | 120 fps | 120 fps |
+| Regions clickable | 5 atlases | 7 atlases |
+| `sub-MNI152` as a subject: cold `build_surfaces` | 2.89 s | 1.60 s |
+
+| Packaged | Before | After |
+|---|---|---|
+| Ernie guide | 21 MB, `gm` 145,402 triangles with 3,370 boundary edges | 21 MB, `gm` 617,574 triangles, closed |
+| MNI guide | 25 MB, `gm` 145,184 triangles with 2,412 boundary edges | 31 MB, `gm` 513,364 triangles, closed |
+| Guide fetched by a subject's pane before the subject's manifest | 4.9 MB, then discarded | 0 |
+
+Region borders in the pane's own pixels (`atlas-borders.spec.ts`, 1600x1000 window): sub-CHN DK40 53 islands, 1.74 % teeth, unchanged; MNI Harvard-Oxford cortical 100 islands, 2.98 % teeth.
+
 ## First load of a catalog list — 2026-11-07
 
 Dataset 000, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted read-only, emulated amd64. A fresh server for each row, so each first call pays for its own imports. `first` and `again` are `curl` totals for two consecutive calls; memory is the server's VmRSS after the first. Before is commit 66d041d7; after is the commit of the same date's decision.

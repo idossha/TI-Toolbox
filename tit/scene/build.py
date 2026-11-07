@@ -6,7 +6,8 @@ What this module extracts, and from where:
 part / payload   source
 ===============  ==========================================================
 ``skin``         ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1005])``
-``gm``           ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
+``gm``           ``m2m_<id>/surfaces/{lh,rh}.central.gii`` (the midlayer), whole;
+                 without them ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
 electrodes       ``m2m_<id>/eeg_positions/<net>.csv`` (``Electrode,x,y,z,name``)
 region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
                  + ``m2m_<id>/surfaces/{lh,rh}.central.gii``
@@ -14,12 +15,11 @@ region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
 
 **The alignment problem, and how it is solved.** A ``.annot`` file has one
 label per vertex of the *central* surface -- 245 762 per hemisphere on
-``sub-ernie``. The head mesh's grey-matter surface is a different, coarser
-triangulation of the same anatomy: 168 952 vertices, and 76 k after §S3
-simplification. The label array therefore cannot be handed over as-is; it has
-neither the right length nor the right order, and a renderer that assumed it
-did would highlight a region several centimetres from the one the user
-clicked. :func:`build_labels` instead
+``sub-ernie``. Where the ``gm`` part is those surfaces, each vertex finds itself
+at distance 0. For a head with no central surfaces the head mesh's grey-matter
+surface is a different, coarser triangulation of the same anatomy: 168 952
+vertices, and 76 k after §S3 simplification, whose label array cannot be handed
+over as-is. :func:`build_labels` takes one path for both:
 
 1. **decodes the ``gm`` payload the surface route actually serves** (not a
    re-derived vertex list -- a re-derivation is exactly where the two orders
@@ -28,7 +28,7 @@ clicked. :func:`build_labels` instead
 3. copies that vertex's region across only when it is within
    :data:`LABEL_RADIUS_MM`.
 
-Step 3 matters because the head mesh's GM tag covers cerebellum and brainstem
+Step 3 matters on the head mesh, whose GM tag covers cerebellum and brainstem
 as well as cortex, and the cortical atlases cover none of it: measured on
 ``sub-ernie``, 7.35 % of GM vertices are more than 5 mm from any central
 surface vertex (max 45.7 mm). Those come back label ``0`` = "no region"
@@ -86,7 +86,8 @@ __all__ = [
 #: matter (``simnibs.mesh_tools.mesh_io.ElementTags``).
 PART_TAGS: dict[str, int] = {"skin": 1005, "gm": 1002}
 
-#: Decision S3's budget, per surface.
+#: Decision S3's budget, per surface, for the skin and a head with no central surfaces. The grey
+#: matter of a head that has them is drawn whole (DECISIONS, 2026-11-06).
 MAX_TRIANGLES = 150_000
 MAX_BYTES = 3 * 1024 * 1024
 
@@ -142,7 +143,10 @@ LABEL_SMOOTH_PASSES = 3
 #:     one its ``bbox`` reports, so the grey matter's ``focus_bbox`` is its ``bbox`` on
 #:     every subject. Measured on Dataset 000's ``sub-101`` before this: ``focus_bbox``
 #:     z0 -92.335 against ``bbox`` z0 -92.396, the lowest vertex cut by float32 rounding.
-BUILDER_VERSION = "5"
+#: ``"6"``
+#:     a labels payload carries the surface's first and last vertex rather than all of them
+#:     (:func:`tit.scene.tvsc.encode_labels`), and ``gii`` is written when it is asked for.
+BUILDER_VERSION = "6"
 
 #: Whose lowest vertex marks the bottom of "the head" for :func:`focus_bbox`.
 #: The grey matter's floor is the bottom of the cerebellum and brainstem;
@@ -193,7 +197,7 @@ def surface_sources(pm: PathManager, sid: str) -> list[str]:
     path = source_path(pm, Path(pm.m2m(sid)) / f"{sid}.msh")
     if path is None:
         raise SceneUnavailable("Head mesh resolves outside the project")
-    return [str(path)]
+    return [str(path), *central_surface_paths(pm, sid).values()]
 
 
 def surface_fingerprint(pm: PathManager, sid: str) -> str:
@@ -451,21 +455,30 @@ def one_ring_mode_filter(
     if n_vertices == 0 or t.size == 0 or passes <= 0:
         return L.astype(np.uint16)
 
-    # Undirected one-ring as a directed (source, neighbour) edge list, each
-    # ordered pair once: a neighbour shared by two triangles must not vote
-    # twice, or a border vertex's count depends on the triangulation.
-    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
-    e = np.unique(np.concatenate([e, e[:, ::-1]]), axis=0)
-    src, dst = e[:, 0], e[:, 1]
-    # Sorted by source already (np.unique sorts lexicographically), so the
-    # per-source blocks below are contiguous.
-
     for _ in range(passes):
-        vote = L[dst]
+        # Only a vertex in a triangle of mixed labels can change, about 3 % of a whole cortex, and
+        # its one-ring is the triangles it touches. The whole cortex's 5.9 M pairs cost sub-CHN
+        # 12.5 s of sorting for the 1 722 vertices it relabels.
+        la, lb, lc = L[t[:, 0]], L[t[:, 1]], L[t[:, 2]]
+        border = np.zeros(n_vertices, dtype=bool)
+        border[t[(la != lb) | (lb != lc)].ravel()] = True
+        near = t[border[t].any(axis=1)]
+        if near.size == 0:
+            break
+        # Directed (source, neighbour) pairs, each ordered pair once, packed into one integer: a
+        # neighbour shared by two triangles must not vote twice, or a border vertex's count depends
+        # on the triangulation.
+        a = np.concatenate([near[:, 0], near[:, 1], near[:, 2]])
+        b = np.concatenate([near[:, 1], near[:, 2], near[:, 0]])
+        key = np.unique(np.concatenate([a * n_vertices + b, b * n_vertices + a]))
+        src, dst = key // n_vertices, key % n_vertices
+        edges = border[src]
+        # Sorted by source, so the per-source blocks below are contiguous.
+        src_b, vote = src[edges], L[dst[edges]]
         # Runs of equal (source, voted label) after ordering by label within
         # each source block -> the tally, without a dense V x n_labels array.
-        order = np.lexsort((vote, src))
-        s_o, v_o = src[order], vote[order]
+        order = np.lexsort((vote, src_b))
+        s_o, v_o = src_b[order], vote[order]
         run_start = np.flatnonzero(
             np.r_[True, (s_o[1:] != s_o[:-1]) | (v_o[1:] != v_o[:-1])]
         )
@@ -602,8 +615,32 @@ def _read_surface(mesh, tag: int) -> tuple[np.ndarray, np.ndarray, bool]:
     return vertices, triangles, flipped
 
 
-def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
+def _read_central(paths: dict[str, str]) -> tuple[np.ndarray, np.ndarray, bool]:
+    """Both central surfaces as one part, lh then rh: ``_read_surface``'s answer for the cortex.
+
+    The surfaces a cortical annotation is defined on, closed and two-manifold, which the head
+    mesh's GM tag is not: it stops where grey matter meets no CSF (121 lateral holes on sub-CHN),
+    and clustering it under a budget cuts over a thousand more (2026-11-06, DECISIONS).
+    """
+    import nibabel as nib
+
+    vertices, triangles = [], []
+    offset = 0
+    for hemi in ("lh", "rh"):
+        arrays = nib.load(paths[hemi]).darrays
+        vertices.append(np.asarray(arrays[0].data, dtype=np.float64))
+        triangles.append(np.asarray(arrays[1].data, dtype=np.int64) + offset)
+        offset += len(vertices[-1])
+    merged = np.concatenate(vertices)
+    wound, flipped = orient_outward(merged, np.concatenate(triangles))
+    return merged, wound, flipped
+
+
+def build_surfaces(pm: PathManager, sid: str, *, gii: bool = False) -> dict[str, dict]:
     """Build, cache and describe both surface parts for *sid*.
+
+    *gii* also writes the GIfTI serialisation: 39 % of a whole cortex's build for a format the
+    panes do not read (1.84 of 4.71 s, sub-CHN), so only a ``format=gii`` request pays for it.
 
     Both parts come out of **one** ``read_msh`` (measured 1.26 s for a 184 MB
     mesh, versus 0.03-0.10 s per crop): building them separately would double
@@ -624,6 +661,9 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     # and because it lets the 184 MB mesh be released before the memory the
     # clustering needs is allocated.
     extracted: dict[str, tuple[np.ndarray, np.ndarray, bool, float]] = {}
+    central = central_surface_paths(pm, sid)
+    whole_cortex = len(central) == 2
+    mesh_floor_z = np.inf
     for part, tag in PART_TAGS.items():
         part_started = time.perf_counter()
         vertices, triangles, flipped = _read_surface(mesh, tag)
@@ -631,6 +671,10 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             raise SceneUnavailable(
                 f"{mesh_path.name} has no tag-{tag} ({part}) surface elements"
             )
+        if part == FOCUS_FLOOR_PART:
+            mesh_floor_z = float(vertices[:, 2].min())
+        if part == "gm" and whole_cortex:
+            vertices, triangles, flipped = _read_central(central)
         extract_ms = (time.perf_counter() - part_started) * 1000.0
         extracted[part] = (vertices, triangles, flipped, extract_ms)
     del mesh
@@ -638,7 +682,14 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     simplified: dict[str, tuple[SimplifyResult, float]] = {}
     for part, (vertices, triangles, _flipped, _extract_ms) in extracted.items():
         part_started = time.perf_counter()
-        result = simplify_to_budget(vertices, triangles, MAX_TRIANGLES, MAX_BYTES)
+        # The central surfaces stay whole: clustering is what cuts holes in a closed cortex.
+        keep_whole = part == "gm" and whole_cortex
+        result = simplify_to_budget(
+            vertices,
+            triangles,
+            len(triangles) if keep_whole else MAX_TRIANGLES,
+            None if keep_whole else MAX_BYTES,
+        )
         simplified[part] = (result, (time.perf_counter() - part_started) * 1000.0)
 
     # The floor is read off the vertices the floor part publishes -- the very set its `bbox`
@@ -647,8 +698,10 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     # *below* its float64 self (-92.396347 vs -92.3963463), so a float64 floor cut it out of
     # the grey matter's own focus box (-92.335 against a bbox floor of -92.396).
     floor_source = simplified.get(FOCUS_FLOOR_PART)
+    # The head mesh's floor counts too: it holds the cerebellum, which a central surface does not,
+    # so the head keeps its framing whichever surface the cortex is drawn from.
     floor_z = (
-        float(floor_source[0].vertices[:, 2].min())
+        min(float(floor_source[0].vertices[:, 2].min()), mesh_floor_z)
         if floor_source is not None
         else -np.inf
     )
@@ -657,15 +710,14 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     for part, (vertices, triangles, flipped, extract_ms) in extracted.items():
         result, simplify_ms = simplified[part]
         part_started = time.perf_counter()
-        # One extraction, one simplification, two serialisations (decision E7).
+        # One extraction, one simplification, up to two serialisations (decision E7).
         # `tvsc` is the frozen compatibility payload and `gii` is the standard
         # GIfTI mesh; both are the SAME vertices and triangles, which
         # keeps the compatibility path honest until it is dropped from
         # `cache.FORMATS`.
-        blobs = {
-            "tvsc": tvsc.encode(result.vertices, result.triangles),
-            "gii": gifti.encode_surface(result.vertices, result.triangles),
-        }
+        blobs = {"tvsc": tvsc.encode(result.vertices, result.triangles)}
+        if gii:
+            blobs["gii"] = gifti.encode_surface(result.vertices, result.triangles)
         blob = blobs["tvsc"]
         build_ms = (
             read_ms
@@ -679,6 +731,9 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
         meta = {
             "part": part,
             "tag": PART_TAGS[part],
+            "source": (
+                "central surfaces" if part == "gm" and whole_cortex else "head mesh"
+            ),
             "vertices": int(len(result.vertices)),
             "triangles": int(len(result.triangles)),
             "source_vertices": int(len(vertices)),
@@ -688,7 +743,8 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
             "simplify_rounds": int(result.rounds),
             "max_deviation_mm": round(float(result.max_deviation), 4),
             "within_budget": bool(
-                len(result.triangles) <= MAX_TRIANGLES and len(blob) <= MAX_BYTES
+                (part == "gm" and whole_cortex)
+                or (len(result.triangles) <= MAX_TRIANGLES and len(blob) <= MAX_BYTES)
             ),
             # Per-serialisation payload size, so the manifest and a reader can
             # say what a `format=gii` request will actually cost without
@@ -852,7 +908,9 @@ def _gifti_points(gifti) -> np.ndarray:
     return np.asarray(gifti.darrays[0].data)
 
 
-def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
+def build_labels(
+    pm: PathManager, sid: str, atlas_id: str, *, gii: bool = False
+) -> dict:
     """Build and cache the ``uint16`` labels payload aligned to part ``gm``.
 
     The gm vertices are read back out of the **cached ``gm`` payload**, so the
@@ -881,21 +939,20 @@ def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
     # isolated ones wrong; the mode filter is what makes a region border a
     # border rather than a saw-tooth (:func:`one_ring_mode_filter`).
     labels = one_ring_mode_filter(raw_labels, gm_triangles)
-    # Same alignment, two serialisations. The `gii` payload carries the GM
+    # Same alignment, either serialisation. The `gii` payload carries the GM
     # triangles plus the labels as a `NIFTI_INTENT_LABEL` array **with the
     # atlas' own `<LabelTable>`**: without triangles a reader has no
     # surface to render or pick, without the table it reads the array as a
     # continuous scalar, and the row for `NO_REGION` has to come first because
     # an unnamed value maps to the table's first row (`tit/scene/gifti.py`).
-    blobs = {
-        "tvsc": tvsc.encode(gm_vertices.astype(np.float32), None, labels),
-        "gii": gifti.encode_surface(
-            gm_vertices.astype(np.float32),
+    blobs = {"tvsc": tvsc.encode_labels(gm_payload.positions, labels)}
+    if gii:
+        blobs["gii"] = gifti.encode_surface(
+            gm_payload.positions,
             gm_triangles,
             labels,
             gifti.label_table_from_legend(legend),
-        ),
-    }
+        )
     blob = blobs["tvsc"]
     build_ms = (time.perf_counter() - started) * 1000.0
 

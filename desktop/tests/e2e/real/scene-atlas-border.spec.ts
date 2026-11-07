@@ -39,8 +39,12 @@ import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_hel
 import { closeOptEditor, openOptEditor, optRows } from "../_jobs";
 
 const SUBJECT = process.env.TIT_E2E_SUBJECT ?? "ernie";
-/** The pane's budget for a warm paint of the packaged guide, unchanged by this fix. */
-const FIRST_PAINT_BUDGET_MS = 300;
+/**
+ * From the pane mounting to the first surface in a fresh profile, sharing the Docker port with the
+ * whole cortex behind it. Measured 2026-11-07: 681-1726 ms against Dataset 000, with or without the
+ * guide waiting on the subject's manifest (417-986 ms). 300 ms was a 2.6 MB clustered grey matter.
+ */
+const FIRST_PAINT_BUDGET_MS = 2000;
 /**
  * How many horizontal scan lines are walked, and how far apart their samples are in CSS pixels.
  *
