@@ -39,6 +39,16 @@ describe("withRoiSpace", () => {
     expect(spaceChangeNote(roi, "mni")).toContain("labeling.nii.gz");
   });
 
+  it("says nothing when an atlas is cleared with no region selected: nothing the user chose is lost", () => {
+    for (const roi of [
+      { mode: "subcortical", space: "subject", atlas: "labeling.nii.gz", regions: [], tissues: "GM" },
+      { mode: "cortical", space: "mni", atlas: "HarvardOxford-cortl-maxprob-thr0-1mm.nii.gz", regions: [] },
+    ] as RoiValue[]) {
+      expect(withRoiSpace(roi, roi.space === "mni" ? "subject" : "mni")).toMatchObject({ atlas: undefined, regions: [] });
+      expect(spaceChangeNote(roi, roi.space === "mni" ? "subject" : "mni")).toBeNull();
+    }
+  });
+
   it("keeps coordinates, radii and mask paths — they are reinterpreted, not lost", () => {
     const sphere: RoiValue = { mode: "spherical", space: "subject", spheres: [{ x: 1, y: 2, z: 3, radius: 5 }], volumetric: false, tissues: "GM" };
     expect(withRoiSpace(sphere, "mni")).toEqual({ ...sphere, space: "mni" });
