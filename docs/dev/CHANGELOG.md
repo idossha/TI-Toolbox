@@ -10,6 +10,7 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+- **Fixed: switching target space no longer warns about a selection you never made** — moving between Subject and MNI with an atlas but no regions selected showed "its 0 selected region(s) have no equivalent". The message now appears only when selected regions are actually cleared; the atlas is cleared as before, since each space has its own.
 - **Fixed: an updated app no longer draws the old packaged heads from its cache** — the Ernie and MNI152 surfaces, labels and legends were cached for a year under one URL, so after an update the app could keep an old cortex, on which a new atlas' labels did not fit: the brain stayed grey, with no message. Each is now fetched by the version of the package, so an update reaches the pane by itself. Nothing to clear; the new files download once.
 - **Added: the pane says when atlas labels are on their way** — a slow atlas shows **Loading a2009s labels…** over the 3D pane until its colours appear, on subject and MNI heads alike; if they cannot be drawn, a sentence says why. An atlas already loaded shows nothing.
 - **Changed: the Simulator's 3D pane draws no cortex** — the scalp and the electrodes, which is what is being aimed at, and the cortex is no longer downloaded there. The head still hides the electrodes round the back, and picking and placing are unchanged. Every other pane keeps its cortex.
