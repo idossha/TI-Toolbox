@@ -115,7 +115,7 @@ run_qsiprep(project, "001", logger=logger)
 extract_dti_tensor(project, "001", logger=logger)
 ```
 
-In the full pipeline set `run_qsiprep=True` and `extract_dti=True` (`run_qsirecon=True` only for QSIRecon's own outputs). `qsiprep_config` defaults: `output_resolution=None` (native DWI voxel size), `unringing_method="auto"` (rpg for partial-Fourier data, else mrdegibbs), `mni_normalization=False` (enable only for QSIRecon atlases).
+In the full pipeline set `run_qsiprep=True` and `extract_dti=True` (`run_qsirecon=True` only for QSIRecon's own outputs). `qsiprep_config` defaults: `output_resolution=None` (native DWI voxel size), `unringing_method="auto"` (rpg for partial-Fourier data, else mrdegibbs), `mni_normalization=False` (enable only for QSIRecon atlases), `use_gpu=False` (run eddy on an NVIDIA GPU; needs the NVIDIA Docker runtime).
 
 !!! note "Platform"
     QSIPrep needs an x86-64 (Linux or Windows) Docker host. On Apple Silicon it fails at SynthSeg (TensorFlow needs AVX, which emulation lacks) and `run_qsiprep` refuses to start. Run QSIPrep elsewhere and copy `derivatives/qsiprep/sub-<id>/` into the project; `extract_dti_tensor` runs on any host.

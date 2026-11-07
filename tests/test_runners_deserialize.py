@@ -254,7 +254,7 @@ class TestPreMain:
                 "project_dir": "/proj",
                 "subject_ids": ["001"],
                 "run_qsiprep": True,
-                "qsiprep_config": {"cpus": 8, "memory_gb": 32},
+                "qsiprep_config": {"cpus": 8, "memory_gb": 32, "use_gpu": True},
             },
         )
         monkeypatch.setattr(sys, "argv", ["tit.pre", config_path])
@@ -268,6 +268,7 @@ class TestPreMain:
         qsiprep_config = mock_run.call_args.kwargs["qsiprep_config"]
         assert qsiprep_config["cpus"] == 8
         assert qsiprep_config["memory_gb"] == 32
+        assert qsiprep_config["use_gpu"] is True
         assert "resources" not in qsiprep_config
         assert _types(events_env) == ["stage", "result", "exit"]
 

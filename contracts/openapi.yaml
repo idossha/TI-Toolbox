@@ -5807,6 +5807,10 @@ components:
           description: Run QSIPrep's MNI normalization (needed only for QSIRecon atlases; SyN distortion correction enables it itself).
           title: Mni Normalization
           type: boolean
+        use_gpu:
+          description: Run eddy on the GPU (requires NVIDIA Docker runtime).
+          title: Use Gpu
+          type: boolean
       title: QSIPrepPreferences
       type: object
     QSIReconPreferences:
@@ -5951,7 +5955,7 @@ components:
         qsiprep_config:
           allOf:
             - $ref: "#/components/schemas/QSIPrepPreferences"
-          required: [output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization]
+          required: [output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization, use_gpu]
         qsi_recon_config:
           allOf:
             - $ref: "#/components/schemas/QSIReconPreferences"

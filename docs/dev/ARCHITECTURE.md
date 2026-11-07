@@ -839,7 +839,13 @@ preflight problem when none is usable, never a silent fallback. Unringing `auto`
 (0.1 mm); `--hmc-model eddy --pepolar-method TOPUP --b0-threshold 100` are always explicit;
 `--skip-anat-based-spatial-normalization` is passed unless `mni_normalization` is set or SyN SDC
 runs (SyN places its prior through the MNI transform). Absent settings (`output_resolution: null`,
-`unringing_method: "auto"`, `mni_normalization: false`) reproduce these defaults.
+`unringing_method: "auto"`, `mni_normalization: false`) reproduce these defaults. `use_gpu: true`
+(default off; JSON and saved preferences only, no UI control) adds `--gpus all` and
+`--eddy-config` with `resources/qsiprep/eddy_params_gpu.json`, and mounts a shim at
+`/usr/local/bin/eddy_cuda10.2` because the QSIPrep 26.0.0 image ships only `eddy_cuda11.0`; both
+files are staged into the project root as `.qsiprep_eddy_*`. QSIPrep itself sets eddy to one
+thread and one Nipype slot in that mode, so `--nthreads`/`--omp-nthreads` are unchanged. Job costs
+do not count the GPU, so two GPU jobs at once share the card.
 
 **The DTI tensor is fitted from QSIPrep output, not QSIRecon.** `extract_dti_tensor` fits DIPY WLS on
 b ≤ 1500 using QSIPrep's `.b` table (scanner RAS), maps ACPC → raw T1 with the exact chain
