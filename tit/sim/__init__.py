@@ -56,7 +56,8 @@ Examples
 >>> run_simulation(cfg)  # doctest: +SKIP
 """
 
-from tit.sim.base import BaseSimulation
+from typing import TYPE_CHECKING
+
 from tit.sim.config import (
     SimulationConfig,
     Montage,
@@ -73,6 +74,19 @@ from tit.sim.utils import (
     ensure_montage_file,
     upsert_montage,
 )
+
+if TYPE_CHECKING:  # static analysers see the lazily loaded class for hover/completion
+    from tit.sim.base import BaseSimulation
+
+
+def __getattr__(name: str):
+    """Load SimNIBS only for a simulation, not for reading ``montage_list.json``."""
+    if name == "BaseSimulation":
+        from tit.sim.base import BaseSimulation
+
+        return BaseSimulation
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
     "BaseSimulation",
