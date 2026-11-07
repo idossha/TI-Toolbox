@@ -1429,3 +1429,10 @@ scene routes keep both formats and write `gii` on request. Labels on a whole cor
 (`tit/scene/tvsc.py`): the surface's first and last vertex in place of its positions; a bit-clear payload reads as before.
 On the MNI guide `atlases[].aligned_to` is `gm` for a cortical label volume, whose `kind` stays `subcortical`. Regenerated
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-11-06 — `use_gpu` on QSIPrep settings and preferences
+
+`QSIPrepSettings`, `QSIPrepConfig` and `QSIPrepPreferences` gain optional `use_gpu` (default
+`false`), which runs eddy on the GPU; `GET /api/surfer-settings` always returns it, as it does for
+QSIRecon. Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json`
+and `desktop/src/renderer/api/schema.d.ts`.

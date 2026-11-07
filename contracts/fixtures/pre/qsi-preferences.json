@@ -38,7 +38,8 @@
       "omp_threads": 3,
       "output_resolution": 1.5,
       "skip_bids_validation": true,
-      "unringing_method": "mrdegibbs"
+      "unringing_method": "mrdegibbs",
+      "use_gpu": false
     },
     "replace_existing_outputs": false,
     "run_fastsurfer": false,
@@ -125,7 +126,8 @@
       "mni_normalization": true,
       "output_resolution": 1.5,
       "skip_bids_validation": true,
-      "unringing_method": "mrdegibbs"
+      "unringing_method": "mrdegibbs",
+      "use_gpu": false
     },
     "qsiprep_memory_gb": 24,
     "qsiprep_omp_threads": 3,

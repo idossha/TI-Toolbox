@@ -65,6 +65,9 @@ class QSIPrepSettings:
         Run QSIPrep's anatomical normalization to MNI. Only QSIRecon atlases and
         template-space specs need it; fieldmap-less SyN correction turns it on
         by itself.
+    use_gpu : bool
+        Run eddy on the GPU (requires NVIDIA Docker runtime). CPU and GPU eddy
+        are not numerically identical, so keep one choice across a cohort.
 
     Raises
     ------
@@ -88,6 +91,7 @@ class QSIPrepSettings:
     denoise_method: str = "dwidenoise"
     unringing_method: str = "auto"
     mni_normalization: bool = False
+    use_gpu: bool = False
 
     def __post_init__(self) -> None:
         if self.output_resolution is not None and self.output_resolution <= 0:

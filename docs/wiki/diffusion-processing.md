@@ -67,6 +67,10 @@ The chosen mode is written to the preprocessing log (`Distortion correction: ...
 
 **Configure QSIPrep** keeps every option: output resolution (leave empty for native), denoising, unringing, BIDS validation, image tag and MNI normalization. CPU, memory and OpenMP threads live in [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
 
+### Running eddy on the GPU
+
+Set `"use_gpu": true` in `qsiprep_config` to run FSL eddy on an NVIDIA GPU; it is off by default and has no control in the app yet. It needs the NVIDIA Docker runtime: a host without one is refused before QSIPrep starts, and eddy never falls back to the CPU. Only eddy moves to the GPU, on one CPU thread; every other step still uses your CPU and thread settings. CPU and GPU eddy are not numerically identical, so use one choice for every subject in a study.
+
 ### QSIPrep output used by TI-Toolbox
 
 ```

@@ -184,6 +184,16 @@ class TestRunSubjectPipeline:
         self._call(pipeline_mocks, run_qsiprep_step=True)
         pipeline_mocks["qsiprep"].assert_called_once()
 
+    def test_qsiprep_use_gpu_off_unless_asked(self, pipeline_mocks):
+        self._call(pipeline_mocks, run_qsiprep_step=True)
+        assert pipeline_mocks["qsiprep"].call_args.kwargs["use_gpu"] is False
+
+    def test_qsiprep_use_gpu_passed(self, pipeline_mocks):
+        self._call(
+            pipeline_mocks, run_qsiprep_step=True, qsiprep_config={"use_gpu": True}
+        )
+        assert pipeline_mocks["qsiprep"].call_args.kwargs["use_gpu"] is True
+
     def test_qsirecon_step(self, pipeline_mocks):
         self._call(pipeline_mocks, run_qsirecon_step=True)
         pipeline_mocks["qsirecon"].assert_called_once()

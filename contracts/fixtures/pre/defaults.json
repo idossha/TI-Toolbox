@@ -75,7 +75,8 @@
       "mni_normalization": false,
       "output_resolution": null,
       "skip_bids_validation": true,
-      "unringing_method": "auto"
+      "unringing_method": "auto",
+      "use_gpu": false
     },
     "qsiprep_memory_gb": null,
     "qsiprep_omp_threads": null,
