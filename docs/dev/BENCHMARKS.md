@@ -344,3 +344,18 @@ Dataset 000, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted, em
 
 Region borders in the pane's own pixels (`atlas-borders.spec.ts`, 1600x1000 window): sub-CHN DK40 53 islands, 1.74 % teeth, unchanged; MNI Harvard-Oxford cortical 100 islands, 2.98 % teeth.
 
+## First load of a catalog list — 2026-11-07
+
+Dataset 000, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted read-only, emulated amd64. A fresh server for each row, so each first call pays for its own imports. `first` and `again` are `curl` totals for two consecutive calls; memory is the server's VmRSS after the first. Before is commit 66d041d7; after is the commit of the same date's decision.
+
+| Route | First, before | First, after | Again, after | VmRSS before → after |
+|---|---|---|---|---|
+| `/api/catalog/montages` | 10.06 s | 0.025 s | 0.005 s | 467 → 143 MB |
+| `/api/catalog/rois?subject=ernie` | 7.03 s | 0.068 s | 0.020 s | 468 → 144 MB |
+| `/api/catalog/flex-runs?subject=ernie` | 1.27 s | 0.074 s | 0.020 s | 197 → 144 MB |
+| `/api/catalog/overview` | 2.96 s | 1.87 s | 1.83 s | 197 → 144 MB |
+| `/api/catalog/project-summary` | 0.24 s | 0.24 s | 0.08 s | unchanged |
+
+Overview's remaining 1.8 s is on every call, so it is not an import: a profile of `build_overview` spends it listing directories and resolving paths (`subject_ids` 42 times, `is_within` about 2,000 times) and reading ex-search CSVs (`ex_runs` 14 times).
+
+In the app, offscreen (a temporary real spec on a fresh server, Electron at 1280x800), from clicking **Simulator** to the job table: 16.06 s before, immediately after connecting. After: 0.94–1.35 s immediately after connecting, while the first page's own requests are still in flight, and 0.16 s after 6 s of settling.

@@ -4907,3 +4907,15 @@ The maintainer reported Harvard-Oxford and Glasser on MNI as all grey on a puffy
 **Alternatives rejected.** `v=guide_version`: needs someone to remember a bump, the same defect later. Per-file hashes: three fields and a wider contract, to save one re-download after a rebuild. `no-cache` with the existing ETag: an entry already cached as `immutable` is never revalidated, so the user's would have stayed stale; URLs had to change anyway. Telling users to clear a cache: every user who updates would hit it.
 
 Verified by `tests/e2e/scene-pane-status.spec.ts`, `tests/unit/scene-labels-status.test.ts`, `tests/test_guide_routes.py::test_content_hash_is_a_version_a_client_can_put_in_its_urls`.
+
+## 2026-11-07 — Reading a list never imports SimNIBS
+
+The Simulator's job table waited 16 s in the app on a first visit: `get_montages` imports `tit.sim.utils`, which ran `tit/sim/__init__.py`, which imported `tit.sim.base` and so `simnibs`. The loader needs none of it. `tit.opt.ex.roi` and `tit.opt.flex.manifest` had the same defect through their packages' `__init__.py`.
+
+**Decision.** `tit.sim`, `tit.opt.flex` and `tit.opt.ex` expose what needs SimNIBS (`BaseSimulation`, `run_flex_search`, `ExSearchEngine`, `run_ex_search`) through a module `__getattr__`, as `tit.opt` already does. Every public name still resolves and a job imports exactly what it did, once it asks for it. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#first-load-of-a-catalog-list--2026-11-07).
+
+**Alternatives rejected.** Moving the `simnibs` import inside `tit/sim/base.py`'s methods: the host suite patches `tit.sim.base.mesh_io` and `run_simnibs` as module attributes, and a run would still pay at first use, only later. Moving the montage and ROI readers to a light module: more churn for callers to reach the same import graph. Importing SimNIBS at server start in the background: every session would hold about 330 MB it may never need.
+
+**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. Overview's remaining 1.8 s is its scan, on every call, not an import.
+
+Verified by `tests/test_lazy_package_imports.py`, which asks a fresh interpreter because the host suite mocks `simnibs` in `sys.modules`.
