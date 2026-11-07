@@ -13,11 +13,11 @@ least the values below.
 | Docker memory          | At least 20 GB, 32 GB recommended. FreeSurfer and montage-export jobs each reserve 16 GB |
 | Disk: base image       | 5.2 GB (`idossha/ti-toolbox:v3.1.1`)                                                     |
 | Disk: FreeSurfer image | 30 GB, optional (`idossha/ti-toolbox:freesurfer-20260910`)                               |
-| Disk: QSIPrep 26.0.0   | 31 GB, optional                                                                          |
-| Disk: QSIRecon 26.0.0  | 19.5 GB, optional                                                                        |
+| Disk: QSIPrep 26.1.1   | 8.3 GB download, more once unpacked, optional                            |
+| Disk: QSIRecon 26.0.1  | 6.3 GB download, more once unpacked, optional                            |
 | Disk: your projects    | On top of the images                                                                     |
 
-Image sizes are uncompressed. Docker reports slightly less memory than you allocate: 32 GB shows as
+Other image sizes are uncompressed. Docker reports slightly less memory than you allocate: 32 GB shows as
 about 31.3 GiB inside the container. Restart TI-Toolbox after changing Docker's memory.
 
 ![Docker resource settings]({{ site.baseurl }}/assets/imgs/installation/docker_resource.png){:style="max-width: 350px;"}
