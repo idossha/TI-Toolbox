@@ -13,7 +13,7 @@ least the values below.
 | Docker memory          | At least 20 GB, 32 GB recommended. FreeSurfer and montage-export jobs each reserve 16 GB |
 | Disk: base image       | 5.2 GB (`idossha/ti-toolbox:v3.1.1`)                                                     |
 | Disk: FreeSurfer image | 30 GB, optional (`idossha/ti-toolbox:freesurfer-20260910`)                               |
-| Disk: QSIPrep 26.1.1   | 8.3 GB download, more once unpacked, optional                            |
+| Disk: QSIPrep 26.1.1   | 27.5 GB, optional                                                        |
 | Disk: QSIRecon 26.0.1  | 6.3 GB download, more once unpacked, optional                            |
 | Disk: your projects    | On top of the images                                                                     |
 
