@@ -1,6 +1,6 @@
 /**
- * The run-page pane against the **real** server: Simulator subject anatomy and Optimizer
- * packaged guide, with real electrode positions — read out of the drawing buffer, not off a screenshot (NR gate, plan §3).
+ * The run-page pane against the **real** server: Simulator subject scalp and Optimizer subject
+ * cortex, with real electrode positions — read out of the drawing buffer, not off a screenshot (NR gate, plan §3).
  *
  * Every number below is measured from pixels the GPU actually wrote:
  *
@@ -13,8 +13,11 @@
  *     construction a non-zero band *after* a zero one. The region is LARGER than the idle marker on
  *     purpose — an electrode in a pair is drawn at the job's electrode size on its gel;
  *  3. a selected atlas region is painted in the ROI tint and an unselected one is not;
- *  4. a warm first paint is ≤ 300 ms and orbiting a 145 k-triangle head holds its frame budget at
+ *  4. a first paint is within its budget and orbiting the subject's head holds its frame budget at
  *     1280 px.
+ *
+ * The Simulator draws the scalp alone (no cortex: the scalp is what is aimed at), and a subject-space
+ * Optimizer target draws the subject's own head whenever that subject's scene lists the atlas.
  *
  * Run it with `--project=real` (`TIT_E2E_SERVER_URL` + `TIT_E2E_TOKEN`), offscreen. It submits no
  * job and writes nothing to the project.
@@ -35,8 +38,13 @@ const NET_LABEL = NET.replace(/\.csv$/i, "");
 /** Every probe was measured to sit within this of the palette colour: the marker shader's own
  *  centre term is exactly 1.0, so the only slack is the 8-bit round trip and the alpha edge. */
 const COLOUR_TOLERANCE = 12;
-/** The pane's budget: a warm paint of the packaged guide. */
-const FIRST_PAINT_BUDGET_MS = 300;
+/**
+ * The pane's first paint of the subject's whole cortex, first asked for in this session (the
+ * Simulator leg draws ernie's scalp only), so it is not warm. Same budget as scene-atlas-border, whose
+ * measurement it shares; measured here 2026-11-07: 400 ms on sub-101 against Dataset 000. 300 ms
+ * was a warm paint of the packaged guide.
+ */
+const FIRST_PAINT_BUDGET_MS = 2000;
 
 const rgb255 = (c: readonly number[]): number[] => c.map((v) => Math.round(v * 255));
 const delta = (a: number[], b: number[]): number =>
@@ -67,7 +75,7 @@ async function montageReady(page: Page): Promise<void> {
     // for ready samples that temporary canvas immediately before it is replaced.
     if (window.__scenePane?.subject !== subject || !scene?.ready || !scene.camera.settled || !canvas) return false;
     const rect = canvas.getBoundingClientRect();
-    return ["gm", "skin"].every((id) => scene.parts.some((part) => part.id === id))
+    return scene.parts.some((part) => part.id === "skin") && !scene.parts.some((part) => part.id === "gm")
       && scene.stats.triangles === scene.parts.reduce((sum, part) => sum + part.triangles, 0)
       && scene.markers.length > 0 && scene.stats.markers === scene.markers.length
       && Math.abs(scene.canvas.widthCss - rect.width) < 1
@@ -336,12 +344,15 @@ test("an electrode's colour is its whole state, and selecting it adds no ring", 
 
 test("a selected atlas region is painted in its own .annot colour, and the pane holds its budgets", async () => {
   test.setTimeout(180_000);
+  // A subject whose scene lists cortical .annot atlases: sub-101 does on Dataset 000, sub-ernie
+  // lists none, and a subject with none is drawn as plain cortex with no region to select.
+  const regionSubject = process.env.TIT_E2E_SUBJECT ?? "101";
   const app = await launchElectronApp();
   try {
     const page = await app.firstWindow();
     await page.setViewportSize({ width: 1280, height: 900 });
     await connectReal(page);
-    await selectSubject(page, process.env.TIT_E2E_SUBJECT ?? "ernie");
+    await selectSubject(page, regionSubject);
     await gotoPage(page, "optimizer");
     const panel = page.locator('[data-page-panel="optimizer"]');
     // The jobs table (2026-09-06) retired the page-level Method segment: a row IS the method, the
@@ -356,19 +367,22 @@ test("a selected atlas region is painted in its own .annot colour, and the pane 
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-state", "ready", { timeout: 60_000 });
     await expect(panel.getByTestId("scene-pane-host")).toHaveAttribute("data-gesture", "region");
     await settled(page);
-    expect(await page.evaluate(() => window.__scenePane?.subject)).toBeNull();
-    expect(await page.evaluate(() => window.__scenePane?.guide)).toBeTruthy();
+    // A subject-space target on a subject whose scene lists the atlas is drawn on that subject's
+    // own cortex, so the colour checked below is its own .annot entry.
+    expect(await page.evaluate(() => window.__scenePane?.subject)).toBe(regionSubject);
+    expect(await page.evaluate(() => window.__scenePane?.guide)).toBeNull();
 
-    // Warm: this pane is the second one this session to ask for the same immutable payloads, so
-    // nothing here is a cold download. What is being budgeted is decode + upload + first frame.
+    // The server's scene cache is warm; what is budgeted is the download, decode, upload and first frame.
     const firstPaint = await page.evaluate(() => window.__scenePane?.firstPaintMs ?? null);
     expect(firstPaint, "the pane never reported a first paint").not.toBeNull();
-    expect(firstPaint!, `warm first paint ${firstPaint} ms`).toBeLessThanOrEqual(FIRST_PAINT_BUDGET_MS);
+    expect(firstPaint!, `first paint ${firstPaint} ms`).toBeLessThanOrEqual(FIRST_PAINT_BUDGET_MS);
 
     const box = await panel.getByTestId("scene-canvas").boundingBox();
     if (!box) throw new Error("the scene canvas has no bounding box");
     const cx = box.width / 2;
     const cy = box.height / 2;
+    // A subject's per-vertex labels arrive after its surfaces: wait until the centre pixel is a region.
+    await page.waitForFunction(([x, y]) => window.__scene?.sampleRegions([[x, y]])?.[0] != null, [cx, cy] as const, { timeout: 30_000 });
     const before = await pixelAt(page, cx, cy);
     await page.mouse.click(box.x + cx, box.y + cy);
     await expect.poll(() => page.evaluate(() => (window.__scenePane?.selectedRegions ?? []).length)).toBeGreaterThan(0);
@@ -436,7 +450,7 @@ test("a selected atlas region is painted in its own .annot colour, and the pane 
     console.log(
       `REAL-SCENE region ${picked?.name}/${picked?.hemi}: ${JSON.stringify(before)} -> ${JSON.stringify(after)} ` +
         `(atlas colour ${hex} = ${JSON.stringify(own)}, cos to own ${toOwn.toFixed(3)}, ` +
-        `cos to flat blue ${toFlat.toFixed(3)}), warm first paint ${firstPaint} ms`,
+        `cos to flat blue ${toFlat.toFixed(3)}), first paint ${firstPaint} ms`,
     );
 
     // Orbit at 1280: a drag across the canvas, then the renderer's own frame counter.
