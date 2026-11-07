@@ -190,3 +190,45 @@ def test_a_pending_job_shows_on_the_column_it_would_produce(project: Path) -> No
     row = next(s for s in body.subjects if s.id == "101")
     assert row.m2m == "pending"
     assert row.raw == "present", "on disk still wins"
+
+
+def test_overview_and_ex_runs_follow_the_files_as_they_change(project: Path) -> None:
+    """Pins the stat-keyed cache of an ex run's best row (2026-11-07): an edited
+    CSV, a new run and a deleted CSV are each seen by the next read. Every
+    expected value is the fixture written just above it."""
+    from tit import catalog
+
+    pm = get_path_manager(str(project))
+
+    def write_run(name: str, rows: list[tuple[str, str]]) -> Path:
+        run = Path(pm.ex_search_run("ernie", name))
+        run.mkdir(parents=True, exist_ok=True)
+        (run / "run_config.json").write_text(json.dumps({"leadfield_hdf": "x.hdf5"}))
+        body = "Montage,Composite_Index\n" + "".join(f"{m},{s}\n" for m, s in rows)
+        (run / "final_output.csv").write_text(body)
+        return run
+
+    def best() -> dict:
+        return {r["run_name"]: r["best"] for r in catalog.ex_runs(pm, "ernie")}
+
+    def optimizations() -> int:
+        row = next(s for s in build_overview(pm, []).subjects if s.id == "ernie")
+        return row.counts.optimizations
+
+    run = write_run("a", [("E1-E2_E3-E4", "0.5"), ("E5-E6_E7-E8", "0.9")])
+    assert best() == {"a": {"montage": "E5-E6_E7-E8", "score": 0.9}}
+    assert optimizations() == 2  # the fixture's flex run plus this one
+
+    # Same size, so only the stat's mtime tells the reads apart.
+    write_run("a", [("E1-E2_E3-E4", "0.7"), ("E5-E6_E7-E8", "0.1")])
+    later = os.stat(run / "final_output.csv").st_mtime_ns + 1_000_000_000
+    os.utime(run / "final_output.csv", ns=(later, later))
+    assert best() == {"a": {"montage": "E1-E2_E3-E4", "score": 0.7}}
+
+    write_run("b", [("E9-E10_E11-E12", "0.3")])
+    assert best()["b"] == {"montage": "E9-E10_E11-E12", "score": 0.3}
+    assert optimizations() == 3
+
+    (run / "final_output.csv").unlink()
+    assert best()["a"] is None
+    assert optimizations() == 3, "a run is counted by its run_config.json, not its CSV"

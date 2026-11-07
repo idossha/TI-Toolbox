@@ -18,6 +18,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parent.parent
+LAZY_PACKAGES = ["tit.sim", "tit.opt.flex", "tit.opt.ex", "tit.opt.mex"]
 
 
 @pytest.mark.parametrize(
@@ -27,6 +28,7 @@ REPO = Path(__file__).resolve().parent.parent
         "from tit.sim.utils import load_montage_data",
         "from tit.opt.flex.manifest import read_manifest",
         "from tit.opt.ex.roi import read_roi_center",
+        "from tit.opt.mex.logic import count_multipolar_combinations",
     ],
 )
 def test_a_catalog_read_does_not_import_simnibs(statement):
@@ -41,7 +43,7 @@ def test_a_catalog_read_does_not_import_simnibs(statement):
     assert done.returncode == 0, done.stderr
 
 
-@pytest.mark.parametrize("package", ["tit.sim", "tit.opt.flex", "tit.opt.ex"])
+@pytest.mark.parametrize("package", LAZY_PACKAGES)
 def test_every_public_name_still_resolves(package):
     module = importlib.import_module(package)
     assert module.__all__
@@ -52,19 +54,24 @@ def test_every_public_name_still_resolves(package):
 def test_the_lazy_names_are_the_real_objects():
     import tit.opt.ex
     import tit.opt.flex
+    import tit.opt.mex
     import tit.sim
     from tit.opt.ex.engine import ExSearchEngine
     from tit.opt.ex.ex import run_ex_search
     from tit.opt.flex.flex import run_flex_search
+    from tit.opt.mex.engine import MExSearchEngine
+    from tit.opt.mex.mex import run_m_ex_search
     from tit.sim.base import BaseSimulation
 
     assert tit.sim.BaseSimulation is BaseSimulation
     assert tit.opt.flex.run_flex_search is run_flex_search
     assert tit.opt.ex.ExSearchEngine is ExSearchEngine
     assert tit.opt.ex.run_ex_search is run_ex_search
+    assert tit.opt.mex.MExSearchEngine is MExSearchEngine
+    assert tit.opt.mex.run_m_ex_search is run_m_ex_search
 
 
-@pytest.mark.parametrize("package", ["tit.sim", "tit.opt.flex", "tit.opt.ex"])
+@pytest.mark.parametrize("package", LAZY_PACKAGES)
 def test_an_unknown_name_is_still_an_attribute_error(package):
     with pytest.raises(AttributeError, match="no_such_name"):
         getattr(importlib.import_module(package), "no_such_name")

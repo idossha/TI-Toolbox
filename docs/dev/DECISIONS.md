@@ -4320,7 +4320,7 @@ The Simulator's job table waited 16 s in the app on a first visit: `get_montages
 
 **Alternatives rejected.** Moving the `simnibs` import inside `tit/sim/base.py`'s methods: the host suite patches `tit.sim.base.mesh_io` and `run_simnibs` as module attributes, and a run would still pay at first use, only later. Moving the montage and ROI readers to a light module: more churn for callers to reach the same import graph. Importing SimNIBS at server start in the background: every session would hold about 330 MB it may never need.
 
-**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. Overview's remaining 1.8 s is its scan, on every call, not an import.
+**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. **Superseded 2026-11-07** by "A plan never imports SimNIBS through `tit.opt.mex`". Overview's remaining 1.8 s is its scan, on every call, not an import. **Superseded 2026-11-07** by "An ex run's best row is read once per file version".
 
 Verified by `tests/test_lazy_package_imports.py`, which asks a fresh interpreter because the host suite mocks `simnibs` in `sys.modules`.
 
@@ -4362,3 +4362,34 @@ eddy are not numerically identical, so a fallback would hide a change of method.
 **What can move.** Upstream's notes for 26.1 change results as well as flags: Jacobian modulation for corrections QSIPrep resamples, zero-magnitude b-vectors written as `[1 0 0]`, grouping by qsiplan with inconsistent metadata now a named error, and a SyN series without `PhaseEncodingDirection` or `TotalReadoutTime` an error where `--use-syn-sdc warn` only warned. So a saved tag is left as it is: a cohort started on 26.0.0 can finish on it.
 
 **Alternatives rejected.** Dropping support for older tags and deleting the shim: a saved 26.0.0 would then fail with an argparse error, and a study would have to change method midway. Rewriting saved preferences to the new tag: changes a method without asking. Staying on 26.0.0: the user asked to move, and the CLI change has a documented mapping.
+
+## 2026-11-07 — A plan never imports SimNIBS through `tit.opt.mex`
+
+Supersedes the "Left alone" clause of "Reading a list never imports SimNIBS" for mEx. Planning an mEx job counts its combinations with `tit.opt.mex.logic`, and importing it ran `tit/opt/mex/__init__.py`, which imported `tit.opt.mex.engine` and so `simnibs`: the first mEx plan of a session waited for SimNIBS.
+
+**Decision.** `tit.opt.mex` exposes `MExSearchEngine` and `run_m_ex_search` through a module `__getattr__`, as `tit.opt.ex` does. Every public name still resolves to the same object, and `python -m tit.opt.mex` still loads SimNIBS when it runs. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#first-load-of-a-catalog-list--2026-11-07).
+
+**Alternatives rejected.** Moving the combination counter into `tit.opt.ex`: callers and tests change for the same import graph.
+
+Verified by `tests/test_lazy_package_imports.py` on the host and in the image.
+
+## 2026-11-07 — An ex run's best row is read once per file version
+
+Supersedes the Overview clause of "Reading a list never imports SimNIBS". Overview and the ex-run list call `tit.catalog.ex_runs`, which scanned every run's whole `final_output.csv` for its best `Composite_Index` row on every call.
+
+**Decision.** `_ex_best` keys that scan on the file's path, `st_mtime_ns` and `st_size` (`functools.lru_cache`, 256 entries), as `_report_title` already does; a failed read raises inside the cached function so it is not remembered. Every other part of a listing is read fresh, so an edited CSV, a new run and a deleted CSV show on the next call. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#overview-every-call--2026-11-07).
+
+**Alternatives rejected.** An Overview-only counter that skips the CSVs: a second copy of the run-discovery rules, which belong to `tit.catalog`, and no help to the ex-run list. A time-based cache of the whole Overview: stale for its lifetime after a job writes. Caching `subject_ids`: it is the remaining cost, but a new subject must show at once and nothing cheap says the folder changed.
+
+Verified by `tests/test_server_overview.py::test_overview_and_ex_runs_follow_the_files_as_they_change`, which fails when the key drops the mtime.
+
+## 2026-11-07 — A volume no head can draw is shown on the subject's own scalp
+
+A subject-space volume that neither the subject's scene nor a guide lists (a mask under `m2m_<id>/masks/`) drew the packaged reference head without a brain, because b9643da5 chose not to build the subject's head to show nothing more. The maintainer asked for the subject's own skin instead.
+
+**Decision.** When the subject's scene is ready, `ScenePane` draws the subject with its skin part only (the scene's existing skin), asks the subject's scene for no legend or labels, and says "`<id>`'s head is shown without a brain: `<volume>` has no surface to draw." The reference head stands in, without a brain and with its own sentence, only while the subject has no head yet. A volume target still draws no cortex; the Networks visualizer is the one exception and is not on `main`.
+
+**Alternatives rejected.** Keeping the reference head: the user is targeting this subject, and its head is already built and cached for every other target.
+
+Verified by `desktop/tests/e2e/scene-pane.spec.ts` ("a volume only the subject has draws the subject's skin…") against the mock, and offscreen against Dataset 000 on sub-CHN with `masks/tract-posterior_tc.nii.gz`.
+
