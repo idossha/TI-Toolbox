@@ -51,7 +51,7 @@ The **Target** section offers three choices:
 - **Saved** uses spherical ROIs saved for the subject: tick one or more, or create one with **Add ROI** (a new subject shows "No saved ROIs for this subject yet"). **Radius** sets the sphere (1–10 mm, default 3 mm) and **Space** says whether the centres are Subject or MNI coordinates. **Combine selected ROIs into one target** unions the selected spheres into a single Ex search; without it each selected ROI runs its own search.
 - **Subcortical** selects regions from a volumetric atlas.
 - **NIfTI mask** imports a local `.nii` or `.nii.gz` file into the project. Positive voxels define the target. Subject-space masks are used directly; MNI masks use the subject’s SimNIBS registration in `m2m_<subject>/toMNI`, with nearest-neighbor resampling. The conformation affine alone is not an MNI registration.
-- **Network** chooses edges of the subject's white-matter network and writes a mask from them, in subject space. See [Tractography](diffusion-processing.md#tractography), which also describes ranking a finished run on a network.
+- **Network** chooses edges of the subject's white-matter network and writes a mask from them, in subject space. See [Network targets]({{ site.baseurl }}/wiki/tractography-targets/). A finished run can be [ranked on a network]({{ site.baseurl }}/wiki/tractography-analysis/#rank-an-ex-search-run).
 
 **Electrodes** is a separate section: set **Count** to **2 channels (TI)** or **4 channels (mTI)**, then configure the search space. Channel k is electrodes Ek+ and Ek-, so the buckets are E1+, E1-, E2+, E2- (and E3±, E4± for mTI).
 

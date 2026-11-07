@@ -29,14 +29,22 @@ wiki:
       children:
         - { title: FastSurfer / FreeSurfer, url: /wiki/fastsurfer/ }
         - { title: QSIPrep / QSIRecon, url: /wiki/diffusion-processing/ }
+        - { title: Tractography, url: /wiki/tractography/ }
     - { title: Simulator, url: /wiki/simulator/ }
-    - { title: Flex Search, url: /wiki/flex-search/ }
-    - { title: Ex Search, url: /wiki/ex-search/ }
+    - title: Flex Search
+      url: /wiki/flex-search/
+      children:
+        - { title: Network targets, url: /wiki/tractography-targets/ }
+    - title: Ex Search
+      url: /wiki/ex-search/
+      children:
+        - { title: Network targets, url: /wiki/tractography-targets/ }
     - title: Analyzer
       url: /wiki/analyzer/
       children:
         - { title: Reading the Results, url: /wiki/analyzer-results/ }
         - { title: Field Definitions, url: /wiki/field-definitions/ }
+        - { title: Network analysis, url: /wiki/tractography-analysis/ }
     - title: Notebooks
       url: /wiki/notebooks/
     - { title: Results, url: /wiki/results/ }
@@ -54,7 +62,10 @@ wiki:
     - group: Optional Tools
     - { title: Optional Tools, url: /wiki/extension/ }
     - { title: Tissue Analyzer, url: /wiki/tissue-analyzer/ }
-    - { title: 3D Visual Exporter, url: /wiki/blender/ }
+    - title: 3D Visual Exporter
+      url: /wiki/blender/
+      children:
+        - { title: Network renders, url: /wiki/tractography-renders/ }
     - { title: Cluster-Based Permutation Testing, url: /wiki/cluster-permutation-testing/ }
     - { title: Free Electrode Placement, url: /wiki/electrode-placement/ }
     - { title: Quick Notes, url: /wiki/quick-notes/ }

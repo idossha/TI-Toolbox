@@ -272,7 +272,7 @@ export const STEP_INFO: Record<string, StepInfo> = {
       { label: "Connectome", path: "derivatives/SimNIBS/sub-<id>/tractography/network.npz" },
     ],
     nativeMinutes: native("G7"),
-    docsHref: `${DOCS_SITE}wiki/diffusion-processing/#tractography`,
+    docsHref: `${DOCS_SITE}wiki/tractography/`,
   },
   extract_dti: {
     id: "extract_dti",
