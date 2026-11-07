@@ -6583,8 +6583,8 @@
         "tags": [
           "guide"
         ],
-        "summary": "One packaged atlas' grey-matter surface with per-vertex labels",
-        "description": "A GIfTI mesh carrying the guide's grey-matter triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>` \u2014 the payload a renderer draws and picks regions on. Its label values index the `legend[].label` field of `GET /api/guide/regions`.",
+        "summary": "One packaged atlas' per-vertex labels, for the part `atlases[].aligned_to` names",
+        "description": "`tvsc` is what the pane reads. A volume atlas with its own part also has `gii`: a GIfTI mesh with the part's triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>`. Atlases on the whole central surfaces are `tvsc` only, and asking for `gii` is a 404. Label values index the `legend[].label` field of `GET /api/guide/regions`.",
         "security": [
           {
             "cookieAuth": []
@@ -6609,9 +6609,10 @@
             "schema": {
               "type": "string",
               "enum": [
+                "tvsc",
                 "gii"
               ],
-              "default": "gii"
+              "default": "tvsc"
             }
           },
           {
@@ -6631,7 +6632,7 @@
         ],
         "responses": {
           "200": {
-            "description": "GIfTI binary with a label array and label table",
+            "description": "TVSC1 or GIfTI binary, per ?format",
             "content": {
               "application/octet-stream": {
                 "schema": {

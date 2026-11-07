@@ -140,6 +140,27 @@ def test_labels_only_payload_has_no_index_block() -> None:
     assert decoded.indices.shape == (0, 3)
 
 
+def test_labels_without_positions_carry_the_surfaces_ends_and_every_label() -> None:
+    """Flags bit1: 32-byte header, 24 bytes of ends, then padded labels, walked by hand."""
+    positions = np.array([[1.5, 2.0, 3.0], [9.0, 9.0, 9.0], [-1.0, -2.0, -3.5]])
+    labels = np.array([7, 0, 65535], dtype=np.uint16)
+    blob = tvsc.encode_labels(positions, labels)
+    assert len(blob) == 32 + 24 + 8  # 3 labels = 6 bytes, padded to 8
+    assert struct.unpack_from("<4sIIII", blob) == (b"TVSC", 1, 3, 0, 3)
+    assert struct.unpack_from("<6f", blob, 32) == (1.5, 2.0, 3.0, -1.0, -2.0, -3.5)
+    assert struct.unpack_from("<3H", blob, 56) == (7, 0, 65535)
+
+    decoded = tvsc.decode(blob)
+    assert decoded.vertex_count == 3
+    assert decoded.positions.shape == (2, 3)
+    assert decoded.indices.shape == (0, 3)
+    np.testing.assert_array_equal(decoded.labels, labels)
+    with pytest.raises(ValueError, match="header requires"):
+        tvsc.decode(blob[:40])
+    with pytest.raises(ValueError, match="labels must be"):
+        tvsc.encode_labels(positions, labels[:2])
+
+
 @pytest.mark.parametrize(
     ("kwargs", "message"),
     [
@@ -228,7 +249,8 @@ def test_every_fixture_matches_its_authored_manifest(manifest: dict) -> None:
             decoded.positions, _expected_positions(entry), rtol=0, atol=1e-4
         )
         np.testing.assert_array_equal(
-            decoded.indices, np.asarray(entry["triangles"], dtype=np.uint32).reshape(-1, 3)
+            decoded.indices,
+            np.asarray(entry["triangles"], dtype=np.uint32).reshape(-1, 3),
         )
         if entry["labels"] is None:
             assert decoded.labels is None, name

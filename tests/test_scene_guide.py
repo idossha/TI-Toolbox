@@ -3,8 +3,10 @@
 What this pins (plan R4's gate, the half that is about the *package*)
     every asset the manifest advertises resolves on disk; its recorded size and
     SHA-256 are the file's own; the manifest's atlas and net ids are exactly
-    the ids of the packaged catalogs; every surface stays inside the frozen
-    §S3 budget (≤ 150 000 triangles, ≤ 3 MB of TVSC1); the coordinate space is
+    the ids of the packaged catalogs; every surface but the whole central ``gm``
+    stays inside the frozen §S3 budget (≤ 150 000 triangles, ≤ 3 MB of TVSC1), and
+    both guides' ``gm`` is closed and two-manifold; MNI cortical volumes label that
+    cortex and the other volumes keep their own part; the coordinate space is
     ``guide-ras`` and never ``subject-ras``; and no head model, mesh or label
     volume was packaged along the way.
 
@@ -108,7 +110,7 @@ def test_manifest_ids_equal_the_packaged_catalog_ids(manifest: dict) -> None:
     an atlas the user cannot select even though it shipped.
     """
     packaged_atlases = sorted(
-        p.stem for p in (guide.GUIDE_DIR / "labels").glob("*.gii")
+        p.stem for p in (guide.GUIDE_DIR / "labels").glob("*.tvsc")
     )
     atlas_ids = sorted(a["id"] for a in manifest["atlases"])
     assert atlas_ids == packaged_atlases
@@ -125,7 +127,9 @@ def test_manifest_ids_equal_the_packaged_catalog_ids(manifest: dict) -> None:
     assert sorted(p["id"] for p in manifest["parts"]) == packaged_parts
 
 
-def test_every_surface_stays_inside_the_frozen_tvsc_budget(manifest: dict) -> None:
+def test_every_surface_but_the_cortex_stays_inside_the_frozen_tvsc_budget(
+    manifest: dict,
+) -> None:
     """≤ 3 MB and ≤ 150 000 triangles per surface, read back from the payload.
 
     ``decode`` is the independent reader: the triangle count asserted is the
@@ -137,8 +141,11 @@ def test_every_surface_stays_inside_the_frozen_tvsc_budget(manifest: dict) -> No
         payload = tvsc.decode(blob)
         triangles = int(payload.indices.shape[0])  # decode() reshapes to (N, 3)
         assert triangles == part["triangles"]
-        assert triangles <= build.MAX_TRIANGLES, (part["id"], triangles)
-        assert len(blob) <= build.MAX_BYTES, (part["id"], len(blob))
+        if (
+            part["id"] != "gm"
+        ):  # whole, because clustering cuts holes (DECISIONS, 2026-11-06)
+            assert triangles <= build.MAX_TRIANGLES, (part["id"], triangles)
+            assert len(blob) <= build.MAX_BYTES, (part["id"], len(blob))
         assert part["within_budget"] is True
         assert part["bytes"] == len(blob)
 
@@ -338,6 +345,62 @@ def test_every_atlas_ships_tvsc_labels_aligned_to_the_grey_matter_surface(
         assert payload.labels is not None, f"{atlas['id']} carries no per-vertex labels"
         assert len(payload.labels) == len(gm.positions)
         assert payload.positions[0].tolist() == gm.positions[0].tolist()
+        assert payload.positions[-1].tolist() == gm.positions[-1].tolist()
+
+
+@pytest.mark.parametrize("guide_id", ["default", "mni"])
+def test_a_guides_cortex_is_closed_and_two_manifold(guide_id: str) -> None:
+    """The midlayer's property, read off the served bytes: every edge in exactly two triangles.
+
+    One edge in one or three triangles is the head-mesh grey matter's holes and shards, which
+    the old guides had 3,370 and 2,412 of (their boundary edges, DECISIONS 2026-11-06).
+    """
+    import numpy as np
+
+    payload = tvsc.decode(guide.surface("gm", "tvsc", guide_id).path.read_bytes())
+    t = payload.indices.astype(np.int64)
+    a = np.concatenate([t[:, 0], t[:, 1], t[:, 2]])
+    b = np.concatenate([t[:, 1], t[:, 2], t[:, 0]])
+    keys = np.minimum(a, b) * len(payload.positions) + np.maximum(a, b)
+    _, counts = np.unique(keys, return_counts=True)
+    assert (
+        counts == 2
+    ).all(), f"{(counts != 2).sum()} edges not in exactly two triangles"
+    assert len(t) > 500_000, "a whole cortex, not a clustered one"
+
+
+def test_mni_cortical_volumes_label_the_cortex_and_the_rest_keep_their_volume_surface() -> (
+    None
+):
+    """User's rule: midlayer for cortex, the NIfTI's own surface for sub-cortical regions."""
+    import numpy as np
+
+    from tit.scene.guide_build import MNI_CORTICAL_VOLUMES
+
+    manifest = guide.manifest("mni")
+    atlases = {atlas["id"]: atlas for atlas in manifest["atlases"]}
+    # The pane opens on the first atlas, so on the template's cortex.
+    assert manifest["atlases"][0]["id"] in MNI_CORTICAL_VOLUMES
+    assert set(MNI_CORTICAL_VOLUMES) <= set(atlases)
+    parts = {part["id"] for part in manifest["parts"]}
+    for atlas_id, atlas in atlases.items():
+        # Either way the row's ROI stays the label volume.
+        assert atlas["kind"] == "subcortical", atlas_id
+        legend = guide.legend(atlas_id, "mni")
+        rows = {row["label"] for row in legend["legend"]}
+        assert build.NO_REGION not in rows
+        labels = tvsc.decode(
+            guide.labels(atlas_id, "tvsc", "mni").path.read_bytes()
+        ).labels
+        assert set(np.unique(labels).tolist()) - {build.NO_REGION} == rows, atlas_id
+        if atlas_id in MNI_CORTICAL_VOLUMES:
+            assert atlas["aligned_to"] == "gm"
+            assert f"atlas-{atlas_id}" not in parts
+            # Only the medial wall and the atlas' own gaps are left grey.
+            assert legend["labelled_fraction"] > 0.9, atlas_id
+        else:
+            assert atlas["aligned_to"] == f"atlas-{atlas_id}"
+            assert atlas["aligned_to"] in parts
 
 
 def test_subcortical_geometry_and_labels_are_aligned_and_filtered():

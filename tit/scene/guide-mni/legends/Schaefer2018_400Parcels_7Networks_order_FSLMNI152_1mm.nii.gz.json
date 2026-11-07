@@ -1,0 +1,2811 @@
+{
+ "atlas": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "gm",
+ "vertices": 256686,
+ "radius_mm": 3.0,
+ "labelled_fraction": 0.9525,
+ "legend": [
+  {
+   "id": 1,
+   "name": "7Networks_LH_Vis_1",
+   "color": "#781180",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "7Networks_LH_Vis_2",
+   "color": "#781181",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "7Networks_LH_Vis_3",
+   "color": "#781182",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "7Networks_LH_Vis_4",
+   "color": "#781183",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "7Networks_LH_Vis_5",
+   "color": "#781184",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "7Networks_LH_Vis_6",
+   "color": "#781185",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "7Networks_LH_Vis_7",
+   "color": "#781186",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "7Networks_LH_Vis_8",
+   "color": "#78127f",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "7Networks_LH_Vis_9",
+   "color": "#781280",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "7Networks_LH_Vis_10",
+   "color": "#781281",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "7Networks_LH_Vis_11",
+   "color": "#781282",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "7Networks_LH_Vis_12",
+   "color": "#781283",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "7Networks_LH_Vis_13",
+   "color": "#781284",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "7Networks_LH_Vis_14",
+   "color": "#781285",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "7Networks_LH_Vis_15",
+   "color": "#781287",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "7Networks_LH_Vis_16",
+   "color": "#781288",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "7Networks_LH_Vis_17",
+   "color": "#781289",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "7Networks_LH_Vis_18",
+   "color": "#78128a",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "7Networks_LH_Vis_19",
+   "color": "#78128b",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "7Networks_LH_Vis_20",
+   "color": "#78128c",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "7Networks_LH_Vis_21",
+   "color": "#78128d",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "7Networks_LH_Vis_22",
+   "color": "#781386",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "7Networks_LH_Vis_23",
+   "color": "#781387",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "7Networks_LH_Vis_24",
+   "color": "#781388",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "7Networks_LH_Vis_25",
+   "color": "#781389",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "7Networks_LH_Vis_26",
+   "color": "#78138a",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "7Networks_LH_Vis_27",
+   "color": "#78138b",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "7Networks_LH_Vis_28",
+   "color": "#78138c",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "7Networks_LH_Vis_29",
+   "color": "#78138d",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "7Networks_LH_Vis_30",
+   "color": "#781486",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "7Networks_LH_Vis_31",
+   "color": "#781487",
+   "label": 31,
+   "hemi": ""
+  },
+  {
+   "id": 32,
+   "name": "7Networks_LH_SomMot_1",
+   "color": "#4680b3",
+   "label": 32,
+   "hemi": ""
+  },
+  {
+   "id": 33,
+   "name": "7Networks_LH_SomMot_2",
+   "color": "#4680b4",
+   "label": 33,
+   "hemi": ""
+  },
+  {
+   "id": 34,
+   "name": "7Networks_LH_SomMot_3",
+   "color": "#4681ad",
+   "label": 34,
+   "hemi": ""
+  },
+  {
+   "id": 35,
+   "name": "7Networks_LH_SomMot_4",
+   "color": "#4681ae",
+   "label": 35,
+   "hemi": ""
+  },
+  {
+   "id": 36,
+   "name": "7Networks_LH_SomMot_5",
+   "color": "#4681af",
+   "label": 36,
+   "hemi": ""
+  },
+  {
+   "id": 37,
+   "name": "7Networks_LH_SomMot_6",
+   "color": "#4681b0",
+   "label": 37,
+   "hemi": ""
+  },
+  {
+   "id": 38,
+   "name": "7Networks_LH_SomMot_7",
+   "color": "#4681b1",
+   "label": 38,
+   "hemi": ""
+  },
+  {
+   "id": 39,
+   "name": "7Networks_LH_SomMot_8",
+   "color": "#4681b2",
+   "label": 39,
+   "hemi": ""
+  },
+  {
+   "id": 40,
+   "name": "7Networks_LH_SomMot_9",
+   "color": "#4681b3",
+   "label": 40,
+   "hemi": ""
+  },
+  {
+   "id": 41,
+   "name": "7Networks_LH_SomMot_10",
+   "color": "#4681b4",
+   "label": 41,
+   "hemi": ""
+  },
+  {
+   "id": 42,
+   "name": "7Networks_LH_SomMot_11",
+   "color": "#4682ad",
+   "label": 42,
+   "hemi": ""
+  },
+  {
+   "id": 43,
+   "name": "7Networks_LH_SomMot_12",
+   "color": "#4682ae",
+   "label": 43,
+   "hemi": ""
+  },
+  {
+   "id": 44,
+   "name": "7Networks_LH_SomMot_13",
+   "color": "#4682af",
+   "label": 44,
+   "hemi": ""
+  },
+  {
+   "id": 45,
+   "name": "7Networks_LH_SomMot_14",
+   "color": "#4682b0",
+   "label": 45,
+   "hemi": ""
+  },
+  {
+   "id": 46,
+   "name": "7Networks_LH_SomMot_15",
+   "color": "#4682b1",
+   "label": 46,
+   "hemi": ""
+  },
+  {
+   "id": 47,
+   "name": "7Networks_LH_SomMot_16",
+   "color": "#4682b2",
+   "label": 47,
+   "hemi": ""
+  },
+  {
+   "id": 48,
+   "name": "7Networks_LH_SomMot_17",
+   "color": "#4682b3",
+   "label": 48,
+   "hemi": ""
+  },
+  {
+   "id": 49,
+   "name": "7Networks_LH_SomMot_18",
+   "color": "#4682b5",
+   "label": 49,
+   "hemi": ""
+  },
+  {
+   "id": 50,
+   "name": "7Networks_LH_SomMot_19",
+   "color": "#4682b6",
+   "label": 50,
+   "hemi": ""
+  },
+  {
+   "id": 51,
+   "name": "7Networks_LH_SomMot_20",
+   "color": "#4682b7",
+   "label": 51,
+   "hemi": ""
+  },
+  {
+   "id": 52,
+   "name": "7Networks_LH_SomMot_21",
+   "color": "#4682b8",
+   "label": 52,
+   "hemi": ""
+  },
+  {
+   "id": 53,
+   "name": "7Networks_LH_SomMot_22",
+   "color": "#4682b9",
+   "label": 53,
+   "hemi": ""
+  },
+  {
+   "id": 54,
+   "name": "7Networks_LH_SomMot_23",
+   "color": "#4682ba",
+   "label": 54,
+   "hemi": ""
+  },
+  {
+   "id": 55,
+   "name": "7Networks_LH_SomMot_24",
+   "color": "#4682bb",
+   "label": 55,
+   "hemi": ""
+  },
+  {
+   "id": 56,
+   "name": "7Networks_LH_SomMot_25",
+   "color": "#4683b4",
+   "label": 56,
+   "hemi": ""
+  },
+  {
+   "id": 57,
+   "name": "7Networks_LH_SomMot_26",
+   "color": "#4683b5",
+   "label": 57,
+   "hemi": ""
+  },
+  {
+   "id": 58,
+   "name": "7Networks_LH_SomMot_27",
+   "color": "#4683b6",
+   "label": 58,
+   "hemi": ""
+  },
+  {
+   "id": 59,
+   "name": "7Networks_LH_SomMot_28",
+   "color": "#4683b7",
+   "label": 59,
+   "hemi": ""
+  },
+  {
+   "id": 60,
+   "name": "7Networks_LH_SomMot_29",
+   "color": "#4683b8",
+   "label": 60,
+   "hemi": ""
+  },
+  {
+   "id": 61,
+   "name": "7Networks_LH_SomMot_30",
+   "color": "#4683b9",
+   "label": 61,
+   "hemi": ""
+  },
+  {
+   "id": 62,
+   "name": "7Networks_LH_SomMot_31",
+   "color": "#4683ba",
+   "label": 62,
+   "hemi": ""
+  },
+  {
+   "id": 63,
+   "name": "7Networks_LH_SomMot_32",
+   "color": "#4683bb",
+   "label": 63,
+   "hemi": ""
+  },
+  {
+   "id": 64,
+   "name": "7Networks_LH_SomMot_33",
+   "color": "#4684b4",
+   "label": 64,
+   "hemi": ""
+  },
+  {
+   "id": 65,
+   "name": "7Networks_LH_SomMot_34",
+   "color": "#4684b5",
+   "label": 65,
+   "hemi": ""
+  },
+  {
+   "id": 66,
+   "name": "7Networks_LH_SomMot_35",
+   "color": "#4684b6",
+   "label": 66,
+   "hemi": ""
+  },
+  {
+   "id": 67,
+   "name": "7Networks_LH_SomMot_36",
+   "color": "#4684b7",
+   "label": 67,
+   "hemi": ""
+  },
+  {
+   "id": 68,
+   "name": "7Networks_LH_SomMot_37",
+   "color": "#4684b8",
+   "label": 68,
+   "hemi": ""
+  },
+  {
+   "id": 69,
+   "name": "7Networks_LH_DorsAttn_Post_1",
+   "color": "#007607",
+   "label": 69,
+   "hemi": ""
+  },
+  {
+   "id": 70,
+   "name": "7Networks_LH_DorsAttn_Post_2",
+   "color": "#007608",
+   "label": 70,
+   "hemi": ""
+  },
+  {
+   "id": 71,
+   "name": "7Networks_LH_DorsAttn_Post_3",
+   "color": "#007609",
+   "label": 71,
+   "hemi": ""
+  },
+  {
+   "id": 72,
+   "name": "7Networks_LH_DorsAttn_Post_4",
+   "color": "#00760a",
+   "label": 72,
+   "hemi": ""
+  },
+  {
+   "id": 73,
+   "name": "7Networks_LH_DorsAttn_Post_5",
+   "color": "#00760b",
+   "label": 73,
+   "hemi": ""
+  },
+  {
+   "id": 74,
+   "name": "7Networks_LH_DorsAttn_Post_6",
+   "color": "#00760c",
+   "label": 74,
+   "hemi": ""
+  },
+  {
+   "id": 75,
+   "name": "7Networks_LH_DorsAttn_Post_7",
+   "color": "#00760d",
+   "label": 75,
+   "hemi": ""
+  },
+  {
+   "id": 76,
+   "name": "7Networks_LH_DorsAttn_Post_8",
+   "color": "#00760f",
+   "label": 76,
+   "hemi": ""
+  },
+  {
+   "id": 77,
+   "name": "7Networks_LH_DorsAttn_Post_9",
+   "color": "#007610",
+   "label": 77,
+   "hemi": ""
+  },
+  {
+   "id": 78,
+   "name": "7Networks_LH_DorsAttn_Post_10",
+   "color": "#007611",
+   "label": 78,
+   "hemi": ""
+  },
+  {
+   "id": 79,
+   "name": "7Networks_LH_DorsAttn_Post_11",
+   "color": "#007612",
+   "label": 79,
+   "hemi": ""
+  },
+  {
+   "id": 80,
+   "name": "7Networks_LH_DorsAttn_Post_12",
+   "color": "#007613",
+   "label": 80,
+   "hemi": ""
+  },
+  {
+   "id": 81,
+   "name": "7Networks_LH_DorsAttn_Post_13",
+   "color": "#007614",
+   "label": 81,
+   "hemi": ""
+  },
+  {
+   "id": 82,
+   "name": "7Networks_LH_DorsAttn_Post_14",
+   "color": "#007615",
+   "label": 82,
+   "hemi": ""
+  },
+  {
+   "id": 83,
+   "name": "7Networks_LH_DorsAttn_Post_15",
+   "color": "#00770e",
+   "label": 83,
+   "hemi": ""
+  },
+  {
+   "id": 84,
+   "name": "7Networks_LH_DorsAttn_Post_16",
+   "color": "#00770f",
+   "label": 84,
+   "hemi": ""
+  },
+  {
+   "id": 85,
+   "name": "7Networks_LH_DorsAttn_Post_17",
+   "color": "#007710",
+   "label": 85,
+   "hemi": ""
+  },
+  {
+   "id": 86,
+   "name": "7Networks_LH_DorsAttn_FEF_1",
+   "color": "#007616",
+   "label": 86,
+   "hemi": ""
+  },
+  {
+   "id": 87,
+   "name": "7Networks_LH_DorsAttn_FEF_2",
+   "color": "#007711",
+   "label": 87,
+   "hemi": ""
+  },
+  {
+   "id": 88,
+   "name": "7Networks_LH_DorsAttn_FEF_3",
+   "color": "#007712",
+   "label": 88,
+   "hemi": ""
+  },
+  {
+   "id": 89,
+   "name": "7Networks_LH_DorsAttn_FEF_4",
+   "color": "#007713",
+   "label": 89,
+   "hemi": ""
+  },
+  {
+   "id": 90,
+   "name": "7Networks_LH_DorsAttn_PrCv_1",
+   "color": "#007714",
+   "label": 90,
+   "hemi": ""
+  },
+  {
+   "id": 91,
+   "name": "7Networks_LH_DorsAttn_PrCv_2",
+   "color": "#007715",
+   "label": 91,
+   "hemi": ""
+  },
+  {
+   "id": 92,
+   "name": "7Networks_LH_SalVentAttn_ParOper_1",
+   "color": "#c43afb",
+   "label": 92,
+   "hemi": ""
+  },
+  {
+   "id": 93,
+   "name": "7Networks_LH_SalVentAttn_ParOper_2",
+   "color": "#c43afc",
+   "label": 93,
+   "hemi": ""
+  },
+  {
+   "id": 94,
+   "name": "7Networks_LH_SalVentAttn_ParOper_3",
+   "color": "#c43afd",
+   "label": 94,
+   "hemi": ""
+  },
+  {
+   "id": 95,
+   "name": "7Networks_LH_SalVentAttn_ParOper_4",
+   "color": "#c43afe",
+   "label": 95,
+   "hemi": ""
+  },
+  {
+   "id": 96,
+   "name": "7Networks_LH_SalVentAttn_TempOcc_1",
+   "color": "#c43aff",
+   "label": 96,
+   "hemi": ""
+  },
+  {
+   "id": 97,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_1",
+   "color": "#c43bf7",
+   "label": 97,
+   "hemi": ""
+  },
+  {
+   "id": 98,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_2",
+   "color": "#c43bf8",
+   "label": 98,
+   "hemi": ""
+  },
+  {
+   "id": 99,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_3",
+   "color": "#c43bf9",
+   "label": 99,
+   "hemi": ""
+  },
+  {
+   "id": 100,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_4",
+   "color": "#c43bfb",
+   "label": 100,
+   "hemi": ""
+  },
+  {
+   "id": 101,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_5",
+   "color": "#c43bfc",
+   "label": 101,
+   "hemi": ""
+  },
+  {
+   "id": 102,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_6",
+   "color": "#c43bfd",
+   "label": 102,
+   "hemi": ""
+  },
+  {
+   "id": 103,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_7",
+   "color": "#c43bfe",
+   "label": 103,
+   "hemi": ""
+  },
+  {
+   "id": 104,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_8",
+   "color": "#c43bff",
+   "label": 104,
+   "hemi": ""
+  },
+  {
+   "id": 105,
+   "name": "7Networks_LH_SalVentAttn_FrOperIns_9",
+   "color": "#c134fa",
+   "label": 105,
+   "hemi": ""
+  },
+  {
+   "id": 106,
+   "name": "7Networks_LH_SalVentAttn_PFCl_1",
+   "color": "#c134f9",
+   "label": 106,
+   "hemi": ""
+  },
+  {
+   "id": 107,
+   "name": "7Networks_LH_SalVentAttn_Med_1",
+   "color": "#c53af8",
+   "label": 107,
+   "hemi": ""
+  },
+  {
+   "id": 108,
+   "name": "7Networks_LH_SalVentAttn_Med_2",
+   "color": "#c53af9",
+   "label": 108,
+   "hemi": ""
+  },
+  {
+   "id": 109,
+   "name": "7Networks_LH_SalVentAttn_Med_3",
+   "color": "#c53afb",
+   "label": 109,
+   "hemi": ""
+  },
+  {
+   "id": 110,
+   "name": "7Networks_LH_SalVentAttn_Med_4",
+   "color": "#c53afc",
+   "label": 110,
+   "hemi": ""
+  },
+  {
+   "id": 111,
+   "name": "7Networks_LH_SalVentAttn_Med_5",
+   "color": "#c53afd",
+   "label": 111,
+   "hemi": ""
+  },
+  {
+   "id": 112,
+   "name": "7Networks_LH_SalVentAttn_Med_6",
+   "color": "#c53afe",
+   "label": 112,
+   "hemi": ""
+  },
+  {
+   "id": 113,
+   "name": "7Networks_LH_SalVentAttn_Med_7",
+   "color": "#c53aff",
+   "label": 113,
+   "hemi": ""
+  },
+  {
+   "id": 114,
+   "name": "7Networks_LH_Limbic_OFC_1",
+   "color": "#dcf8a3",
+   "label": 114,
+   "hemi": ""
+  },
+  {
+   "id": 115,
+   "name": "7Networks_LH_Limbic_OFC_2",
+   "color": "#dcf8a5",
+   "label": 115,
+   "hemi": ""
+  },
+  {
+   "id": 116,
+   "name": "7Networks_LH_Limbic_OFC_3",
+   "color": "#dcf8a6",
+   "label": 116,
+   "hemi": ""
+  },
+  {
+   "id": 117,
+   "name": "7Networks_LH_Limbic_OFC_4",
+   "color": "#dcf8a7",
+   "label": 117,
+   "hemi": ""
+  },
+  {
+   "id": 118,
+   "name": "7Networks_LH_Limbic_OFC_5",
+   "color": "#dcf8a8",
+   "label": 118,
+   "hemi": ""
+  },
+  {
+   "id": 119,
+   "name": "7Networks_LH_Limbic_TempPole_1",
+   "color": "#dcf8a4",
+   "label": 119,
+   "hemi": ""
+  },
+  {
+   "id": 120,
+   "name": "7Networks_LH_Limbic_TempPole_2",
+   "color": "#dcf8a9",
+   "label": 120,
+   "hemi": ""
+  },
+  {
+   "id": 121,
+   "name": "7Networks_LH_Limbic_TempPole_3",
+   "color": "#dcf8aa",
+   "label": 121,
+   "hemi": ""
+  },
+  {
+   "id": 122,
+   "name": "7Networks_LH_Limbic_TempPole_4",
+   "color": "#dcf8ab",
+   "label": 122,
+   "hemi": ""
+  },
+  {
+   "id": 123,
+   "name": "7Networks_LH_Limbic_TempPole_5",
+   "color": "#dcf8ac",
+   "label": 123,
+   "hemi": ""
+  },
+  {
+   "id": 124,
+   "name": "7Networks_LH_Limbic_TempPole_6",
+   "color": "#dcf9a5",
+   "label": 124,
+   "hemi": ""
+  },
+  {
+   "id": 125,
+   "name": "7Networks_LH_Limbic_TempPole_7",
+   "color": "#dcf9a6",
+   "label": 125,
+   "hemi": ""
+  },
+  {
+   "id": 126,
+   "name": "7Networks_LH_Limbic_TempPole_8",
+   "color": "#dcf9a7",
+   "label": 126,
+   "hemi": ""
+  },
+  {
+   "id": 127,
+   "name": "7Networks_LH_Cont_Par_1",
+   "color": "#e69421",
+   "label": 127,
+   "hemi": ""
+  },
+  {
+   "id": 128,
+   "name": "7Networks_LH_Cont_Par_2",
+   "color": "#e69423",
+   "label": 128,
+   "hemi": ""
+  },
+  {
+   "id": 129,
+   "name": "7Networks_LH_Cont_Par_3",
+   "color": "#e69424",
+   "label": 129,
+   "hemi": ""
+  },
+  {
+   "id": 130,
+   "name": "7Networks_LH_Cont_Par_4",
+   "color": "#e69425",
+   "label": 130,
+   "hemi": ""
+  },
+  {
+   "id": 131,
+   "name": "7Networks_LH_Cont_Par_5",
+   "color": "#e69426",
+   "label": 131,
+   "hemi": ""
+  },
+  {
+   "id": 132,
+   "name": "7Networks_LH_Cont_Par_6",
+   "color": "#e69427",
+   "label": 132,
+   "hemi": ""
+  },
+  {
+   "id": 133,
+   "name": "7Networks_LH_Cont_Temp_1",
+   "color": "#e69428",
+   "label": 133,
+   "hemi": ""
+  },
+  {
+   "id": 134,
+   "name": "7Networks_LH_Cont_OFC_1",
+   "color": "#e69520",
+   "label": 134,
+   "hemi": ""
+  },
+  {
+   "id": 135,
+   "name": "7Networks_LH_Cont_PFCl_1",
+   "color": "#e69521",
+   "label": 135,
+   "hemi": ""
+  },
+  {
+   "id": 136,
+   "name": "7Networks_LH_Cont_PFCl_2",
+   "color": "#e69522",
+   "label": 136,
+   "hemi": ""
+  },
+  {
+   "id": 137,
+   "name": "7Networks_LH_Cont_PFCl_3",
+   "color": "#e69524",
+   "label": 137,
+   "hemi": ""
+  },
+  {
+   "id": 138,
+   "name": "7Networks_LH_Cont_PFCl_4",
+   "color": "#e69525",
+   "label": 138,
+   "hemi": ""
+  },
+  {
+   "id": 139,
+   "name": "7Networks_LH_Cont_PFCl_5",
+   "color": "#e69526",
+   "label": 139,
+   "hemi": ""
+  },
+  {
+   "id": 140,
+   "name": "7Networks_LH_Cont_PFCl_6",
+   "color": "#e69527",
+   "label": 140,
+   "hemi": ""
+  },
+  {
+   "id": 141,
+   "name": "7Networks_LH_Cont_PFCl_7",
+   "color": "#e69528",
+   "label": 141,
+   "hemi": ""
+  },
+  {
+   "id": 142,
+   "name": "7Networks_LH_Cont_PFCl_8",
+   "color": "#e69529",
+   "label": 142,
+   "hemi": ""
+  },
+  {
+   "id": 143,
+   "name": "7Networks_LH_Cont_PFCv_1",
+   "color": "#e79424",
+   "label": 143,
+   "hemi": ""
+  },
+  {
+   "id": 144,
+   "name": "7Networks_LH_Cont_pCun_1",
+   "color": "#e79523",
+   "label": 144,
+   "hemi": ""
+  },
+  {
+   "id": 145,
+   "name": "7Networks_LH_Cont_pCun_2",
+   "color": "#e79524",
+   "label": 145,
+   "hemi": ""
+  },
+  {
+   "id": 146,
+   "name": "7Networks_LH_Cont_Cing_1",
+   "color": "#e79525",
+   "label": 146,
+   "hemi": ""
+  },
+  {
+   "id": 147,
+   "name": "7Networks_LH_Cont_Cing_2",
+   "color": "#e79526",
+   "label": 147,
+   "hemi": ""
+  },
+  {
+   "id": 148,
+   "name": "7Networks_LH_Cont_PFCmp_1",
+   "color": "#e69422",
+   "label": 148,
+   "hemi": ""
+  },
+  {
+   "id": 149,
+   "name": "7Networks_LH_Default_Temp_1",
+   "color": "#cd3e48",
+   "label": 149,
+   "hemi": ""
+  },
+  {
+   "id": 150,
+   "name": "7Networks_LH_Default_Temp_2",
+   "color": "#cd3e49",
+   "label": 150,
+   "hemi": ""
+  },
+  {
+   "id": 151,
+   "name": "7Networks_LH_Default_Temp_3",
+   "color": "#cd3e4a",
+   "label": 151,
+   "hemi": ""
+  },
+  {
+   "id": 152,
+   "name": "7Networks_LH_Default_Temp_4",
+   "color": "#cd3e4b",
+   "label": 152,
+   "hemi": ""
+  },
+  {
+   "id": 153,
+   "name": "7Networks_LH_Default_Temp_5",
+   "color": "#cd3e4c",
+   "label": 153,
+   "hemi": ""
+  },
+  {
+   "id": 154,
+   "name": "7Networks_LH_Default_Temp_6",
+   "color": "#cd3e4d",
+   "label": 154,
+   "hemi": ""
+  },
+  {
+   "id": 155,
+   "name": "7Networks_LH_Default_Temp_7",
+   "color": "#cd3e4e",
+   "label": 155,
+   "hemi": ""
+  },
+  {
+   "id": 156,
+   "name": "7Networks_LH_Default_Temp_8",
+   "color": "#cd3e50",
+   "label": 156,
+   "hemi": ""
+  },
+  {
+   "id": 157,
+   "name": "7Networks_LH_Default_Temp_9",
+   "color": "#cd3e51",
+   "label": 157,
+   "hemi": ""
+  },
+  {
+   "id": 158,
+   "name": "7Networks_LH_Default_Temp_10",
+   "color": "#cd3e52",
+   "label": 158,
+   "hemi": ""
+  },
+  {
+   "id": 159,
+   "name": "7Networks_LH_Default_Par_1",
+   "color": "#cd3e53",
+   "label": 159,
+   "hemi": ""
+  },
+  {
+   "id": 160,
+   "name": "7Networks_LH_Default_Par_2",
+   "color": "#cd3e54",
+   "label": 160,
+   "hemi": ""
+  },
+  {
+   "id": 161,
+   "name": "7Networks_LH_Default_Par_3",
+   "color": "#cd3e55",
+   "label": 161,
+   "hemi": ""
+  },
+  {
+   "id": 162,
+   "name": "7Networks_LH_Default_Par_4",
+   "color": "#cd3e56",
+   "label": 162,
+   "hemi": ""
+  },
+  {
+   "id": 163,
+   "name": "7Networks_LH_Default_Par_5",
+   "color": "#cd3f4f",
+   "label": 163,
+   "hemi": ""
+  },
+  {
+   "id": 164,
+   "name": "7Networks_LH_Default_Par_6",
+   "color": "#cd3f50",
+   "label": 164,
+   "hemi": ""
+  },
+  {
+   "id": 165,
+   "name": "7Networks_LH_Default_Par_7",
+   "color": "#cd3f51",
+   "label": 165,
+   "hemi": ""
+  },
+  {
+   "id": 166,
+   "name": "7Networks_LH_Default_PFC_1",
+   "color": "#cd3f47",
+   "label": 166,
+   "hemi": ""
+  },
+  {
+   "id": 167,
+   "name": "7Networks_LH_Default_PFC_2",
+   "color": "#cd3f48",
+   "label": 167,
+   "hemi": ""
+  },
+  {
+   "id": 168,
+   "name": "7Networks_LH_Default_PFC_3",
+   "color": "#cd3f49",
+   "label": 168,
+   "hemi": ""
+  },
+  {
+   "id": 169,
+   "name": "7Networks_LH_Default_PFC_4",
+   "color": "#cd3f4a",
+   "label": 169,
+   "hemi": ""
+  },
+  {
+   "id": 170,
+   "name": "7Networks_LH_Default_PFC_5",
+   "color": "#cd3f4b",
+   "label": 170,
+   "hemi": ""
+  },
+  {
+   "id": 171,
+   "name": "7Networks_LH_Default_PFC_6",
+   "color": "#cd3f4c",
+   "label": 171,
+   "hemi": ""
+  },
+  {
+   "id": 172,
+   "name": "7Networks_LH_Default_PFC_7",
+   "color": "#cd3f4d",
+   "label": 172,
+   "hemi": ""
+  },
+  {
+   "id": 173,
+   "name": "7Networks_LH_Default_PFC_8",
+   "color": "#cd3f52",
+   "label": 173,
+   "hemi": ""
+  },
+  {
+   "id": 174,
+   "name": "7Networks_LH_Default_PFC_9",
+   "color": "#cd3f53",
+   "label": 174,
+   "hemi": ""
+  },
+  {
+   "id": 175,
+   "name": "7Networks_LH_Default_PFC_10",
+   "color": "#cd3f54",
+   "label": 175,
+   "hemi": ""
+  },
+  {
+   "id": 176,
+   "name": "7Networks_LH_Default_PFC_11",
+   "color": "#cd3f55",
+   "label": 176,
+   "hemi": ""
+  },
+  {
+   "id": 177,
+   "name": "7Networks_LH_Default_PFC_12",
+   "color": "#cd404e",
+   "label": 177,
+   "hemi": ""
+  },
+  {
+   "id": 178,
+   "name": "7Networks_LH_Default_PFC_13",
+   "color": "#cd404f",
+   "label": 178,
+   "hemi": ""
+  },
+  {
+   "id": 179,
+   "name": "7Networks_LH_Default_PFC_14",
+   "color": "#cd4050",
+   "label": 179,
+   "hemi": ""
+  },
+  {
+   "id": 180,
+   "name": "7Networks_LH_Default_PFC_15",
+   "color": "#cd4051",
+   "label": 180,
+   "hemi": ""
+  },
+  {
+   "id": 181,
+   "name": "7Networks_LH_Default_PFC_16",
+   "color": "#cd4052",
+   "label": 181,
+   "hemi": ""
+  },
+  {
+   "id": 182,
+   "name": "7Networks_LH_Default_PFC_17",
+   "color": "#cd4053",
+   "label": 182,
+   "hemi": ""
+  },
+  {
+   "id": 183,
+   "name": "7Networks_LH_Default_PFC_18",
+   "color": "#cd4054",
+   "label": 183,
+   "hemi": ""
+  },
+  {
+   "id": 184,
+   "name": "7Networks_LH_Default_PFC_19",
+   "color": "#cd4055",
+   "label": 184,
+   "hemi": ""
+  },
+  {
+   "id": 185,
+   "name": "7Networks_LH_Default_PFC_20",
+   "color": "#cd414e",
+   "label": 185,
+   "hemi": ""
+  },
+  {
+   "id": 186,
+   "name": "7Networks_LH_Default_PFC_21",
+   "color": "#cd414f",
+   "label": 186,
+   "hemi": ""
+  },
+  {
+   "id": 187,
+   "name": "7Networks_LH_Default_PFC_22",
+   "color": "#cd4150",
+   "label": 187,
+   "hemi": ""
+  },
+  {
+   "id": 188,
+   "name": "7Networks_LH_Default_PFC_23",
+   "color": "#cd4151",
+   "label": 188,
+   "hemi": ""
+  },
+  {
+   "id": 189,
+   "name": "7Networks_LH_Default_PFC_24",
+   "color": "#cd4152",
+   "label": 189,
+   "hemi": ""
+  },
+  {
+   "id": 190,
+   "name": "7Networks_LH_Default_pCunPCC_1",
+   "color": "#cd3f4e",
+   "label": 190,
+   "hemi": ""
+  },
+  {
+   "id": 191,
+   "name": "7Networks_LH_Default_pCunPCC_2",
+   "color": "#cd3f56",
+   "label": 191,
+   "hemi": ""
+  },
+  {
+   "id": 192,
+   "name": "7Networks_LH_Default_pCunPCC_3",
+   "color": "#cd4056",
+   "label": 192,
+   "hemi": ""
+  },
+  {
+   "id": 193,
+   "name": "7Networks_LH_Default_pCunPCC_4",
+   "color": "#cd4153",
+   "label": 193,
+   "hemi": ""
+  },
+  {
+   "id": 194,
+   "name": "7Networks_LH_Default_pCunPCC_5",
+   "color": "#cd4154",
+   "label": 194,
+   "hemi": ""
+  },
+  {
+   "id": 195,
+   "name": "7Networks_LH_Default_pCunPCC_6",
+   "color": "#cd4155",
+   "label": 195,
+   "hemi": ""
+  },
+  {
+   "id": 196,
+   "name": "7Networks_LH_Default_pCunPCC_7",
+   "color": "#cd4156",
+   "label": 196,
+   "hemi": ""
+  },
+  {
+   "id": 197,
+   "name": "7Networks_LH_Default_pCunPCC_8",
+   "color": "#cd424f",
+   "label": 197,
+   "hemi": ""
+  },
+  {
+   "id": 198,
+   "name": "7Networks_LH_Default_pCunPCC_9",
+   "color": "#cd4250",
+   "label": 198,
+   "hemi": ""
+  },
+  {
+   "id": 199,
+   "name": "7Networks_LH_Default_pCunPCC_10",
+   "color": "#cd4251",
+   "label": 199,
+   "hemi": ""
+  },
+  {
+   "id": 200,
+   "name": "7Networks_LH_Default_pCunPCC_11",
+   "color": "#cd4252",
+   "label": 200,
+   "hemi": ""
+  },
+  {
+   "id": 201,
+   "name": "7Networks_RH_Vis_1",
+   "color": "#7c1182",
+   "label": 201,
+   "hemi": ""
+  },
+  {
+   "id": 202,
+   "name": "7Networks_RH_Vis_2",
+   "color": "#7c1183",
+   "label": 202,
+   "hemi": ""
+  },
+  {
+   "id": 203,
+   "name": "7Networks_RH_Vis_3",
+   "color": "#7c1184",
+   "label": 203,
+   "hemi": ""
+  },
+  {
+   "id": 204,
+   "name": "7Networks_RH_Vis_4",
+   "color": "#7c1185",
+   "label": 204,
+   "hemi": ""
+  },
+  {
+   "id": 205,
+   "name": "7Networks_RH_Vis_5",
+   "color": "#7c1186",
+   "label": 205,
+   "hemi": ""
+  },
+  {
+   "id": 206,
+   "name": "7Networks_RH_Vis_6",
+   "color": "#7c1187",
+   "label": 206,
+   "hemi": ""
+  },
+  {
+   "id": 207,
+   "name": "7Networks_RH_Vis_7",
+   "color": "#7c1280",
+   "label": 207,
+   "hemi": ""
+  },
+  {
+   "id": 208,
+   "name": "7Networks_RH_Vis_8",
+   "color": "#7c1281",
+   "label": 208,
+   "hemi": ""
+  },
+  {
+   "id": 209,
+   "name": "7Networks_RH_Vis_9",
+   "color": "#7c1282",
+   "label": 209,
+   "hemi": ""
+  },
+  {
+   "id": 210,
+   "name": "7Networks_RH_Vis_10",
+   "color": "#7c1283",
+   "label": 210,
+   "hemi": ""
+  },
+  {
+   "id": 211,
+   "name": "7Networks_RH_Vis_11",
+   "color": "#7c1284",
+   "label": 211,
+   "hemi": ""
+  },
+  {
+   "id": 212,
+   "name": "7Networks_RH_Vis_12",
+   "color": "#7c1285",
+   "label": 212,
+   "hemi": ""
+  },
+  {
+   "id": 213,
+   "name": "7Networks_RH_Vis_13",
+   "color": "#7c1286",
+   "label": 213,
+   "hemi": ""
+  },
+  {
+   "id": 214,
+   "name": "7Networks_RH_Vis_14",
+   "color": "#7c1288",
+   "label": 214,
+   "hemi": ""
+  },
+  {
+   "id": 215,
+   "name": "7Networks_RH_Vis_15",
+   "color": "#7c1289",
+   "label": 215,
+   "hemi": ""
+  },
+  {
+   "id": 216,
+   "name": "7Networks_RH_Vis_16",
+   "color": "#7c128a",
+   "label": 216,
+   "hemi": ""
+  },
+  {
+   "id": 217,
+   "name": "7Networks_RH_Vis_17",
+   "color": "#7c128b",
+   "label": 217,
+   "hemi": ""
+  },
+  {
+   "id": 218,
+   "name": "7Networks_RH_Vis_18",
+   "color": "#7c128c",
+   "label": 218,
+   "hemi": ""
+  },
+  {
+   "id": 219,
+   "name": "7Networks_RH_Vis_19",
+   "color": "#7c128d",
+   "label": 219,
+   "hemi": ""
+  },
+  {
+   "id": 220,
+   "name": "7Networks_RH_Vis_20",
+   "color": "#7c128e",
+   "label": 220,
+   "hemi": ""
+  },
+  {
+   "id": 221,
+   "name": "7Networks_RH_Vis_21",
+   "color": "#7c1387",
+   "label": 221,
+   "hemi": ""
+  },
+  {
+   "id": 222,
+   "name": "7Networks_RH_Vis_22",
+   "color": "#7c1388",
+   "label": 222,
+   "hemi": ""
+  },
+  {
+   "id": 223,
+   "name": "7Networks_RH_Vis_23",
+   "color": "#7c1389",
+   "label": 223,
+   "hemi": ""
+  },
+  {
+   "id": 224,
+   "name": "7Networks_RH_Vis_24",
+   "color": "#7c138a",
+   "label": 224,
+   "hemi": ""
+  },
+  {
+   "id": 225,
+   "name": "7Networks_RH_Vis_25",
+   "color": "#7c138b",
+   "label": 225,
+   "hemi": ""
+  },
+  {
+   "id": 226,
+   "name": "7Networks_RH_Vis_26",
+   "color": "#7c138c",
+   "label": 226,
+   "hemi": ""
+  },
+  {
+   "id": 227,
+   "name": "7Networks_RH_Vis_27",
+   "color": "#7c138d",
+   "label": 227,
+   "hemi": ""
+  },
+  {
+   "id": 228,
+   "name": "7Networks_RH_Vis_28",
+   "color": "#7c138e",
+   "label": 228,
+   "hemi": ""
+  },
+  {
+   "id": 229,
+   "name": "7Networks_RH_Vis_29",
+   "color": "#7c1487",
+   "label": 229,
+   "hemi": ""
+  },
+  {
+   "id": 230,
+   "name": "7Networks_RH_Vis_30",
+   "color": "#7c1488",
+   "label": 230,
+   "hemi": ""
+  },
+  {
+   "id": 231,
+   "name": "7Networks_RH_SomMot_1",
+   "color": "#4a80b3",
+   "label": 231,
+   "hemi": ""
+  },
+  {
+   "id": 232,
+   "name": "7Networks_RH_SomMot_2",
+   "color": "#4a80b4",
+   "label": 232,
+   "hemi": ""
+  },
+  {
+   "id": 233,
+   "name": "7Networks_RH_SomMot_3",
+   "color": "#4a80b5",
+   "label": 233,
+   "hemi": ""
+  },
+  {
+   "id": 234,
+   "name": "7Networks_RH_SomMot_4",
+   "color": "#4a81ae",
+   "label": 234,
+   "hemi": ""
+  },
+  {
+   "id": 235,
+   "name": "7Networks_RH_SomMot_5",
+   "color": "#4a81af",
+   "label": 235,
+   "hemi": ""
+  },
+  {
+   "id": 236,
+   "name": "7Networks_RH_SomMot_6",
+   "color": "#4a81b0",
+   "label": 236,
+   "hemi": ""
+  },
+  {
+   "id": 237,
+   "name": "7Networks_RH_SomMot_7",
+   "color": "#4a81b1",
+   "label": 237,
+   "hemi": ""
+  },
+  {
+   "id": 238,
+   "name": "7Networks_RH_SomMot_8",
+   "color": "#4a81b2",
+   "label": 238,
+   "hemi": ""
+  },
+  {
+   "id": 239,
+   "name": "7Networks_RH_SomMot_9",
+   "color": "#4a81b3",
+   "label": 239,
+   "hemi": ""
+  },
+  {
+   "id": 240,
+   "name": "7Networks_RH_SomMot_10",
+   "color": "#4a81b4",
+   "label": 240,
+   "hemi": ""
+  },
+  {
+   "id": 241,
+   "name": "7Networks_RH_SomMot_11",
+   "color": "#4a81b5",
+   "label": 241,
+   "hemi": ""
+  },
+  {
+   "id": 242,
+   "name": "7Networks_RH_SomMot_12",
+   "color": "#4a82ae",
+   "label": 242,
+   "hemi": ""
+  },
+  {
+   "id": 243,
+   "name": "7Networks_RH_SomMot_13",
+   "color": "#4a82af",
+   "label": 243,
+   "hemi": ""
+  },
+  {
+   "id": 244,
+   "name": "7Networks_RH_SomMot_14",
+   "color": "#4a82b0",
+   "label": 244,
+   "hemi": ""
+  },
+  {
+   "id": 245,
+   "name": "7Networks_RH_SomMot_15",
+   "color": "#4a82b1",
+   "label": 245,
+   "hemi": ""
+  },
+  {
+   "id": 246,
+   "name": "7Networks_RH_SomMot_16",
+   "color": "#4a82b2",
+   "label": 246,
+   "hemi": ""
+  },
+  {
+   "id": 247,
+   "name": "7Networks_RH_SomMot_17",
+   "color": "#4a82b3",
+   "label": 247,
+   "hemi": ""
+  },
+  {
+   "id": 248,
+   "name": "7Networks_RH_SomMot_18",
+   "color": "#4a82b4",
+   "label": 248,
+   "hemi": ""
+  },
+  {
+   "id": 249,
+   "name": "7Networks_RH_SomMot_19",
+   "color": "#4a82b6",
+   "label": 249,
+   "hemi": ""
+  },
+  {
+   "id": 250,
+   "name": "7Networks_RH_SomMot_20",
+   "color": "#4a82b7",
+   "label": 250,
+   "hemi": ""
+  },
+  {
+   "id": 251,
+   "name": "7Networks_RH_SomMot_21",
+   "color": "#4a82b8",
+   "label": 251,
+   "hemi": ""
+  },
+  {
+   "id": 252,
+   "name": "7Networks_RH_SomMot_22",
+   "color": "#4a82b9",
+   "label": 252,
+   "hemi": ""
+  },
+  {
+   "id": 253,
+   "name": "7Networks_RH_SomMot_23",
+   "color": "#4a82ba",
+   "label": 253,
+   "hemi": ""
+  },
+  {
+   "id": 254,
+   "name": "7Networks_RH_SomMot_24",
+   "color": "#4a82bb",
+   "label": 254,
+   "hemi": ""
+  },
+  {
+   "id": 255,
+   "name": "7Networks_RH_SomMot_25",
+   "color": "#4a82bc",
+   "label": 255,
+   "hemi": ""
+  },
+  {
+   "id": 256,
+   "name": "7Networks_RH_SomMot_26",
+   "color": "#4a83b5",
+   "label": 256,
+   "hemi": ""
+  },
+  {
+   "id": 257,
+   "name": "7Networks_RH_SomMot_27",
+   "color": "#4a83b6",
+   "label": 257,
+   "hemi": ""
+  },
+  {
+   "id": 258,
+   "name": "7Networks_RH_SomMot_28",
+   "color": "#4a83b7",
+   "label": 258,
+   "hemi": ""
+  },
+  {
+   "id": 259,
+   "name": "7Networks_RH_SomMot_29",
+   "color": "#4a83b8",
+   "label": 259,
+   "hemi": ""
+  },
+  {
+   "id": 260,
+   "name": "7Networks_RH_SomMot_30",
+   "color": "#4a83b9",
+   "label": 260,
+   "hemi": ""
+  },
+  {
+   "id": 261,
+   "name": "7Networks_RH_SomMot_31",
+   "color": "#4a83ba",
+   "label": 261,
+   "hemi": ""
+  },
+  {
+   "id": 262,
+   "name": "7Networks_RH_SomMot_32",
+   "color": "#4a83bb",
+   "label": 262,
+   "hemi": ""
+  },
+  {
+   "id": 263,
+   "name": "7Networks_RH_SomMot_33",
+   "color": "#4a83bc",
+   "label": 263,
+   "hemi": ""
+  },
+  {
+   "id": 264,
+   "name": "7Networks_RH_SomMot_34",
+   "color": "#4a84b5",
+   "label": 264,
+   "hemi": ""
+  },
+  {
+   "id": 265,
+   "name": "7Networks_RH_SomMot_35",
+   "color": "#4a84b6",
+   "label": 265,
+   "hemi": ""
+  },
+  {
+   "id": 266,
+   "name": "7Networks_RH_SomMot_36",
+   "color": "#4a84b7",
+   "label": 266,
+   "hemi": ""
+  },
+  {
+   "id": 267,
+   "name": "7Networks_RH_SomMot_37",
+   "color": "#4a84b8",
+   "label": 267,
+   "hemi": ""
+  },
+  {
+   "id": 268,
+   "name": "7Networks_RH_SomMot_38",
+   "color": "#4a84b9",
+   "label": 268,
+   "hemi": ""
+  },
+  {
+   "id": 269,
+   "name": "7Networks_RH_SomMot_39",
+   "color": "#4a84ba",
+   "label": 269,
+   "hemi": ""
+  },
+  {
+   "id": 270,
+   "name": "7Networks_RH_SomMot_40",
+   "color": "#4a84bb",
+   "label": 270,
+   "hemi": ""
+  },
+  {
+   "id": 271,
+   "name": "7Networks_RH_DorsAttn_Post_1",
+   "color": "#04760f",
+   "label": 271,
+   "hemi": ""
+  },
+  {
+   "id": 272,
+   "name": "7Networks_RH_DorsAttn_Post_2",
+   "color": "#047708",
+   "label": 272,
+   "hemi": ""
+  },
+  {
+   "id": 273,
+   "name": "7Networks_RH_DorsAttn_Post_3",
+   "color": "#047709",
+   "label": 273,
+   "hemi": ""
+  },
+  {
+   "id": 274,
+   "name": "7Networks_RH_DorsAttn_Post_4",
+   "color": "#04770a",
+   "label": 274,
+   "hemi": ""
+  },
+  {
+   "id": 275,
+   "name": "7Networks_RH_DorsAttn_Post_5",
+   "color": "#04770b",
+   "label": 275,
+   "hemi": ""
+  },
+  {
+   "id": 276,
+   "name": "7Networks_RH_DorsAttn_Post_6",
+   "color": "#04770c",
+   "label": 276,
+   "hemi": ""
+  },
+  {
+   "id": 277,
+   "name": "7Networks_RH_DorsAttn_Post_7",
+   "color": "#04770d",
+   "label": 277,
+   "hemi": ""
+  },
+  {
+   "id": 278,
+   "name": "7Networks_RH_DorsAttn_Post_8",
+   "color": "#04770e",
+   "label": 278,
+   "hemi": ""
+  },
+  {
+   "id": 279,
+   "name": "7Networks_RH_DorsAttn_Post_9",
+   "color": "#047710",
+   "label": 279,
+   "hemi": ""
+  },
+  {
+   "id": 280,
+   "name": "7Networks_RH_DorsAttn_Post_10",
+   "color": "#047711",
+   "label": 280,
+   "hemi": ""
+  },
+  {
+   "id": 281,
+   "name": "7Networks_RH_DorsAttn_Post_11",
+   "color": "#047712",
+   "label": 281,
+   "hemi": ""
+  },
+  {
+   "id": 282,
+   "name": "7Networks_RH_DorsAttn_Post_12",
+   "color": "#047713",
+   "label": 282,
+   "hemi": ""
+  },
+  {
+   "id": 283,
+   "name": "7Networks_RH_DorsAttn_Post_13",
+   "color": "#047714",
+   "label": 283,
+   "hemi": ""
+  },
+  {
+   "id": 284,
+   "name": "7Networks_RH_DorsAttn_Post_14",
+   "color": "#047715",
+   "label": 284,
+   "hemi": ""
+  },
+  {
+   "id": 285,
+   "name": "7Networks_RH_DorsAttn_Post_15",
+   "color": "#047716",
+   "label": 285,
+   "hemi": ""
+  },
+  {
+   "id": 286,
+   "name": "7Networks_RH_DorsAttn_Post_16",
+   "color": "#04780f",
+   "label": 286,
+   "hemi": ""
+  },
+  {
+   "id": 287,
+   "name": "7Networks_RH_DorsAttn_Post_17",
+   "color": "#047810",
+   "label": 287,
+   "hemi": ""
+  },
+  {
+   "id": 288,
+   "name": "7Networks_RH_DorsAttn_Post_18",
+   "color": "#047811",
+   "label": 288,
+   "hemi": ""
+  },
+  {
+   "id": 289,
+   "name": "7Networks_RH_DorsAttn_Post_19",
+   "color": "#047812",
+   "label": 289,
+   "hemi": ""
+  },
+  {
+   "id": 290,
+   "name": "7Networks_RH_DorsAttn_FEF_1",
+   "color": "#05760f",
+   "label": 290,
+   "hemi": ""
+  },
+  {
+   "id": 291,
+   "name": "7Networks_RH_DorsAttn_FEF_2",
+   "color": "#057610",
+   "label": 291,
+   "hemi": ""
+  },
+  {
+   "id": 292,
+   "name": "7Networks_RH_DorsAttn_FEF_3",
+   "color": "#057611",
+   "label": 292,
+   "hemi": ""
+  },
+  {
+   "id": 293,
+   "name": "7Networks_RH_DorsAttn_PrCv_1",
+   "color": "#057612",
+   "label": 293,
+   "hemi": ""
+  },
+  {
+   "id": 294,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_1",
+   "color": "#c93af9",
+   "label": 294,
+   "hemi": ""
+  },
+  {
+   "id": 295,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_2",
+   "color": "#c93afa",
+   "label": 295,
+   "hemi": ""
+  },
+  {
+   "id": 296,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_3",
+   "color": "#c93afc",
+   "label": 296,
+   "hemi": ""
+  },
+  {
+   "id": 297,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_4",
+   "color": "#c93afd",
+   "label": 297,
+   "hemi": ""
+  },
+  {
+   "id": 298,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_5",
+   "color": "#c93afe",
+   "label": 298,
+   "hemi": ""
+  },
+  {
+   "id": 299,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_6",
+   "color": "#c93aff",
+   "label": 299,
+   "hemi": ""
+  },
+  {
+   "id": 300,
+   "name": "7Networks_RH_SalVentAttn_TempOccPar_7",
+   "color": "#c633fa",
+   "label": 300,
+   "hemi": ""
+  },
+  {
+   "id": 301,
+   "name": "7Networks_RH_SalVentAttn_PrC_1",
+   "color": "#c93bfb",
+   "label": 301,
+   "hemi": ""
+  },
+  {
+   "id": 302,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_1",
+   "color": "#c93bf9",
+   "label": 302,
+   "hemi": ""
+  },
+  {
+   "id": 303,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_2",
+   "color": "#c93bfa",
+   "label": 303,
+   "hemi": ""
+  },
+  {
+   "id": 304,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_3",
+   "color": "#c93bfc",
+   "label": 304,
+   "hemi": ""
+  },
+  {
+   "id": 305,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_4",
+   "color": "#c93bfd",
+   "label": 305,
+   "hemi": ""
+  },
+  {
+   "id": 306,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_5",
+   "color": "#c93bfe",
+   "label": 306,
+   "hemi": ""
+  },
+  {
+   "id": 307,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_6",
+   "color": "#c93bff",
+   "label": 307,
+   "hemi": ""
+  },
+  {
+   "id": 308,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_7",
+   "color": "#c634fa",
+   "label": 308,
+   "hemi": ""
+  },
+  {
+   "id": 309,
+   "name": "7Networks_RH_SalVentAttn_FrOperIns_8",
+   "color": "#c634fb",
+   "label": 309,
+   "hemi": ""
+  },
+  {
+   "id": 310,
+   "name": "7Networks_RH_SalVentAttn_PFCl_1",
+   "color": "#c839fb",
+   "label": 310,
+   "hemi": ""
+  },
+  {
+   "id": 311,
+   "name": "7Networks_RH_SalVentAttn_Med_1",
+   "color": "#c839f7",
+   "label": 311,
+   "hemi": ""
+  },
+  {
+   "id": 312,
+   "name": "7Networks_RH_SalVentAttn_Med_2",
+   "color": "#c839f8",
+   "label": 312,
+   "hemi": ""
+  },
+  {
+   "id": 313,
+   "name": "7Networks_RH_SalVentAttn_Med_3",
+   "color": "#c839fa",
+   "label": 313,
+   "hemi": ""
+  },
+  {
+   "id": 314,
+   "name": "7Networks_RH_SalVentAttn_Med_4",
+   "color": "#c839fc",
+   "label": 314,
+   "hemi": ""
+  },
+  {
+   "id": 315,
+   "name": "7Networks_RH_SalVentAttn_Med_5",
+   "color": "#c839fd",
+   "label": 315,
+   "hemi": ""
+  },
+  {
+   "id": 316,
+   "name": "7Networks_RH_SalVentAttn_Med_6",
+   "color": "#c839fe",
+   "label": 316,
+   "hemi": ""
+  },
+  {
+   "id": 317,
+   "name": "7Networks_RH_SalVentAttn_Med_7",
+   "color": "#c839ff",
+   "label": 317,
+   "hemi": ""
+  },
+  {
+   "id": 318,
+   "name": "7Networks_RH_SalVentAttn_Med_8",
+   "color": "#c83af9",
+   "label": 318,
+   "hemi": ""
+  },
+  {
+   "id": 319,
+   "name": "7Networks_RH_Limbic_OFC_1",
+   "color": "#e0f9a3",
+   "label": 319,
+   "hemi": ""
+  },
+  {
+   "id": 320,
+   "name": "7Networks_RH_Limbic_OFC_2",
+   "color": "#e0f9a5",
+   "label": 320,
+   "hemi": ""
+  },
+  {
+   "id": 321,
+   "name": "7Networks_RH_Limbic_OFC_3",
+   "color": "#e0f9a6",
+   "label": 321,
+   "hemi": ""
+  },
+  {
+   "id": 322,
+   "name": "7Networks_RH_Limbic_OFC_4",
+   "color": "#e0f9a7",
+   "label": 322,
+   "hemi": ""
+  },
+  {
+   "id": 323,
+   "name": "7Networks_RH_Limbic_OFC_5",
+   "color": "#e0f9a8",
+   "label": 323,
+   "hemi": ""
+  },
+  {
+   "id": 324,
+   "name": "7Networks_RH_Limbic_OFC_6",
+   "color": "#e0f9a9",
+   "label": 324,
+   "hemi": ""
+  },
+  {
+   "id": 325,
+   "name": "7Networks_RH_Limbic_TempPole_1",
+   "color": "#e0f9a4",
+   "label": 325,
+   "hemi": ""
+  },
+  {
+   "id": 326,
+   "name": "7Networks_RH_Limbic_TempPole_2",
+   "color": "#e0f9aa",
+   "label": 326,
+   "hemi": ""
+  },
+  {
+   "id": 327,
+   "name": "7Networks_RH_Limbic_TempPole_3",
+   "color": "#e0f9ab",
+   "label": 327,
+   "hemi": ""
+  },
+  {
+   "id": 328,
+   "name": "7Networks_RH_Limbic_TempPole_4",
+   "color": "#e0f9ac",
+   "label": 328,
+   "hemi": ""
+  },
+  {
+   "id": 329,
+   "name": "7Networks_RH_Limbic_TempPole_5",
+   "color": "#e0faa5",
+   "label": 329,
+   "hemi": ""
+  },
+  {
+   "id": 330,
+   "name": "7Networks_RH_Limbic_TempPole_6",
+   "color": "#e0faa6",
+   "label": 330,
+   "hemi": ""
+  },
+  {
+   "id": 331,
+   "name": "7Networks_RH_Limbic_TempPole_7",
+   "color": "#e0faa7",
+   "label": 331,
+   "hemi": ""
+  },
+  {
+   "id": 332,
+   "name": "7Networks_RH_Cont_Par_1",
+   "color": "#ea9321",
+   "label": 332,
+   "hemi": ""
+  },
+  {
+   "id": 333,
+   "name": "7Networks_RH_Cont_Par_2",
+   "color": "#ea9323",
+   "label": 333,
+   "hemi": ""
+  },
+  {
+   "id": 334,
+   "name": "7Networks_RH_Cont_Par_3",
+   "color": "#ea9324",
+   "label": 334,
+   "hemi": ""
+  },
+  {
+   "id": 335,
+   "name": "7Networks_RH_Cont_Par_4",
+   "color": "#ea9325",
+   "label": 335,
+   "hemi": ""
+  },
+  {
+   "id": 336,
+   "name": "7Networks_RH_Cont_Par_5",
+   "color": "#ea9326",
+   "label": 336,
+   "hemi": ""
+  },
+  {
+   "id": 337,
+   "name": "7Networks_RH_Cont_Par_6",
+   "color": "#ea9327",
+   "label": 337,
+   "hemi": ""
+  },
+  {
+   "id": 338,
+   "name": "7Networks_RH_Cont_Temp_1",
+   "color": "#ea9322",
+   "label": 338,
+   "hemi": ""
+  },
+  {
+   "id": 339,
+   "name": "7Networks_RH_Cont_Temp_2",
+   "color": "#ea9328",
+   "label": 339,
+   "hemi": ""
+  },
+  {
+   "id": 340,
+   "name": "7Networks_RH_Cont_PFCv_1",
+   "color": "#e99423",
+   "label": 340,
+   "hemi": ""
+  },
+  {
+   "id": 341,
+   "name": "7Networks_RH_Cont_PFCl_1",
+   "color": "#e9941b",
+   "label": 341,
+   "hemi": ""
+  },
+  {
+   "id": 342,
+   "name": "7Networks_RH_Cont_PFCl_2",
+   "color": "#e9941c",
+   "label": 342,
+   "hemi": ""
+  },
+  {
+   "id": 343,
+   "name": "7Networks_RH_Cont_PFCl_3",
+   "color": "#e9941d",
+   "label": 343,
+   "hemi": ""
+  },
+  {
+   "id": 344,
+   "name": "7Networks_RH_Cont_PFCl_4",
+   "color": "#e9941e",
+   "label": 344,
+   "hemi": ""
+  },
+  {
+   "id": 345,
+   "name": "7Networks_RH_Cont_PFCl_5",
+   "color": "#e9941f",
+   "label": 345,
+   "hemi": ""
+  },
+  {
+   "id": 346,
+   "name": "7Networks_RH_Cont_PFCl_6",
+   "color": "#e99420",
+   "label": 346,
+   "hemi": ""
+  },
+  {
+   "id": 347,
+   "name": "7Networks_RH_Cont_PFCl_7",
+   "color": "#e99422",
+   "label": 347,
+   "hemi": ""
+  },
+  {
+   "id": 348,
+   "name": "7Networks_RH_Cont_PFCl_8",
+   "color": "#e99424",
+   "label": 348,
+   "hemi": ""
+  },
+  {
+   "id": 349,
+   "name": "7Networks_RH_Cont_PFCl_9",
+   "color": "#e99425",
+   "label": 349,
+   "hemi": ""
+  },
+  {
+   "id": 350,
+   "name": "7Networks_RH_Cont_PFCl_10",
+   "color": "#e99426",
+   "label": 350,
+   "hemi": ""
+  },
+  {
+   "id": 351,
+   "name": "7Networks_RH_Cont_PFCl_11",
+   "color": "#e99427",
+   "label": 351,
+   "hemi": ""
+  },
+  {
+   "id": 352,
+   "name": "7Networks_RH_Cont_PFCl_12",
+   "color": "#e99428",
+   "label": 352,
+   "hemi": ""
+  },
+  {
+   "id": 353,
+   "name": "7Networks_RH_Cont_PFCl_13",
+   "color": "#e99521",
+   "label": 353,
+   "hemi": ""
+  },
+  {
+   "id": 354,
+   "name": "7Networks_RH_Cont_PFCl_14",
+   "color": "#e99522",
+   "label": 354,
+   "hemi": ""
+  },
+  {
+   "id": 355,
+   "name": "7Networks_RH_Cont_PFCl_15",
+   "color": "#e99523",
+   "label": 355,
+   "hemi": ""
+  },
+  {
+   "id": 356,
+   "name": "7Networks_RH_Cont_pCun_1",
+   "color": "#e99323",
+   "label": 356,
+   "hemi": ""
+  },
+  {
+   "id": 357,
+   "name": "7Networks_RH_Cont_pCun_2",
+   "color": "#e99324",
+   "label": 357,
+   "hemi": ""
+  },
+  {
+   "id": 358,
+   "name": "7Networks_RH_Cont_Cing_1",
+   "color": "#e99322",
+   "label": 358,
+   "hemi": ""
+  },
+  {
+   "id": 359,
+   "name": "7Networks_RH_Cont_Cing_2",
+   "color": "#e99325",
+   "label": 359,
+   "hemi": ""
+  },
+  {
+   "id": 360,
+   "name": "7Networks_RH_Cont_PFCmp_1",
+   "color": "#ea9425",
+   "label": 360,
+   "hemi": ""
+  },
+  {
+   "id": 361,
+   "name": "7Networks_RH_Cont_PFCmp_2",
+   "color": "#ea9426",
+   "label": 361,
+   "hemi": ""
+  },
+  {
+   "id": 362,
+   "name": "7Networks_RH_Default_Par_1",
+   "color": "#d13e4c",
+   "label": 362,
+   "hemi": ""
+  },
+  {
+   "id": 363,
+   "name": "7Networks_RH_Default_Par_2",
+   "color": "#d13e4e",
+   "label": 363,
+   "hemi": ""
+  },
+  {
+   "id": 364,
+   "name": "7Networks_RH_Default_Par_3",
+   "color": "#d13e4f",
+   "label": 364,
+   "hemi": ""
+  },
+  {
+   "id": 365,
+   "name": "7Networks_RH_Default_Par_4",
+   "color": "#d13e50",
+   "label": 365,
+   "hemi": ""
+  },
+  {
+   "id": 366,
+   "name": "7Networks_RH_Default_Par_5",
+   "color": "#d13e51",
+   "label": 366,
+   "hemi": ""
+  },
+  {
+   "id": 367,
+   "name": "7Networks_RH_Default_Temp_1",
+   "color": "#d13d4c",
+   "label": 367,
+   "hemi": ""
+  },
+  {
+   "id": 368,
+   "name": "7Networks_RH_Default_Temp_2",
+   "color": "#d13d4d",
+   "label": 368,
+   "hemi": ""
+  },
+  {
+   "id": 369,
+   "name": "7Networks_RH_Default_Temp_3",
+   "color": "#d13d4f",
+   "label": 369,
+   "hemi": ""
+  },
+  {
+   "id": 370,
+   "name": "7Networks_RH_Default_Temp_4",
+   "color": "#d13d50",
+   "label": 370,
+   "hemi": ""
+  },
+  {
+   "id": 371,
+   "name": "7Networks_RH_Default_Temp_5",
+   "color": "#d13d51",
+   "label": 371,
+   "hemi": ""
+  },
+  {
+   "id": 372,
+   "name": "7Networks_RH_Default_Temp_6",
+   "color": "#d13d52",
+   "label": 372,
+   "hemi": ""
+  },
+  {
+   "id": 373,
+   "name": "7Networks_RH_Default_Temp_7",
+   "color": "#d13d53",
+   "label": 373,
+   "hemi": ""
+  },
+  {
+   "id": 374,
+   "name": "7Networks_RH_Default_Temp_8",
+   "color": "#d13d54",
+   "label": 374,
+   "hemi": ""
+  },
+  {
+   "id": 375,
+   "name": "7Networks_RH_Default_PFCv_1",
+   "color": "#d13d4e",
+   "label": 375,
+   "hemi": ""
+  },
+  {
+   "id": 376,
+   "name": "7Networks_RH_Default_PFCv_2",
+   "color": "#d13e4d",
+   "label": 376,
+   "hemi": ""
+  },
+  {
+   "id": 377,
+   "name": "7Networks_RH_Default_PFCv_3",
+   "color": "#d13e52",
+   "label": 377,
+   "hemi": ""
+  },
+  {
+   "id": 378,
+   "name": "7Networks_RH_Default_PFCv_4",
+   "color": "#d13e53",
+   "label": 378,
+   "hemi": ""
+  },
+  {
+   "id": 379,
+   "name": "7Networks_RH_Default_PFCdPFCm_1",
+   "color": "#d03e49",
+   "label": 379,
+   "hemi": ""
+  },
+  {
+   "id": 380,
+   "name": "7Networks_RH_Default_PFCdPFCm_2",
+   "color": "#d03e4a",
+   "label": 380,
+   "hemi": ""
+  },
+  {
+   "id": 381,
+   "name": "7Networks_RH_Default_PFCdPFCm_3",
+   "color": "#d03e4b",
+   "label": 381,
+   "hemi": ""
+  },
+  {
+   "id": 382,
+   "name": "7Networks_RH_Default_PFCdPFCm_4",
+   "color": "#d03e4c",
+   "label": 382,
+   "hemi": ""
+  },
+  {
+   "id": 383,
+   "name": "7Networks_RH_Default_PFCdPFCm_5",
+   "color": "#d03e4d",
+   "label": 383,
+   "hemi": ""
+  },
+  {
+   "id": 384,
+   "name": "7Networks_RH_Default_PFCdPFCm_6",
+   "color": "#d03e4f",
+   "label": 384,
+   "hemi": ""
+  },
+  {
+   "id": 385,
+   "name": "7Networks_RH_Default_PFCdPFCm_7",
+   "color": "#d03e50",
+   "label": 385,
+   "hemi": ""
+  },
+  {
+   "id": 386,
+   "name": "7Networks_RH_Default_PFCdPFCm_8",
+   "color": "#d03e51",
+   "label": 386,
+   "hemi": ""
+  },
+  {
+   "id": 387,
+   "name": "7Networks_RH_Default_PFCdPFCm_9",
+   "color": "#d03e52",
+   "label": 387,
+   "hemi": ""
+  },
+  {
+   "id": 388,
+   "name": "7Networks_RH_Default_PFCdPFCm_10",
+   "color": "#d03e53",
+   "label": 388,
+   "hemi": ""
+  },
+  {
+   "id": 389,
+   "name": "7Networks_RH_Default_PFCdPFCm_11",
+   "color": "#d03e54",
+   "label": 389,
+   "hemi": ""
+  },
+  {
+   "id": 390,
+   "name": "7Networks_RH_Default_PFCdPFCm_12",
+   "color": "#d03e55",
+   "label": 390,
+   "hemi": ""
+  },
+  {
+   "id": 391,
+   "name": "7Networks_RH_Default_PFCdPFCm_13",
+   "color": "#d03f4e",
+   "label": 391,
+   "hemi": ""
+  },
+  {
+   "id": 392,
+   "name": "7Networks_RH_Default_pCunPCC_1",
+   "color": "#d03e4e",
+   "label": 392,
+   "hemi": ""
+  },
+  {
+   "id": 393,
+   "name": "7Networks_RH_Default_pCunPCC_2",
+   "color": "#d03f4d",
+   "label": 393,
+   "hemi": ""
+  },
+  {
+   "id": 394,
+   "name": "7Networks_RH_Default_pCunPCC_3",
+   "color": "#d03f4f",
+   "label": 394,
+   "hemi": ""
+  },
+  {
+   "id": 395,
+   "name": "7Networks_RH_Default_pCunPCC_4",
+   "color": "#d03f50",
+   "label": 395,
+   "hemi": ""
+  },
+  {
+   "id": 396,
+   "name": "7Networks_RH_Default_pCunPCC_5",
+   "color": "#d03f51",
+   "label": 396,
+   "hemi": ""
+  },
+  {
+   "id": 397,
+   "name": "7Networks_RH_Default_pCunPCC_6",
+   "color": "#d03f52",
+   "label": 397,
+   "hemi": ""
+  },
+  {
+   "id": 398,
+   "name": "7Networks_RH_Default_pCunPCC_7",
+   "color": "#d03f53",
+   "label": 398,
+   "hemi": ""
+  },
+  {
+   "id": 399,
+   "name": "7Networks_RH_Default_pCunPCC_8",
+   "color": "#d03f54",
+   "label": 399,
+   "hemi": ""
+  },
+  {
+   "id": 400,
+   "name": "7Networks_RH_Default_pCunPCC_9",
+   "color": "#d0404d",
+   "label": 400,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz&guide=mni"
+}

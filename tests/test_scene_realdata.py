@@ -264,7 +264,7 @@ def scene_format(request) -> str:
 def _build_and_decode(pm, subject: str, scene_format: str) -> dict:
     from tit.scene import build, cache
 
-    metas = build.build_surfaces(pm, subject)
+    metas = build.build_surfaces(pm, subject, gii=True)
     fingerprint = build.surface_fingerprint(pm, subject)
     out = {}
     for part, meta in metas.items():
@@ -305,7 +305,7 @@ def head_mesh_surfaces(pm, subject: str, scene_format: str) -> dict:
 def labels(pm, subject: str, atlas: str, surfaces: dict, scene_format: str) -> dict:
     from tit.scene import build, cache
 
-    meta = build.build_labels(pm, subject, atlas)
+    meta = build.build_labels(pm, subject, atlas, gii=True)
     entry = cache.find_cached(
         pm.project_dir,
         subject,
@@ -525,7 +525,8 @@ def test_the_framing_box_drops_the_neck_and_keeps_the_head(
     assert (
         skin["bbox"][2] < floor
     ), "this subject's skin does not extend below the brain"
-    assert skin["focus_bbox"][2] >= floor
+    # `floor` is clustered, so up to a cell above the head mesh's own lowest vertex, which frames.
+    assert skin["focus_bbox"][2] >= floor - 1.0
     # Only the floor moves: the head is not cropped at the sides or the vertex.
     assert skin["focus_bbox"][3:] == skin["bbox"][3:]
     assert skin["focus_bbox"][:2] == pytest.approx(skin["bbox"][:2], abs=25.0)
@@ -589,17 +590,18 @@ def _annot_region_boxes(pm, subject: str, atlas: str) -> dict[tuple[str, int], d
 def test_the_labels_payload_is_aligned_to_the_served_gm_surface(
     surfaces: dict, labels: dict, scene_format: str
 ) -> None:
-    """One uint16 per served vertex, in the served order, same positions."""
+    """One uint16 per served vertex, in the served order, and the surface's own ends."""
     gm = surfaces["gm"]["payload"]
     payload = labels["payload"]
     assert payload.labels is not None
-    assert payload.vertex_count == gm.vertex_count
+    assert len(payload.labels) == gm.vertex_count
     if scene_format == "gii":
         assert payload.triangle_count == gm.triangle_count
         np.testing.assert_array_equal(payload.indices, gm.indices)
+        np.testing.assert_array_equal(payload.positions, gm.positions)
     else:
         assert payload.triangle_count == 0
-    np.testing.assert_array_equal(payload.positions, gm.positions)
+        np.testing.assert_array_equal(payload.positions, gm.positions[[0, -1]])
     assert labels["meta"]["aligned_to"] == "gm"
 
 

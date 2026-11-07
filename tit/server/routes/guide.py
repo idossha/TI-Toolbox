@@ -229,7 +229,7 @@ def surface(
 )
 def labels(
     atlas: Annotated[EntityName, Query()],
-    format: str = Query("gii"),
+    format: str = Query("tvsc"),
     guide_id: str | None = GuideQuery,
     if_none_match: str | None = Header(None, alias="If-None-Match"),
 ) -> Response:

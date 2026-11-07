@@ -11,8 +11,8 @@ rebuilt at runtime, and no source dataset is redistributed as such.
 | Dataset | SimNIBS **example dataset**, subject `ernie` (T1/T2, charm head model) |
 | Upstream | <https://github.com/simnibs/example-dataset> (releases) |
 | Local copy used | `/Users/idohaber/datasets/000`, `derivatives/SimNIBS/sub-ernie/m2m_ernie` |
-| Head mesh | `ernie.msh`, 184 MB, 847 165 nodes, 5 899 838 elements |
-| Generated | 2026-09-05, in container `ti-toolbox-fad740e5-tit-1` (SimNIBS 4.6) |
+| Head mesh | `ernie.msh`, 174 MB |
+| Generated | 2026-09-05; rebuilt 2026-11-07 in `idossha/ti-toolbox:v3.1.3` (SimNIBS 4.6) with this checkout mounted at `/ti-toolbox` |
 
 The same release archive (`v4.1/simnibs4_examples.zip`, sha256-pinned) is the sole source of the
 **example-data store, which lives in its own repository**:
@@ -57,17 +57,17 @@ change.
 
 Packaged (see `manifest.json` for exact sizes and SHA-256 of every file):
 
-* `surfaces/skin.{tvsc,gii}`, `surfaces/gm.{tvsc,gii}` — the two surfaces the
-  pane draws, extracted from tags 1005/1002, oriented outward and simplified to
-  the frozen §S3 budget (≤ 150 000 triangles and ≤ 3 MB per TVSC1 payload);
+* `surfaces/skin.{tvsc,gii}` — the scalp, tag 1005, oriented outward and within the
+  §S3 budget (≤ 150 000 triangles and ≤ 3 MB per TVSC1 payload);
+* `surfaces/gm.tvsc` — the cortex, the whole `lh`/`rh.central.gii`, 617 574 triangles;
 * `surfaces/subcortical.{tvsc,gii}` — 17 named deep-brain regions extracted
   offline from the same Ernie `segmentation/labeling.nii.gz` using its full native
   affine, with CSF, ventricles, cortex and white matter excluded. The matching
   label payload retains original CHARM label IDs and LUT names/colours. Source
   and LUT SHA-256 values are recorded in the manifest. Generated 2026-09-14;
   no subject volume is read or transformed when this guide is requested;
-* `labels/<atlas>.gii` — grey matter plus per-vertex atlas labels and the
-  atlas' own label table, for every cortical atlas the head model carries;
+* `labels/<atlas>.tvsc` — per-vertex atlas labels on that cortex, for DK40, a2009s and
+  HCP_MMP1, from `subject_atlas` on this head's own `sphere.reg`;
 * `legends/<atlas>.json` — the label → region id/name/colour legend;
 * `nets/<net>.csv.json` — the standard EEG nets' electrode names and positions.
 
@@ -86,8 +86,13 @@ way no later validation could detect.
 
 ## Regenerating
 
+The `m2m_ernie` in Dataset 000 has no `segmentation/`, and the eight nets above are fewer than it now holds. In a
+scratch project in the container: copy that `m2m_ernie`, add `labeling.nii.gz` and `labeling_LUT.txt` (the head model's own,
+sha256 in `manifest.json`), remove the other nets from `eeg_positions/`, and run `subject_atlas` for each atlas. Then:
+
 ```bash
-docker exec ti-toolbox-fad740e5-tit-1 \
-  /root/SimNIBS-4.6/bin/simnibs_python -m tit.scene.guide_build \
-  --project /mnt/000 --subject ernie --out /ti-toolbox/tit/scene/guide
+for a in a2009s DK40 HCP_MMP1; do
+  subject_atlas -a $a -o <m2m>/segmentation <m2m>
+done
+simnibs_python -m tit.scene.guide_build --project <scratch> --subject ernie --out /ti-toolbox/tit/scene/guide
 ```

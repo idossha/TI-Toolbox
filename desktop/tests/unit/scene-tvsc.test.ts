@@ -270,3 +270,22 @@ describe("encodeTvsc1", () => {
     expect(() => encodeTvsc1({ positions: [0, 0, 0], labels: [1, 2] })).toThrow(TvscError);
   });
 });
+
+describe("a labels payload with flags bit1", () => {
+  it("reads the two ends and the labels from a hand-walked buffer", () => {
+    const buffer = new ArrayBuffer(32 + 24 + 8);
+    const view = new DataView(buffer);
+    view.setUint32(0, 0x43535654, true); // "TVSC"
+    view.setUint32(4, 1, true);
+    view.setUint32(8, 3, true); // three labels
+    view.setUint32(16, 3, true); // labels | ends only
+    [1.5, 2, 3, -1, -2, -3.5].forEach((value, i) => view.setFloat32(32 + 4 * i, value, true));
+    [7, 0, 65535].forEach((value, i) => view.setUint16(56 + 2 * i, value, true));
+    const parsed = parseTvsc1(buffer);
+    expect(parsed.vertexCount).toBe(3);
+    expect(Array.from(parsed.positions)).toEqual([1.5, 2, 3, -1, -2, -3.5]);
+    expect(parsed.indices).toBeNull();
+    expect(Array.from(parsed.labels!)).toEqual([7, 0, 65535]);
+    expect(() => parseTvsc1(buffer.slice(0, 40))).toThrow(/claims/);
+  });
+});

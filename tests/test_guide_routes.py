@@ -109,7 +109,10 @@ def test_manifest_ids_are_fetchable(client: TestClient, guide_id: str) -> None:
         assert response.status_code == 200, part["url"]
         assert len(response.content) == part["bytes"]
         gii = client.get(part["url"] + "&format=gii", headers=BEARER)
-        assert gii.status_code == 200 and gii.content[:5] == b"<?xml"
+        if part["id"] == "gm":
+            assert gii.status_code == 404 and "tvsc" in gii.json()["detail"]
+        else:
+            assert gii.status_code == 200 and gii.content[:5] == b"<?xml"
     for atlas in body["atlases"]:
         regions = client.get(atlas["url"], headers=BEARER)
         assert regions.status_code == 200, atlas["url"]
@@ -124,12 +127,12 @@ def test_manifest_ids_are_fetchable(client: TestClient, guide_id: str) -> None:
 
 def test_bytes_revalidate_by_sha256_etag(client: TestClient) -> None:
     """Immutable bytes, so a repeat visit costs a 304 and not 2.4 MB."""
-    first = client.get("/api/guide/surface?part=gm&format=gii", headers=BEARER)
+    first = client.get("/api/guide/surface?part=skin&format=gii", headers=BEARER)
     etag = first.headers["etag"]
     assert len(etag.strip('"')) == 64, "the ETag is the file's SHA-256"
     assert "immutable" in first.headers["cache-control"]
     again = client.get(
-        "/api/guide/surface?part=gm&format=gii",
+        "/api/guide/surface?part=skin&format=gii",
         headers={**BEARER, "If-None-Match": etag},
     )
     assert again.status_code == 304

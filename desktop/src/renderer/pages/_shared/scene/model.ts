@@ -273,15 +273,17 @@ export function labelsAlignment(
     return { aligned: false, reason: `labels are for ${labels.vertexCount} vertices, the surface has ${surface.vertexCount}` };
   }
   const last = (surface.vertexCount - 1) * 3;
-  const same = [0, 1, 2, last, last + 1, last + 2].every((i) => surface.positions[i] === labels.positions[i]);
+  // A labels payload may carry just those two vertices (TVSC flags bit1), or all of them.
+  const lastInLabels = labels.positions.length - 3;
+  const same = [0, 1, 2].every((i) => surface.positions[i] === labels.positions[i] && surface.positions[last + i] === labels.positions[lastInLabels + i]);
   return { aligned: same, reason: same ? null : "the labels payload's vertices are not the surface's" };
 }
 
 /**
- * Whether the pane offers **Explode**: only on the MNI template (never a subject's own head, whose
- * atlases are cortical surfaces with nothing buried), and only once an atlas' labels are on the
- * drawn surface — there is nothing to pull apart before that.
+ * Whether the pane offers **Explode**: only on the MNI template's volume surfaces (never a cortex,
+ * subject's or template's, which is one sheet with nothing buried), and only once an atlas' labels
+ * are on the drawn surface — there is nothing to pull apart before that.
  */
-export function explodeOffered(guide: string, drawnSubject: string | null, atlasLabelled: boolean): boolean {
-  return guide === "mni" && drawnSubject === null && atlasLabelled;
+export function explodeOffered(guide: string, drawnSubject: string | null, atlasLabelled: boolean, atlasPart: string): boolean {
+  return guide === "mni" && drawnSubject === null && atlasLabelled && atlasPart !== "gm";
 }

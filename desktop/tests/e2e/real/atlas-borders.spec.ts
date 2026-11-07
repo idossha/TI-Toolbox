@@ -22,7 +22,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
-import { connectReal, getServerPanels, gotoPage, launchElectronApp, setServerPanels } from "../_helpers";
+import { connectReal, getServerPanels, gotoPage, launchElectronApp, selectSubject, setServerPanels } from "../_helpers";
 
 const SERVER_URL = process.env.TIT_E2E_SERVER_URL as string;
 const TOKEN = process.env.TIT_E2E_TOKEN as string;
@@ -31,6 +31,14 @@ const SIMULATION = process.env.TIT_E2E_ATLAS_SIMULATION;
 const ISLAND_PX = 30;
 const MAX_ISLANDS = 85;
 const MAX_TOOTH_FRACTION = 0.024;
+/**
+ * The MNI template's cortex in Harvard-Oxford cortical, read at the same camera. A label volume is
+ * 1 mm voxels, so its borders step more than an annotation's: measured 2026-11-07, 100 islands and
+ * 2.98 % teeth, and these bounds sit above that. The marching-cubes blocks they replace had 22
+ * islands with a gap between all their regions, which no border count can say.
+ */
+const MNI_MAX_ISLANDS = 125;
+const MNI_MAX_TOOTH_FRACTION = 0.036;
 
 test.skip(!SUBJECT || !SIMULATION, "skipping: TIT_E2E_ATLAS_SUBJECT and TIT_E2E_ATLAS_SIMULATION name no subject with a cortical atlas");
 
@@ -117,6 +125,39 @@ test("the atlas on a subject's cortex has clean borders and no holes, read per p
     expect(counts.toothFraction, "teeth: labelled pixels only a spike narrower than 5 px holds").toBeLessThan(MAX_TOOTH_FRACTION);
   } finally {
     await setServerPanels(SERVER_URL, TOKEN, panels);
+    await app.close();
+  }
+});
+
+test("a cortical MNI atlas on the template's midlayer has clean borders too", async () => {
+  test.setTimeout(180_000);
+  const app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-real-")) });
+  try {
+    const page = await app.firstWindow();
+    await page.setViewportSize({ width: 1600, height: 1000 });
+    await connectReal(page, { url: SERVER_URL, token: TOKEN });
+    const offer = page.getByRole("dialog", { name: "Add example data?" });
+    await offer.waitFor({ timeout: 8000 }).then(() => offer.getByRole("button", { name: "Close dialog" }).click(), () => undefined);
+    await selectSubject(page, SUBJECT!);
+    await gotoPage(page, "optimizer", "Optimizer");
+    const active = page.locator('[data-page-active="true"]');
+    await active.getByTestId("scene-pane-space-control").getByRole("radio", { name: "MNI", exact: true }).click();
+    await page.waitForFunction(() => {
+      const pane = window.__scenePane;
+      const cortex = pane?.parts.find((part) => part.id === "gm");
+      return pane?.guideId === "mni" && cortex?.labelled === true && window.__scene?.parts.some((part) => part.id === "gm" && part.triangles === cortex.triangles);
+    }, null, { timeout: 60_000 });
+    await active.getByLabel("Camera preset").getByRole("radio").nth(1).click();
+    await page.waitForFunction(() => window.__scene!.camera.settled, null, { timeout: 30_000 });
+    await page.waitForTimeout(1000);
+    const { frame, atlas } = await page.evaluate(() => ({ frame: window.__scene!.regionFrame(), atlas: window.__scenePane!.atlas }));
+    const counts = borderCounts(frame!.regions, frame!.width, frame!.height);
+    console.log(`MNI atlas borders (${atlas}): ${JSON.stringify(counts)}`);
+    expect(atlas).toMatch(/^HarvardOxford-cortl/);
+    expect(counts.labelled).toBeGreaterThan(20_000);
+    expect(counts.islands).toBeLessThan(MNI_MAX_ISLANDS);
+    expect(counts.toothFraction).toBeLessThan(MNI_MAX_TOOTH_FRACTION);
+  } finally {
     await app.close();
   }
 });

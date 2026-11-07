@@ -15,22 +15,28 @@ it and never emits a coordinate from it.
 | Dataset | SimNIBS **example dataset**, subject `MNI152` (the MNI152 template T1 and its charm head model) |
 | Upstream | <https://github.com/simnibs/example-dataset> (releases) |
 | Fetched with | `simnibs_python -m tit.examples --project <scratch> mni152/headmodel` (`tit/examples/catalog.json`, store `idossha/ti-toolbox-example-data` release `v1`, sha256-pinned) |
-| Generated | 2026-09-17, in `idossha/ti-toolbox:v3.0.0` (SimNIBS 4.6) |
+| Generated | 2026-09-17; rebuilt 2026-11-07 in `idossha/ti-toolbox:v3.1.3` (SimNIBS 4.6) with this checkout mounted at `/ti-toolbox` |
 | Licence | GPL-3.0-or-later — the same vetting as `tit/scene/guide/PROVENANCE.md`; TI-Toolbox is GPL-3.0, so redistributing GPL-3.0 derived assets is permitted |
 
-`surfaces/skin.*` and `surfaces/gm.*` are decimated display surfaces extracted from that head
-model's mesh. The mesh itself, the `m2m_` directory and every volume are **not** packaged.
+`surfaces/skin.*` is a display surface extracted from that head model's mesh. `surfaces/gm.tvsc` is the
+cortex: that head model's whole `lh`/`rh.central.gii`, 513 364 triangles. The mesh itself, the `m2m_`
+directory and every volume are **not** packaged.
 
 ## Source — the atlases
 
-Each `surfaces/atlas-<file>.*` is a marching-cubes surface of one packaged MNI label volume in
-`resources/atlas/`, and `labels/<file>.*` carries its per-vertex label values. The volumes
+For each sub-cortical volume, `surfaces/atlas-<file>.*` is a marching-cubes surface of that packaged
+MNI label volume in `resources/atlas/`, and `labels/<file>.*` carries its per-vertex label values. Each
+cortical volume (Harvard-Oxford cortical, Glasser, Schaefer) is `labels/<file>.tvsc` alone: per-vertex
+labels on `surfaces/gm.tvsc`, the nearest labelled voxel within 3 mm on that vertex's own side of the
+midline, then the mode filter. The volumes
 themselves are the ones already shipped there; nothing new is redistributed by this directory that
 `resources/atlas/` does not already redistribute. **`resources/atlas/README.md` is the licence table
 of record.**
 
 | Packaged here | Regions drawn | Licence (see `resources/atlas/README.md`) |
 |---|---|---|
+| `MNI_Glasser_HCP_v1.0.nii.gz` | 360 | WU-Minn HCP Open Access Data Use Terms |
+| `Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` | 400 | MIT (ThomasYeoLab/CBIG) |
 | `CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz` | 32 | CC BY 4.0 (OSF), NeuroVault CC0 |
 | `massp2021-parcellation_decade-18to40.nii.gz` | 31 | CC BY 4.0 (figshare 19646328) |
 | `HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz` | 96 | CC BY-SA 4.0 (FSL licence page) |
@@ -49,11 +55,8 @@ rebuilt with the same command in `idossha/ti-toolbox:v3.0.0` with this checkout 
 `/ti-toolbox`. `skin`, `gm`, every net and the MASSP, Harvard-Oxford subcortical and Cerebellum
 payloads came out byte-identical; only the two replaced atlases' surfaces, labels and legends are new.
 
-`MNI_Glasser_HCP_v1.0.nii.gz` is **not** packaged here: it is a 360-parcel cortical parcellation and
-`tit/scene/volume_surfaces.py` draws at most 256 regions. It is still selectable in the ROI picker,
-which reads the atlas catalog rather than this guide; it simply cannot be *clicked* in the pane.
-`Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz` is skipped for the same reason
-(400 parcels); it is selectable in the picker and not clickable in the pane.
+On 2026-11-07 the cortex became the whole central surfaces and the cortical volumes moved onto it (above);
+the sub-cortical atlases' surfaces and labels came out byte-identical.
 
 ## Space
 
@@ -74,4 +77,4 @@ simnibs_python -m tit.scene.guide_build \
     --label "MNI152 template" --atlases mni --guide-id mni
 ```
 
-Packaged total: 25.97 MB (the 21 MB Ernie guide plus three more atlases).
+Packaged total: 27.79 MB.

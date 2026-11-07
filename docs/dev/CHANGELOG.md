@@ -8,6 +8,12 @@ toc_group: major
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
 ---
+### Unreleased
+
+- **Fixed: atlas regions on the cortex no longer render with broken borders and holes** — every Simulator, Optimizer and Analyzer 3D pane drew a cortex from a simplified copy of the head mesh's grey-matter surface, whose open edges and coarse triangles broke the region borders. They now draw the head's central surfaces, the ones the atlas labels, as TetraVox and Blender do, on subjects and on the packaged Ernie and MNI152 heads. The cerebellum and brainstem are no longer in these panes. Sub-cortical regions are unchanged: they are still drawn from their NIfTI label volumes. A subject's scene is rebuilt once: it takes about 4 seconds where it took about 24, and is about 19 MB for its cortex and one atlas where the cortex alone was about 3 MB.
+- **Added: MNI cortical atlases on the MNI152 cortex** — with **Target space** set to MNI, the 3D pane opens on the template's cortex in Harvard-Oxford cortical, and the Schaefer and Glasser parcellations can now be clicked in the pane too. Choosing a region still targets that atlas' label volume, transformed into each subject before the job runs. Explode is offered for the sub-cortical MNI atlases, which have separate parts to pull apart.
+
+---
 ### v3.1.3 — November 3, 2026 <span class="release-pill">Latest</span> {#v313--november-3-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.3/">Release notes →</a>

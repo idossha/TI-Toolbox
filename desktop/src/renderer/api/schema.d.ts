@@ -4965,14 +4965,14 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * One packaged atlas' grey-matter surface with per-vertex labels
-         * @description A GIfTI mesh carrying the guide's grey-matter triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>` — the payload a renderer draws and picks regions on. Its label values index the `legend[].label` field of `GET /api/guide/regions`.
+         * One packaged atlas' per-vertex labels, for the part `atlases[].aligned_to` names
+         * @description `tvsc` is what the pane reads. A volume atlas with its own part also has `gii`: a GIfTI mesh with the part's triangles, a `NIFTI_INTENT_LABEL` array and the atlas' own `<LabelTable>`. Atlases on the whole central surfaces are `tvsc` only, and asking for `gii` is a 404. Label values index the `legend[].label` field of `GET /api/guide/regions`.
          */
         get: {
             parameters: {
                 query: {
                     atlas: string;
-                    format?: "gii";
+                    format?: "tvsc" | "gii";
                     /** @description Which packaged guide to read: `default` (subject anatomy, the Ernie head) or `mni` (the MNI152 template head, drawn when a row's ROI is in MNI space). Omitted means `default`. */
                     guide?: "default" | "mni";
                 };
@@ -4982,7 +4982,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description GIfTI binary with a label array and label table */
+                /** @description TVSC1 or GIfTI binary, per ?format */
                 200: {
                     headers: {
                         [name: string]: unknown;

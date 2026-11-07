@@ -1330,3 +1330,11 @@ after the 2026-09-03 removal of the Freeview launch routes; no client read it. `
 /api/view/{kind}` returns `space`, `layers`, `scene` and the optional `cursor`.
 `tit.viewspec.to_freeview_args` and `freeview_command` are deleted with it. Regenerated
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+## 2026-11-07 — Guide labels default to `tvsc`; a guide's cortex and the labels on it have no `gii`
+
+`GET /api/guide/labels` documents `format` as `tvsc` or `gii`, default `tvsc`, where it claimed `gii` only. A packaged
+`gm` part and a labels payload aligned to it are `tvsc` only, and `format=gii` on them is a 404 naming what is packaged; the
+scene routes keep both formats and write `gii` on request. Labels on a whole cortex use `TVSC1` flags bit1
+(`tit/scene/tvsc.py`): the surface's first and last vertex in place of its positions; a bit-clear payload reads as before.
+On the MNI guide `atlases[].aligned_to` is `gm` for a cortical label volume, whose `kind` stays `subcortical`. Regenerated
+`contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
