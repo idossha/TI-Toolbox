@@ -130,7 +130,7 @@ class QSIPrepConfig:
         Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the
         pipeline setting 'auto' is resolved by ``run_qsiprep``).
     use_syn_sdc : bool
-        Pass ``--use-syn-sdc warn`` (fieldmap-less SyN distortion correction).
+        Run fieldmap-less SyN distortion correction.
         Set by ``run_qsiprep`` when the subject has no usable fieldmap.
     mni_normalization : bool
         Run QSIPrep's anatomical normalization to MNI. Off by default: only

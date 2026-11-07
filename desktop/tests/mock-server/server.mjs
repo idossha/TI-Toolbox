@@ -4273,7 +4273,7 @@ function rawHandler(headOnly) {
 route("GET", "/api/files/raw/*path", rawHandler(false));
 route("HEAD", "/api/files/raw/*path", rawHandler(true));
 
-let surferSettings = { charm_options: null, qsiprep_config: { output_resolution: 2, image_tag: "26.0.0", skip_bids_validation: true, denoise_method: "dwidenoise", unringing_method: "mrdegibbs" }, qsi_recon_config: { recon_specs: ["dsi_studio_gqi"], atlases: null, use_gpu: false, image_tag: "26.0.0", skip_odf_reports: true }, charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, fastsurfer_threads: null, freesurfer_threads: null, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] };
+let surferSettings = { charm_options: null, qsiprep_config: { output_resolution: 2, image_tag: "26.1.1", skip_bids_validation: true, denoise_method: "dwidenoise", unringing_method: "mrdegibbs" }, qsi_recon_config: { recon_specs: ["dsi_studio_gqi"], atlases: null, use_gpu: false, image_tag: "26.0.1", skip_odf_reports: true }, charm_threads: null, qsiprep_threads: null, qsirecon_threads: null, qsiprep_memory_gb: null, qsirecon_memory_gb: null, qsiprep_omp_threads: null, qsirecon_omp_threads: null, fastsurfer_threads: null, freesurfer_threads: null, freesurfer_recon_all: true, freesurfer_subregions: ["thalamus", "hippo-amygdala"] };
 // The user's own FreeSurfer license (never bundled): the mock only remembers that one was pasted.
 let freesurferLicense = null;
 const surferSettingsResponse = () => ({

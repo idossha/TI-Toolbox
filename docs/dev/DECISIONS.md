@@ -4240,3 +4240,17 @@ eddy are not numerically identical, so a fallback would hide a change of method.
 
 **Revisit if.** The pinned QSIPrep image moves past 26.0.0: delete the shim and the config, and pass
 `--gpu eddy`.
+
+**Superseded 2026-11-07** for the default image: see "QSIPrep 26.1.1 and QSIRecon 26.0.1 are the default images". The shim and config stay for a tag older than 26.1.
+
+## 2026-11-07 — QSIPrep 26.1.1 and QSIRecon 26.0.1 are the default images, and an older tag keeps its command line
+
+**Decision.** The default image tags move from 26.0.0 to `26.1.1` (PennLINC, 2026-10-15) and `26.0.1` (2026-09-29). `build_qsiprep_cmd` branches on the tag (`qsiprep_has_26_1_cli`). From 26.1, following QSIPrep's `docs/upgrading.rst`: `--hmc-method eddy --sdc-method topup`; fieldmap-less SyN is `--sdc-fieldmapless-method syn --sdc-anat-reference invt1w`, still with MNI normalization because its atlas prior goes through that transform (`init_syn_sdc_wf`); `use_gpu` is `--gpus all --gpu eddy`, with no shim and no eddy config; no FreeSurfer license, since `--fs-license-file` is removed and upstream says none is needed. A tag older than 26.1 builds exactly what it did. The user asked for the newest releases and the GPU branch together; this is the migration the 2026-11-06 entry deferred.
+
+**Evidence, none of it a run of the pipeline.** 72 commands from `build_qsiprep_cmd` (SyN, GPU, normalization, every denoise and unringing method) parse with 26.1.1's own `_build_parser`, from PyPI, with `hmc_method`, `sdc_method`, `sdc_anat_reference`, `sdc_fieldmapless_method` and `gpu` as asked. qsiplan 0.5.0, the grouping 26.1 runs, gives the tree DICOM conversion writes a PEPOLAR field from its `fmap/` scan through `IntendedFor`, and pairs `dir-AP`/`dir-PA` series, with no errors (`tests/numerical/test_bids_fieldmap_tools.py`). By QSIPrep's `docs/outputs.rst` and source at 26.1.1, the files `qsiprep_inputs` and `dti_advisories` read keep their names: `space-ACPC_desc-preproc_dwi` and its `.b`, `desc-brain_mask`, the anat T1w, mask and `from-ACPC_to-anat` transform, `desc-confounds_timeseries`, `desc-image_qc`, `desc-summary_dwi`. Two did change, and are read both ways: `workflow.hmc_model` became `hmc_method`, and the about page became `desc-about`. QSIRecon's `parser.py` is identical between 26.0.0 and 26.0.1, and 26.0.1 accepts QSIPrep's `desc-preproc` dwiref name.
+
+**Not run.** Neither version end to end, and no GPU: this Mac cannot run QSIPrep. A first x86 run, and a GPU one, are open (ROADMAP).
+
+**What can move.** Upstream's notes for 26.1 change results as well as flags: Jacobian modulation for corrections QSIPrep resamples, zero-magnitude b-vectors written as `[1 0 0]`, grouping by qsiplan with inconsistent metadata now a named error, and a SyN series without `PhaseEncodingDirection` or `TotalReadoutTime` an error where `--use-syn-sdc warn` only warned. So a saved tag is left as it is: a cohort started on 26.0.0 can finish on it.
+
+**Alternatives rejected.** Dropping support for older tags and deleting the shim: a saved 26.0.0 would then fail with an argparse error, and a study would have to change method midway. Rewriting saved preferences to the new tag: changes a method without asking. Staying on 26.0.0: the user asked to move, and the CLI change has a documented mapping.

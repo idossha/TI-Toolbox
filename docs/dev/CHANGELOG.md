@@ -8,6 +8,12 @@ toc_group: major
 Detailed technical changelog for all versions of the Temporal Interference Toolbox. Entries include implementation changes, compatibility notes, and fixes. For a short summary of the newest version and its downloads, see the [Latest release]({{ site.baseurl }}/releases/) page; each version below links to its own release notes.
 
 ---
+### Unreleased
+
+- **Changed: QSIPrep 26.1.1 and QSIRecon 26.0.1 are the default images** — new runs use them, and QSIPrep's command line follows its 26.1 reorganisation. **Pre-processing ▸ Diffusion**. QSIPrep's own 26.1 notes change how distortion correction and intensity modulation are applied, so a result can differ from a 26.0 run: keep one version across a study. Settings you saved keep their image tag, and an older tag still gets the command line it understands. Existing outputs are untouched. Neither version has been run end to end by the toolbox on real data yet, so check the first subject's QSIPrep report.
+- **Added: run QSIPrep's eddy on an NVIDIA GPU** — set `"use_gpu": true` in `qsiprep_config`; off by default, with no control in the app yet. It needs the NVIDIA Docker runtime and never falls back to the CPU. CPU and GPU eddy are not numerically identical, so use one choice across a study.
+
+---
 ### v3.1.3 — November 3, 2026 <span class="release-pill">Latest</span> {#v313--november-3-2026}
 
 <a class="release-notes-link" href="{{ site.baseurl }}/releases/v3.1.3/">Release notes →</a>

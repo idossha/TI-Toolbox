@@ -92,7 +92,7 @@ CORPUS: tuple[tuple[str, str, str], ...] = (
         "docker run --rm --platform linux/amd64 --name qsiprep_101_1a2b3c4d "
         "--label tit.kind=qsiprep --cpus 8 --memory 32g -e OMP_NUM_THREADS=8 "
         "-v /host/project:/data:ro -v /host/project/derivatives/qsiprep:/out "
-        "pennlinc/qsiprep:26.0.0 /data /out participant --participant-label 101",
+        "pennlinc/qsiprep:26.1.1 /data /out participant --participant-label 101",
     ),
     (
         "tit/constants.py",
@@ -100,7 +100,7 @@ CORPUS: tuple[tuple[str, str, str], ...] = (
         "docker run --rm --platform linux/amd64 --name qsirecon_101_dsi_studio_1a2b3c4d "
         "--label tit.kind=qsirecon --cpus 8 --memory 32g -e OMP_NUM_THREADS=8 "
         "-v /host/project/derivatives/qsiprep:/data:ro "
-        "pennlinc/qsirecon:26.0.0 /data /out participant --participant-label 101",
+        "pennlinc/qsirecon:26.0.1 /data /out participant --participant-label 101",
     ),
     (
         "tit/pre/freesurfer.py",

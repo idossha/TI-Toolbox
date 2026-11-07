@@ -23,8 +23,8 @@ export interface Category {
 }
 
 export const DEFAULT_RECON_SPEC = "dsi_studio_gqi";
-export const DEFAULT_QSIPREP_IMAGE_TAG = "26.0.0";
-export const DEFAULT_QSIRECON_IMAGE_TAG = "26.0.0";
+export const DEFAULT_QSIPREP_IMAGE_TAG = "26.1.1";
+export const DEFAULT_QSIRECON_IMAGE_TAG = "26.0.1";
 
 export const SPEC_CATEGORIES: Category[] = [
   {

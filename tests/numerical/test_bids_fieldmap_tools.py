@@ -6,8 +6,10 @@ is accepted by readers that are not ours:
 
 - sdcflows ``find_estimators`` (2.17.1) finds a PEPOLAR estimator from
   ``fmap/sub-001_dir-PA_epi`` and the DWI;
-- QSIPrep 26.0.0's own ``collect_data`` + ``group_by_warpspace`` give the DWI an
-  ``epi`` fieldmap, and pair ``dir-AP``/``dir-PA`` DWI series with each other;
+- qsiplan 0.5, the grouping QSIPrep 26.1 runs, corrects the DWI with a PEPOLAR field from
+  that fieldmap and pairs ``dir-AP``/``dir-PA`` DWI series with each other, with no errors;
+- QSIPrep 26.0.0's own ``collect_data`` + ``group_by_warpspace`` do the same, for a project
+  still on that image (``qsiprep.utils.grouping`` is gone from 26.1);
 - the BIDS validator reports no error (only when ``TIT_BIDS_VALIDATOR`` holds its
   command, e.g. ``deno run -A jsr:@bids/validator``: it downloads, so it is off by
   default).
@@ -17,7 +19,7 @@ run them::
 
     uv venv --python 3.12 /tmp/qsi && uv pip install --python /tmp/qsi/bin/python \\
         --no-deps qsiprep==26.0.0 && uv pip install --python /tmp/qsi/bin/python \\
-        sdcflows pybids nibabel nipype templateflow niworkflows dipy pytest
+        sdcflows pybids nibabel nipype templateflow niworkflows dipy pytest "qsiplan>=0.5,<0.6"
     PYTHONPATH=. TIT_BIDS_VALIDATOR="deno run -A jsr:@bids/validator" \\
         /tmp/qsi/bin/python -m pytest tests/numerical/test_bids_fieldmap_tools.py
 """
@@ -78,9 +80,31 @@ def test_sdcflows_finds_a_pepolar_estimator(tmp_path):
     ] == [("PEPOLAR", ["sub-001_dir-PA_epi.nii.gz", "sub-001_dwi.nii.gz"])]
 
 
+def _qsiplan_report(root, capsys):
+    cli = pytest.importorskip("qsiplan.cli", reason="qsiplan absent")
+    args = [str(root), "--participant-label", "001"]
+    assert cli.main([*args, "--hmc-method", "eddy", "--sdc-method", "topup"]) == 0
+    return capsys.readouterr().out
+
+
+def test_qsiplan_corrects_the_dwi_from_the_fmap_epi(tmp_path, capsys):
+    report = _qsiplan_report(_tree(tmp_path), capsys)
+    assert "corrected by: auto+fmap+sub-001_dir-PA_epi [intendedfor]" in report
+    assert "PEPOLAR" in report
+    assert 'Output "sub-001"' in report
+
+
+def test_qsiplan_pairs_direction_named_dwi_series(tmp_path, capsys):
+    report = _qsiplan_report(_tree(tmp_path, both_in_dwi=True), capsys)
+    assert report.count("corrected by: auto+pepolar+j") == 2
+    assert 'Output "sub-001" (MultipartID auto+concat+0 [inferred]): 2 series' in report
+
+
 def test_qsiprep_assigns_the_fmap_epi_to_the_dwi(tmp_path):
     os.environ.setdefault("TEMPLATEFLOW_HOME", str(tmp_path / "templateflow"))
-    grouping = pytest.importorskip("qsiprep.utils.grouping", reason="qsiprep absent")
+    grouping = pytest.importorskip(
+        "qsiprep.utils.grouping", reason="needs QSIPrep older than 26.1"
+    )
     qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     data, layout = qsi_bids.collect_data(
         str(_tree(tmp_path)), "001", bids_validate=False
@@ -96,7 +120,9 @@ def test_qsiprep_assigns_the_fmap_epi_to_the_dwi(tmp_path):
 
 def test_qsiprep_pairs_direction_named_dwi_series(tmp_path):
     os.environ.setdefault("TEMPLATEFLOW_HOME", str(tmp_path / "templateflow"))
-    grouping = pytest.importorskip("qsiprep.utils.grouping", reason="qsiprep absent")
+    grouping = pytest.importorskip(
+        "qsiprep.utils.grouping", reason="needs QSIPrep older than 26.1"
+    )
     qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     data, layout = qsi_bids.collect_data(
         str(_tree(tmp_path, both_in_dwi=True)), "001", bids_validate=False

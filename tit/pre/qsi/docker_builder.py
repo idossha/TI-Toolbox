@@ -9,6 +9,7 @@ handling volume mounts, resource allocation, and pipeline arguments.
 """
 
 import os
+import re
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -31,12 +32,12 @@ _CUSTOM_PIPELINE_MAP = {
     "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
 }
 
-# GPU eddy in the pinned QSIPrep image. eddy_params_gpu.json is the image's default
-# eddy_params.json with use_cuda on, nothing else. QSIPrep 26.0.0 then calls
-# eddy_cuda10.2, but its image ships only eddy_cuda11.0 (PennLINC/qsiprep#1067, fixed
-# upstream in 26.1 with --gpu eddy, whose CLI drops flags build_qsiprep_cmd passes), so
-# a shim of that name goes on the container's PATH. Written from here rather than
-# copied from a file: a checkout with CRLF line endings would break the shebang.
+# GPU eddy on a QSIPrep image older than 26.1 (26.1 and later take --gpu eddy).
+# eddy_params_gpu.json is the image's default eddy_params.json with use_cuda on, nothing
+# else. QSIPrep 26.0.0 then calls eddy_cuda10.2, but its image ships only eddy_cuda11.0
+# (PennLINC/qsiprep#1067), so a shim of that name goes on the container's PATH. Written
+# from here rather than copied from a file: a checkout with CRLF line endings would
+# break the shebang.
 _EDDY_GPU_CONFIG_FILE = "eddy_params_gpu.json"
 _EDDY_GPU_CONFIG_CONTAINER_PATH = "/tmp/eddy_params_gpu.json"
 _EDDY_CUDA_SHIM = b'#!/bin/sh\nexec eddy_cuda11.0 "$@"\n'
@@ -57,6 +58,17 @@ from .utils import (
 
 class DockerBuildError(Exception):
     """Raised when Docker command construction fails."""
+
+
+def qsiprep_has_26_1_cli(image_tag: str) -> bool:
+    """Whether a QSIPrep image takes the command line 26.1 reorganized.
+
+    A tag set by hand or saved in preferences may be older, and a cohort started on
+    it should finish on it, so an older tag keeps the flags it understands. A tag that
+    names no version (``latest``, ``unstable``) is taken to be current.
+    """
+    version = re.match(r"(\d+)\.(\d+)", image_tag)
+    return version is None or (int(version[1]), int(version[2])) >= (26, 1)
 
 
 @dataclass
@@ -250,6 +262,9 @@ class DockerCommandBuilder:
             Complete Docker command as a list of arguments.
         """
         image = f"{const.QSI_QSIPREP_IMAGE}:{config.image_tag}"
+        cli_26_1 = qsiprep_has_26_1_cli(config.image_tag)
+        # 26.1 needs no FreeSurfer license and refuses --fs-license-file.
+        license_path = None if cli_26_1 else self._host_license_path
         inherited_cpus, inherited_mem_gb = get_inherited_dood_resources()
         effective_cpus = (
             config.resources.cpus
@@ -292,7 +307,7 @@ class DockerCommandBuilder:
 
         # Environment variables
         cmd.extend(["-e", f"OMP_NUM_THREADS={effective_omp}"])
-        if self._host_license_path:
+        if license_path:
             cmd.extend(["-e", f"FS_LICENSE={self.paths.license_file}"])
 
         # Volume mounts - mount host project directory
@@ -307,14 +322,10 @@ class DockerCommandBuilder:
         work_dir = str(self._host_project_dir / "derivatives" / QSIPREP_WORK_DIR)
         cmd.extend(bind_mount(work_dir, self.paths.work_dir))
 
-        if self._host_license_path:
-            cmd.extend(
-                bind_mount(
-                    self._host_license_path, self.paths.license_file, readonly=True
-                )
-            )
+        if license_path:
+            cmd.extend(bind_mount(license_path, self.paths.license_file, readonly=True))
 
-        if config.use_gpu:
+        if config.use_gpu and not cli_26_1:
             host_eddy_config, host_eddy_shim = self._stage_eddy_gpu_files()
             cmd.extend(
                 bind_mount(
@@ -345,7 +356,7 @@ class DockerCommandBuilder:
         cmd.extend(["--omp-nthreads", str(effective_omp)])
         cmd.extend(["--mem-mb", str(effective_mem_gb * 1024)])
 
-        if self._host_license_path:
+        if license_path:
             cmd.extend(["--fs-license-file", self.paths.license_file])
 
         if config.skip_bids_validation:
@@ -354,12 +365,27 @@ class DockerCommandBuilder:
         cmd.extend(["--denoise-method", config.denoise_method])
         cmd.extend(["--unringing-method", config.unringing_method])
         # Stated explicitly so an upstream default change cannot move our results.
-        cmd.extend(["--hmc-model", "eddy", "--pepolar-method", "TOPUP"])
-        if config.use_gpu:
-            cmd.extend(["--eddy-config", _EDDY_GPU_CONFIG_CONTAINER_PATH])
+        if cli_26_1:
+            cmd.extend(["--hmc-method", "eddy", "--sdc-method", "topup"])
+            if config.use_gpu:
+                cmd.extend(["--gpu", "eddy"])
+        else:
+            cmd.extend(["--hmc-model", "eddy", "--pepolar-method", "TOPUP"])
+            if config.use_gpu:
+                cmd.extend(["--eddy-config", _EDDY_GPU_CONFIG_CONTAINER_PATH])
         cmd.extend(["--b0-threshold", f"{const.QSI_B0_THRESHOLD:g}"])
         if config.use_syn_sdc:
-            cmd.extend(["--use-syn-sdc", "warn"])
+            if cli_26_1:
+                cmd.extend(
+                    [
+                        "--sdc-fieldmapless-method",
+                        "syn",
+                        "--sdc-anat-reference",
+                        "invt1w",
+                    ]
+                )
+            else:
+                cmd.extend(["--use-syn-sdc", "warn"])
         # SyN SDC places its fieldmap prior through the anat->MNI transform, so it
         # needs the normalization; otherwise only QSIRecon atlases do.
         if not (config.mni_normalization or config.use_syn_sdc):

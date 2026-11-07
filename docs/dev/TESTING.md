@@ -354,8 +354,8 @@ without source/UI mounts. A later source fix invalidates claims based only on an
   whole DTI step on CHN when `TIT_DTI_REAL` names a Dataset-000-shaped root (read only; outputs go
   to a scratch project) and compares V1 with the prototype tensor at `TIT_DTI_PROTO` if set.
 - `tests/numerical/test_bids_fieldmap_tools.py` hands the DWI/fieldmap tree DICOM conversion writes
-  to readers that are not ours: sdcflows `find_estimators` (PEPOLAR estimator), QSIPrep 26.0.0's
-  `collect_data` + `group_by_warpspace` (fmap `_epi` assigned; `dir-AP`/`dir-PA` DWI paired) and,
+  to readers that are not ours: sdcflows `find_estimators` (PEPOLAR estimator), qsiplan 0.5, the grouping QSIPrep 26.1 runs,
+  and QSIPrep 26.0.0's `collect_data` + `group_by_warpspace` (fmap `_epi` assigned; `dir-AP`/`dir-PA` DWI paired) and,
   when `TIT_BIDS_VALIDATOR` holds its command (`deno run -A jsr:@bids/validator`; it downloads), the
   BIDS validator (no errors). None of them is in the image, so each leg skips with its reason; the
   module docstring has the scratch-venv recipe. The BIDS file names and sidecar keys themselves are

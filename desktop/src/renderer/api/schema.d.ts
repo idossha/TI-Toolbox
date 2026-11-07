@@ -8341,7 +8341,7 @@ export interface components {
          *         Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the
          *         pipeline setting 'auto' is resolved by ``run_qsiprep``).
          *     use_syn_sdc : bool
-         *         Pass ``--use-syn-sdc warn`` (fieldmap-less SyN distortion correction).
+         *         Run fieldmap-less SyN distortion correction.
          *         Set by ``run_qsiprep`` when the subject has no usable fieldmap.
          *     mni_normalization : bool
          *         Run QSIPrep's anatomical normalization to MNI. Off by default: only
@@ -8361,7 +8361,7 @@ export interface components {
             resources?: components["schemas"]["ResourceConfig"];
             /**
              * Image Tag
-             * @default 26.0.0
+             * @default 26.1.1
              */
             image_tag: string;
             /**
@@ -8436,7 +8436,7 @@ export interface components {
             resources?: components["schemas"]["ResourceConfig"];
             /**
              * Image Tag
-             * @default 26.0.0
+             * @default 26.0.1
              */
             image_tag: string;
             /**
@@ -10256,7 +10256,7 @@ export interface components {
             omp_threads?: number;
             /**
              * Image Tag
-             * @default 26.0.0
+             * @default 26.1.1
              */
             image_tag: string;
             /**
@@ -10353,7 +10353,7 @@ export interface components {
             omp_threads?: number;
             /**
              * Image Tag
-             * @default 26.0.0
+             * @default 26.0.1
              */
             image_tag: string;
             /**

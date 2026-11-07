@@ -38,7 +38,7 @@ def check_image_exists(image: str, tag: str) -> bool:
     image : str
         Docker image name (e.g., 'pennlinc/qsiprep').
     tag : str
-        Image tag (e.g., '26.0.0').
+        Image tag (e.g., '26.1.1').
 
     Returns
     -------
@@ -627,7 +627,7 @@ class SdcPlan:
 
     ``mode`` is ``"fieldmap"`` (reverse-PE ``fmap/*_epi`` images, TOPUP),
     ``"reverse-pe-dwi"`` (DWI series with opposite phase encoding, TOPUP) or
-    ``"syn"`` (fieldmap-less SyN, ``--use-syn-sdc warn``). ``problems`` names
+    ``"syn"`` (fieldmap-less SyN). ``problems`` names
     DWI fieldmaps that cannot be used and why.
     """
 
@@ -656,10 +656,7 @@ class SdcPlan:
             return f"TOPUP with reverse phase-encoding fieldmap(s): {names}"
         if self.mode == "reverse-pe-dwi":
             return "TOPUP with the reverse phase-encoding DWI series"
-        return (
-            "fieldmap-less SyN (--use-syn-sdc warn): no reverse phase-encoding "
-            "fieldmap for the DWI"
-        )
+        return "fieldmap-less SyN: no reverse phase-encoding " "fieldmap for the DWI"
 
 
 def plan_distortion_correction(
