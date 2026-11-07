@@ -2403,20 +2403,7 @@
      ]
     }
    },
-   "simulations": [
-    {
-     "fields": [
-      "TI_max",
-      "hf_peak",
-      "hf_rms"
-     ],
-     "name": "L_Insula"
-    },
-    {
-     "fields": [],
-     "name": "L_Insula_old"
-    }
-   ]
+   "simulations": []
   },
   "CHN": {
    "eeg_nets": [
@@ -2473,7 +2460,13 @@
     }
    ],
    "freehand": [],
-   "leadfields": [],
+   "leadfields": [
+    {
+     "exists": true,
+     "net": "EEG10-10_Cutini_2011",
+     "path": "/dataset000/derivatives/SimNIBS/sub-CHN/leadfields/CHN_leadfield_EEG10-10_Cutini_2011.hdf5"
+    }
+   ],
    "montage_electrode_positions": {
     "BioSemi-128-A1.csv": {
      "A1": [
@@ -2830,6 +2823,24 @@
       "magnE"
      ],
      "name": "left_insula_mean"
+    },
+    {
+     "fields": [
+      "TI_max"
+     ],
+     "name": "posterior_along"
+    },
+    {
+     "fields": [
+      "TI_max"
+     ],
+     "name": "posterior_timax"
+    },
+    {
+     "fields": [
+      "TI_max"
+     ],
+     "name": "thalamus"
     }
    ]
   },
