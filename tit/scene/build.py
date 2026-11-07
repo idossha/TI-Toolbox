@@ -6,8 +6,8 @@ What this module extracts, and from where:
 part / payload   source
 ===============  ==========================================================
 ``skin``         ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1005])``
-``gm``           ``m2m_<id>/surfaces/{lh,rh}.central.gii``, whole; without
-                 them ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
+``gm``           ``m2m_<id>/surfaces/{lh,rh}.central.gii`` (the midlayer), whole;
+                 without them ``m2m_<id>/<id>.msh``, ``crop_mesh(tags=[1002])``
 electrodes       ``m2m_<id>/eeg_positions/<net>.csv`` (``Electrode,x,y,z,name``)
 region labels    ``m2m_<id>/segmentation/{lh,rh}.<id>_<atlas>.annot``
                  + ``m2m_<id>/surfaces/{lh,rh}.central.gii``
@@ -143,7 +143,10 @@ LABEL_SMOOTH_PASSES = 3
 #:     one its ``bbox`` reports, so the grey matter's ``focus_bbox`` is its ``bbox`` on
 #:     every subject. Measured on Dataset 000's ``sub-101`` before this: ``focus_bbox``
 #:     z0 -92.335 against ``bbox`` z0 -92.396, the lowest vertex cut by float32 rounding.
-BUILDER_VERSION = "5"
+#: ``"6"``
+#:     a labels payload carries the surface's first and last vertex rather than all of them
+#:     (:func:`tit.scene.tvsc.encode_labels`), and ``gii`` is written when it is asked for.
+BUILDER_VERSION = "6"
 
 #: Whose lowest vertex marks the bottom of "the head" for :func:`focus_bbox`.
 #: The grey matter's floor is the bottom of the cerebellum and brainstem;
@@ -452,21 +455,30 @@ def one_ring_mode_filter(
     if n_vertices == 0 or t.size == 0 or passes <= 0:
         return L.astype(np.uint16)
 
-    # Undirected one-ring as a directed (source, neighbour) edge list, each
-    # ordered pair once: a neighbour shared by two triangles must not vote
-    # twice, or a border vertex's count depends on the triangulation.
-    e = np.concatenate([t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]])
-    e = np.unique(np.concatenate([e, e[:, ::-1]]), axis=0)
-    src, dst = e[:, 0], e[:, 1]
-    # Sorted by source already (np.unique sorts lexicographically), so the
-    # per-source blocks below are contiguous.
-
     for _ in range(passes):
-        vote = L[dst]
+        # Only a vertex in a triangle of mixed labels can change, about 3 % of a whole cortex, and
+        # its one-ring is the triangles it touches. The whole cortex's 5.9 M pairs cost sub-CHN
+        # 12.5 s of sorting for the 1 722 vertices it relabels.
+        la, lb, lc = L[t[:, 0]], L[t[:, 1]], L[t[:, 2]]
+        border = np.zeros(n_vertices, dtype=bool)
+        border[t[(la != lb) | (lb != lc)].ravel()] = True
+        near = t[border[t].any(axis=1)]
+        if near.size == 0:
+            break
+        # Directed (source, neighbour) pairs, each ordered pair once, packed into one integer: a
+        # neighbour shared by two triangles must not vote twice, or a border vertex's count depends
+        # on the triangulation.
+        a = np.concatenate([near[:, 0], near[:, 1], near[:, 2]])
+        b = np.concatenate([near[:, 1], near[:, 2], near[:, 0]])
+        key = np.unique(np.concatenate([a * n_vertices + b, b * n_vertices + a]))
+        src, dst = key // n_vertices, key % n_vertices
+        edges = border[src]
+        # Sorted by source, so the per-source blocks below are contiguous.
+        src_b, vote = src[edges], L[dst[edges]]
         # Runs of equal (source, voted label) after ordering by label within
         # each source block -> the tally, without a dense V x n_labels array.
-        order = np.lexsort((vote, src))
-        s_o, v_o = src[order], vote[order]
+        order = np.lexsort((vote, src_b))
+        s_o, v_o = src_b[order], vote[order]
         run_start = np.flatnonzero(
             np.r_[True, (s_o[1:] != s_o[:-1]) | (v_o[1:] != v_o[:-1])]
         )
@@ -624,8 +636,11 @@ def _read_central(paths: dict[str, str]) -> tuple[np.ndarray, np.ndarray, bool]:
     return merged, wound, flipped
 
 
-def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
+def build_surfaces(pm: PathManager, sid: str, *, gii: bool = False) -> dict[str, dict]:
     """Build, cache and describe both surface parts for *sid*.
+
+    *gii* also writes the GIfTI serialisation: 39 % of a whole cortex's build for a format the
+    panes do not read (1.84 of 4.71 s, sub-CHN), so only a ``format=gii`` request pays for it.
 
     Both parts come out of **one** ``read_msh`` (measured 1.26 s for a 184 MB
     mesh, versus 0.03-0.10 s per crop): building them separately would double
@@ -695,15 +710,14 @@ def build_surfaces(pm: PathManager, sid: str) -> dict[str, dict]:
     for part, (vertices, triangles, flipped, extract_ms) in extracted.items():
         result, simplify_ms = simplified[part]
         part_started = time.perf_counter()
-        # One extraction, one simplification, two serialisations (decision E7).
+        # One extraction, one simplification, up to two serialisations (decision E7).
         # `tvsc` is the frozen compatibility payload and `gii` is the standard
         # GIfTI mesh; both are the SAME vertices and triangles, which
         # keeps the compatibility path honest until it is dropped from
         # `cache.FORMATS`.
-        blobs = {
-            "tvsc": tvsc.encode(result.vertices, result.triangles),
-            "gii": gifti.encode_surface(result.vertices, result.triangles),
-        }
+        blobs = {"tvsc": tvsc.encode(result.vertices, result.triangles)}
+        if gii:
+            blobs["gii"] = gifti.encode_surface(result.vertices, result.triangles)
         blob = blobs["tvsc"]
         build_ms = (
             read_ms
@@ -894,7 +908,9 @@ def _gifti_points(gifti) -> np.ndarray:
     return np.asarray(gifti.darrays[0].data)
 
 
-def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
+def build_labels(
+    pm: PathManager, sid: str, atlas_id: str, *, gii: bool = False
+) -> dict:
     """Build and cache the ``uint16`` labels payload aligned to part ``gm``.
 
     The gm vertices are read back out of the **cached ``gm`` payload**, so the
@@ -923,21 +939,20 @@ def build_labels(pm: PathManager, sid: str, atlas_id: str) -> dict:
     # isolated ones wrong; the mode filter is what makes a region border a
     # border rather than a saw-tooth (:func:`one_ring_mode_filter`).
     labels = one_ring_mode_filter(raw_labels, gm_triangles)
-    # Same alignment, two serialisations. The `gii` payload carries the GM
+    # Same alignment, either serialisation. The `gii` payload carries the GM
     # triangles plus the labels as a `NIFTI_INTENT_LABEL` array **with the
     # atlas' own `<LabelTable>`**: without triangles a reader has no
     # surface to render or pick, without the table it reads the array as a
     # continuous scalar, and the row for `NO_REGION` has to come first because
     # an unnamed value maps to the table's first row (`tit/scene/gifti.py`).
-    blobs = {
-        "tvsc": tvsc.encode(gm_vertices.astype(np.float32), None, labels),
-        "gii": gifti.encode_surface(
-            gm_vertices.astype(np.float32),
+    blobs = {"tvsc": tvsc.encode_labels(gm_payload.positions, labels)}
+    if gii:
+        blobs["gii"] = gifti.encode_surface(
+            gm_payload.positions,
             gm_triangles,
             labels,
             gifti.label_table_from_legend(legend),
-        ),
-    }
+        )
     blob = blobs["tvsc"]
     build_ms = (time.perf_counter() - started) * 1000.0
 

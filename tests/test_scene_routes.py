@@ -456,7 +456,7 @@ def test_a_cold_surface_answers_202_with_retry_after(
     """§2.1: never a held connection over ~10 s."""
     import tit.scene.build as build_module
 
-    def never_finishes(pm, sid):  # noqa: ANN001
+    def never_finishes(pm, sid, **_):  # noqa: ANN001
         import time
 
         time.sleep(5)
@@ -474,7 +474,7 @@ def test_a_failed_build_is_reported_not_polled_forever(
 ) -> None:
     import tit.scene.build as build_module
 
-    def explode(pm, sid):  # noqa: ANN001
+    def explode(pm, sid, **_):  # noqa: ANN001
         raise RuntimeError("mesh is corrupt")
 
     monkeypatch.setattr(build_module, "build_surfaces", explode)
@@ -657,7 +657,7 @@ def test_a_cold_manifest_answers_202_and_says_it_is_building(
 ) -> None:
     import tit.scene.build as build_module
 
-    def never_finishes(pm, sid):  # noqa: ANN001
+    def never_finishes(pm, sid, **_):  # noqa: ANN001
         import time
 
         time.sleep(5)
@@ -680,7 +680,7 @@ def test_wait_lets_a_caller_ask_for_one_deterministic_call(
     """``?wait=`` is the opt-in block; the default stays 202."""
     import tit.scene.build as build_module
 
-    def slow_but_finite(pm, sid):  # noqa: ANN001
+    def slow_but_finite(pm, sid, **_):  # noqa: ANN001
         import time
 
         time.sleep(0.2)
@@ -711,7 +711,7 @@ def test_only_one_build_runs_per_subject(
 
     calls: list[int] = []
 
-    def counting(pm, sid):  # noqa: ANN001
+    def counting(pm, sid, **_):  # noqa: ANN001
         import time
 
         calls.append(1)

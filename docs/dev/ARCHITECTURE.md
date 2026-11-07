@@ -400,8 +400,8 @@ adopt unrelated historical jobs simply because a page was opened. Diagnostic exc
 
 **Guide assets are packaged and immutable.** `/api/guide/*` requires neither subject data nor a build.
 The manifest enumerates available atlases and nets; responses are content-addressed. The `TVSC1`
-surface budget remains 3 MB and 150,000 triangles per packaged surface. Subject eligibility is checked
-separately from guide availability.
+surface budget remains 3 MB and 150,000 triangles per packaged surface, except each guide's `gm`, which is
+its head's whole central surfaces, as on a subject. Subject eligibility is checked separately from guide availability.
 
 **Viewer opening is a command.** `POST /api/view/open` resolves once and returns URL-addressed data
 as host-addressed native scene data. Selection-only links prepare the Viewer; explicit Open in viewer actions load the selected artifact. Optional atlas selection retains the server default when absent or unavailable. See §7.1.
@@ -532,13 +532,17 @@ Sources: [`native setup`](../../desktop/src/main/tetravoxNative.ts),
 
 [`scene/`](../../desktop/src/renderer/scene/) renders surfaces, screen-space markers and atlas
 selection without an iframe or a second graphics dependency. Guide labels align with their geometry.
-A subject's `gm` part is its two central surfaces, whole and with their own triangulation, which is
+A head's `gm` part, subject or packaged guide, is its two central surfaces, whole and with their own triangulation, which is
 what TetraVox and Blender's glass read and what the atlas annotations label vertex by vertex
-(`tit/scene/build.py`); with no central surfaces it falls back to the head mesh's tag 1002. It has no
+(`tit/scene/build.py`); with no central surfaces a subject falls back to the head mesh's tag 1002, and `guide_build` refuses. It has no
 cerebellum or brainstem. The head mesh's floor still frames the head (`mesh_floor_z`). Excluded
 alternative: simplifying it, since grid clustering opens holes in a closed surface (2,471 boundary edges at
 150,000 triangles on sub-CHN, 969 at 500,000). `desktop/tests/e2e/real/atlas-borders.spec.ts` bounds
 the fragmentation of the region borders in the pane's own pixels.
+On the MNI guide, a cortical label volume (Harvard-Oxford cortical, Schaefer, Glasser) is frozen as per-vertex labels on that cortex
+(`guide_build.paint_on_cortex`), each vertex looking only on its own side of the midline. Its ROI stays the label volume, so its manifest `kind` stays
+`subcortical` and `aligned_to` says `gm`. Every sub-cortical atlas, on either guide, keeps its own marching-cubes surface of the NIfTI, drawn with the skin and without the cortex.
+A labels payload carries its surface's first and last vertex in place of all of them (`tvsc.encode_labels`, flags bit1), which the pane still compares; `gii` is written only when asked for.
 A triangle's majority region label controls flat shading and picking; rotating its vertices preserves
 winding and prevents the provoking vertex from assigning a minority label. Triple junctions retain
 their original ordering.

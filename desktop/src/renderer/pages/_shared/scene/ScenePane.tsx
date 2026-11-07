@@ -360,6 +360,9 @@ export function ScenePane({
     mode === "montage" ||
     (subjectManifest.data?.atlases ?? []).some((entry) => String(entry.id) === atlas);
   const drawnSubject = subjectReady && subjectHasAtlas ? wantedSubject : null;
+  // Until the subject's manifest answers, nothing says the guide is needed: a head fetched and
+  // uploaded for those milliseconds, then replaced, is whole central surfaces for nothing.
+  const guideWanted = !drawnSubject && !(wantedSubject && subjectManifest.isPending);
   const manifest = drawnSubject ? subjectManifest : guideManifest;
   const manifestData = manifest.data as GuideManifest | SceneManifest | undefined;
   const guideId = drawnSubject ? null : (guideManifest.data?.guide?.id ?? null);
@@ -425,7 +428,7 @@ export function ScenePane({
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
-  const allGuideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data, guide);
+  const allGuideRequests = useGuideSurfaceRequests(guideWanted ? guideManifest.data : undefined, guide);
   const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || part.id === atlasPart), [allGuideRequests, atlasPart]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
   const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
@@ -444,14 +447,14 @@ export function ScenePane({
   const guideElectrodes = useGuideElectrodes(!drawnSubject ? listedNet : null, guide);
   const subjectElectrodes = useSceneElectrodes(drawnSubject, listedNet);
   const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
-  const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas, guide);
+  const guideRegionsQuery = useGuideRegions(guideWanted ? effectiveAtlas : null, guide);
   const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
   const regionsQuery = drawnSubject ? subjectRegionsQuery : guideRegionsQuery;
   const legend = useMemo<SceneLegendRow[]>(
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
-  const guideLabels = useGuideLabels(drawnSubject ? null : effectiveAtlas, legend.length > 0, guide);
+  const guideLabels = useGuideLabels(guideWanted ? effectiveAtlas : null, legend.length > 0, guide);
   const subjectLabels = useSceneLabels(drawnSubject, effectiveAtlas, legend.length > 0);
   const labels = drawnSubject ? subjectLabels : guideLabels;
 
@@ -482,7 +485,7 @@ export function ScenePane({
   );
 
   // ---- explode -------------------------------------------------------------------------------
-  const canExplode = explodeOffered(guide, drawnSubject, alignment.aligned);
+  const canExplode = explodeOffered(guide, drawnSubject, alignment.aligned, atlasPart);
   /** Once per atlas: one centroid per label, one offset per vertex. Uploaded with the part, so the
    *  toggle itself only moves a uniform. */
   const offsets = useMemo(

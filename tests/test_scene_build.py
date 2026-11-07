@@ -129,9 +129,7 @@ def test_a_duplicated_lut_id_keeps_the_first_definition() -> None:
 
 def test_a_lut_row_without_colours_still_names_the_region() -> None:
     entries = build.parse_lut_text("7\t  Left-Cerebellum-White-Matter\n")
-    assert entries == [
-        {"id": 7, "name": "Left-Cerebellum-White-Matter", "color": None}
-    ]
+    assert entries == [{"id": 7, "name": "Left-Cerebellum-White-Matter", "color": None}]
 
 
 # ── the label transfer ───────────────────────────────────────────────────────
@@ -186,6 +184,34 @@ def test_the_label_array_is_uint16_and_aligned_to_the_query_order() -> None:
     assert labels.dtype == np.uint16
     assert labels.shape == (3,)
     np.testing.assert_array_equal(labels, [1, 65535, 65535])
+
+
+def test_mode_filter_ties_and_one_ring_on_a_fan_authored_by_hand() -> None:
+    """Hand-worked on a wheel, the one mesh here whose every vote is countable by eye.
+
+    Hub 0 with rim 1-6. Rim vertex 3 alone is label 2: its three neighbours (0, 2, 4) all say 1,
+    so it flips. Then rim 1-6 split 1,1,1,2,2,2 with hub 1. One pass, all at once: the hub's six
+    neighbours tie 3-3, so it keeps 1; rim 4's neighbours 0, 3, 5 say 1, 1, 2, so it flips; rim 6's
+    say 1, 2, 1, so it flips; rim 5's say 1, 2, 2, so it stays. The next pass takes rim 5.
+    """
+    triangles = [[0, i, i % 6 + 1] for i in range(1, 7)]
+    spike = np.array([1, 1, 1, 2, 1, 1, 1], dtype=np.uint16)
+    np.testing.assert_array_equal(
+        build.one_ring_mode_filter(spike, triangles), [1, 1, 1, 1, 1, 1, 1]
+    )
+    split = np.array([1, 1, 1, 1, 2, 2, 2], dtype=np.uint16)
+    np.testing.assert_array_equal(
+        build.one_ring_mode_filter(split, triangles, passes=1), [1, 1, 1, 1, 1, 2, 1]
+    )
+    np.testing.assert_array_equal(
+        build.one_ring_mode_filter(split, triangles), [1, 1, 1, 1, 1, 1, 1]
+    )
+
+
+def test_mode_filter_leaves_a_vertex_outside_any_triangle_alone() -> None:
+    labels = np.array([1, 2, 2, 9], dtype=np.uint16)  # vertex 3 is in no triangle
+    out = build.one_ring_mode_filter(labels, [[0, 1, 2]])
+    np.testing.assert_array_equal(out, [2, 2, 2, 9])
 
 
 def test_build_labels_keeps_the_cached_gm_geometry(
@@ -245,7 +271,7 @@ def test_build_labels_keeps_the_cached_gm_geometry(
     )
     monkeypatch.setattr("scipy.spatial.cKDTree", BruteForceTree)
 
-    meta = build.build_labels(pm, sid, atlas)
+    meta = build.build_labels(pm, sid, atlas, gii=True)
     cached = cache.find_cached(
         tmp_path,
         sid,
@@ -436,9 +462,7 @@ def test_mode_filter_keeps_a_real_half_and_half_border():
     import numpy as np
 
     tris = _grid_mesh(6)
-    labels = np.array(
-        [1 if (i % 6) < 3 else 2 for i in range(36)], dtype=np.uint16
-    )
+    labels = np.array([1 if (i % 6) < 3 else 2 for i in range(36)], dtype=np.uint16)
     once = build.one_ring_mode_filter(labels, tris, passes=1)
     many = build.one_ring_mode_filter(labels, tris, passes=8)
     assert np.array_equal(once, many), "the filter must reach a fixed point"
@@ -467,7 +491,9 @@ def test_mode_filter_leaves_no_isolated_vertex_on_a_noisy_border():
             neighbours[y].add(x)
     islands = [i for i, nb in neighbours.items() if all(out[j] != out[i] for j in nb)]
     assert islands == [], f"isolated label islands remain at {islands}"
-    before = [i for i, nb in neighbours.items() if all(noisy[j] != noisy[i] for j in nb)]
+    before = [
+        i for i, nb in neighbours.items() if all(noisy[j] != noisy[i] for j in nb)
+    ]
     assert before, "the fixture must actually contain islands to remove"
 
 

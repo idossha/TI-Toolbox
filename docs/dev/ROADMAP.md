@@ -29,7 +29,6 @@ source before scheduling them; remove a row when it ships.
 
 | Area | Follow-up |
 |---|---|
-| Packaged guide heads | The ernie and MNI guides' `gm` is still head-mesh grey matter clustered to the budget, with the old atlas defect: 3,370 and 2,412 boundary edges measured on `tit/scene/guide*/surfaces/gm.tvsc`. A subject's own scene no longer has it (DECISIONS, 2026-11-06). Rebuild both with `guide_build` from their central surfaces. |
 | Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission; prove interrupted candidate recording remains parseable and complete; validate full optimization → candidate → preview → simulation → analysis provenance, including cancellation, retry and all-invalid histories |
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |

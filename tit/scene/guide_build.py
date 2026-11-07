@@ -1,4 +1,4 @@
-"""Generate the packaged guide scene (``tit/scene/guide/``) from one head model.
+"""Generate a packaged guide scene (``tit/scene/guide*/``) from one head model.
 
 This is a **developer tool**, not part of the running app: it needs SimNIBS,
 nibabel and scipy, it reads a 184 MB mesh, and it takes minutes. The server
@@ -8,7 +8,10 @@ Run it inside the toolbox container, where SimNIBS lives::
 
     docker exec ti-toolbox-fad740e5-tit-1 \\
         /root/SimNIBS-4.6/bin/simnibs_python -m tit.scene.guide_build \\
-        --project /mnt/000 --subject ernie --out /ti-toolbox/tit/scene/guide
+        --project <bids> --subject ernie --out /ti-toolbox/tit/scene/guide
+
+The head needs ``surfaces/{lh,rh}.central.gii``, its cortical ``.annot`` files for a subject
+guide, and ``segmentation/labeling.nii.gz``; each guide's ``PROVENANCE.md`` says where they came from.
 
 What it does, and why in this order:
 
@@ -26,6 +29,7 @@ What it does, and why in this order:
    advertises is what the package contains.
 
 Never copied: the ``m2m_`` directory, the head mesh, the label *volume*.
+Nothing here publishes anything: the guides are tracked files in this repository.
 """
 
 from __future__ import annotations
@@ -39,23 +43,29 @@ import time
 from pathlib import Path
 from typing import Any
 
-from tit.scene import build, cache, guide
+from tit.scene import build, cache, guide, tvsc
 
 #: Serialisations packaged per artifact kind, and the reason for each choice.
 #:
-#: Surfaces ship both: ``gii`` is the standard GIfTI any viewer (the native
-#: TetraVox included) opens,
-#: and ``tvsc`` keeps the frozen §2.3 wire format — and its ≤3 MB / ≤150 k
-#: budget — a checkable property of the guide rather than of subject data only.
-#: Labels ship both for the same reason: the desktop pane's own WebGL2 renderer
-#: reads ``tvsc`` (per-vertex ``uint16`` labels aligned to ``gm``), and the
-#: ``gii`` copies stay while anything else still consumes them. Between
-#: 2026-09-05 and 2026-09-06 labels shipped as ``gii`` only, on the premise
-#: that nothing read the ``tvsc`` payload — true while the renderer was
-#: retired, and the reason the pane could not highlight a region when it came
-#: back.
+#: The desktop pane's WebGL2 renderer reads ``tvsc``. Parts within the budget also
+#: ship ``gii``, the standard GIfTI any viewer opens. The whole central surfaces and
+#: the labels on them ship ``tvsc`` only: their ``gii`` copies were 66 MB across the
+#: two guides that nothing in the app reads. Between 2026-09-05 and 2026-09-06
+#: labels shipped as ``gii`` only, on the premise that nothing read the ``tvsc``
+#: payload — true while the renderer was retired, and the reason the pane could not
+#: highlight a region when it came back.
 SURFACE_FORMATS = ("tvsc", "gii")
-LABEL_FORMATS = ("tvsc", "gii")
+CORTEX_FORMATS = ("tvsc",)
+
+#: Packaged MNI volumes that parcellate the cortex. They are painted on the central
+#: surfaces (:func:`paint_on_cortex`) and listed first, in this order, so the MNI
+#: template opens on its cortex in the atlas whose regions are fewest. Their ROI stays
+#: the label volume. Every other MNI atlas keeps its marching-cubes surface of the NIfTI.
+MNI_CORTICAL_VOLUMES = (
+    "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+    "MNI_Glasser_HCP_v1.0.nii.gz",
+    "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+)
 
 
 def sha256_of(path: Path) -> str:
@@ -117,7 +127,7 @@ def build_label_volume(
     import nibabel as nib
     import numpy as np
 
-    from tit.scene import gifti, tvsc
+    from tit.scene import gifti
     from tit.scene.volume_surfaces import surfaces
 
     rows = build.parse_lut_text(lut.read_text())
@@ -217,6 +227,81 @@ def build_label_volume(
     return part, atlas
 
 
+def paint_on_cortex(
+    source: Path, lut: Path, out: Path, *, atlas_id: str, cortex: Any
+) -> dict:
+    """One cortical label volume as per-vertex labels on the whole central surfaces.
+
+    The subject path's transfer (:func:`tit.scene.build.labels_from_nearest`, then the mode
+    filter) with labelled voxels in place of annotated vertices. A vertex looks only on its own
+    side of the midline: the medial wall lies within the radius of the other hemisphere.
+    """
+    import nibabel as nib
+    import numpy as np
+    from scipy.spatial import cKDTree
+
+    image = nib.load(str(source))
+    values = np.asarray(image.dataobj).astype(np.int64)
+    voxels = np.argwhere(values != 0)
+    voxel_labels = values[tuple(voxels.T)]
+    world = nib.affines.apply_affine(image.affine, voxels)
+    points = np.asarray(cortex.positions, dtype=np.float64)
+    raw = np.zeros(len(points), dtype=np.uint16)
+    for voxel_side, vertex_side in (
+        (world[:, 0] < 0, points[:, 0] < 0),
+        (world[:, 0] >= 0, points[:, 0] >= 0),
+    ):
+        distance, index = cKDTree(world[voxel_side]).query(
+            points[vertex_side], workers=-1
+        )
+        raw[vertex_side] = build.labels_from_nearest(
+            index, distance, voxel_labels[voxel_side], build.LABEL_RADIUS_MM
+        )
+    labels = build.one_ring_mode_filter(raw, cortex.indices)
+
+    present = set(np.unique(labels).tolist()) - {build.NO_REGION}
+    legend = [
+        {**row, "label": row["id"], "hemi": "", "color": row["color"] or "#808080"}
+        for row in build.parse_lut_text(lut.read_text())
+        if row["id"] in present
+    ]
+    rel = f"labels/{atlas_id}.tvsc"
+    blob = tvsc.encode_labels(cortex.positions, labels)
+    (out / rel).parent.mkdir(parents=True, exist_ok=True)
+    (out / rel).write_bytes(blob)
+    legend_rel = f"legends/{atlas_id}.json"
+    legend_meta = _write_json(
+        out / legend_rel,
+        {
+            "atlas": atlas_id,
+            "space": guide.GUIDE_SPACE,
+            "aligned_to": "gm",
+            "vertices": len(labels),
+            "radius_mm": build.LABEL_RADIUS_MM,
+            "labelled_fraction": round(float((labels != build.NO_REGION).mean()), 4),
+            "legend": legend,
+            "url": f"/api/guide/labels?atlas={atlas_id}",
+        },
+    )
+    return {
+        "id": atlas_id,
+        # The ROI route, not the shape: the row still targets this label volume.
+        "kind": "subcortical",
+        "hemispheres": [],
+        "aligned_to": "gm",
+        "regions": len(legend),
+        "url": f"/api/guide/regions?atlas={atlas_id}",
+        "files": {
+            "tvsc": rel,
+            "tvsc_meta": {"bytes": len(blob), "sha256": sha256_of(out / rel)},
+        },
+        "legend_file": legend_rel,
+        "legend_meta": legend_meta,
+        "source_sha256": sha256_of(source),
+        "lut_sha256": sha256_of(lut),
+    }
+
+
 def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     """The subject's own ``labeling.nii.gz`` as the guide's subcortical layer."""
     source = Path(pm.m2m(subject)) / "segmentation" / "labeling.nii.gz"
@@ -229,14 +314,13 @@ def build_subcortical(pm: Any, subject: str, out: Path) -> tuple[dict, dict]:
     )
 
 
-def build_mni_atlases(out: Path) -> tuple[list[dict], list[dict]]:
-    """Every packaged MNI atlas that fits the guide budget, as label surfaces.
+def build_mni_atlases(out: Path, cortex: Any) -> tuple[list[dict], list[dict]]:
+    """Every packaged MNI atlas: cortical ones on *cortex*, the rest as label surfaces.
 
-    Skipped with a printed reason rather than a failure: an atlas with more than
-    the 256 regions ``volume_surfaces`` draws (Glasser's 360 cortical parcels) or
-    with no colour table is not a reason to have no MNI guide at all.  What it
-    costs is that that atlas cannot be *picked in the pane*; it is still
-    selectable in the ROI picker's list, which reads the catalog, not the guide.
+    Skipped with a printed reason rather than a failure: a volume with no colour
+    table, or too large for its own surface, is not a reason to have no MNI guide
+    at all.  What it costs is that that atlas cannot be *picked in the pane*; it is
+    still selectable in the ROI picker's list, which reads the catalog, not the guide.
     """
     from tit.atlas.constants import MNI_ATLAS_FILES, mni_resources_dir
     from tit.opt.roi_spec import _find_volume_lut
@@ -244,7 +328,8 @@ def build_mni_atlases(out: Path) -> tuple[list[dict], list[dict]]:
     root = Path(mni_resources_dir())
     parts: list[dict] = []
     atlases: list[dict] = []
-    for name in MNI_ATLAS_FILES:
+    first = {name: i for i, name in enumerate(MNI_CORTICAL_VOLUMES)}
+    for name in sorted(MNI_ATLAS_FILES, key=lambda n: first.get(n, len(first))):
         source = root / name
         if not source.is_file():
             print(f"skip {name}: not packaged in {root}")
@@ -252,6 +337,11 @@ def build_mni_atlases(out: Path) -> tuple[list[dict], list[dict]]:
         lut = _find_volume_lut(str(source), "mni")
         if lut is None:
             print(f"skip {name}: no colour table beside it")
+            continue
+        if name in MNI_CORTICAL_VOLUMES:
+            atlases.append(
+                paint_on_cortex(source, Path(lut), out, atlas_id=name, cortex=cortex)
+            )
             continue
         try:
             part, atlas = build_label_volume(
@@ -316,7 +406,9 @@ def generate(
     pm = get_path_manager(project_dir=project)
     started = time.perf_counter()
 
-    surface_metas = build.build_surfaces(pm, subject)
+    surface_metas = build.build_surfaces(pm, subject, gii=True)
+    if surface_metas["gm"]["source"] != "central surfaces":
+        raise SystemExit(f"{subject} has no central surfaces for the guide's cortex")
     surface_fp = build.surface_fingerprint(pm, subject)
 
     out.mkdir(parents=True, exist_ok=True)
@@ -324,7 +416,7 @@ def generate(
     for part in build.PART_TAGS:
         meta = surface_metas[part]
         files: dict[str, Any] = {}
-        for fmt in SURFACE_FORMATS:
+        for fmt in CORTEX_FORMATS if part == "gm" else SURFACE_FORMATS:
             found = cache.find_cached(pm.project_dir, subject, part, surface_fp, fmt)
             if found is None:
                 raise SystemExit(f"{part}.{fmt} was not published by build_surfaces")
@@ -365,7 +457,7 @@ def generate(
         fp = build.labels_fingerprint(pm, subject, atlas_id)
         key = build._labels_key(atlas_id)
         files = {}
-        for fmt in LABEL_FORMATS:
+        for fmt in CORTEX_FORMATS:
             found = cache.find_cached(pm.project_dir, subject, key, fp, fmt)
             if found is None:
                 raise SystemExit(f"{key}.{fmt} was not published by build_labels")
@@ -397,7 +489,8 @@ def generate(
         )
 
     if atlas_source == "mni":
-        mni_parts, mni_atlases = build_mni_atlases(out)
+        cortex = tvsc.decode((out / "surfaces" / "gm.tvsc").read_bytes())
+        mni_parts, mni_atlases = build_mni_atlases(out, cortex)
         if not mni_atlases:
             raise SystemExit("No packaged MNI atlas could be built into the guide")
         parts.extend(mni_parts)
@@ -518,14 +611,12 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"{part['id']:5s} {part['triangles']:>7d} tris  "
             f"tvsc {part['files']['tvsc_meta']['bytes'] / 1e6:.2f} MB  "
-            f"gii {part['files']['gii_meta']['bytes'] / 1e6:.2f} MB  "
             f"within_budget={part['within_budget']}"
         )
     for atlas in manifest["atlases"]:
         print(
             f"{atlas['id']:10s} {atlas['regions']:>4d} regions  "
-            f"tvsc {atlas['files']['tvsc_meta']['bytes'] / 1e6:.2f} MB  "
-            f"gii {atlas['files']['gii_meta']['bytes'] / 1e6:.2f} MB"
+            f"tvsc {atlas['files']['tvsc_meta']['bytes'] / 1e6:.2f} MB"
         )
     print(f"{len(manifest['nets'])} nets, packaged total {total / 1e6:.2f} MB")
     return 0

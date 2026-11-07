@@ -4851,3 +4851,33 @@ later run gets its own folder. Amends "A network's render is a dated folder" (20
 **Alternatives rejected.** Two jobs into one folder: refused by the shared-output rule, and the tractogram would be read twice. One Blender session switching materials: less process work, but a second render path for a saving not
 shown to matter. A `.blend` per colour: two large files that differ by a material; `network.json` says which colour it holds.
 
+## 2026-11-07 — The midlayer is the cortex on every head, MNI cortical volumes are painted on it, and whole cortices got cheap
+
+**Decision.** The maintainer: "use the midlayer surface. make sure it renders quickly and efficiently. make sure it also works for the MNI as in many cases we use MNI for visualization. for the sub-cortical regions, keep using the nifti volumes." So:
+
+1. Both packaged guides' `gm` is the head's whole central surfaces, rebuilt by `guide_build`, which now refuses a head without them. The 2026-11-06 entry's "the packaged guides are not rebuilt" is superseded.
+2. On the MNI guide, a cortical label volume (Harvard-Oxford cortical, Schaefer, Glasser) becomes per-vertex labels on that cortex (`guide_build.paint_on_cortex`, reusing `labels_from_nearest` and the mode filter, each vertex looking only on its own side of the midline), listed first so the template opens on its cortex. Its ROI is still the label volume: `kind` stays `subcortical`, and `aligned_to` is `gm`. Schaefer and Glasser can now be clicked; the 256-region limit was the marching-cubes surface's. Explode is off for these, a cortex being one sheet.
+3. Every sub-cortical atlas stays a surface of its own NIfTI, byte-identical on the MNI guide. The pane draws it with the skin and not the cortex, as before; nothing here changed that.
+4. Waste removed, each from a measurement: the mode filter looks only at triangles of mixed labels (15.6 s of `np.unique` on 5.9 M edges, sub-CHN, same output on real data); `gii` is written on a `format=gii` request (39 % of a whole-cortex surface build, and no pane reads it); a labels payload carries its surface's first and last vertex instead of all of them (`tvsc.encode_labels`, flags bit1: 86 % of 6.9 MB, older payloads still read); the guide's `gm` and the labels on it ship `tvsc` only (66 MB nobody read); and a pane waits for the subject's manifest before fetching the guide (a 12–18 MB head fetched and replaced at every open).
+
+**What MNI means, case by case.**
+
+| Case | What it draws now |
+|---|---|
+| Target space = MNI (Optimizer, Analyzer), cortical volume atlas | `guide-mni`: template midlayer, labels from the volume |
+| Target space = MNI, sub-cortical volume atlas | `guide-mni`: that NIfTI's own surface, skin |
+| `sub-MNI152` as a project subject | The subject path: its midlayer, grey until its `segmentation/*.annot` exist, as any head; `subject_atlas` then labels 93.7 % of it with DK40 |
+| Subject-space sub-cortical target | The Ernie guide's surface of its own `labeling.nii.gz`, unchanged; the job uses the subject's own volume |
+| Blender network render on an MNI152 head | Already `central.gii` (`tract_publication`); no DWI, so no network in practice |
+| Viewer / TetraVox `_MNI_` field volumes, group NIfTI averages, target preview | No pane cortex; unchanged |
+
+**Why not ship annotations on the template.** The MNI route targets volumes (`RoiPicker` offers no cortical atlas in MNI, and `Cortical + MNI` has no meaning to `mni2subject`). DK40 on the template would draw a region the row cannot target.
+
+**Nothing published.** The guides are tracked files here, and the head models were already in `ti-toolbox-example-data`. Dataset 000's `m2m_ernie` has no `segmentation/`, so the Ernie rebuild used a scratch copy with `labeling.nii.gz` from `/Volumes/IDO2` (sha256 equal to the manifest's) and fresh `subject_atlas` annots; its head mesh is byte-equal there and in 000 and differs from the 184 MB one the old guide was built from, so its skin, nets and sub-cortical surface also moved (77,032 to 112,064 skin triangles), one coherent head.
+
+**Registration, read by nibabel against charm's `final_tissues`** (`tests/numerical/test_guide_cortex_registration.py`): the midlayer lands on grey matter at 95.9 % (ernie) and 97.1 % (MNI152), and in brain tissue at 99.9 %; volume surfaces are in brain tissue at 90.4–100 %. A painted atlas agrees with the voxel holding the vertex at 96.4–98.6 %, the rest being the mode filter.
+
+**Cost.** MNI region outlines step at the 1 mm voxel scale: 100 islands and 2.98 % tooth pixels against 53 and 1.74 % for an annotation, and more filter passes do not help (27,549 mixed triangles at 3 passes, 27,087 at 20). Glasser is in NLin2009cAsym and the head in NLin6Asym, so its outlines are up to the ~1.3 mm between templates off. 95 % of the template's vertices are labelled; the medial wall and each atlas' gaps stay grey. The first surface in a fresh profile now takes 0.4–1.7 s where the 300 ms budget in `scene-atlas-border.spec.ts` assumed a 2.6 MB cortex; that budget is 2 s and says why. The guides' cortices add 15.6 MB to the repository's history, offset by the `gii` removals in the tree: 21 and 31 MB against 21 and 25 MB.
+
+**Alternatives rejected.** Gzip on the wire or at rest: 33 % smaller (17.7 to 11.8 MB, indices no better than positions) for a second serving path. Decimating the central surfaces: holes come back (2026-11-06). Drawing cortex translucent around a sub-cortical atlas: not asked for and a behaviour change, though `final/` has pictures of it from a temporary build. Annotations on the template: above.
+

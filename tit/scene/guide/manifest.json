@@ -3,120 +3,115 @@
   "id": "ernie",
   "label": "Ernie (SimNIBS example head)"
  },
- "guide_version": 2,
- "builder_version": "4",
+ "guide_version": 3,
+ "builder_version": "6",
  "space": "guide-ras",
  "bbox": [
-  -84.437,
-  -92.398,
-  -128.861,
-  83.398,
-  136.157,
-  99.952
+  -83.858,
+  -92.185,
+  -138.042,
+  84.94,
+  133.674,
+  99.93
  ],
  "focus_bbox": [
-  -84.437,
-  -92.398,
-  -60.64227294921875,
-  83.398,
-  136.157,
-  99.952
+  -83.858,
+  -92.185,
+  -58.64227294921875,
+  84.94,
+  133.674,
+  99.93
  ],
  "parts": [
   {
    "id": "skin",
    "kind": "surface",
-   "triangles": 77032,
-   "vertices": 38952,
-   "bytes": 1391840,
-   "fingerprint": "guide-2-skin",
+   "triangles": 112064,
+   "vertices": 56020,
+   "bytes": 2017040,
+   "fingerprint": "guide-3-skin",
    "url": "/api/guide/surface?part=skin",
    "simplified": false,
    "within_budget": true,
    "max_deviation_mm": 0.0,
    "bbox": [
-    -84.437,
-    -92.398,
-    -128.861,
-    83.398,
-    136.157,
-    99.952
+    -83.858,
+    -92.185,
+    -138.042,
+    84.94,
+    133.674,
+    99.93
    ],
    "focus_bbox": [
-    -84.437,
-    -92.398,
-    -50.701,
-    83.398,
-    136.157,
-    99.952
+    -83.858,
+    -92.185,
+    -50.641,
+    84.94,
+    133.674,
+    99.93
    ],
    "files": {
     "tvsc": "surfaces/skin.tvsc",
     "tvsc_meta": {
-     "bytes": 1391840,
-     "sha256": "e60199d4626d1fd7b661e263cd3879c5cbd932cac9e1a2ac07d71a6b7517097e"
+     "bytes": 2017040,
+     "sha256": "988d1586d7f76f71976a71201ee4f14bb6389caa6322b8bba45aeec14cc82257"
     },
     "gii": "surfaces/skin.gii",
     "gii_meta": {
-     "bytes": 1299239,
-     "sha256": "0da67c024d0f00c1d583db95aba952d7efbc51d22fee4dd2db7dd1400646145f"
+     "bytes": 1903148,
+     "sha256": "cf29a5cccecc867d7f00d35dc57e4e2ea9cd6b9403f9724b11d4d5e7792a58e9"
     }
    }
   },
   {
    "id": "gm",
    "kind": "surface",
-   "triangles": 145402,
-   "vertices": 70586,
-   "bytes": 2591888,
-   "fingerprint": "guide-2-gm",
+   "triangles": 617574,
+   "vertices": 308791,
+   "bytes": 11116412,
+   "fingerprint": "guide-3-gm",
    "url": "/api/guide/surface?part=gm",
-   "simplified": true,
+   "simplified": false,
    "within_budget": true,
-   "max_deviation_mm": 5.2661,
+   "max_deviation_mm": 0.0,
    "bbox": [
-    -65.294,
-    -80.341,
-    -50.713,
-    69.288,
-    103.157,
-    82.479
+    -64.346,
+    -80.143,
+    -27.69,
+    67.856,
+    101.268,
+    80.848
    ],
    "focus_bbox": [
-    -65.294,
-    -80.341,
-    -50.713,
-    69.288,
-    103.157,
-    82.479
+    -64.346,
+    -80.143,
+    -27.69,
+    67.856,
+    101.268,
+    80.848
    ],
    "files": {
     "tvsc": "surfaces/gm.tvsc",
     "tvsc_meta": {
-     "bytes": 2591888,
-     "sha256": "09ef0d03963f0f2baa16e208113adebbe318289a68f0300388ba731afd94d206"
-    },
-    "gii": "surfaces/gm.gii",
-    "gii_meta": {
-     "bytes": 2444872,
-     "sha256": "f21234aa215733cb02ce5f4f3a6e4b41e4213df7097cb57e8927c66104826070"
+     "bytes": 11116412,
+     "sha256": "20ea3a91a8f4f5d773b9745745b763d06fa44378db1d7d0e7f9cbbfc84005132"
     }
    }
   },
   {
    "id": "subcortical",
    "kind": "surface",
-   "triangles": 79582,
-   "vertices": 39281,
-   "bytes": 1426388,
-   "fingerprint": "guide-2-subcortical",
+   "triangles": 79684,
+   "vertices": 39193,
+   "bytes": 1426556,
+   "fingerprint": "guide-3-subcortical",
    "url": "/api/guide/surface?part=subcortical",
    "simplified": true,
    "within_budget": true,
    "bbox": [
     -36.737457275390625,
     -16.3125,
-    -60.64227294921875,
+    -58.64227294921875,
     39.762542724609375,
     53.6875,
     37.85772705078125
@@ -124,7 +119,7 @@
    "focus_bbox": [
     -36.737457275390625,
     -16.3125,
-    -60.64227294921875,
+    -58.64227294921875,
     39.762542724609375,
     53.6875,
     37.85772705078125
@@ -132,13 +127,13 @@
    "files": {
     "tvsc": "surfaces/subcortical.tvsc",
     "tvsc_meta": {
-     "bytes": 1426388,
-     "sha256": "770b2d43a4be76dd83358e0c844fc336d927812770d8e402cdd3e2d5ee66ece0"
+     "bytes": 1426556,
+     "sha256": "424614ea6eba9ffb2d19f86fc2fa8ff4a4b3e53d3decd4fc5bb53902c34853e0"
     },
     "gii": "surfaces/subcortical.gii",
     "gii_meta": {
-     "bytes": 565623,
-     "sha256": "3813512a4259bfcd13e78a338f545095fae8cd0bb4debc48d89690ab747d4f43"
+     "bytes": 563847,
+     "sha256": "1113ad88c2227b17d3edb6f3677f8bae3e02a3e037585e94823f72fccd10ee66"
     }
    }
   }
@@ -149,64 +144,64 @@
    "electrodes": 60,
    "url": "/api/guide/electrodes?net=EEG10-10_Cutini_2011.csv",
    "file": "nets/EEG10-10_Cutini_2011.csv.json",
-   "bytes": 6982,
-   "sha256": "8e0f8c867702b81173409da46099129274380af7a507331b08a08d7a936ae0b1"
+   "bytes": 6987,
+   "sha256": "7f5971da3e3e1887e0c6e7876e43dc1a5e4c8e25b01f63d1c4c48c5ba31ff4ee"
   },
   {
    "name": "EEG10-10_Neuroelectrics.csv",
    "electrodes": 62,
    "url": "/api/guide/electrodes?net=EEG10-10_Neuroelectrics.csv",
    "file": "nets/EEG10-10_Neuroelectrics.csv.json",
-   "bytes": 7217,
-   "sha256": "3a40666d904d77aaa90885c72bbbf84dbf09168025e0057a29e777a43d0ba6c2"
+   "bytes": 7224,
+   "sha256": "67a9e0b5dcf7c032cc805ebca1b7b70e91b94718a55af3eacbd0ea5777252266"
   },
   {
    "name": "EEG10-10_UI_Jurak_2007.csv",
    "electrodes": 75,
    "url": "/api/guide/electrodes?net=EEG10-10_UI_Jurak_2007.csv",
    "file": "nets/EEG10-10_UI_Jurak_2007.csv.json",
-   "bytes": 8747,
-   "sha256": "85fac785e49db3f64c816e9fa57884b7fcb608e53459804a57b37897286f372c"
+   "bytes": 8742,
+   "sha256": "0ddd634145643558707d526471ff46785cb0bfca8968b4016b3551d24d64772d"
   },
   {
    "name": "EEG10-20_Okamoto_2004.csv",
    "electrodes": 18,
    "url": "/api/guide/electrodes?net=EEG10-20_Okamoto_2004.csv",
    "file": "nets/EEG10-20_Okamoto_2004.csv.json",
-   "bytes": 2141,
-   "sha256": "16aba0c8110855ae433761f41db8d03b288dae95597dc9a179e398ff7450f2ff"
+   "bytes": 2145,
+   "sha256": "3501c330d3b034ec22db5b5984ece91d9b03abb9721a33e08675778b39f27c36"
   },
   {
    "name": "EEG10-20_extended_SPM12.csv",
    "electrodes": 342,
    "url": "/api/guide/electrodes?net=EEG10-20_extended_SPM12.csv",
    "file": "nets/EEG10-20_extended_SPM12.csv.json",
-   "bytes": 40052,
-   "sha256": "5766c9ad40a4d90ecdc9bf547f86c62d4034e8b402c7d15667b7d72cf3dfd10d"
+   "bytes": 39993,
+   "sha256": "9097e93b02b2e852eb16b7093313dfc58341f6125cfdcd631b28f11e586e44a3"
   },
   {
    "name": "GSN-HydroCel-185.csv",
    "electrodes": 183,
    "url": "/api/guide/electrodes?net=GSN-HydroCel-185.csv",
    "file": "nets/GSN-HydroCel-185.csv.json",
-   "bytes": 21452,
-   "sha256": "5e580b6ad65b1453535b781bc78c86f51ea6af9d9e3f2a80c834670d6916e9df"
+   "bytes": 21449,
+   "sha256": "b4788dea605bc6f24e486128a8badc38828c4ce07c9d3b531900f734fb92879f"
   },
   {
    "name": "GSN-HydroCel-256.csv",
    "electrodes": 256,
    "url": "/api/guide/electrodes?net=GSN-HydroCel-256.csv",
    "file": "nets/GSN-HydroCel-256.csv.json",
-   "bytes": 30015,
-   "sha256": "73052d3d80af3419f57e344c7ce21b277860313e18670cba58dd133bf56781cb"
+   "bytes": 30013,
+   "sha256": "6f51c27dc0d8a373d85ccdfe85b71eea979c473037edc56d74673fcee9d40fd0"
   },
   {
    "name": "easycap_BC_TMS64_X21.csv",
    "electrodes": 63,
    "url": "/api/guide/electrodes?net=easycap_BC_TMS64_X21.csv",
    "file": "nets/easycap_BC_TMS64_X21.csv.json",
-   "bytes": 7304,
-   "sha256": "9a46018196a4fffa96c52512f81828d69cbe4a555a4740f196d21425b0b788d5"
+   "bytes": 7305,
+   "sha256": "dabd771034bb8b6aff57505c11f47d4fc3b4608ad3391ba6ccf84bc891846872"
   }
  ],
  "atlases": [
@@ -221,19 +216,14 @@
    "files": {
     "tvsc": "labels/DK40.tvsc",
     "tvsc_meta": {
-     "bytes": 988236,
-     "sha256": "be3ff6169f54309d5874b71d40d6504893f7e4ad26feb357ea14bb8e4bcb7cb2"
-    },
-    "gii": "labels/DK40.gii",
-    "gii_meta": {
-     "bytes": 2495397,
-     "sha256": "815687f19b52ed374dc70e01cbffb12ed8f9fee7da5f68e7cd3cb166a60128d7"
+     "bytes": 617640,
+     "sha256": "4a57bc35c043d9df413d739a953f911ba106c234702e438736ac6c36c2175915"
     }
    },
    "legend_file": "legends/DK40.json",
    "legend_meta": {
-    "bytes": 7590,
-    "sha256": "75df233c105c574dc84cedcd6c56133d8155b4072da4fd00f902b3445ff8d095"
+    "bytes": 7591,
+    "sha256": "b7b58cdbd04566e2afc6205ee352f634ca5d353d6d477e5a8f56322edcb26dd8"
    }
   },
   {
@@ -247,19 +237,14 @@
    "files": {
     "tvsc": "labels/HCP_MMP1.tvsc",
     "tvsc_meta": {
-     "bytes": 988236,
-     "sha256": "dadaf83d8902298bd6865486af0623e01fda7a46c24a56d3f129dff43f06449c"
-    },
-    "gii": "labels/HCP_MMP1.gii",
-    "gii_meta": {
-     "bytes": 2552792,
-     "sha256": "7c4f16659126d068c8a822d80296b3158bf236a16074f77aa503c5b17db43ba5"
+     "bytes": 617640,
+     "sha256": "7a0b8563a2a7749bd47778e22c4faec3b99c27bbf195b6ae69b013dede684ffa"
     }
    },
    "legend_file": "legends/HCP_MMP1.json",
    "legend_meta": {
-    "bytes": 35074,
-    "sha256": "34d45657aaea871f50397f5d0ec5d9aaa824e4982a654fec8541ab1161e89307"
+    "bytes": 35072,
+    "sha256": "5c7955662b0bd084e3c8d7f581d057e9eb74de8150f6b3e6d5097a5b828ae685"
    }
   },
   {
@@ -273,19 +258,14 @@
    "files": {
     "tvsc": "labels/a2009s.tvsc",
     "tvsc_meta": {
-     "bytes": 988236,
-     "sha256": "dc9de50a2e6b487fd74860e38bd0b1456f7a594ef62dce036a41fe1a6516fc7c"
-    },
-    "gii": "labels/a2009s.gii",
-    "gii_meta": {
-     "bytes": 2517102,
-     "sha256": "012a56b1d15f122f9072755f3ae19d2d188fd1d846de77731986a73c9be5e25a"
+     "bytes": 617640,
+     "sha256": "52597da43f0baf945e9d5e063b47b66cde5705191280333fb448008cd081948e"
     }
    },
    "legend_file": "legends/a2009s.json",
    "legend_meta": {
     "bytes": 16806,
-    "sha256": "43731b6857c234aaa5bab609fbe675683a7fc5633fa4417324b5b840df3d938f"
+    "sha256": "480ec3eb4ae2007f1c985f472957996a844cd0e7ffff8307dfffdd64a61f5a0d"
    }
   },
   {
@@ -298,19 +278,19 @@
    "files": {
     "tvsc": "labels/labeling.nii.gz.tvsc",
     "tvsc_meta": {
-     "bytes": 549968,
-     "sha256": "233808468652f1d597775ff896cefbbd01dfeb853d19569ce13c045220b8bf69"
+     "bytes": 548736,
+     "sha256": "0983df2b772df424a330b5f73556ace0f0c416758ce86e93f6235107e24f7aa0"
     },
     "gii": "labels/labeling.nii.gz.gii",
     "gii_meta": {
-     "bytes": 568561,
-     "sha256": "3f832971f5cbcda1972bb18b033d61b01d0fb5e851e86263f0c5201ac54c422f"
+     "bytes": 566781,
+     "sha256": "2d37dfb57c6aca6bdc3d8f339f32ca8784b5df44bea829859106c643f6950cef"
     }
    },
    "legend_file": "legends/labeling.nii.gz.json",
    "legend_meta": {
     "bytes": 2000,
-    "sha256": "5c73d167e45ff90efefd0bf72baf43250c47d59fdfe7ac4ba27de21b8da3ea47"
+    "sha256": "f6863b9408d75c5f3ad3441e6143dc5c140181de04106fa39fff8d08e6201225"
    },
    "source_sha256": "6307e3aac007f779bda48d2a821782f63a9f35bb7310fb5837c791bfc3445157",
    "lut_sha256": "3a2de1f456663ae0240a4ddce3a01f4be4ca8f624a98501b883fe2e84c8e8d9b"
@@ -330,6 +310,6 @@
  "generated": {
   "subject": "ernie",
   "generator": "tit.scene.guide_build",
-  "seconds": 13.3
+  "seconds": 29.7
  }
 }

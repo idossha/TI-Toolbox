@@ -62,6 +62,12 @@ async function paneAtlases(): Promise<string[]> {
   return names;
 }
 
+/** Picks an atlas in the pane's own selector. */
+async function chooseAtlas(name: RegExp): Promise<void> {
+  await page.locator('[data-page-active="true"]').getByTestId("scene-pane-atlas").getByRole("combobox").click();
+  await page.getByRole("option", { name }).first().click();
+}
+
 test.beforeAll(async () => {
   app = await launchElectronApp({ userDataDir: mkdtempSync(join(tmpdir(), "tit-e2e-scene-space-")) });
   page = await app.firstWindow();
@@ -129,6 +135,30 @@ test("Optimizer: MNI space draws MNI152 and offers only MNI atlases", async () =
 });
 
 /**
+ * The MNI template's cortex is its whole central surfaces, labelled from a cortical volume; a
+ * sub-cortical atlas keeps the surface made from its own NIfTI (DECISIONS, 2026-11-07). Which part
+ * is drawn, with its labels on, is read from the pane's own report.
+ */
+test("Optimizer: MNI opens on the whole cortex, and a sub-cortical atlas on its own volume surface", async () => {
+  const host = page.locator('[data-page-panel="optimizer"]').getByTestId("scene-pane-host");
+  await paneSwitch().getByRole("radio", { name: "MNI", exact: true }).click();
+  await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("mni");
+  const drawn = () =>
+    page.evaluate(() => window.__scenePane!.parts.filter((part) => part.id !== "skin").map((part) => ({ id: part.id, labelled: part.labelled, triangles: part.triangles })));
+  await expect.poll(drawn, { timeout: 30_000 }).toEqual([{ id: "gm", labelled: true, triangles: 513_364 }]);
+  await expect.poll(async () => (await paneDebug()).atlas).toMatch(/^HarvardOxford-cortl/);
+  await chooseAtlas(/CIT168/);
+  await expect.poll(async () => (await drawn())[0]?.id, { timeout: 30_000 }).toMatch(/^atlas-CIT168/);
+  await expect.poll(async () => (await drawn())[0]?.labelled, { timeout: 30_000 }).toBe(true);
+  await expect(host).toHaveAttribute("data-state", "ready");
+  // A sub-cortical row in subject space is drawn on the packaged head, from that head's own volume.
+  await paneSwitch().getByRole("radio", { name: "Subject", exact: true }).click();
+  await expect.poll(async () => (await paneDebug()).atlas, { timeout: 30_000 }).toBe("labeling.nii.gz");
+  await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("default");
+  await expect.poll(async () => (await drawn())[0]?.id, { timeout: 30_000 }).toBe("subcortical");
+});
+
+/**
  * Explode (2026-09-23): on the MNI template only, the skin goes and the regions spread apart —
  * read from the drawing buffer and the id pass, not from a screenshot.
  *
@@ -144,6 +174,10 @@ test("Optimizer: Explode pulls the MNI atlas apart, and only in MNI", async () =
   await expect(explode).toHaveCount(0); // Subject space: a subject's own head has no Explode.
   await paneSwitch().getByRole("radio", { name: "MNI", exact: true }).click();
   await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("mni");
+  await chooseAtlas(/HarvardOxford-cortl/);
+  // The template's cortex is one sheet with nothing to pull apart; a volume atlas has parts.
+  await expect(explode).toHaveCount(0);
+  await chooseAtlas(/CIT168/);
   await expect(explode).toHaveText("Explode", { timeout: 30_000 });
   await host.getByRole("radio", { name: "F", exact: true }).click();
   await page.waitForFunction(() => window.__scene?.camera.settled === true, null, { timeout: 20_000 });

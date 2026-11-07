@@ -2,9 +2,9 @@
  "atlas": "HCP_MMP1",
  "space": "guide-ras",
  "aligned_to": "gm",
- "vertices": 70586,
+ "vertices": 308791,
  "radius_mm": 3.0,
- "labelled_fraction": 0.9083,
+ "labelled_fraction": 1.0,
  "legend": [
   {
    "label": 1,

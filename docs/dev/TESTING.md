@@ -319,7 +319,7 @@ judged by eye from its copies. `desktop/tests/e2e/real/network-own-file.spec.ts`
 picker, renders them on the same overrides as that network's newest dated folder and compares the figures in pixels, and has a
 shifted and an empty file refused with nothing queued. `desktop/tests/e2e/real/atlas-borders.spec.ts`
 (`TIT_E2E_ATLAS_SUBJECT`, `TIT_E2E_ATLAS_SIMULATION`) counts islands and tooth pixels of the region colours
-in the Networks pane's drawing buffer, at a fixed camera; it needs a build with the scene hooks
+in the Networks pane's drawing buffer, and in the MNI template's, at a fixed camera; it needs a build with the scene hooks
 (`npm run pree2e`), and the old clustered head-mesh surface fails it (123 islands, 3.19 %, against 53 and
 1.74 %). `tests/numerical/test_tract_own_real.py` pins the fit check on sub-CHN's real tractogram, shifted
 and flipped. `tests/test_network_setup.py` pins each automatic-setup rule, preset
