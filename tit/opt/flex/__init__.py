@@ -28,6 +28,19 @@ tit.opt.config.FlexConfig : Configuration dataclass for flex-search.
 tit.opt.config.FlexResult : Result container.
 """
 
-from tit.opt.flex.flex import run_flex_search
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # static analysers see the lazily loaded runner for hover/completion
+    from tit.opt.flex.flex import run_flex_search
+
+
+def __getattr__(name: str):
+    """Load the runner only when called for, not for reading a run's manifest."""
+    if name == "run_flex_search":
+        from tit.opt.flex.flex import run_flex_search
+
+        return run_flex_search
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = ["run_flex_search"]

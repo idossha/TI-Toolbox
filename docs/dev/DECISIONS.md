@@ -4240,6 +4240,18 @@ comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub
 checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
 "same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
 
+## 2026-11-07 — Reading a list never imports SimNIBS
+
+The Simulator's job table waited 16 s in the app on a first visit: `get_montages` imports `tit.sim.utils`, which ran `tit/sim/__init__.py`, which imported `tit.sim.base` and so `simnibs`. The loader needs none of it. `tit.opt.ex.roi` and `tit.opt.flex.manifest` had the same defect through their packages' `__init__.py`.
+
+**Decision.** `tit.sim`, `tit.opt.flex` and `tit.opt.ex` expose what needs SimNIBS (`BaseSimulation`, `run_flex_search`, `ExSearchEngine`, `run_ex_search`) through a module `__getattr__`, as `tit.opt` already does. Every public name still resolves and a job imports exactly what it did, once it asks for it. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#first-load-of-a-catalog-list--2026-11-07).
+
+**Alternatives rejected.** Moving the `simnibs` import inside `tit/sim/base.py`'s methods: the host suite patches `tit.sim.base.mesh_io` and `run_simnibs` as module attributes, and a run would still pay at first use, only later. Moving the montage and ROI readers to a light module: more churn for callers to reach the same import graph. Importing SimNIBS at server start in the background: every session would hold about 330 MB it may never need.
+
+**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. Overview's remaining 1.8 s is its scan, on every call, not an import.
+
+Verified by `tests/test_lazy_package_imports.py`, which asks a fresh interpreter because the host suite mocks `simnibs` in `sys.modules`.
+
 ## 2026-11-06 — `use_gpu` runs QSIPrep's eddy on the GPU through a name shim on 26.0.0
 
 **Decision.** `QSIPrepSettings.use_gpu` (default off) adds `--gpus all`, passes `--eddy-config` with
