@@ -151,6 +151,10 @@ QSIPrep and QSIRecon run as sibling Docker containers spawned from the TI-Toolbo
 - Cieslak et al. _QSIPrep: an integrative platform for preprocessing and reconstructing diffusion MRI data._ Nature Methods 18, 775–778 (2021). [doi:10.1038/s41592-021-01185-5](https://doi.org/10.1038/s41592-021-01185-5)
 - Garyfallidis et al. _Dipy, a library for the analysis of diffusion MRI data._ Frontiers in Neuroinformatics 8, 8 (2014). [doi:10.3389/fninf.2014.00008](https://doi.org/10.3389/fninf.2014.00008)
 
+## Coming: tractography
+
+Tractography-based network targeting and visualisation is in development and coming to TI-Toolbox.
+
 ## Related
 
 - [Pre-Processing]({{ site.baseurl }}/wiki/pre-processing/)
