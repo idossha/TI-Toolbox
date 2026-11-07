@@ -46,13 +46,13 @@ from tit.paths import (
     resolve_within,
 )
 
-# NOTE: tit.opt.ex.roi (used by list_rois) is imported lazily inside the
-# function that needs it, never at module level -- tit/opt/__init__.py
-# eagerly imports tit.opt.ex.engine, which imports simnibs (AGENTS.md
-# "SimNIBS imports - use lazy loading pattern in opt/"). tit.catalog is
-# imported at server startup by every route module, so a module-level
-# import here would make the whole server fail to boot outside a SimNIBS
-# environment (host dev tooling, --dump-openapi, CI without the container).
+# NOTE: tit.catalog is imported at server startup by every route module, so
+# nothing it imports may load SimNIBS, or the server would not boot outside a
+# SimNIBS environment (host dev tooling, --dump-openapi, CI without the
+# container). tit.opt and its ex, flex and mex packages load their
+# SimNIBS-backed runners lazily (PEP 562), so tit.opt.ex.roi (used by
+# list_rois, imported inside it) does not; tests/test_lazy_package_imports.py
+# pins that.
 
 logger = logging.getLogger(__name__)
 
