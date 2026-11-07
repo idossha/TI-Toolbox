@@ -326,3 +326,16 @@ The `plan/mex` row was measured later the same day, before 5da97eac and after th
 Overview's remaining 1.8 s is on every call, so it is not an import: a profile of `build_overview` spends it listing directories and resolving paths (`subject_ids` 42 times, `is_within` about 2,000 times) and reading ex-search CSVs (`ex_runs` 14 times).
 
 In the app, offscreen (a temporary real spec on a fresh server, Electron at 1280x800), from clicking **Simulator** to the job table: 16.06 s before, immediately after connecting. After: 0.94–1.35 s immediately after connecting, while the first page's own requests are still in flight, and 0.16 s after 6 s of settling.
+
+## Overview, every call — 2026-11-07
+
+Dataset 000 as it is on this date, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted, emulated amd64, Dataset 000 mounted read-only. Server A has the jobs folder replaced by a writable copy (so the job manager starts); server B leaves it read-only (so every call retries the manager and fails its prune). Each server restarted before its row; `curl` totals for `GET /api/catalog/overview`. Before is 5da97eac, after is the commit of the same date's decision. In-process is `build_overview` in the image, three calls after a warm-up.
+
+| | First, before | Again, before | First, after | Again, after |
+|---|---|---|---|---|
+| Server A | 0.28 s | 0.24 s | 0.28 s | 0.11–0.12 s |
+| Server B | 0.38 s | 0.31–0.33 s | 0.36 s | 0.19 s |
+| In process | — | 0.25 s | — | 0.10 s |
+
+The 1.83 s of the table above no longer reproduces on today's Dataset 000, which holds four ex-search runs (largest `final_output.csv` 3.8 MB). Before, reading those CSVs was 0.29 s of a 0.47 s profile (`_ex_best`, 62,816 rows); after, `ex_runs` is 0.04 s and the rest is `subject_ids` (42 calls, 0.10 s) listing and resolving subject folders.
+

@@ -4320,7 +4320,7 @@ The Simulator's job table waited 16 s in the app on a first visit: `get_montages
 
 **Alternatives rejected.** Moving the `simnibs` import inside `tit/sim/base.py`'s methods: the host suite patches `tit.sim.base.mesh_io` and `run_simnibs` as module attributes, and a run would still pay at first use, only later. Moving the montage and ROI readers to a light module: more churn for callers to reach the same import graph. Importing SimNIBS at server start in the background: every session would hold about 330 MB it may never need.
 
-**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. **Superseded 2026-11-07** by "A plan never imports SimNIBS through `tit.opt.mex`". Overview's remaining 1.8 s is its scan, on every call, not an import.
+**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. **Superseded 2026-11-07** by "A plan never imports SimNIBS through `tit.opt.mex`". Overview's remaining 1.8 s is its scan, on every call, not an import. **Superseded 2026-11-07** by "An ex run's best row is read once per file version".
 
 Verified by `tests/test_lazy_package_imports.py`, which asks a fresh interpreter because the host suite mocks `simnibs` in `sys.modules`.
 
@@ -4372,3 +4372,14 @@ Supersedes the "Left alone" clause of "Reading a list never imports SimNIBS" for
 **Alternatives rejected.** Moving the combination counter into `tit.opt.ex`: callers and tests change for the same import graph.
 
 Verified by `tests/test_lazy_package_imports.py` on the host and in the image.
+
+## 2026-11-07 — An ex run's best row is read once per file version
+
+Supersedes the Overview clause of "Reading a list never imports SimNIBS". Overview and the ex-run list call `tit.catalog.ex_runs`, which scanned every run's whole `final_output.csv` for its best `Composite_Index` row on every call.
+
+**Decision.** `_ex_best` keys that scan on the file's path, `st_mtime_ns` and `st_size` (`functools.lru_cache`, 256 entries), as `_report_title` already does; a failed read raises inside the cached function so it is not remembered. Every other part of a listing is read fresh, so an edited CSV, a new run and a deleted CSV show on the next call. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#overview-every-call--2026-11-07).
+
+**Alternatives rejected.** An Overview-only counter that skips the CSVs: a second copy of the run-discovery rules, which belong to `tit.catalog`, and no help to the ex-run list. A time-based cache of the whole Overview: stale for its lifetime after a job writes. Caching `subject_ids`: it is the remaining cost, but a new subject must show at once and nothing cheap says the folder changed.
+
+Verified by `tests/test_server_overview.py::test_overview_and_ex_runs_follow_the_files_as_they_change`, which fails when the key drops the mtime.
+
