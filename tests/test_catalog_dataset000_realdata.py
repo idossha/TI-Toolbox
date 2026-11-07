@@ -28,10 +28,11 @@ Vacuous legs on today's Dataset 000: its ``derivatives/ti-toolbox/nilearn_visual
 ``nifti_average`` folders are empty, so the real-data coverage check for those two compares
 empty sets (only the ``stats`` leg has runs). The synthetic
 ``test_group_output_folders_are_listed_one_for_one`` runs on every host and covers them. Since
-2026-11-03 it holds no MNI-space NIfTI (sub-101's ``L_Insula`` was re-run without NIfTIs and
-ernie's and sub-LA's runs are gone), so the NIfTI field/space and viewer-layer checks see the
+2026-11-03 it holds no MNI-space NIfTI, so the NIfTI field/space and viewer-layer checks see the
 subject space only: CHN ``left_insula_mean`` and ernie ``AF3_PO10_and_AF4_Oz``, three envelopes
-and two carriers each.
+and two carriers each. Since 2026-11-06 (sub-101's simulations were removed on purpose) one
+analysis remains, ernie's voxel ROI, so the results checks read that one; every ``results.csv`` on
+disk must be among them, by a count taken from the folders and not from the catalog.
 
 Run: ``TIT_DATASET_000=/Users/idohaber/datasets/000 .venv/bin/python -m pytest
 tests/test_catalog_dataset000_realdata.py -q``. Skips with a reason when the variable is unset.
@@ -129,7 +130,7 @@ def test_the_catalog_read_left_the_dataset_untouched(view):
 def test_there_is_something_to_check(view):
     assert len(view["sids"]) >= 4
     assert len(view["sims"]) >= 4
-    assert sum(len(a) for a in view["analyses"].values()) >= 5
+    assert sum(len(a) for a in view["analyses"].values()) >= 1
 
 
 # ── simulations ─────────────────────────────────────────────────────────────
@@ -228,7 +229,9 @@ def test_viewer_layers_are_the_envelope_and_carrier_niftis_of_their_space(view):
             ), layer["path"]
         assert not any(layer["visible"] for layer in hf_layers)
         checked += len(ti_layers) + len(hf_layers)
-    assert checked >= 10  # 2026-11-03: 2 simulations x (3 envelopes + 2 carriers), subject space
+    assert (
+        checked >= 10
+    )  # 2026-11-03: 2 simulations x (3 envelopes + 2 carriers), subject space
 
 
 # ── analyses ────────────────────────────────────────────────────────────────
@@ -297,7 +300,7 @@ def test_every_results_csv_is_served_as_written_and_physically_ordered(view):
             for key in ("roi_min", "roi_mean", "roi_max", "gm_mean", "gm_max"):
                 assert 0.0 <= num[key] <= 10.0, (where, key, num[key])
             checked += 1
-    assert checked >= 5
+    assert checked == len(list(_sim_root(view).rglob("Analyses/*/*/results.csv"))) >= 1
 
 
 # ── runs ────────────────────────────────────────────────────────────────────

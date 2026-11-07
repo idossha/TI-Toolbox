@@ -10,6 +10,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 ---
 ### Unreleased
 
+- **Fixed: leaving a page with a playing video no longer takes the server down** — after a Plan had been computed, dropping a stream could end the server's worker, and the app then waited for ever on every request until restarted.
+
 - **Fixed: the Simulator's job table appears at once on first visit** — its first load no longer waits for SimNIBS, which took about 16 seconds in the app under emulation and now takes about 1 second right after connecting. The saved-ROI list in the Optimizer and the flex-run list load quickly on first use for the same reason, and the server uses about 330 MB less until a job needs SimNIBS. Jobs and scripts work as before.
 
 ---

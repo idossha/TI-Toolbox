@@ -4218,6 +4218,28 @@ that can disagree with argparse); checking every tool's positionals (inputs and 
 distinguishable without each tool's own parser); a readable error inside the tool (it would still
 queue a job that cannot run).
 
+## 2026-11-05 — The server keeps PETSc's signal handler out of its own process
+
+**Decision.** `tit.server` sets `-no_signal_handler` in `PETSC_OPTIONS` at startup, as job runners already do (2026-09-03).
+
+**Why.** A Plan's config import loads SimNIBS and PETSc into the server's worker, and PETSc's handler turns SIGPIPE, which Python ignores, into
+`MPI_Abort`: when a page left a playing `<video>` in the Renders gallery the worker died, the reloader kept the port, and every request hung
+(once in a real spec; log `Caught signal number 13 Broken Pipe`). Read from `/proc/<worker>/status` after a Plan: `SigCgt` held SIGPIPE
+before this and does not now. Forty dropped streams through Docker's port proxy did not reproduce the death, so the check is the handler's
+absence, not the crash.
+
+**Lost in exchange.** PETSc's own message on a crash of the server process, which runs no solver.
+
+**Alternatives rejected.** Keeping SimNIBS out of the worker (every Plan's config import would need rewriting, and one later import would bring it
+back); restoring `SIG_IGN` after the import (no one place knows when that happens).
+
+## 2026-11-06 — Real-data tests read Dataset 000 as it is after sub-101's simulations were removed
+
+**Decision.** The maintainer removed `sub-101/Simulations` on purpose, so tests that read them are repointed at runs that exist, not skipped. The TI recompute and the V2 mesh
+comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub-CHN/posterior_timax`. With one analysis left (ernie's voxel ROI), the results test
+checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
+"same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
+
 ## 2026-11-07 — Reading a list never imports SimNIBS
 
 The Simulator's job table waited 16 s in the app on a first visit: `get_montages` imports `tit.sim.utils`, which ran `tit/sim/__init__.py`, which imported `tit.sim.base` and so `simnibs`. The loader needs none of it. `tit.opt.ex.roi` and `tit.opt.flex.manifest` had the same defect through their packages' `__init__.py`.
