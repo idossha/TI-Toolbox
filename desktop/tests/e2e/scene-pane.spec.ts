@@ -390,6 +390,43 @@ test("bundled subcortical atlas and target settings synchronize without subject 
 });
 
 /**
+ * A volume only this subject has is in neither the subject's scene
+ * nor the guide's. Nothing of it can be drawn, and plain cortex would read as its anatomy, so the
+ * pane shows the head alone and says why, and never asks the guide for a legend it refuses with a
+ * bare 422. The mock's DKT volume is one (tests/fixtures/atlases.json).
+ */
+test("a volume only the subject has draws no cortex and says so in a sentence", async () => {
+  const volume = "aparc.DKTatlas+aseg";
+  const asked: string[] = [];
+  await page.route("**/api/guide/regions?*", (route) => {
+    asked.push(new URL(route.request().url()).searchParams.get("atlas") ?? "");
+    return route.continue();
+  });
+  try {
+    await gotoPage(page, "optimizer", "Optimizer");
+    const row = optRows(page).first();
+    const editor = await openOptEditor(page, row, "settings");
+    await editor.getByRole("radio", { name: "Subcortical", exact: true }).click();
+    await editor.locator(".field", { hasText: "Volume atlas" }).first().locator(".combobox-trigger").click();
+    await page.getByRole("option", { name: "DKT + aseg subcortical", exact: true }).click();
+    await closeOptEditor(page);
+    await showRunPaneTab(page, "scene");
+    const host = page.locator('[data-page-active="true"]').getByTestId("scene-pane-host");
+    await expect.poll(() => page.evaluate(() => window.__scenePane?.atlas)).toBe(volume);
+    await expect.poll(() => page.evaluate(() => window.__scenePane?.parts.map((part) => part.id))).toEqual(["skin"]);
+    await expect(host).toHaveAttribute("data-state", "ready");
+    const hint = page.locator('[data-page-active="true"]').getByTestId("scene-pane-hint");
+    await expect(hint).toHaveText(`The reference head is shown without a brain: ${volume} has no surface to draw.`);
+    expect(asked).not.toContain(volume);
+    const editorAgain = await openOptEditor(page, row, "settings");
+    await editorAgain.getByRole("radio", { name: "Cortical", exact: true }).click();
+    await closeOptEditor(page);
+  } finally {
+    await page.unroute("**/api/guide/regions?*");
+  }
+});
+
+/**
  * The Optimizer's **Electrodes** gesture: an Ex row names a leadfield, a leadfield is an EEG net,
  * and the pane draws that net's cap on the head exactly as the Simulator does — with each dot in
  * its bucket's channel hue, so the search space is visible as a cap distribution rather than as
