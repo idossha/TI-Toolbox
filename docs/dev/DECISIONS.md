@@ -4224,7 +4224,7 @@ queue a job that cannot run).
 
 **Why.** A Plan's config import loads SimNIBS and PETSc into the server's worker, and PETSc's handler turns SIGPIPE, which Python ignores, into
 `MPI_Abort`: when a page left a playing `<video>` in the Renders gallery the worker died, the reloader kept the port, and every request hung
-(once in the real Networks spec; log `Caught signal number 13 Broken Pipe`). Read from `/proc/<worker>/status` after a Plan: `SigCgt` held SIGPIPE
+(once in a real spec; log `Caught signal number 13 Broken Pipe`). Read from `/proc/<worker>/status` after a Plan: `SigCgt` held SIGPIPE
 before this and does not now. Forty dropped streams through Docker's port proxy did not reproduce the death, so the check is the handler's
 absence, not the crash.
 
@@ -4232,3 +4232,10 @@ absence, not the crash.
 
 **Alternatives rejected.** Keeping SimNIBS out of the worker (every Plan's config import would need rewriting, and one later import would bring it
 back); restoring `SIG_IGN` after the import (no one place knows when that happens).
+
+## 2026-11-06 — Real-data tests read Dataset 000 as it is after sub-101's simulations were removed
+
+**Decision.** The maintainer removed `sub-101/Simulations` on purpose, so tests that read them are repointed at runs that exist, not skipped. The TI recompute and the V2 mesh
+comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub-CHN/posterior_timax`. With one analysis left (ernie's voxel ROI), the results test
+checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
+"same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
