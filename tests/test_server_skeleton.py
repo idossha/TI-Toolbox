@@ -885,6 +885,23 @@ def test_uvicorn_log_config_installs_mask_filter() -> None:
     assert config["handlers"]["access"]["stream"] == "ext://sys.stderr"
 
 
+def test_the_server_keeps_petscs_signal_handler_out_of_its_own_process(
+    project: Path, monkeypatch
+) -> None:
+    """Loaded by a Plan's config import, it turned a client dropping a stream into MPI_Abort."""
+    import uvicorn
+
+    from tit.server import __main__ as cli
+
+    monkeypatch.setenv("PETSC_OPTIONS", "-ksp_monitor")
+    seen: dict[str, str] = {}
+    monkeypatch.setattr(
+        uvicorn, "run", lambda *a, **k: seen.update(env=os.environ["PETSC_OPTIONS"])
+    )
+    assert cli.main(["--project", str(project), "--token", TOKEN]) == 0
+    assert seen["env"].split() == ["-ksp_monitor", "-no_signal_handler"]
+
+
 def test_reload_passes_settings_via_0600_file(project: Path, monkeypatch) -> None:
     import uvicorn
 

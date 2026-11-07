@@ -66,6 +66,7 @@ import {
   DEFAULT_OPACITY,
   SCENE_PALETTE,
   applyElectrodePick,
+  atlasLabelsStatus,
   channelByElectrode,
   explodeOffered,
   firstEmptySlot,
@@ -146,6 +147,9 @@ export interface ScenePaneProps {
    * first, and the table now claims an electrode nobody meant to add.
    */
   onPlacedPick?: (index: number) => void;
+  /** `placedMarkers` are a whole EEG net: drawn as the Simulator draws a net's, on the scalp and hidden
+   *  by the head when round the back, rather than as a few dots that must never be hidden. */
+  placedOccluded?: boolean;
   /** Marker indices to draw as if hovered — how a hovered table row lights its own dot. */
   highlightMarkers?: number[];
   /** The placement marker the page has selected: ringed and enlarged, so "which electrode does the
@@ -205,6 +209,8 @@ export interface ScenePaneProps {
   /** `target`/`inspect`: the form's region list. The same array `<RoiPicker>` holds. */
   regions?: SceneRegionRef[];
   onRegionsChange?: (regions: SceneRegionRef[], atlas?: string) => void;
+  /** `false` neither fetches nor draws the cortex: the Simulator, where the scalp is what is aimed at. */
+  cortex?: boolean;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
   /**
@@ -291,6 +297,7 @@ export function ScenePane({
   guide = "default",
   onPlace,
   placedMarkers,
+  placedOccluded = false,
   originalPositions,
   onPlacedPick,
   onPlacedHover,
@@ -311,6 +318,7 @@ export function ScenePane({
   onRequestPairs,
   regions,
   onRegionsChange,
+  cortex = true,
   note,
   showing = null,
   className,
@@ -346,6 +354,9 @@ export function ScenePane({
     mode === "montage" ||
     (subjectManifest.data?.atlases ?? []).some((entry) => String(entry.id) === atlas);
   const drawnSubject = subjectReady && subjectHasAtlas ? wantedSubject : null;
+  // Until the subject's manifest answers, nothing says the guide is needed: a head fetched and
+  // uploaded for those milliseconds, then replaced, is whole central surfaces for nothing.
+  const guideWanted = !drawnSubject && !(wantedSubject && subjectManifest.isPending);
   const manifest = drawnSubject ? subjectManifest : guideManifest;
   const manifestData = manifest.data as GuideManifest | SceneManifest | undefined;
   const guideId = drawnSubject ? null : (guideManifest.data?.guide?.id ?? null);
@@ -408,13 +419,20 @@ export function ScenePane({
     | { kind?: string; aligned_to?: string }
     | undefined;
   const atlasPart = atlasEntry?.aligned_to ?? (atlasEntry?.kind === "subcortical" ? "subcortical" : "gm");
+  /**
+   * An atlas the guide standing in does not list: a volume only this subject has, which has no packaged surface and no packaged legend. Nothing
+   * of it can be drawn or picked here, so the pane asks for neither and shows the head alone; plain
+   * cortex in its place would read as that atlas' anatomy.
+   */
+  const atlasUndrawable = guideWanted && wantsRegions && !!atlas && !!guideManifest.data && !atlasEntry;
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
-  const allGuideRequests = useGuideSurfaceRequests(drawnSubject ? undefined : guideManifest.data, guide);
-  const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || part.id === atlasPart), [allGuideRequests, atlasPart]);
+  const allGuideRequests = useGuideSurfaceRequests(guideWanted ? guideManifest.data : undefined, guide);
+  const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || (cortex && !atlasUndrawable && part.id === atlasPart)), [allGuideRequests, atlasPart, atlasUndrawable, cortex]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
-  const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
+  const allSubjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
+  const subjectRequests = useMemo(() => (cortex ? allSubjectRequests : allSubjectRequests.filter((part) => part.id === "skin")), [allSubjectRequests, cortex]);
   const subjectSurfaces = useSceneSurfaces(drawnSubject, subjectRequests);
   const surfaceRequests = drawnSubject ? subjectRequests : guideRequests;
   const surfaces = drawnSubject ? subjectSurfaces : guideSurfaces;
@@ -430,14 +448,14 @@ export function ScenePane({
   const guideElectrodes = useGuideElectrodes(!drawnSubject ? listedNet : null, guide);
   const subjectElectrodes = useSceneElectrodes(drawnSubject, listedNet);
   const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
-  const guideRegionsQuery = useGuideRegions(drawnSubject ? null : effectiveAtlas, guide);
+  const guideRegionsQuery = useGuideRegions(guideWanted && !atlasUndrawable ? effectiveAtlas : null, guide);
   const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
   const regionsQuery = drawnSubject ? subjectRegionsQuery : guideRegionsQuery;
   const legend = useMemo<SceneLegendRow[]>(
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
-  const guideLabels = useGuideLabels(drawnSubject ? null : effectiveAtlas, legend.length > 0, guide);
+  const guideLabels = useGuideLabels(guideWanted ? effectiveAtlas : null, legend.length > 0, guide);
   const subjectLabels = useSceneLabels(drawnSubject, effectiveAtlas, legend.length > 0);
   const labels = drawnSubject ? subjectLabels : guideLabels;
 
@@ -468,7 +486,7 @@ export function ScenePane({
   );
 
   // ---- explode -------------------------------------------------------------------------------
-  const canExplode = explodeOffered(guide, drawnSubject, alignment.aligned);
+  const canExplode = explodeOffered(guide, drawnSubject, alignment.aligned, atlasPart);
   /** Once per atlas: one centroid per label, one offset per vertex. Uploaded with the part, so the
    *  toggle itself only moves a uniform. */
   const offsets = useMemo(
@@ -697,6 +715,31 @@ export function ScenePane({
     return null;
   })();
 
+  // Only once the pane is drawing and the labels are slow, so a cached load shows nothing: the disk
+  // cache still takes a few frames to answer.
+  const labelsStatus =
+    state === "ready"
+      ? atlasLabelsStatus({
+          atlas: atlasUndrawable ? null : effectiveAtlas,
+          legendPending: regionsQuery.isPending || !!(regionsQuery.data as { building?: boolean } | undefined)?.building,
+          legendFailed: !!regionsQuery.error,
+          legendRows: legend.length,
+          surfaceExpected: surfaceRequests.some((part) => part.id === atlasPart),
+          surfaceReady: !!gmData,
+          labelsPending: labels.isPending,
+          labelsError: labels.error ? labels.error.message : null,
+          misaligned: alignment.reason,
+        })
+      : null;
+  const loadingLabels = labelsStatus?.kind === "loading" ? labelsStatus.text : null;
+  const [slowLabels, setSlowLabels] = useState<string | null>(null);
+  useEffect(() => {
+    if (!loadingLabels) return;
+    const timer = setTimeout(() => setSlowLabels(loadingLabels), 250);
+    return () => clearTimeout(timer);
+  }, [loadingLabels]);
+  const labelsSentence = labelsStatus && (labelsStatus.kind === "failed" || slowLabels === labelsStatus.text) ? labelsStatus.text : null;
+
   // ---- first paint ---------------------------------------------------------------------------
   // Refs, not state: this number is read through the debug handle and by nothing that renders, and
   // putting it in state would re-render the pane purely to record a measurement.
@@ -781,6 +824,7 @@ export function ScenePane({
         ? `${drawnSubject ?? "The reference head"} has no ${net} electrode positions.`
         : `This head model has no ${electrodeNet} electrode positions — the buckets still work from the form.`;
     if (note) return note;
+    if (atlasUndrawable) return `The reference head is shown without a brain: ${atlas} has no surface to draw.`;
     if (sideError) return sideError instanceof SceneError ? sideError.message : "Some of this scene could not be loaded.";
     if (gesture === "electrode" && mode !== "montage") return "Click an electrode to add or remove it from the active bucket.";
     if (gesture === "electrode") {
@@ -930,12 +974,12 @@ export function ScenePane({
              * there" is a worse failure than "an electrode round the back shows through", and the
              * dots are four to eight, not 185.
              */
-            markersOccluded={!placedMarkers}
+            markersOccluded={!placedMarkers || placedOccluded}
             actualSize={actualSizeOn}
             onActualSizeChange={actualSizeOffered ? setActualSize : undefined}
             /* A placement dot is one of four to eight, carries a name and has to be aimed at; an
                EEG net's is one of 185. */
-            markerScale={placedMarkers ? 1.5 : undefined}
+            markerScale={placedMarkers && !placedOccluded ? 1.5 : undefined}
             /* An electrode goes ON the skin — including a skin the user has turned down to 0.22 to
                see the cortex through. Without this the click reads through it and the electrode
                lands on the grey matter behind. */
@@ -976,6 +1020,11 @@ export function ScenePane({
             ) : null}
           </div>
         )}
+        {labelsSentence ? (
+          <p className="scene-pane-status" role="status" data-testid="scene-pane-status" title={labelsSentence}>
+            {labelsSentence}
+          </p>
+        ) : null}
       </div>
       <p className="scene-pane-hint" data-testid="scene-pane-hint">
         {state === "ready" ? hint : ""}

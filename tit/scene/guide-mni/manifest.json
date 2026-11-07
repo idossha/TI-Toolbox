@@ -3,8 +3,8 @@
   "id": "MNI152",
   "label": "MNI152 template"
  },
- "guide_version": 2,
- "builder_version": "4",
+ "guide_version": 3,
+ "builder_version": "6",
  "space": "guide-ras",
  "bbox": [
   -88.216,
@@ -29,7 +29,7 @@
    "triangles": 128450,
    "vertices": 64161,
    "bytes": 2311364,
-   "fingerprint": "guide-2-skin",
+   "fingerprint": "guide-3-skin",
    "url": "/api/guide/surface?part=skin&guide=mni",
    "simplified": false,
    "within_budget": true,
@@ -66,40 +66,35 @@
   {
    "id": "gm",
    "kind": "surface",
-   "triangles": 145184,
-   "vertices": 66544,
-   "bytes": 2540768,
-   "fingerprint": "guide-2-gm",
+   "triangles": 513364,
+   "vertices": 256686,
+   "bytes": 9240632,
+   "fingerprint": "guide-3-gm",
    "url": "/api/guide/surface?part=gm&guide=mni",
-   "simplified": true,
+   "simplified": false,
    "within_budget": true,
-   "max_deviation_mm": 6.7468,
+   "max_deviation_mm": 0.0,
    "bbox": [
-    -70.032,
-    -106.451,
-    -65.592,
-    71.533,
-    72.558,
-    81.101
+    -67.804,
+    -105.498,
+    -48.53,
+    69.83,
+    69.961,
+    79.714
    ],
    "focus_bbox": [
-    -70.032,
-    -106.451,
-    -65.54,
-    71.533,
-    72.558,
-    81.101
+    -67.804,
+    -105.498,
+    -48.53,
+    69.83,
+    69.961,
+    79.714
    ],
    "files": {
     "tvsc": "surfaces/gm.tvsc",
     "tvsc_meta": {
-     "bytes": 2540768,
-     "sha256": "e21e20109ffe90cb41c69aa5157a9e5b1bdf57bbe4471deb1e9df24651c80cd3"
-    },
-    "gii": "surfaces/gm.gii",
-    "gii_meta": {
-     "bytes": 2313860,
-     "sha256": "25bc861af08fc90552b28ab4a908b42845b98938b58663fd7cd122f5da37f55d"
+     "bytes": 9240632,
+     "sha256": "5896d1ae6413b37b44a29e84786c49f267917fe66f257bfcd3b8cd365063f348"
     }
    }
   },
@@ -109,7 +104,7 @@
    "triangles": 47298,
    "vertices": 23580,
    "bytes": 850568,
-   "fingerprint": "guide-2-atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
+   "fingerprint": "guide-3-atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
    "url": "/api/guide/surface?part=atlas-CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
@@ -148,7 +143,7 @@
    "triangles": 100541,
    "vertices": 50034,
    "bytes": 1806932,
-   "fingerprint": "guide-2-atlas-massp2021-parcellation_decade-18to40.nii.gz",
+   "fingerprint": "guide-3-atlas-massp2021-parcellation_decade-18to40.nii.gz",
    "url": "/api/guide/surface?part=atlas-massp2021-parcellation_decade-18to40.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
@@ -182,51 +177,12 @@
    }
   },
   {
-   "id": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
-   "kind": "surface",
-   "triangles": 105569,
-   "vertices": 52075,
-   "bytes": 1891760,
-   "fingerprint": "guide-2-atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
-   "url": "/api/guide/surface?part=atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni",
-   "simplified": true,
-   "within_budget": true,
-   "bbox": [
-    -71.0,
-    -107.5,
-    -51.5,
-    72.5,
-    75.5,
-    82.5
-   ],
-   "focus_bbox": [
-    -71.0,
-    -107.5,
-    -51.5,
-    72.5,
-    75.5,
-    82.5
-   ],
-   "files": {
-    "tvsc": "surfaces/atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.tvsc",
-    "tvsc_meta": {
-     "bytes": 1891760,
-     "sha256": "0e4d1b4418a4d12ab7a7b5ef42d1d32e0e78fcf3e10e9d153a61c07292a6ea21"
-    },
-    "gii": "surfaces/atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.gii",
-    "gii_meta": {
-     "bytes": 766460,
-     "sha256": "ecb6e85ee737ed824d81d475617906d77a434e11fd6e6af86c1c1f08606180df"
-    }
-   }
-  },
-  {
    "id": "atlas-HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
    "kind": "surface",
    "triangles": 87337,
    "vertices": 42821,
    "bytes": 1561928,
-   "fingerprint": "guide-2-atlas-HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
+   "fingerprint": "guide-3-atlas-HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
    "url": "/api/guide/surface?part=atlas-HarvardOxford-sub-maxprob-thr25-1mm.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
@@ -265,7 +221,7 @@
    "triangles": 79564,
    "vertices": 39808,
    "bytes": 1432496,
-   "fingerprint": "guide-2-atlas-Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
+   "fingerprint": "guide-3-atlas-Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz",
    "url": "/api/guide/surface?part=atlas-Cerebellum-MNIfnirt-maxprob-thr25-1mm.nii.gz&guide=mni",
    "simplified": true,
    "within_budget": true,
@@ -351,6 +307,72 @@
  ],
  "atlases": [
   {
+   "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "gm",
+   "regions": 96,
+   "url": "/api/guide/regions?atlas=HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 513428,
+     "sha256": "d246f91945df490a9e5fce883f85f5a7afea9ec2e8c1d379f788153838754a9e"
+    }
+   },
+   "legend_file": "legends/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.json",
+   "legend_meta": {
+    "bytes": 12259,
+    "sha256": "ee194feca1a0bc625bbc04ead11bb19868019502c2561a0cfc3538167248ab88"
+   },
+   "source_sha256": "74703890d03b2d32a766fc28c7caa50d1b419a479f3fde1651f34edba593305b",
+   "lut_sha256": "8a2084821827aafe60691dc883b6aef13f08df5cedae228b9abf11d4063e71ab"
+  },
+  {
+   "id": "MNI_Glasser_HCP_v1.0.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "gm",
+   "regions": 360,
+   "url": "/api/guide/regions?atlas=MNI_Glasser_HCP_v1.0.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/MNI_Glasser_HCP_v1.0.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 513428,
+     "sha256": "402fb47972a1b204010e5dc59291237b7a927feee60c3860e45a11f05eb329c7"
+    }
+   },
+   "legend_file": "legends/MNI_Glasser_HCP_v1.0.nii.gz.json",
+   "legend_meta": {
+    "bytes": 35401,
+    "sha256": "2fa77dba35adf65e25ba2b02434505e566d7064ecf7434c310129c41405a6229"
+   },
+   "source_sha256": "afabd7c361d8d3a1e881a3fa41a8df7d30cdeedb469df5ea265ba9a76642e429",
+   "lut_sha256": "7134115e0d843268adf261ce7a3219e9f72e5a0d6b8b862e5bee6a15de7769be"
+  },
+  {
+   "id": "Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz",
+   "kind": "subcortical",
+   "hemispheres": [],
+   "aligned_to": "gm",
+   "regions": 400,
+   "url": "/api/guide/regions?atlas=Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz&guide=mni",
+   "files": {
+    "tvsc": "labels/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz.tvsc",
+    "tvsc_meta": {
+     "bytes": 513428,
+     "sha256": "78899a6fbec2b0a4a64334d95b1ea47415b18c4b05079bac4e38705e91a7beac"
+    }
+   },
+   "legend_file": "legends/Schaefer2018_400Parcels_7Networks_order_FSLMNI152_1mm.nii.gz.json",
+   "legend_meta": {
+    "bytes": 47120,
+    "sha256": "2302d7b21062f487d5110f7cfc6bb10972ab604adb60624c2940980834ee7f08"
+   },
+   "source_sha256": "abb8032840af30603995fd59634fd6bcd816088870de9061bbf90ad42c408d4d",
+   "lut_sha256": "f62cdc9de9696e11bda9fe1cd51fc013b1da27ba180d2dcead8f3fd94bf3cbc1"
+  },
+  {
    "id": "CIT168_labeling_lateralized_MNI152NLin2009cAsym.nii.gz",
    "kind": "subcortical",
    "hemispheres": [],
@@ -403,33 +425,6 @@
    },
    "source_sha256": "c959b270fda3e7c1df7bc30728b10d9d748c5d6d3f4eca49c4dfd03739142ab0",
    "lut_sha256": "e8e5e86c2f3afd8c6e80eef8be548693d8fe5315979f4314447cda0203e49bc5"
-  },
-  {
-   "id": "HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
-   "kind": "subcortical",
-   "hemispheres": [],
-   "aligned_to": "atlas-HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz",
-   "regions": 96,
-   "url": "/api/guide/regions?atlas=HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz&guide=mni",
-   "files": {
-    "tvsc": "labels/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.tvsc",
-    "tvsc_meta": {
-     "bytes": 729084,
-     "sha256": "02ab39b7cc6be3b5c7da4b1ce180739f177fb9cfdfe22df4a2535a4a92335f25"
-    },
-    "gii": "labels/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.gii",
-    "gii_meta": {
-     "bytes": 781361,
-     "sha256": "8bc96ead9e6b4072d3e210ff878914111782ce709ba6d7ac08e536eae9f6db29"
-    }
-   },
-   "legend_file": "legends/HarvardOxford-cortl-maxprob-thr25-1mm.nii.gz.json",
-   "legend_meta": {
-    "bytes": 12299,
-    "sha256": "95a28474e6e774a9137614d47f387938ff8bd00ce01b459dea98ddb0581cc38a"
-   },
-   "source_sha256": "74703890d03b2d32a766fc28c7caa50d1b419a479f3fde1651f34edba593305b",
-   "lut_sha256": "8a2084821827aafe60691dc883b6aef13f08df5cedae228b9abf11d4063e71ab"
   },
   {
    "id": "HarvardOxford-sub-maxprob-thr25-1mm.nii.gz",
@@ -500,6 +495,6 @@
  "generated": {
   "subject": "MNI152",
   "generator": "tit.scene.guide_build",
-  "seconds": 70.8
+  "seconds": 65.0
  }
 }

@@ -273,15 +273,44 @@ export function labelsAlignment(
     return { aligned: false, reason: `labels are for ${labels.vertexCount} vertices, the surface has ${surface.vertexCount}` };
   }
   const last = (surface.vertexCount - 1) * 3;
-  const same = [0, 1, 2, last, last + 1, last + 2].every((i) => surface.positions[i] === labels.positions[i]);
+  // A labels payload may carry just those two vertices (TVSC flags bit1), or all of them.
+  const lastInLabels = labels.positions.length - 3;
+  const same = [0, 1, 2].every((i) => surface.positions[i] === labels.positions[i] && surface.positions[last + i] === labels.positions[lastInLabels + i]);
   return { aligned: same, reason: same ? null : "the labels payload's vertices are not the surface's" };
 }
 
 /**
- * Whether the pane offers **Explode**: only on the MNI template (never a subject's own head, whose
- * atlases are cortical surfaces with nothing buried), and only once an atlas' labels are on the
- * drawn surface — there is nothing to pull apart before that.
+ * What the pane says about an atlas' labels while they are not on the drawn surface: `loading` until
+ * they arrive, and a plain sentence when they will not. `null` is nothing to say, which includes an
+ * atlas with no regions and a regions failure, which the pane's hint already states.
  */
-export function explodeOffered(guide: string, drawnSubject: string | null, atlasLabelled: boolean): boolean {
-  return guide === "mni" && drawnSubject === null && atlasLabelled;
+export function atlasLabelsStatus(input: {
+  atlas: string | null;
+  /** The legend has not arrived, or the server is still building it. */
+  legendPending: boolean;
+  legendFailed: boolean;
+  legendRows: number;
+  surfaceExpected: boolean;
+  surfaceReady: boolean;
+  labelsPending: boolean;
+  labelsError: string | null;
+  /** Why the labels that arrived do not belong to the drawn surface. */
+  misaligned: string | null;
+}): { kind: "loading" | "failed"; text: string } | null {
+  const { atlas } = input;
+  if (!atlas || input.legendFailed) return null;
+  if (input.labelsError) return { kind: "failed", text: `The ${atlas} labels could not be loaded: ${input.labelsError}` };
+  if (input.misaligned) return { kind: "failed", text: `The ${atlas} labels were not applied: ${input.misaligned}.` };
+  const pending =
+    input.legendPending || (input.legendRows > 0 && (input.labelsPending || (input.surfaceExpected && !input.surfaceReady)));
+  return pending ? { kind: "loading", text: `Loading ${atlas} labels…` } : null;
+}
+
+/**
+ * Whether the pane offers **Explode**: only on the MNI template's volume surfaces (never a cortex,
+ * subject's or template's, which is one sheet with nothing buried), and only once an atlas' labels
+ * are on the drawn surface — there is nothing to pull apart before that.
+ */
+export function explodeOffered(guide: string, drawnSubject: string | null, atlasLabelled: boolean, atlasPart: string): boolean {
+  return guide === "mni" && drawnSubject === null && atlasLabelled && atlasPart !== "gm";
 }

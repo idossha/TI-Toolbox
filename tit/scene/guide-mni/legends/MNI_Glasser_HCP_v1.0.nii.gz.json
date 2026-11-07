@@ -1,0 +1,2531 @@
+{
+ "atlas": "MNI_Glasser_HCP_v1.0.nii.gz",
+ "space": "guide-ras",
+ "aligned_to": "gm",
+ "vertices": 256686,
+ "radius_mm": 3.0,
+ "labelled_fraction": 0.9645,
+ "legend": [
+  {
+   "id": 1,
+   "name": "L-V1",
+   "color": "#1d8266",
+   "label": 1,
+   "hemi": ""
+  },
+  {
+   "id": 2,
+   "name": "L-MST",
+   "color": "#19abde",
+   "label": 2,
+   "hemi": ""
+  },
+  {
+   "id": 3,
+   "name": "L-V6",
+   "color": "#80f15d",
+   "label": 3,
+   "hemi": ""
+  },
+  {
+   "id": 4,
+   "name": "L-V2",
+   "color": "#fd8be0",
+   "label": 4,
+   "hemi": ""
+  },
+  {
+   "id": 5,
+   "name": "L-V3",
+   "color": "#a850e8",
+   "label": 5,
+   "hemi": ""
+  },
+  {
+   "id": 6,
+   "name": "L-V4",
+   "color": "#e560d7",
+   "label": 6,
+   "hemi": ""
+  },
+  {
+   "id": 7,
+   "name": "L-V8",
+   "color": "#2c8273",
+   "label": 7,
+   "hemi": ""
+  },
+  {
+   "id": 8,
+   "name": "L-4",
+   "color": "#a29795",
+   "label": 8,
+   "hemi": ""
+  },
+  {
+   "id": 9,
+   "name": "L-3b",
+   "color": "#85321f",
+   "label": 9,
+   "hemi": ""
+  },
+  {
+   "id": 10,
+   "name": "L-FEF",
+   "color": "#0f9e1e",
+   "label": 10,
+   "hemi": ""
+  },
+  {
+   "id": 11,
+   "name": "L-PEF",
+   "color": "#6bfe02",
+   "label": 11,
+   "hemi": ""
+  },
+  {
+   "id": 12,
+   "name": "L-55b",
+   "color": "#fdb86f",
+   "label": 12,
+   "hemi": ""
+  },
+  {
+   "id": 13,
+   "name": "L-V3A",
+   "color": "#7ce75c",
+   "label": 13,
+   "hemi": ""
+  },
+  {
+   "id": 14,
+   "name": "L-RSC",
+   "color": "#409796",
+   "label": 14,
+   "hemi": ""
+  },
+  {
+   "id": 15,
+   "name": "L-POS2",
+   "color": "#6a8622",
+   "label": 15,
+   "hemi": ""
+  },
+  {
+   "id": 16,
+   "name": "L-V7",
+   "color": "#1c24b4",
+   "label": 16,
+   "hemi": ""
+  },
+  {
+   "id": 17,
+   "name": "L-IPS1",
+   "color": "#68405e",
+   "label": 17,
+   "hemi": ""
+  },
+  {
+   "id": 18,
+   "name": "L-FFC",
+   "color": "#6995b9",
+   "label": 18,
+   "hemi": ""
+  },
+  {
+   "id": 19,
+   "name": "L-V3B",
+   "color": "#cee464",
+   "label": 19,
+   "hemi": ""
+  },
+  {
+   "id": 20,
+   "name": "L-LO1",
+   "color": "#05b76f",
+   "label": 20,
+   "hemi": ""
+  },
+  {
+   "id": 21,
+   "name": "L-LO2",
+   "color": "#3dc43f",
+   "label": 21,
+   "hemi": ""
+  },
+  {
+   "id": 22,
+   "name": "L-PIT",
+   "color": "#12cc4a",
+   "label": 22,
+   "hemi": ""
+  },
+  {
+   "id": 23,
+   "name": "L-MT",
+   "color": "#52f7ad",
+   "label": 23,
+   "hemi": ""
+  },
+  {
+   "id": 24,
+   "name": "L-A1",
+   "color": "#ab546f",
+   "label": 24,
+   "hemi": ""
+  },
+  {
+   "id": 25,
+   "name": "L-PSL",
+   "color": "#24cac7",
+   "label": 25,
+   "hemi": ""
+  },
+  {
+   "id": 26,
+   "name": "L-SFL",
+   "color": "#8e87c7",
+   "label": 26,
+   "hemi": ""
+  },
+  {
+   "id": 27,
+   "name": "L-PCV",
+   "color": "#3e99df",
+   "label": 27,
+   "hemi": ""
+  },
+  {
+   "id": 28,
+   "name": "L-STV",
+   "color": "#504884",
+   "label": 28,
+   "hemi": ""
+  },
+  {
+   "id": 29,
+   "name": "L-7Pm",
+   "color": "#52b461",
+   "label": 29,
+   "hemi": ""
+  },
+  {
+   "id": 30,
+   "name": "L-7m",
+   "color": "#ceb2d2",
+   "label": 30,
+   "hemi": ""
+  },
+  {
+   "id": 31,
+   "name": "L-POS1",
+   "color": "#fd86d2",
+   "label": 31,
+   "hemi": ""
+  },
+  {
+   "id": 32,
+   "name": "L-23d",
+   "color": "#4f549b",
+   "label": 32,
+   "hemi": ""
+  },
+  {
+   "id": 33,
+   "name": "L-v23ab",
+   "color": "#e2f4a4",
+   "label": 33,
+   "hemi": ""
+  },
+  {
+   "id": 34,
+   "name": "L-d23ab",
+   "color": "#e1fcaa",
+   "label": 34,
+   "hemi": ""
+  },
+  {
+   "id": 35,
+   "name": "L-31pv",
+   "color": "#8c6f22",
+   "label": 35,
+   "hemi": ""
+  },
+  {
+   "id": 36,
+   "name": "L-5m",
+   "color": "#b8b18a",
+   "label": 36,
+   "hemi": ""
+  },
+  {
+   "id": 37,
+   "name": "L-5mv",
+   "color": "#077bca",
+   "label": 37,
+   "hemi": ""
+  },
+  {
+   "id": 38,
+   "name": "L-23c",
+   "color": "#e7c7b0",
+   "label": 38,
+   "hemi": ""
+  },
+  {
+   "id": 39,
+   "name": "L-5L",
+   "color": "#fe5b28",
+   "label": 39,
+   "hemi": ""
+  },
+  {
+   "id": 40,
+   "name": "L-24dd",
+   "color": "#003bec",
+   "label": 40,
+   "hemi": ""
+  },
+  {
+   "id": 41,
+   "name": "L-24dv",
+   "color": "#881b17",
+   "label": 41,
+   "hemi": ""
+  },
+  {
+   "id": 42,
+   "name": "L-7AL",
+   "color": "#9206a2",
+   "label": 42,
+   "hemi": ""
+  },
+  {
+   "id": 43,
+   "name": "L-SCEF",
+   "color": "#f89e0b",
+   "label": 43,
+   "hemi": ""
+  },
+  {
+   "id": 44,
+   "name": "L-6ma",
+   "color": "#ddf385",
+   "label": 44,
+   "hemi": ""
+  },
+  {
+   "id": 45,
+   "name": "L-7Am",
+   "color": "#b87554",
+   "label": 45,
+   "hemi": ""
+  },
+  {
+   "id": 46,
+   "name": "L-7PL",
+   "color": "#751ecd",
+   "label": 46,
+   "hemi": ""
+  },
+  {
+   "id": 47,
+   "name": "L-7PC",
+   "color": "#f1b0aa",
+   "label": 47,
+   "hemi": ""
+  },
+  {
+   "id": 48,
+   "name": "L-LIPv",
+   "color": "#876d6a",
+   "label": 48,
+   "hemi": ""
+  },
+  {
+   "id": 49,
+   "name": "L-VIP",
+   "color": "#8e7d7d",
+   "label": 49,
+   "hemi": ""
+  },
+  {
+   "id": 50,
+   "name": "L-MIP",
+   "color": "#6eacca",
+   "label": 50,
+   "hemi": ""
+  },
+  {
+   "id": 51,
+   "name": "L-1",
+   "color": "#82b0db",
+   "label": 51,
+   "hemi": ""
+  },
+  {
+   "id": 52,
+   "name": "L-2",
+   "color": "#facbc5",
+   "label": 52,
+   "hemi": ""
+  },
+  {
+   "id": 53,
+   "name": "L-3a",
+   "color": "#adbbbd",
+   "label": 53,
+   "hemi": ""
+  },
+  {
+   "id": 54,
+   "name": "L-6d",
+   "color": "#ddd0ff",
+   "label": 54,
+   "hemi": ""
+  },
+  {
+   "id": 55,
+   "name": "L-6mp",
+   "color": "#328882",
+   "label": 55,
+   "hemi": ""
+  },
+  {
+   "id": 56,
+   "name": "L-6v",
+   "color": "#4df4d8",
+   "label": 56,
+   "hemi": ""
+  },
+  {
+   "id": 57,
+   "name": "L-p24pr",
+   "color": "#b892e1",
+   "label": 57,
+   "hemi": ""
+  },
+  {
+   "id": 58,
+   "name": "L-33pr",
+   "color": "#3ee717",
+   "label": 58,
+   "hemi": ""
+  },
+  {
+   "id": 59,
+   "name": "L-a24pr",
+   "color": "#736769",
+   "label": 59,
+   "hemi": ""
+  },
+  {
+   "id": 60,
+   "name": "L-p32pr",
+   "color": "#251df9",
+   "label": 60,
+   "hemi": ""
+  },
+  {
+   "id": 61,
+   "name": "L-a24",
+   "color": "#e9e6c3",
+   "label": 61,
+   "hemi": ""
+  },
+  {
+   "id": 62,
+   "name": "L-d32",
+   "color": "#b4d721",
+   "label": 62,
+   "hemi": ""
+  },
+  {
+   "id": 63,
+   "name": "L-8BM",
+   "color": "#4a960e",
+   "label": 63,
+   "hemi": ""
+  },
+  {
+   "id": 64,
+   "name": "L-p32",
+   "color": "#182081",
+   "label": 64,
+   "hemi": ""
+  },
+  {
+   "id": 65,
+   "name": "L-10r",
+   "color": "#ff4e39",
+   "label": 65,
+   "hemi": ""
+  },
+  {
+   "id": 66,
+   "name": "L-47m",
+   "color": "#32932d",
+   "label": 66,
+   "hemi": ""
+  },
+  {
+   "id": 67,
+   "name": "L-8Av",
+   "color": "#3fe08d",
+   "label": 67,
+   "hemi": ""
+  },
+  {
+   "id": 68,
+   "name": "L-8Ad",
+   "color": "#592170",
+   "label": 68,
+   "hemi": ""
+  },
+  {
+   "id": 69,
+   "name": "L-9m",
+   "color": "#670ff5",
+   "label": 69,
+   "hemi": ""
+  },
+  {
+   "id": 70,
+   "name": "L-8BL",
+   "color": "#0aea7f",
+   "label": 70,
+   "hemi": ""
+  },
+  {
+   "id": 71,
+   "name": "L-9p",
+   "color": "#67fefa",
+   "label": 71,
+   "hemi": ""
+  },
+  {
+   "id": 72,
+   "name": "L-10d",
+   "color": "#851ada",
+   "label": 72,
+   "hemi": ""
+  },
+  {
+   "id": 73,
+   "name": "L-8C",
+   "color": "#912da6",
+   "label": 73,
+   "hemi": ""
+  },
+  {
+   "id": 74,
+   "name": "L-44",
+   "color": "#19d562",
+   "label": 74,
+   "hemi": ""
+  },
+  {
+   "id": 75,
+   "name": "L-45",
+   "color": "#687214",
+   "label": 75,
+   "hemi": ""
+  },
+  {
+   "id": 76,
+   "name": "L-47l",
+   "color": "#027ab4",
+   "label": 76,
+   "hemi": ""
+  },
+  {
+   "id": 77,
+   "name": "L-a47r",
+   "color": "#406595",
+   "label": 77,
+   "hemi": ""
+  },
+  {
+   "id": 78,
+   "name": "L-6r",
+   "color": "#7e9071",
+   "label": 78,
+   "hemi": ""
+  },
+  {
+   "id": 79,
+   "name": "L-IFJa",
+   "color": "#0a4329",
+   "label": 79,
+   "hemi": ""
+  },
+  {
+   "id": 80,
+   "name": "L-IFJp",
+   "color": "#e07177",
+   "label": 80,
+   "hemi": ""
+  },
+  {
+   "id": 81,
+   "name": "L-IFSp",
+   "color": "#646d1b",
+   "label": 81,
+   "hemi": ""
+  },
+  {
+   "id": 82,
+   "name": "L-IFSa",
+   "color": "#c4f7e6",
+   "label": 82,
+   "hemi": ""
+  },
+  {
+   "id": 83,
+   "name": "L-p9-46v",
+   "color": "#92469c",
+   "label": 83,
+   "hemi": ""
+  },
+  {
+   "id": 84,
+   "name": "L-46",
+   "color": "#b3f107",
+   "label": 84,
+   "hemi": ""
+  },
+  {
+   "id": 85,
+   "name": "L-a9-46v",
+   "color": "#81de3d",
+   "label": 85,
+   "hemi": ""
+  },
+  {
+   "id": 86,
+   "name": "L-9-46d",
+   "color": "#5489a6",
+   "label": 86,
+   "hemi": ""
+  },
+  {
+   "id": 87,
+   "name": "L-9a",
+   "color": "#927471",
+   "label": 87,
+   "hemi": ""
+  },
+  {
+   "id": 88,
+   "name": "L-10v",
+   "color": "#1c71fc",
+   "label": 88,
+   "hemi": ""
+  },
+  {
+   "id": 89,
+   "name": "L-a10p",
+   "color": "#24c9e4",
+   "label": 89,
+   "hemi": ""
+  },
+  {
+   "id": 90,
+   "name": "L-10pp",
+   "color": "#dab332",
+   "label": 90,
+   "hemi": ""
+  },
+  {
+   "id": 91,
+   "name": "L-11l",
+   "color": "#94c8ce",
+   "label": 91,
+   "hemi": ""
+  },
+  {
+   "id": 92,
+   "name": "L-13l",
+   "color": "#2a5dd2",
+   "label": 92,
+   "hemi": ""
+  },
+  {
+   "id": 93,
+   "name": "L-OFC",
+   "color": "#37ed83",
+   "label": 93,
+   "hemi": ""
+  },
+  {
+   "id": 94,
+   "name": "L-47s",
+   "color": "#baa147",
+   "label": 94,
+   "hemi": ""
+  },
+  {
+   "id": 95,
+   "name": "L-LIPd",
+   "color": "#8f8004",
+   "label": 95,
+   "hemi": ""
+  },
+  {
+   "id": 96,
+   "name": "L-6a",
+   "color": "#0fdcf7",
+   "label": 96,
+   "hemi": ""
+  },
+  {
+   "id": 97,
+   "name": "L-i6-8",
+   "color": "#f046ef",
+   "label": 97,
+   "hemi": ""
+  },
+  {
+   "id": 98,
+   "name": "L-s6-8",
+   "color": "#545210",
+   "label": 98,
+   "hemi": ""
+  },
+  {
+   "id": 99,
+   "name": "L-43",
+   "color": "#20d953",
+   "label": 99,
+   "hemi": ""
+  },
+  {
+   "id": 100,
+   "name": "L-OP4",
+   "color": "#99491a",
+   "label": 100,
+   "hemi": ""
+  },
+  {
+   "id": 101,
+   "name": "L-OP1",
+   "color": "#e50ca8",
+   "label": 101,
+   "hemi": ""
+  },
+  {
+   "id": 102,
+   "name": "L-OP2-3",
+   "color": "#9f9c1e",
+   "label": 102,
+   "hemi": ""
+  },
+  {
+   "id": 103,
+   "name": "L-52",
+   "color": "#69f411",
+   "label": 103,
+   "hemi": ""
+  },
+  {
+   "id": 104,
+   "name": "L-RI",
+   "color": "#e8c222",
+   "label": 104,
+   "hemi": ""
+  },
+  {
+   "id": 105,
+   "name": "L-PFcm",
+   "color": "#1254d3",
+   "label": 105,
+   "hemi": ""
+  },
+  {
+   "id": 106,
+   "name": "L-PoI2",
+   "color": "#f3453e",
+   "label": 106,
+   "hemi": ""
+  },
+  {
+   "id": 107,
+   "name": "L-TA2",
+   "color": "#b90a92",
+   "label": 107,
+   "hemi": ""
+  },
+  {
+   "id": 108,
+   "name": "L-FOP4",
+   "color": "#173cce",
+   "label": 108,
+   "hemi": ""
+  },
+  {
+   "id": 109,
+   "name": "L-MI",
+   "color": "#fbcd34",
+   "label": 109,
+   "hemi": ""
+  },
+  {
+   "id": 110,
+   "name": "L-Pir",
+   "color": "#07781c",
+   "label": 110,
+   "hemi": ""
+  },
+  {
+   "id": 111,
+   "name": "L-AVI",
+   "color": "#d9c59e",
+   "label": 111,
+   "hemi": ""
+  },
+  {
+   "id": 112,
+   "name": "L-AAIC",
+   "color": "#45a5f2",
+   "label": 112,
+   "hemi": ""
+  },
+  {
+   "id": 113,
+   "name": "L-FOP1",
+   "color": "#b330e9",
+   "label": 113,
+   "hemi": ""
+  },
+  {
+   "id": 114,
+   "name": "L-FOP3",
+   "color": "#746799",
+   "label": 114,
+   "hemi": ""
+  },
+  {
+   "id": 115,
+   "name": "L-FOP2",
+   "color": "#043200",
+   "label": 115,
+   "hemi": ""
+  },
+  {
+   "id": 116,
+   "name": "L-PFt",
+   "color": "#49cd25",
+   "label": 116,
+   "hemi": ""
+  },
+  {
+   "id": 117,
+   "name": "L-AIP",
+   "color": "#6a0955",
+   "label": 117,
+   "hemi": ""
+  },
+  {
+   "id": 118,
+   "name": "L-EC",
+   "color": "#7041b9",
+   "label": 118,
+   "hemi": ""
+  },
+  {
+   "id": 119,
+   "name": "L-PreS",
+   "color": "#6245d3",
+   "label": 119,
+   "hemi": ""
+  },
+  {
+   "id": 120,
+   "name": "L-H",
+   "color": "#188845",
+   "label": 120,
+   "hemi": ""
+  },
+  {
+   "id": 121,
+   "name": "L-ProS",
+   "color": "#db1de4",
+   "label": 121,
+   "hemi": ""
+  },
+  {
+   "id": 122,
+   "name": "L-PeEc",
+   "color": "#b99011",
+   "label": 122,
+   "hemi": ""
+  },
+  {
+   "id": 123,
+   "name": "L-STGa",
+   "color": "#3742d6",
+   "label": 123,
+   "hemi": ""
+  },
+  {
+   "id": 124,
+   "name": "L-PBelt",
+   "color": "#3443b8",
+   "label": 124,
+   "hemi": ""
+  },
+  {
+   "id": 125,
+   "name": "L-A5",
+   "color": "#1c18de",
+   "label": 125,
+   "hemi": ""
+  },
+  {
+   "id": 126,
+   "name": "L-PHA1",
+   "color": "#0e08bb",
+   "label": 126,
+   "hemi": ""
+  },
+  {
+   "id": 127,
+   "name": "L-PHA3",
+   "color": "#28b807",
+   "label": 127,
+   "hemi": ""
+  },
+  {
+   "id": 128,
+   "name": "L-STSda",
+   "color": "#b124fc",
+   "label": 128,
+   "hemi": ""
+  },
+  {
+   "id": 129,
+   "name": "L-STSdp",
+   "color": "#4319dd",
+   "label": 129,
+   "hemi": ""
+  },
+  {
+   "id": 130,
+   "name": "L-STSvp",
+   "color": "#8410d7",
+   "label": 130,
+   "hemi": ""
+  },
+  {
+   "id": 131,
+   "name": "L-TGd",
+   "color": "#9e0b88",
+   "label": 131,
+   "hemi": ""
+  },
+  {
+   "id": 132,
+   "name": "L-TE1a",
+   "color": "#e518ab",
+   "label": 132,
+   "hemi": ""
+  },
+  {
+   "id": 133,
+   "name": "L-TE1p",
+   "color": "#708286",
+   "label": 133,
+   "hemi": ""
+  },
+  {
+   "id": 134,
+   "name": "L-TE2a",
+   "color": "#2841c8",
+   "label": 134,
+   "hemi": ""
+  },
+  {
+   "id": 135,
+   "name": "L-TF",
+   "color": "#a44fc6",
+   "label": 135,
+   "hemi": ""
+  },
+  {
+   "id": 136,
+   "name": "L-TE2p",
+   "color": "#9ebb07",
+   "label": 136,
+   "hemi": ""
+  },
+  {
+   "id": 137,
+   "name": "L-PHT",
+   "color": "#cab65b",
+   "label": 137,
+   "hemi": ""
+  },
+  {
+   "id": 138,
+   "name": "L-PH",
+   "color": "#3cf053",
+   "label": 138,
+   "hemi": ""
+  },
+  {
+   "id": 139,
+   "name": "L-TPOJ1",
+   "color": "#62592e",
+   "label": 139,
+   "hemi": ""
+  },
+  {
+   "id": 140,
+   "name": "L-TPOJ2",
+   "color": "#ed3040",
+   "label": 140,
+   "hemi": ""
+  },
+  {
+   "id": 141,
+   "name": "L-TPOJ3",
+   "color": "#a24047",
+   "label": 141,
+   "hemi": ""
+  },
+  {
+   "id": 142,
+   "name": "L-DVT",
+   "color": "#1a6ed0",
+   "label": 142,
+   "hemi": ""
+  },
+  {
+   "id": 143,
+   "name": "L-PGp",
+   "color": "#7a9d51",
+   "label": 143,
+   "hemi": ""
+  },
+  {
+   "id": 144,
+   "name": "L-IP2",
+   "color": "#139a20",
+   "label": 144,
+   "hemi": ""
+  },
+  {
+   "id": 145,
+   "name": "L-IP1",
+   "color": "#06a3cc",
+   "label": 145,
+   "hemi": ""
+  },
+  {
+   "id": 146,
+   "name": "L-IP0",
+   "color": "#fd4461",
+   "label": 146,
+   "hemi": ""
+  },
+  {
+   "id": 147,
+   "name": "L-PFop",
+   "color": "#db597e",
+   "label": 147,
+   "hemi": ""
+  },
+  {
+   "id": 148,
+   "name": "L-PF",
+   "color": "#977864",
+   "label": 148,
+   "hemi": ""
+  },
+  {
+   "id": 149,
+   "name": "L-PFm",
+   "color": "#f33d59",
+   "label": 149,
+   "hemi": ""
+  },
+  {
+   "id": 150,
+   "name": "L-PGi",
+   "color": "#c91cb4",
+   "label": 150,
+   "hemi": ""
+  },
+  {
+   "id": 151,
+   "name": "L-PGs",
+   "color": "#7db479",
+   "label": 151,
+   "hemi": ""
+  },
+  {
+   "id": 152,
+   "name": "L-V6A",
+   "color": "#979b22",
+   "label": 152,
+   "hemi": ""
+  },
+  {
+   "id": 153,
+   "name": "L-VMV1",
+   "color": "#421022",
+   "label": 153,
+   "hemi": ""
+  },
+  {
+   "id": 154,
+   "name": "L-VMV3",
+   "color": "#1fc11b",
+   "label": 154,
+   "hemi": ""
+  },
+  {
+   "id": 155,
+   "name": "L-PHA2",
+   "color": "#988f62",
+   "label": 155,
+   "hemi": ""
+  },
+  {
+   "id": 156,
+   "name": "L-V4t",
+   "color": "#ed98aa",
+   "label": 156,
+   "hemi": ""
+  },
+  {
+   "id": 157,
+   "name": "L-FST",
+   "color": "#96bc02",
+   "label": 157,
+   "hemi": ""
+  },
+  {
+   "id": 158,
+   "name": "L-V3CD",
+   "color": "#3de340",
+   "label": 158,
+   "hemi": ""
+  },
+  {
+   "id": 159,
+   "name": "L-LO3",
+   "color": "#5c28ff",
+   "label": 159,
+   "hemi": ""
+  },
+  {
+   "id": 160,
+   "name": "L-VMV2",
+   "color": "#c1e87a",
+   "label": 160,
+   "hemi": ""
+  },
+  {
+   "id": 161,
+   "name": "L-31pd",
+   "color": "#0be2fa",
+   "label": 161,
+   "hemi": ""
+  },
+  {
+   "id": 162,
+   "name": "L-31a",
+   "color": "#aab78b",
+   "label": 162,
+   "hemi": ""
+  },
+  {
+   "id": 163,
+   "name": "L-VVC",
+   "color": "#aa97d9",
+   "label": 163,
+   "hemi": ""
+  },
+  {
+   "id": 164,
+   "name": "L-25",
+   "color": "#db38ec",
+   "label": 164,
+   "hemi": ""
+  },
+  {
+   "id": 165,
+   "name": "L-s32",
+   "color": "#8f69dd",
+   "label": 165,
+   "hemi": ""
+  },
+  {
+   "id": 166,
+   "name": "L-pOFC",
+   "color": "#1cdb2c",
+   "label": 166,
+   "hemi": ""
+  },
+  {
+   "id": 167,
+   "name": "L-PoI1",
+   "color": "#4d914a",
+   "label": 167,
+   "hemi": ""
+  },
+  {
+   "id": 168,
+   "name": "L-Ig",
+   "color": "#6ca951",
+   "label": 168,
+   "hemi": ""
+  },
+  {
+   "id": 169,
+   "name": "L-FOP5",
+   "color": "#aa129a",
+   "label": 169,
+   "hemi": ""
+  },
+  {
+   "id": 170,
+   "name": "L-p10p",
+   "color": "#1d4cbf",
+   "label": 170,
+   "hemi": ""
+  },
+  {
+   "id": 171,
+   "name": "L-p47r",
+   "color": "#ffd284",
+   "label": 171,
+   "hemi": ""
+  },
+  {
+   "id": 172,
+   "name": "L-TGv",
+   "color": "#bbda5c",
+   "label": 172,
+   "hemi": ""
+  },
+  {
+   "id": 173,
+   "name": "L-MBelt",
+   "color": "#edcd65",
+   "label": 173,
+   "hemi": ""
+  },
+  {
+   "id": 174,
+   "name": "L-LBelt",
+   "color": "#1d85d6",
+   "label": 174,
+   "hemi": ""
+  },
+  {
+   "id": 175,
+   "name": "L-A4",
+   "color": "#0e6877",
+   "label": 175,
+   "hemi": ""
+  },
+  {
+   "id": 176,
+   "name": "L-STSva",
+   "color": "#0eb4c8",
+   "label": 176,
+   "hemi": ""
+  },
+  {
+   "id": 177,
+   "name": "L-TE1m",
+   "color": "#f2d190",
+   "label": 177,
+   "hemi": ""
+  },
+  {
+   "id": 178,
+   "name": "L-PI",
+   "color": "#900d4f",
+   "label": 178,
+   "hemi": ""
+  },
+  {
+   "id": 179,
+   "name": "L-a32pr",
+   "color": "#b28a5f",
+   "label": 179,
+   "hemi": ""
+  },
+  {
+   "id": 180,
+   "name": "L-p24",
+   "color": "#23b448",
+   "label": 180,
+   "hemi": ""
+  },
+  {
+   "id": 1001,
+   "name": "R-V1",
+   "color": "#d423c9",
+   "label": 1001,
+   "hemi": ""
+  },
+  {
+   "id": 1002,
+   "name": "R-MST",
+   "color": "#948e8a",
+   "label": 1002,
+   "hemi": ""
+  },
+  {
+   "id": 1003,
+   "name": "R-V6",
+   "color": "#bc15e0",
+   "label": 1003,
+   "hemi": ""
+  },
+  {
+   "id": 1004,
+   "name": "R-V2",
+   "color": "#7b0a47",
+   "label": 1004,
+   "hemi": ""
+  },
+  {
+   "id": 1005,
+   "name": "R-V3",
+   "color": "#9083a1",
+   "label": 1005,
+   "hemi": ""
+  },
+  {
+   "id": 1006,
+   "name": "R-V4",
+   "color": "#bbd31a",
+   "label": 1006,
+   "hemi": ""
+  },
+  {
+   "id": 1007,
+   "name": "R-V8",
+   "color": "#41eb57",
+   "label": 1007,
+   "hemi": ""
+  },
+  {
+   "id": 1008,
+   "name": "R-4",
+   "color": "#ecf6cc",
+   "label": 1008,
+   "hemi": ""
+  },
+  {
+   "id": 1009,
+   "name": "R-3b",
+   "color": "#bedb71",
+   "label": 1009,
+   "hemi": ""
+  },
+  {
+   "id": 1010,
+   "name": "R-FEF",
+   "color": "#8d5091",
+   "label": 1010,
+   "hemi": ""
+  },
+  {
+   "id": 1011,
+   "name": "R-PEF",
+   "color": "#f898ef",
+   "label": 1011,
+   "hemi": ""
+  },
+  {
+   "id": 1012,
+   "name": "R-55b",
+   "color": "#052311",
+   "label": 1012,
+   "hemi": ""
+  },
+  {
+   "id": 1013,
+   "name": "R-V3A",
+   "color": "#54c8b7",
+   "label": 1013,
+   "hemi": ""
+  },
+  {
+   "id": 1014,
+   "name": "R-RSC",
+   "color": "#bb4cf0",
+   "label": 1014,
+   "hemi": ""
+  },
+  {
+   "id": 1015,
+   "name": "R-POS2",
+   "color": "#6a9d0c",
+   "label": 1015,
+   "hemi": ""
+  },
+  {
+   "id": 1016,
+   "name": "R-V7",
+   "color": "#941b1f",
+   "label": 1016,
+   "hemi": ""
+  },
+  {
+   "id": 1017,
+   "name": "R-IPS1",
+   "color": "#64fcaf",
+   "label": 1017,
+   "hemi": ""
+  },
+  {
+   "id": 1018,
+   "name": "R-FFC",
+   "color": "#7da720",
+   "label": 1018,
+   "hemi": ""
+  },
+  {
+   "id": 1019,
+   "name": "R-V3B",
+   "color": "#d30aef",
+   "label": 1019,
+   "hemi": ""
+  },
+  {
+   "id": 1020,
+   "name": "R-LO1",
+   "color": "#f3a49f",
+   "label": 1020,
+   "hemi": ""
+  },
+  {
+   "id": 1021,
+   "name": "R-LO2",
+   "color": "#48ea0f",
+   "label": 1021,
+   "hemi": ""
+  },
+  {
+   "id": 1022,
+   "name": "R-PIT",
+   "color": "#aaeade",
+   "label": 1022,
+   "hemi": ""
+  },
+  {
+   "id": 1023,
+   "name": "R-MT",
+   "color": "#97467e",
+   "label": 1023,
+   "hemi": ""
+  },
+  {
+   "id": 1024,
+   "name": "R-A1",
+   "color": "#9e8d72",
+   "label": 1024,
+   "hemi": ""
+  },
+  {
+   "id": 1025,
+   "name": "R-PSL",
+   "color": "#6ec145",
+   "label": 1025,
+   "hemi": ""
+  },
+  {
+   "id": 1026,
+   "name": "R-SFL",
+   "color": "#c4a6bd",
+   "label": 1026,
+   "hemi": ""
+  },
+  {
+   "id": 1027,
+   "name": "R-PCV",
+   "color": "#ab9ee0",
+   "label": 1027,
+   "hemi": ""
+  },
+  {
+   "id": 1028,
+   "name": "R-STV",
+   "color": "#e11cd4",
+   "label": 1028,
+   "hemi": ""
+  },
+  {
+   "id": 1029,
+   "name": "R-7Pm",
+   "color": "#5c35af",
+   "label": 1029,
+   "hemi": ""
+  },
+  {
+   "id": 1030,
+   "name": "R-7m",
+   "color": "#f17136",
+   "label": 1030,
+   "hemi": ""
+  },
+  {
+   "id": 1031,
+   "name": "R-POS1",
+   "color": "#681c39",
+   "label": 1031,
+   "hemi": ""
+  },
+  {
+   "id": 1032,
+   "name": "R-23d",
+   "color": "#a072b4",
+   "label": 1032,
+   "hemi": ""
+  },
+  {
+   "id": 1033,
+   "name": "R-v23ab",
+   "color": "#64958b",
+   "label": 1033,
+   "hemi": ""
+  },
+  {
+   "id": 1034,
+   "name": "R-d23ab",
+   "color": "#a95026",
+   "label": 1034,
+   "hemi": ""
+  },
+  {
+   "id": 1035,
+   "name": "R-31pv",
+   "color": "#ff669f",
+   "label": 1035,
+   "hemi": ""
+  },
+  {
+   "id": 1036,
+   "name": "R-5m",
+   "color": "#875f74",
+   "label": 1036,
+   "hemi": ""
+  },
+  {
+   "id": 1037,
+   "name": "R-5mv",
+   "color": "#d44e96",
+   "label": 1037,
+   "hemi": ""
+  },
+  {
+   "id": 1038,
+   "name": "R-23c",
+   "color": "#233b83",
+   "label": 1038,
+   "hemi": ""
+  },
+  {
+   "id": 1039,
+   "name": "R-5L",
+   "color": "#563eaa",
+   "label": 1039,
+   "hemi": ""
+  },
+  {
+   "id": 1040,
+   "name": "R-24dd",
+   "color": "#ef600b",
+   "label": 1040,
+   "hemi": ""
+  },
+  {
+   "id": 1041,
+   "name": "R-24dv",
+   "color": "#153cc6",
+   "label": 1041,
+   "hemi": ""
+  },
+  {
+   "id": 1042,
+   "name": "R-7AL",
+   "color": "#25a306",
+   "label": 1042,
+   "hemi": ""
+  },
+  {
+   "id": 1043,
+   "name": "R-SCEF",
+   "color": "#2608c4",
+   "label": 1043,
+   "hemi": ""
+  },
+  {
+   "id": 1044,
+   "name": "R-6ma",
+   "color": "#80966b",
+   "label": 1044,
+   "hemi": ""
+  },
+  {
+   "id": 1045,
+   "name": "R-7Am",
+   "color": "#39a4bd",
+   "label": 1045,
+   "hemi": ""
+  },
+  {
+   "id": 1046,
+   "name": "R-7PL",
+   "color": "#2d94b0",
+   "label": 1046,
+   "hemi": ""
+  },
+  {
+   "id": 1047,
+   "name": "R-7PC",
+   "color": "#1dde51",
+   "label": 1047,
+   "hemi": ""
+  },
+  {
+   "id": 1048,
+   "name": "R-LIPv",
+   "color": "#a78616",
+   "label": 1048,
+   "hemi": ""
+  },
+  {
+   "id": 1049,
+   "name": "R-VIP",
+   "color": "#cafb1c",
+   "label": 1049,
+   "hemi": ""
+  },
+  {
+   "id": 1050,
+   "name": "R-MIP",
+   "color": "#6eacca",
+   "label": 1050,
+   "hemi": ""
+  },
+  {
+   "id": 1051,
+   "name": "R-1",
+   "color": "#dc77a0",
+   "label": 1051,
+   "hemi": ""
+  },
+  {
+   "id": 1052,
+   "name": "R-2",
+   "color": "#cf6829",
+   "label": 1052,
+   "hemi": ""
+  },
+  {
+   "id": 1053,
+   "name": "R-3a",
+   "color": "#d965f1",
+   "label": 1053,
+   "hemi": ""
+  },
+  {
+   "id": 1054,
+   "name": "R-6d",
+   "color": "#669359",
+   "label": 1054,
+   "hemi": ""
+  },
+  {
+   "id": 1055,
+   "name": "R-6mp",
+   "color": "#5e9cea",
+   "label": 1055,
+   "hemi": ""
+  },
+  {
+   "id": 1056,
+   "name": "R-6v",
+   "color": "#db756a",
+   "label": 1056,
+   "hemi": ""
+  },
+  {
+   "id": 1057,
+   "name": "R-p24pr",
+   "color": "#941af8",
+   "label": 1057,
+   "hemi": ""
+  },
+  {
+   "id": 1058,
+   "name": "R-33pr",
+   "color": "#ffab83",
+   "label": 1058,
+   "hemi": ""
+  },
+  {
+   "id": 1059,
+   "name": "R-a24pr",
+   "color": "#3fe693",
+   "label": 1059,
+   "hemi": ""
+  },
+  {
+   "id": 1060,
+   "name": "R-p32pr",
+   "color": "#117c00",
+   "label": 1060,
+   "hemi": ""
+  },
+  {
+   "id": 1061,
+   "name": "R-a24",
+   "color": "#ee9ed8",
+   "label": 1061,
+   "hemi": ""
+  },
+  {
+   "id": 1062,
+   "name": "R-d32",
+   "color": "#7cf582",
+   "label": 1062,
+   "hemi": ""
+  },
+  {
+   "id": 1063,
+   "name": "R-8BM",
+   "color": "#eec016",
+   "label": 1063,
+   "hemi": ""
+  },
+  {
+   "id": 1064,
+   "name": "R-p32",
+   "color": "#f3920a",
+   "label": 1064,
+   "hemi": ""
+  },
+  {
+   "id": 1065,
+   "name": "R-10r",
+   "color": "#141222",
+   "label": 1065,
+   "hemi": ""
+  },
+  {
+   "id": 1066,
+   "name": "R-47m",
+   "color": "#57d531",
+   "label": 1066,
+   "hemi": ""
+  },
+  {
+   "id": 1067,
+   "name": "R-8Av",
+   "color": "#e6855f",
+   "label": 1067,
+   "hemi": ""
+  },
+  {
+   "id": 1068,
+   "name": "R-8Ad",
+   "color": "#d860fe",
+   "label": 1068,
+   "hemi": ""
+  },
+  {
+   "id": 1069,
+   "name": "R-9m",
+   "color": "#36f18d",
+   "label": 1069,
+   "hemi": ""
+  },
+  {
+   "id": 1070,
+   "name": "R-8BL",
+   "color": "#f56e28",
+   "label": 1070,
+   "hemi": ""
+  },
+  {
+   "id": 1071,
+   "name": "R-9p",
+   "color": "#f53172",
+   "label": 1071,
+   "hemi": ""
+  },
+  {
+   "id": 1072,
+   "name": "R-10d",
+   "color": "#de08fb",
+   "label": 1072,
+   "hemi": ""
+  },
+  {
+   "id": 1073,
+   "name": "R-8C",
+   "color": "#7f1079",
+   "label": 1073,
+   "hemi": ""
+  },
+  {
+   "id": 1074,
+   "name": "R-44",
+   "color": "#acd24e",
+   "label": 1074,
+   "hemi": ""
+  },
+  {
+   "id": 1075,
+   "name": "R-45",
+   "color": "#1e56e3",
+   "label": 1075,
+   "hemi": ""
+  },
+  {
+   "id": 1076,
+   "name": "R-47l",
+   "color": "#46ea22",
+   "label": 1076,
+   "hemi": ""
+  },
+  {
+   "id": 1077,
+   "name": "R-a47r",
+   "color": "#959bec",
+   "label": 1077,
+   "hemi": ""
+  },
+  {
+   "id": 1078,
+   "name": "R-6r",
+   "color": "#bccb77",
+   "label": 1078,
+   "hemi": ""
+  },
+  {
+   "id": 1079,
+   "name": "R-IFJa",
+   "color": "#dc7f06",
+   "label": 1079,
+   "hemi": ""
+  },
+  {
+   "id": 1080,
+   "name": "R-IFJp",
+   "color": "#ce7533",
+   "label": 1080,
+   "hemi": ""
+  },
+  {
+   "id": 1081,
+   "name": "R-IFSp",
+   "color": "#ca868d",
+   "label": 1081,
+   "hemi": ""
+  },
+  {
+   "id": 1082,
+   "name": "R-IFSa",
+   "color": "#4496a7",
+   "label": 1082,
+   "hemi": ""
+  },
+  {
+   "id": 1083,
+   "name": "R-p9-46v",
+   "color": "#fa03fd",
+   "label": 1083,
+   "hemi": ""
+  },
+  {
+   "id": 1084,
+   "name": "R-46",
+   "color": "#9e3bf8",
+   "label": 1084,
+   "hemi": ""
+  },
+  {
+   "id": 1085,
+   "name": "R-a9-46v",
+   "color": "#0cbc7d",
+   "label": 1085,
+   "hemi": ""
+  },
+  {
+   "id": 1086,
+   "name": "R-9-46d",
+   "color": "#3e42d7",
+   "label": 1086,
+   "hemi": ""
+  },
+  {
+   "id": 1087,
+   "name": "R-9a",
+   "color": "#e39a3e",
+   "label": 1087,
+   "hemi": ""
+  },
+  {
+   "id": 1088,
+   "name": "R-10v",
+   "color": "#5d1cac",
+   "label": 1088,
+   "hemi": ""
+  },
+  {
+   "id": 1089,
+   "name": "R-a10p",
+   "color": "#488b8c",
+   "label": 1089,
+   "hemi": ""
+  },
+  {
+   "id": 1090,
+   "name": "R-10pp",
+   "color": "#b94403",
+   "label": 1090,
+   "hemi": ""
+  },
+  {
+   "id": 1091,
+   "name": "R-11l",
+   "color": "#7c371f",
+   "label": 1091,
+   "hemi": ""
+  },
+  {
+   "id": 1092,
+   "name": "R-13l",
+   "color": "#85f97e",
+   "label": 1092,
+   "hemi": ""
+  },
+  {
+   "id": 1093,
+   "name": "R-OFC",
+   "color": "#49d0a8",
+   "label": 1093,
+   "hemi": ""
+  },
+  {
+   "id": 1094,
+   "name": "R-47s",
+   "color": "#6e6a06",
+   "label": 1094,
+   "hemi": ""
+  },
+  {
+   "id": 1095,
+   "name": "R-LIPd",
+   "color": "#9d2c7a",
+   "label": 1095,
+   "hemi": ""
+  },
+  {
+   "id": 1096,
+   "name": "R-6a",
+   "color": "#ec9227",
+   "label": 1096,
+   "hemi": ""
+  },
+  {
+   "id": 1097,
+   "name": "R-i6-8",
+   "color": "#7646c2",
+   "label": 1097,
+   "hemi": ""
+  },
+  {
+   "id": 1098,
+   "name": "R-s6-8",
+   "color": "#d98486",
+   "label": 1098,
+   "hemi": ""
+  },
+  {
+   "id": 1099,
+   "name": "R-43",
+   "color": "#4baa29",
+   "label": 1099,
+   "hemi": ""
+  },
+  {
+   "id": 1100,
+   "name": "R-OP4",
+   "color": "#8a19d0",
+   "label": 1100,
+   "hemi": ""
+  },
+  {
+   "id": 1101,
+   "name": "R-OP1",
+   "color": "#c01bda",
+   "label": 1101,
+   "hemi": ""
+  },
+  {
+   "id": 1102,
+   "name": "R-OP2-3",
+   "color": "#5e0ff0",
+   "label": 1102,
+   "hemi": ""
+  },
+  {
+   "id": 1103,
+   "name": "R-52",
+   "color": "#8a22b4",
+   "label": 1103,
+   "hemi": ""
+  },
+  {
+   "id": 1104,
+   "name": "R-RI",
+   "color": "#433794",
+   "label": 1104,
+   "hemi": ""
+  },
+  {
+   "id": 1105,
+   "name": "R-PFcm",
+   "color": "#16d4fd",
+   "label": 1105,
+   "hemi": ""
+  },
+  {
+   "id": 1106,
+   "name": "R-PoI2",
+   "color": "#e51669",
+   "label": 1106,
+   "hemi": ""
+  },
+  {
+   "id": 1107,
+   "name": "R-TA2",
+   "color": "#73fa23",
+   "label": 1107,
+   "hemi": ""
+  },
+  {
+   "id": 1108,
+   "name": "R-FOP4",
+   "color": "#e14cbc",
+   "label": 1108,
+   "hemi": ""
+  },
+  {
+   "id": 1109,
+   "name": "R-MI",
+   "color": "#e1dcd6",
+   "label": 1109,
+   "hemi": ""
+  },
+  {
+   "id": 1110,
+   "name": "R-Pir",
+   "color": "#9e64cb",
+   "label": 1110,
+   "hemi": ""
+  },
+  {
+   "id": 1111,
+   "name": "R-AVI",
+   "color": "#c6ded3",
+   "label": 1111,
+   "hemi": ""
+  },
+  {
+   "id": 1112,
+   "name": "R-AAIC",
+   "color": "#202a8a",
+   "label": 1112,
+   "hemi": ""
+  },
+  {
+   "id": 1113,
+   "name": "R-FOP1",
+   "color": "#b65f41",
+   "label": 1113,
+   "hemi": ""
+  },
+  {
+   "id": 1114,
+   "name": "R-FOP3",
+   "color": "#d0f622",
+   "label": 1114,
+   "hemi": ""
+  },
+  {
+   "id": 1115,
+   "name": "R-FOP2",
+   "color": "#324eed",
+   "label": 1115,
+   "hemi": ""
+  },
+  {
+   "id": 1116,
+   "name": "R-PFt",
+   "color": "#3cf8bf",
+   "label": 1116,
+   "hemi": ""
+  },
+  {
+   "id": 1117,
+   "name": "R-AIP",
+   "color": "#e449a1",
+   "label": 1117,
+   "hemi": ""
+  },
+  {
+   "id": 1118,
+   "name": "R-EC",
+   "color": "#b57cca",
+   "label": 1118,
+   "hemi": ""
+  },
+  {
+   "id": 1119,
+   "name": "R-PreS",
+   "color": "#729c9d",
+   "label": 1119,
+   "hemi": ""
+  },
+  {
+   "id": 1120,
+   "name": "R-H",
+   "color": "#5260b6",
+   "label": 1120,
+   "hemi": ""
+  },
+  {
+   "id": 1121,
+   "name": "R-ProS",
+   "color": "#556215",
+   "label": 1121,
+   "hemi": ""
+  },
+  {
+   "id": 1122,
+   "name": "R-PeEc",
+   "color": "#716fde",
+   "label": 1122,
+   "hemi": ""
+  },
+  {
+   "id": 1123,
+   "name": "R-STGa",
+   "color": "#4c3df8",
+   "label": 1123,
+   "hemi": ""
+  },
+  {
+   "id": 1124,
+   "name": "R-PBelt",
+   "color": "#8f08e1",
+   "label": 1124,
+   "hemi": ""
+  },
+  {
+   "id": 1125,
+   "name": "R-A5",
+   "color": "#4b4e62",
+   "label": 1125,
+   "hemi": ""
+  },
+  {
+   "id": 1126,
+   "name": "R-PHA1",
+   "color": "#eacf39",
+   "label": 1126,
+   "hemi": ""
+  },
+  {
+   "id": 1127,
+   "name": "R-PHA3",
+   "color": "#c81f84",
+   "label": 1127,
+   "hemi": ""
+  },
+  {
+   "id": 1128,
+   "name": "R-STSda",
+   "color": "#2df9bd",
+   "label": 1128,
+   "hemi": ""
+  },
+  {
+   "id": 1129,
+   "name": "R-STSdp",
+   "color": "#4e671f",
+   "label": 1129,
+   "hemi": ""
+  },
+  {
+   "id": 1130,
+   "name": "R-STSvp",
+   "color": "#64c14a",
+   "label": 1130,
+   "hemi": ""
+  },
+  {
+   "id": 1131,
+   "name": "R-TGd",
+   "color": "#d50409",
+   "label": 1131,
+   "hemi": ""
+  },
+  {
+   "id": 1132,
+   "name": "R-TE1a",
+   "color": "#573b1c",
+   "label": 1132,
+   "hemi": ""
+  },
+  {
+   "id": 1133,
+   "name": "R-TE1p",
+   "color": "#dcdb37",
+   "label": 1133,
+   "hemi": ""
+  },
+  {
+   "id": 1134,
+   "name": "R-TE2a",
+   "color": "#843f8c",
+   "label": 1134,
+   "hemi": ""
+  },
+  {
+   "id": 1135,
+   "name": "R-TF",
+   "color": "#c24b06",
+   "label": 1135,
+   "hemi": ""
+  },
+  {
+   "id": 1136,
+   "name": "R-TE2p",
+   "color": "#bddb69",
+   "label": 1136,
+   "hemi": ""
+  },
+  {
+   "id": 1137,
+   "name": "R-PHT",
+   "color": "#a49062",
+   "label": 1137,
+   "hemi": ""
+  },
+  {
+   "id": 1138,
+   "name": "R-PH",
+   "color": "#bd2600",
+   "label": 1138,
+   "hemi": ""
+  },
+  {
+   "id": 1139,
+   "name": "R-TPOJ1",
+   "color": "#679c99",
+   "label": 1139,
+   "hemi": ""
+  },
+  {
+   "id": 1140,
+   "name": "R-TPOJ2",
+   "color": "#224aaa",
+   "label": 1140,
+   "hemi": ""
+  },
+  {
+   "id": 1141,
+   "name": "R-TPOJ3",
+   "color": "#91cea3",
+   "label": 1141,
+   "hemi": ""
+  },
+  {
+   "id": 1142,
+   "name": "R-DVT",
+   "color": "#ea2c5c",
+   "label": 1142,
+   "hemi": ""
+  },
+  {
+   "id": 1143,
+   "name": "R-PGp",
+   "color": "#3df6b6",
+   "label": 1143,
+   "hemi": ""
+  },
+  {
+   "id": 1144,
+   "name": "R-IP2",
+   "color": "#93ba4c",
+   "label": 1144,
+   "hemi": ""
+  },
+  {
+   "id": 1145,
+   "name": "R-IP1",
+   "color": "#025d7d",
+   "label": 1145,
+   "hemi": ""
+  },
+  {
+   "id": 1146,
+   "name": "R-IP0",
+   "color": "#3f9941",
+   "label": 1146,
+   "hemi": ""
+  },
+  {
+   "id": 1147,
+   "name": "R-PFop",
+   "color": "#f1303c",
+   "label": 1147,
+   "hemi": ""
+  },
+  {
+   "id": 1148,
+   "name": "R-PF",
+   "color": "#a929e2",
+   "label": 1148,
+   "hemi": ""
+  },
+  {
+   "id": 1149,
+   "name": "R-PFm",
+   "color": "#c084a7",
+   "label": 1149,
+   "hemi": ""
+  },
+  {
+   "id": 1150,
+   "name": "R-PGi",
+   "color": "#a4ef71",
+   "label": 1150,
+   "hemi": ""
+  },
+  {
+   "id": 1151,
+   "name": "R-PGs",
+   "color": "#1595dc",
+   "label": 1151,
+   "hemi": ""
+  },
+  {
+   "id": 1152,
+   "name": "R-V6A",
+   "color": "#f07a05",
+   "label": 1152,
+   "hemi": ""
+  },
+  {
+   "id": 1153,
+   "name": "R-VMV1",
+   "color": "#99e484",
+   "label": 1153,
+   "hemi": ""
+  },
+  {
+   "id": 1154,
+   "name": "R-VMV3",
+   "color": "#1b63a2",
+   "label": 1154,
+   "hemi": ""
+  },
+  {
+   "id": 1155,
+   "name": "R-PHA2",
+   "color": "#013da2",
+   "label": 1155,
+   "hemi": ""
+  },
+  {
+   "id": 1156,
+   "name": "R-V4t",
+   "color": "#b19c09",
+   "label": 1156,
+   "hemi": ""
+  },
+  {
+   "id": 1157,
+   "name": "R-FST",
+   "color": "#94ed7b",
+   "label": 1157,
+   "hemi": ""
+  },
+  {
+   "id": 1158,
+   "name": "R-V3CD",
+   "color": "#29d10a",
+   "label": 1158,
+   "hemi": ""
+  },
+  {
+   "id": 1159,
+   "name": "R-LO3",
+   "color": "#b10526",
+   "label": 1159,
+   "hemi": ""
+  },
+  {
+   "id": 1160,
+   "name": "R-VMV2",
+   "color": "#e573e5",
+   "label": 1160,
+   "hemi": ""
+  },
+  {
+   "id": 1161,
+   "name": "R-31pd",
+   "color": "#4f8218",
+   "label": 1161,
+   "hemi": ""
+  },
+  {
+   "id": 1162,
+   "name": "R-31a",
+   "color": "#48316b",
+   "label": 1162,
+   "hemi": ""
+  },
+  {
+   "id": 1163,
+   "name": "R-VVC",
+   "color": "#6a39b7",
+   "label": 1163,
+   "hemi": ""
+  },
+  {
+   "id": 1164,
+   "name": "R-25",
+   "color": "#10d6c5",
+   "label": 1164,
+   "hemi": ""
+  },
+  {
+   "id": 1165,
+   "name": "R-s32",
+   "color": "#451a57",
+   "label": 1165,
+   "hemi": ""
+  },
+  {
+   "id": 1166,
+   "name": "R-pOFC",
+   "color": "#f5e6ef",
+   "label": 1166,
+   "hemi": ""
+  },
+  {
+   "id": 1167,
+   "name": "R-PoI1",
+   "color": "#0d1dc3",
+   "label": 1167,
+   "hemi": ""
+  },
+  {
+   "id": 1168,
+   "name": "R-Ig",
+   "color": "#fa77e0",
+   "label": 1168,
+   "hemi": ""
+  },
+  {
+   "id": 1169,
+   "name": "R-FOP5",
+   "color": "#39b825",
+   "label": 1169,
+   "hemi": ""
+  },
+  {
+   "id": 1170,
+   "name": "R-p10p",
+   "color": "#5d5761",
+   "label": 1170,
+   "hemi": ""
+  },
+  {
+   "id": 1171,
+   "name": "R-p47r",
+   "color": "#c25a3a",
+   "label": 1171,
+   "hemi": ""
+  },
+  {
+   "id": 1172,
+   "name": "R-TGv",
+   "color": "#612444",
+   "label": 1172,
+   "hemi": ""
+  },
+  {
+   "id": 1173,
+   "name": "R-MBelt",
+   "color": "#865de1",
+   "label": 1173,
+   "hemi": ""
+  },
+  {
+   "id": 1174,
+   "name": "R-LBelt",
+   "color": "#8dde94",
+   "label": 1174,
+   "hemi": ""
+  },
+  {
+   "id": 1175,
+   "name": "R-A4",
+   "color": "#ceb923",
+   "label": 1175,
+   "hemi": ""
+  },
+  {
+   "id": 1176,
+   "name": "R-STSva",
+   "color": "#b2e0a7",
+   "label": 1176,
+   "hemi": ""
+  },
+  {
+   "id": 1177,
+   "name": "R-TE1m",
+   "color": "#0bbcf6",
+   "label": 1177,
+   "hemi": ""
+  },
+  {
+   "id": 1178,
+   "name": "R-PI",
+   "color": "#b8477b",
+   "label": 1178,
+   "hemi": ""
+  },
+  {
+   "id": 1179,
+   "name": "R-a32pr",
+   "color": "#fd97a7",
+   "label": 1179,
+   "hemi": ""
+  },
+  {
+   "id": 1180,
+   "name": "R-p24",
+   "color": "#3c3800",
+   "label": 1180,
+   "hemi": ""
+  }
+ ],
+ "url": "/api/guide/labels?atlas=MNI_Glasser_HCP_v1.0.nii.gz&guide=mni"
+}

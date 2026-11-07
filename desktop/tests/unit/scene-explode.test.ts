@@ -79,11 +79,22 @@ describe("explodedPositions / explodeStage", () => {
 
 describe("explodeOffered", () => {
   it("is offered on the MNI template with a labelled atlas, and nowhere else", () => {
-    expect(explodeOffered("mni", null, true)).toBe(true);
-    expect(explodeOffered("mni", null, false)).toBe(false);
-    expect(explodeOffered("default", null, true)).toBe(false);
+    expect(explodeOffered("mni", null, true, "atlas-x")).toBe(true);
+    expect(explodeOffered("mni", null, false, "atlas-x")).toBe(false);
+    expect(explodeOffered("default", null, true, "atlas-x")).toBe(false);
     // A subject's own head, even if the page asked for MNI elsewhere.
-    expect(explodeOffered("default", "ernie", true)).toBe(false);
+    expect(explodeOffered("default", "ernie", true, "gm")).toBe(false);
+    // The template's cortex is one sheet, so a cortical atlas on it has nothing to pull apart.
+    expect(explodeOffered("mni", null, true, "gm")).toBe(false);
+  });
+});
+
+describe("labelsAlignment on a payload carrying only its surface's ends", () => {
+  const surface = { vertexCount: 3, positions: new Float32Array([1, 2, 3, 4, 5, 6, 7, 8, 9]) };
+  it("accepts the surface's first and last vertex, and refuses another's", () => {
+    expect(labelsAlignment(surface, { vertexCount: 3, positions: new Float32Array([1, 2, 3, 7, 8, 9]) }).aligned).toBe(true);
+    expect(labelsAlignment(surface, { vertexCount: 3, positions: new Float32Array([1, 2, 3, 7, 8, 0]) }).aligned).toBe(false);
+    expect(labelsAlignment(surface, { vertexCount: 4, positions: new Float32Array([1, 2, 3, 7, 8, 9]) }).aligned).toBe(false);
   });
 });
 
@@ -102,13 +113,13 @@ describe("the real MNI guide (tit/scene/guide-mni)", () => {
     expect(manifest.atlases.length).toBeGreaterThan(0);
   });
 
-  it("offers Explode on every packaged MNI atlas: its labels align with the part it is drawn on", () => {
+  it("every packaged MNI atlas' labels align with the part it is drawn on, and Explode follows that part", () => {
     for (const atlas of manifest.atlases) {
       const part = manifest.parts.find((entry) => entry.id === atlas.aligned_to);
       expect(part, atlas.id).toBeDefined();
       const alignment = labelsAlignment(tvsc(part!.files.tvsc), tvsc(atlas.files.tvsc));
       expect(alignment, atlas.id).toEqual({ aligned: true, reason: null });
-      expect(explodeOffered("mni", null, alignment.aligned)).toBe(true);
+      expect(explodeOffered("mni", null, alignment.aligned, atlas.aligned_to), atlas.id).toBe(atlas.aligned_to !== "gm");
     }
   });
 

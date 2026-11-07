@@ -22,8 +22,9 @@ reads it):
 
 ===========================  =============================================
 ``manifest.json``            every part, net, atlas and asset, with sizes
-``surfaces/<part>.tvsc|gii`` skin and grey matter, within the §S3 budget
-``labels/<atlas>.gii``       grey matter + per-vertex labels + label table
+``surfaces/<part>.tvsc|gii`` skin within the §S3 budget; ``gm`` is the whole central
+                             surfaces, in ``tvsc`` only
+``labels/<atlas>.tvsc``      per-vertex labels of a part; ``gii`` for a volume's own part
 ``legends/<atlas>.json``     the atlas' legend rows, as ``/api/scene/regions``
 ``nets/<net>.json``          one EEG net's electrode names and positions
 ===========================  =============================================
@@ -55,7 +56,7 @@ GUIDE_SPACE = "guide-ras"
 
 #: Bumped whenever the packaged bytes or the manifest's shape change, so a
 #: client can tell a stale cached manifest from a current one.
-GUIDE_VERSION = 2
+GUIDE_VERSION = 3
 
 #: Where the packaged assets live, relative to this file.
 GUIDE_DIR = Path(__file__).resolve().parent / "guide"
@@ -193,7 +194,7 @@ def surface(part: str, fmt: str = "tvsc", guide_id: str = DEFAULT_GUIDE) -> Guid
     )
 
 
-def labels(atlas: str, fmt: str = "gii", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
+def labels(atlas: str, fmt: str = "tvsc", guide_id: str = DEFAULT_GUIDE) -> GuideAsset:
     """The packaged per-vertex label payload for *atlas*."""
     entry = _entry("atlases", "id", atlas, guide_id)
     files = entry.get("files", {})

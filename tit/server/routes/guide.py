@@ -15,9 +15,9 @@ Three rules, each with the failure it prevents:
   against a list the server wrote itself.
 * **Binary payloads are cached hard; the catalog is refreshed.** ``ETag`` is the
   file's SHA-256 out of the manifest and ``Cache-Control`` is a year: unlike a
-  subject's surface, this URL's content cannot change under a client without
-  the installation itself changing. The manifest is not cached, so installation
-  updates do not leave the atlas selector using an obsolete catalog.
+  subject's surface, a URL carrying the manifest's ``content_hash`` as ``v``
+  names one version of these bytes. The manifest is not cached, so an update
+  reaches a client as new URLs, never as a year-old payload under an old one.
 * **The space is ``guide-ras``, and it is in every response.** A consumer that
   mistakes it for a research subject's RAS writes a silently wrong coordinate;
   saying so on the wire is what lets the desktop pane disable click-to-config
@@ -26,6 +26,7 @@ Three rules, each with the failure it prevents:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Annotated, Any
 
@@ -171,6 +172,11 @@ def manifest(guide_id: str | None = GuideQuery) -> Any:
             "guide_id": guide_id,
             "guides": _installed(),
             "guide_version": body.get("guide_version", guide.GUIDE_VERSION),
+            # The manifest names every payload's SHA-256, so this changes exactly when
+            # one does. Clients put it in their URLs: the year-long cache is per URL.
+            "content_hash": hashlib.sha256(
+                json.dumps(body, sort_keys=True).encode()
+            ).hexdigest()[:16],
             "space": body.get("space", guide.GUIDE_SPACE),
             "bbox": body.get("bbox"),
             "focus_bbox": body.get("focus_bbox"),
@@ -229,7 +235,7 @@ def surface(
 )
 def labels(
     atlas: Annotated[EntityName, Query()],
-    format: str = Query("gii"),
+    format: str = Query("tvsc"),
     guide_id: str | None = GuideQuery,
     if_none_match: str | None = Header(None, alias="If-None-Match"),
 ) -> Response:

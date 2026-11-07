@@ -2,7 +2,7 @@
  "atlas": "labeling.nii.gz",
  "space": "guide-ras",
  "aligned_to": "subcortical",
- "vertices": 39281,
+ "vertices": 39193,
  "radius_mm": 0,
  "labelled_fraction": 1,
  "legend": [

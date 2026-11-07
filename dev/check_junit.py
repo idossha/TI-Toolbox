@@ -145,9 +145,9 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
         {
             "test": "tests.test_ex_realdata_csv.test_the_grey_matter_mean_is_the_same_whatever_"
             "the_roi",
-            "message": "no two ex runs share a subject and a leadfield",
-            "why": "Dataset 000 keeps one ex run per subject (sub-101's 20260919_160209 is gone, "
-            "its 20260914_112446 folder is empty)",
+            "message": "no two ex runs of one subject and leadfield share a montage",
+            "why": "Dataset 000 keeps one ex run per subject except sub-101, whose two runs "
+            "(20261101_163314, 20261104_152159) have no montage in common",
         },
     ],
     # CircleCI desktop-e2e-mock: Playwright `--project=default` against the mock server

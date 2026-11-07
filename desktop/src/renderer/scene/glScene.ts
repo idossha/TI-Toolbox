@@ -704,6 +704,9 @@ export interface GlScene {
   /** `null` only when the pick could not run at all (disposed, lost context, cursor off the
    *  canvas); a click on empty space is a result with a `null` target. */
   pick(xCss: number, yCss: number, camera: OrbitCamera, options: PickOptions): PickResult | null;
+  /** The region each device pixel of the whole frame would pick (`null`: none), top row first, for
+   *  the tests that read a border per pixel; one pass, where `pick` per pixel is one per point. */
+  regionFrame(camera: OrbitCamera, options: PickOptions): { width: number; height: number; regions: (number | null)[] } | null;
   /**
    * Renders one frame and reads the drawing buffer back at the given canvas CSS points — the
    * "judge a number, not a picture" hook (`docs/PRINCIPLES.md` §7).
@@ -1828,6 +1831,33 @@ function buildScene(canvas: HTMLCanvasElement, gl: WebGL2RenderingContext, palet
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.disable(gl.SCISSOR_TEST);
       return { target: hit, ndcDepth };
+    },
+
+    regionFrame(camera, options) {
+      if (disposed || gl.isContextLost()) return null;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, pick.framebuffer);
+      gl.viewport(0, 0, drawWidth, drawHeight);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.disable(gl.BLEND);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(true);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clearDepth(1);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      drawPickSequence(projection(camera), options, surfacePickProgram, markerPrograms.pick);
+      const box = new Uint8Array(drawWidth * drawHeight * 4);
+      gl.readPixels(0, 0, drawWidth, drawHeight, gl.RGBA, gl.UNSIGNED_BYTE, box);
+      gl.bindVertexArray(null);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      const regions: (number | null)[] = [];
+      for (let y = drawHeight - 1; y >= 0; y -= 1) {
+        for (let x = 0; x < drawWidth; x += 1) {
+          const at = (y * drawWidth + x) * 4;
+          const target = decodePickPixel(box.subarray(at, at + 3));
+          regions.push(target?.kind === "region" ? target.index : null);
+        }
+      }
+      return { width: drawWidth, height: drawHeight, regions };
     },
 
     samplePixels(camera, pointsCss, options) {

@@ -59,7 +59,8 @@ Both families are queried through the same ROI picker used in flex-search, ex-se
 
 # MNI-Space Atlases
 
-TI-Toolbox ships seven atlases as MNI-space NIfTI volumes:
+TI-Toolbox ships seven atlases as MNI-space NIfTI volumes. With **Target space** set to MNI, the 3D pane draws them on the MNI152 template and clicking a region adds it to the target: Harvard-Oxford cortical, Schaefer and Glasser as regions on the template's central surfaces (the pane opens on Harvard-Oxford cortical), and the sub-cortical atlases as surfaces of their own volumes, which **Explode** pulls apart. A region's outline on the surface comes from 1 mm voxels. Whichever way it is drawn, the target is the label volume.
+
 
 | Atlas                                   | Regions | Native space                                     |
 | --------------------------------------- | ------- | ------------------------------------------------ |

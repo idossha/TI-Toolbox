@@ -30,13 +30,15 @@ export const TVSC_VERSION = 1;
 export const TVSC_HEADER_BYTES = 32;
 /** flags bit0: `2 * vertexCount` bytes of `uint16` labels follow the indices. */
 export const TVSC_FLAG_LABELS = 1;
+/** flags bit1: a labels payload that carries only its surface's first and last vertex. */
+export const TVSC_FLAG_ENDS_ONLY = 2;
 
 export interface Tvsc1 {
   version: number;
   vertexCount: number;
   indexCount: number;
   flags: number;
-  /** `3 * vertexCount` floats, world-RAS mm. */
+  /** `3 * vertexCount` floats, world-RAS mm; the 6 of the first and last vertex with flags bit1. */
   positions: Float32Array;
   /** `indexCount` entries, or `null` for a labels-only payload. */
   indices: Uint32Array | null;
@@ -56,9 +58,9 @@ export class TvscError extends Error {
 }
 
 /** Bytes a payload of this shape occupies, labels padded up to a 4-byte boundary. */
-export function tvscByteLength(vertexCount: number, indexCount: number, hasLabels: boolean): number {
+export function tvscByteLength(vertexCount: number, indexCount: number, hasLabels: boolean, endsOnly = false): number {
   const labelBytes = hasLabels ? Math.ceil((2 * vertexCount) / 4) * 4 : 0;
-  return TVSC_HEADER_BYTES + 12 * vertexCount + 4 * indexCount + labelBytes;
+  return TVSC_HEADER_BYTES + 12 * (endsOnly ? 2 : vertexCount) + 4 * indexCount + labelBytes;
 }
 
 export interface ParseOptions {
@@ -96,17 +98,19 @@ export function parseTvsc1(buffer: ArrayBuffer, byteOffset = 0, options: ParseOp
   const indexCount = view.getUint32(12, true);
   const flags = view.getUint32(16, true);
   const hasLabels = (flags & TVSC_FLAG_LABELS) !== 0;
+  const endsOnly = (flags & TVSC_FLAG_ENDS_ONLY) !== 0;
+  const positionCount = endsOnly ? 2 : vertexCount;
 
   if (indexCount % 3 !== 0) throw new TvscError(`TVSC1: indexCount ${indexCount} is not a multiple of 3`);
-  const byteLength = tvscByteLength(vertexCount, indexCount, hasLabels);
+  const byteLength = tvscByteLength(vertexCount, indexCount, hasLabels, endsOnly);
   if (available < byteLength) {
     throw new TvscError(`TVSC1: payload claims ${byteLength} bytes, buffer has ${available}`);
   }
 
   const posOffset = byteOffset + TVSC_HEADER_BYTES;
-  const positions = readFloat32(buffer, posOffset, vertexCount * 3);
+  const positions = readFloat32(buffer, posOffset, positionCount * 3);
 
-  const idxOffset = posOffset + 12 * vertexCount;
+  const idxOffset = posOffset + 12 * positionCount;
   const indices = indexCount === 0 ? null : readUint32(buffer, idxOffset, indexCount);
 
   let labels: Uint16Array | null = null;
