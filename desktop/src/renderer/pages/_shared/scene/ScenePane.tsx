@@ -223,6 +223,8 @@ export interface ScenePaneProps {
   /** Layers offers a **Cortex** switch, on by default: the Visual exporter's Networks tab, where the
    *  fibres inside the cortex are what is being looked at. */
   cortexSwitch?: boolean;
+  /** Told whether that switch has the cortex hidden, for a page whose `note` offers cortex clicks. */
+  onCortexHiddenChange?: (hidden: boolean) => void;
   /** `false` neither fetches nor draws the cortex: the Simulator, where the scalp is what is aimed at. */
   cortex?: boolean;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
@@ -337,6 +339,7 @@ export function ScenePane({
   lineLabel,
   atlasLocked = false,
   cortexSwitch = false,
+  onCortexHiddenChange,
   cortex = true,
   note,
   showing = null,
@@ -1000,6 +1003,7 @@ export function ScenePane({
             markersOccluded={!placedMarkers || placedOccluded}
             actualSize={actualSizeOn}
             onActualSizeChange={actualSizeOffered ? setActualSize : undefined}
+            onPartSwitchedOffChange={onCortexHiddenChange}
             /* A placement dot is one of four to eight, carries a name and has to be aimed at; an
                EEG net's is one of 185. */
             markerScale={placedMarkers && !placedOccluded ? 1.5 : undefined}

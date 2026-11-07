@@ -208,6 +208,8 @@ export interface SceneCanvasProps {
    */
   actualSize?: boolean;
   onActualSizeChange?: (on: boolean) => void;
+  /** Told whether a part the user can switch off (`ScenePart.switchable`) is off right now. */
+  onPartSwitchedOffChange?: (off: boolean) => void;
   /** Controlled selection. Omit for an uncontrolled pane. */
   selection?: SceneSelection;
   onSelectionChange?: (next: SceneSelection) => void;
@@ -302,6 +304,7 @@ export function SceneCanvas({
   namesOn,
   actualSize,
   onActualSizeChange,
+  onPartSwitchedOffChange,
   selection,
   onSelectionChange,
   onPick,
@@ -1051,6 +1054,8 @@ export function SceneCanvas({
   /** The surfaces that get a slider. The grey matter is locked opaque and has none. */
   const adjustableParts = useMemo(() => parts.filter((part) => !part.opacityLocked), [parts]);
   const switchableParts = useMemo(() => parts.filter((part) => part.switchable), [parts]);
+  const partSwitchedOff = switchableParts.some((part) => opacities[part.id] === 0);
+  useEffect(() => onPartSwitchedOffChange?.(partSwitchedOff), [partSwitchedOff, onPartSwitchedOffChange]);
 
   const setOpacity = useCallback((partId: string, value: number) => {
     setOpacities((previous) => ({ ...previous, [partId]: value }));

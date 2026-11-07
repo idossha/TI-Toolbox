@@ -17,6 +17,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider, type UseQueryResult } from "@tanstack/react-query";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { atlasSurfacePart } from "../../src/renderer/pages/_shared/scene/model";
+import { NetworkPane } from "../../src/renderer/pages/_shared/scene/NetworkPane";
 import { TargetPreview } from "../../src/renderer/pages/_shared/scene/TargetPreview";
 import { ExportPreview } from "../../src/renderer/pages/panels/visual-exporter/ExportPreview";
 import type { NetworkRoiValue } from "../../src/renderer/pages/_shared/roi/types";
@@ -64,9 +65,10 @@ describe("only the Networks tab offers the cortex switch", () => {
     vi.unstubAllGlobals();
     scene.props = null;
   });
-  const mount = async (node: React.ReactNode) => {
+  const mount = async (node: React.ReactNode, seed?: (client: QueryClient) => void) => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("{}", { status: 404 })));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    seed?.(client);
     const root = createRoot(document.createElement("div"));
     await act(async () => root.render(<QueryClientProvider client={client}>{node}</QueryClientProvider>));
     roots.push(() => {
@@ -86,6 +88,17 @@ describe("only the Networks tab offers the cortex switch", () => {
     await mount(<TargetPreview subject="CHN" roi={value} />);
     expect(scene.props).not.toBeNull();
     expect(scene.props!.cortexSwitch).toBeFalsy();
+  });
+
+  it("a hidden cortex takes the region click out of the hint", async () => {
+    await mount(<NetworkPane subject="CHN" value={value} onChange={() => {}} cortexSwitch />, (client) =>
+      client.setQueryData(["tract-manifest", "CHN"], { available: true, atlas: "DK40", regions: [], fingerprint: "f" }),
+    );
+    expect(scene.props!.note).toBe("Click a region to add or remove a seed.");
+    act(() => (scene.props!.onCortexHiddenChange as (hidden: boolean) => void)(true));
+    expect(scene.props!.note).toBe("The cortex is hidden: switch it on under Layers to add a seed.");
+    act(() => (scene.props!.onCortexHiddenChange as (hidden: boolean) => void)(false));
+    expect(scene.props!.note).toBe("Click a region to add or remove a seed.");
   });
 
   it("an atlas target does not", async () => {

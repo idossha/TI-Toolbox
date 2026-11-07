@@ -199,6 +199,8 @@ test("Networks tab: Layers switches the cortex off and on, and the view does not
   const on = await state();
   expect(on.opacity).toBe(1);
   expect(on.cortex, "the cortex is drawn by default").toBeGreaterThan(0);
+  const hint = pane.getByTestId("scene-pane-hint");
+  await expect(hint).toContainText("Click a region");
   const pixels = await canvas().screenshot();
 
   await cortex.click();
@@ -206,6 +208,7 @@ test("Networks tab: Layers switches the cortex off and on, and the view does not
   await expect.poll(async () => (await state()).opacity).toBe(0);
   const off = await state();
   expect(off.cortex, "nothing of it is left to click").toBe(0);
+  await expect(hint).not.toContainText("region");
   expect(off.lines, "the fibres stay").toBe(on.lines);
   expect(off.camera, "the view stays").toBe(on.camera);
   expect(Buffer.compare(await canvas().screenshot(), pixels), "the picture changes").not.toBe(0);
@@ -213,6 +216,7 @@ test("Networks tab: Layers switches the cortex off and on, and the view does not
   await cortex.click();
   await expect(cortex).toBeChecked();
   await expect.poll(state).toEqual(on);
+  await expect(hint).toContainText("Click a region");
 });
 
 test("the Optimizer's Network target has the same pane, and it is as usable", async () => {

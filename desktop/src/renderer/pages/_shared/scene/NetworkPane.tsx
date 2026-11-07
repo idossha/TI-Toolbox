@@ -4,7 +4,7 @@
  * on a line toggles that edge. The pane holds nothing: `value` is the row's, and every edit goes
  * back through `withNetworkEdit` exactly as the form's do.
  */
-import { useCallback, useMemo, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useTractLines, useTractManifest, samePair, type RegionPair } from "../roi/tract";
 import { withNetworkEdit, type NetworkRoiValue, type RoiValue } from "../roi/types";
 import { ScenePane } from "./ScenePane";
@@ -25,6 +25,8 @@ export function NetworkPane({ subject, value, onChange, openMask, cortexSwitch }
   const known = useMemo(() => new Set((manifest.data?.regions ?? []).map((r) => r.name)), [manifest.data]);
   const legend = useSceneRegions(subject ?? null, atlas);
   const { lines, drawn, listed, building } = useTractLines(subject, value, manifest.data?.fingerprint);
+  // A hidden cortex catches no click, so the hint must not offer one.
+  const [cortexHidden, setCortexHidden] = useState(false);
 
   // The pane speaks atlas rows ({id, name, hemi}); the target speaks the network's region names.
   // Subcortical seeds have no row on this surface, so they stay in the form and survive a pick.
@@ -72,9 +74,13 @@ export function NetworkPane({ subject, value, onChange, openMask, cortexSwitch }
         ? `Showing ${drawn.length} of this network's ${value.pairs.length} edges, up to 100 streamlines each. The render draws them all.`
       : listed > drawn.length
         ? `Showing the ${drawn.length} largest of ${listed} edges. A selected edge is always shown.`
-        : lines
-          ? "Click a region to add or remove a seed, or a line to select or clear its edge."
-          : "Click a region to add or remove a seed.";
+        : cortexHidden
+          ? lines
+            ? "Click a line to select or clear its edge."
+            : "The cortex is hidden: switch it on under Layers to add a seed."
+          : lines
+            ? "Click a region to add or remove a seed, or a line to select or clear its edge."
+            : "Click a region to add or remove a seed.";
 
   return (
     <div className="scene-pane-wrap" data-testid="scene-pane-wrap" data-target="network">
@@ -84,6 +90,7 @@ export function NetworkPane({ subject, value, onChange, openMask, cortexSwitch }
         atlas={atlas}
         atlasLocked={!!atlas}
         cortexSwitch={cortexSwitch}
+        onCortexHiddenChange={setCortexHidden}
         regions={regions}
         onRegionsChange={onChange ? onRegionsChange : undefined}
         lines={lines}
