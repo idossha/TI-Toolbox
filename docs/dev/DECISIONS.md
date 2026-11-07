@@ -4320,7 +4320,7 @@ The Simulator's job table waited 16 s in the app on a first visit: `get_montages
 
 **Alternatives rejected.** Moving the `simnibs` import inside `tit/sim/base.py`'s methods: the host suite patches `tit.sim.base.mesh_io` and `run_simnibs` as module attributes, and a run would still pay at first use, only later. Moving the montage and ROI readers to a light module: more churn for callers to reach the same import graph. Importing SimNIBS at server start in the background: every session would hold about 330 MB it may never need.
 
-**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. Overview's remaining 1.8 s is its scan, on every call, not an import.
+**Left alone.** `tit/opt/mex/__init__.py` keeps its eager imports, because no list reads through it. **Superseded 2026-11-07** by "A plan never imports SimNIBS through `tit.opt.mex`". Overview's remaining 1.8 s is its scan, on every call, not an import.
 
 Verified by `tests/test_lazy_package_imports.py`, which asks a fresh interpreter because the host suite mocks `simnibs` in `sys.modules`.
 
@@ -4362,3 +4362,13 @@ eddy are not numerically identical, so a fallback would hide a change of method.
 **What can move.** Upstream's notes for 26.1 change results as well as flags: Jacobian modulation for corrections QSIPrep resamples, zero-magnitude b-vectors written as `[1 0 0]`, grouping by qsiplan with inconsistent metadata now a named error, and a SyN series without `PhaseEncodingDirection` or `TotalReadoutTime` an error where `--use-syn-sdc warn` only warned. So a saved tag is left as it is: a cohort started on 26.0.0 can finish on it.
 
 **Alternatives rejected.** Dropping support for older tags and deleting the shim: a saved 26.0.0 would then fail with an argparse error, and a study would have to change method midway. Rewriting saved preferences to the new tag: changes a method without asking. Staying on 26.0.0: the user asked to move, and the CLI change has a documented mapping.
+
+## 2026-11-07 — A plan never imports SimNIBS through `tit.opt.mex`
+
+Supersedes the "Left alone" clause of "Reading a list never imports SimNIBS" for mEx. Planning an mEx job counts its combinations with `tit.opt.mex.logic`, and importing it ran `tit/opt/mex/__init__.py`, which imported `tit.opt.mex.engine` and so `simnibs`: the first mEx plan of a session waited for SimNIBS.
+
+**Decision.** `tit.opt.mex` exposes `MExSearchEngine` and `run_m_ex_search` through a module `__getattr__`, as `tit.opt.ex` does. Every public name still resolves to the same object, and `python -m tit.opt.mex` still loads SimNIBS when it runs. Numbers are in [BENCHMARKS.md](BENCHMARKS.md#first-load-of-a-catalog-list--2026-11-07).
+
+**Alternatives rejected.** Moving the combination counter into `tit.opt.ex`: callers and tests change for the same import graph.
+
+Verified by `tests/test_lazy_package_imports.py` on the host and in the image.

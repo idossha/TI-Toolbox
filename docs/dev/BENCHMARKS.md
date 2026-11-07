@@ -319,6 +319,9 @@ Dataset 000, this Mac, `idossha/ti-toolbox:v3.1.3` with the checkout mounted rea
 | `/api/catalog/flex-runs?subject=ernie` | 1.27 s | 0.074 s | 0.020 s | 197 → 144 MB |
 | `/api/catalog/overview` | 2.96 s | 1.87 s | 1.83 s | 197 → 144 MB |
 | `/api/catalog/project-summary` | 0.24 s | 0.24 s | 0.08 s | unchanged |
+| `POST /api/plan/mex` (ernie, two combinations) | 2.73 s | 0.038 s | 0.004 s | 467 → 139 MB |
+
+The `plan/mex` row was measured later the same day, before 5da97eac and after the mEx decision, on a restarted server with the file cache warm.
 
 Overview's remaining 1.8 s is on every call, so it is not an import: a profile of `build_overview` spends it listing directories and resolving paths (`subject_ids` 42 times, `is_within` about 2,000 times) and reading ex-search CSVs (`ex_runs` 14 times).
 
