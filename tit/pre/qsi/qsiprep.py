@@ -89,6 +89,7 @@ def run_qsiprep(
     denoise_method: str = "dwidenoise",
     unringing_method: str = "auto",
     mni_normalization: bool = False,
+    use_gpu: bool = False,
     runner: CommandRunner | None = None,
 ) -> None:
     """
@@ -135,6 +136,8 @@ def run_qsiprep(
     mni_normalization : bool, optional
         Run the anatomical normalization to MNI (needed only for QSIRecon atlases
         and template-space specs). Default: False; forced on by SyN SDC.
+    use_gpu : bool, optional
+        Run eddy on the GPU (requires NVIDIA Docker runtime). Default: False.
     runner : CommandRunner | None, optional
         Command runner for subprocess execution.
 
@@ -149,7 +152,7 @@ def run_qsiprep(
     with track_operation(_const.TELEMETRY_OP_PRE_QSIPREP):
         logger.info(f"Starting QSIPrep for subject {subject_id}")
         ok, preflight_error = validate_dood_environment(
-            project_dir, require_x86_64=True
+            project_dir, require_gpu=use_gpu, require_x86_64=True
         )
         if not ok:
             raise PreprocessError(f"QSI Docker preflight failed: {preflight_error}")
@@ -228,6 +231,7 @@ def run_qsiprep(
             unringing_method=unringing_method,
             use_syn_sdc=sdc.use_syn,
             mni_normalization=mni_normalization,
+            use_gpu=use_gpu,
         )
 
         try:

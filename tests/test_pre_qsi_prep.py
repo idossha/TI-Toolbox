@@ -42,6 +42,35 @@ class TestRunQsiprep:
         runner.run.assert_called_once()
         mock_pull.assert_called_once()
 
+    @pytest.mark.parametrize("use_gpu", [False, True])
+    @patch(f"{MODULE}.validate_qsiprep_output", return_value=(True, None))
+    @patch(f"{MODULE}.pull_image_if_needed", return_value=True)
+    @patch(f"{MODULE}.DockerCommandBuilder")
+    @patch(f"{MODULE}.validate_bids_dwi", return_value=(True, None))
+    def test_use_gpu_reaches_preflight_and_builder(
+        self, mock_validate, mock_builder, mock_pull, mock_output, tmp_path, use_gpu
+    ):
+        mock_builder.return_value.build_qsiprep_cmd.return_value = ["docker"]
+        runner = MagicMock()
+        runner.run.return_value = 0
+        with patch(
+            f"{MODULE}.validate_dood_environment", return_value=(True, None)
+        ) as preflight:
+            run_qsiprep(
+                str(tmp_path), "001", logger=MagicMock(), runner=runner, use_gpu=use_gpu
+            )
+        assert preflight.call_args.kwargs["require_gpu"] is use_gpu
+        built = mock_builder.return_value.build_qsiprep_cmd.call_args.args[0]
+        assert built.use_gpu is use_gpu
+
+    def test_missing_gpu_runtime_refused_before_any_container(self, tmp_path):
+        with patch(
+            f"{MODULE}.validate_dood_environment",
+            return_value=(False, "Docker GPU runtime is not available."),
+        ):
+            with pytest.raises(PreprocessError, match="GPU runtime"):
+                run_qsiprep(str(tmp_path), "001", logger=MagicMock(), use_gpu=True)
+
     @patch(f"{MODULE}.validate_bids_dwi", return_value=(False, "No DWI"))
     def test_invalid_dwi_raises(self, mock_validate):
         """Raises PreprocessError when DWI validation fails."""
