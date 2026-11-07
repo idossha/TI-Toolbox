@@ -44,7 +44,7 @@ that one of the image's caps already uses is refused; rename your file.
 ## Inspect a net
 
 Click a cap that is on the subject (or choose it under **Net**). The right pane draws its
-electrodes on the subject's scalp, and the panel shows:
+electrodes on the subject's scalp, as the Simulator draws them, with the head hiding those round the back, and the panel shows:
 
 - a summary: electrode count, median and minimum spacing to the nearest neighbour, and the
   largest distance from an electrode to the scalp;

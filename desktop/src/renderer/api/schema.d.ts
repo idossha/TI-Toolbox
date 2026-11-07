@@ -4820,6 +4820,8 @@ export interface paths {
                                 label: string;
                             }[];
                             guide_version?: number;
+                            /** @description changes whenever a packaged payload changes. A client sends it as `v` on the other guide routes, whose answers are cached for a year per URL, so an updated guide is never answered from a stale cache entry. */
+                            content_hash?: string;
                             /** @enum {string} */
                             space: "guide-ras";
                             bbox?: number[] | null;

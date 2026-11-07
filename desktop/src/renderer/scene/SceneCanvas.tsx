@@ -1195,7 +1195,7 @@ export function SceneCanvas({
         <ul className="scene-legend scene-legend-static" data-testid="scene-legend">
           {legendRows.map((row) => (
             <li key={row.key}>
-              <span className="scene-legend-label">{row.label}</span>
+              <span className="scene-legend-label" title={row.label}>{row.label}</span>
               {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
             </li>
           ))}
@@ -1270,7 +1270,7 @@ export function SceneCanvas({
             {legendRows.map((row) => (
               <li key={row.key}>
                 <span className="scene-legend-swatch" style={{ background: swatch(row.color) }} aria-hidden />
-                <span className="scene-legend-label">{row.label}</span>
+                <span className="scene-legend-label" title={row.label}>{row.label}</span>
                 {row.detail && <span className="scene-legend-detail">{row.detail}</span>}
               </li>
             ))}

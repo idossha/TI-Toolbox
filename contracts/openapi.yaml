@@ -3269,6 +3269,12 @@ paths:
                         id: { type: string, enum: [default, mni] }
                         label: { type: string }
                   guide_version: { type: integer }
+                  content_hash:
+                    type: string
+                    description: >-
+                      changes whenever a packaged payload changes. A client sends it as `v` on the
+                      other guide routes, whose answers are cached for a year per URL, so an
+                      updated guide is never answered from a stale cache entry.
                   space: { type: string, enum: [guide-ras] }
                   bbox:
                     type: [array, "null"]

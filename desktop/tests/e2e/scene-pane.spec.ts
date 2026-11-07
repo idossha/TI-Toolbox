@@ -154,7 +154,7 @@ test("the pane draws the job's own head with our own renderer — no iframe anyw
   expect(debug).toMatchObject({ mode: "montage", gesture: "electrode", markers: 185, subject: SUBJECT });
   expect(debug.guide).toBeNull();
   expect(debug.space).toBe("subject-ras");
-  expect(debug.parts.map((part) => part.id)).toEqual(expect.arrayContaining(["gm", "skin"]));
+  expect(debug.parts.map((part) => part.id)).toEqual(["skin"]);
   expect(debug.firstPaintMs).not.toBeNull();
 });
 
@@ -324,9 +324,8 @@ test("a region chosen in the ROI picker is highlighted by the pane", async () =>
 test("the grey matter is opaque everywhere, with the skin the only surface that has a slider", async () => {
   // The maintainer's call (2026-09-06): the cortex is what the user is aiming at, so it is never a
   // veil over something behind it, and there is no control that could make it one again. Checked on
-  // all three run pages because each mounts its own pane.
+  // each page that targets it (the Simulator draws no cortex: scene-pane-status.spec.ts).
   for (const [pageId, title] of [
-    ["simulator", "Simulator"],
     ["optimizer", "Optimizer"],
     ["analyzer", "Analyzer"],
   ] as const) {

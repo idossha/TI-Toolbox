@@ -296,6 +296,7 @@ function SimulatorPage() {
             scene={
               <ScenePane
                 mode="montage"
+                cortex={false}
                 /* The focused row's (or form's) own subject: the head the job runs on. The pane
                    shows the reference head, labelled, only while that subject's is unavailable. */
                 subject={view.subject}
