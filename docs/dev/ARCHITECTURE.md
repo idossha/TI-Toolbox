@@ -541,7 +541,7 @@ alternative: simplifying it, since grid clustering opens holes in a closed surfa
 the fragmentation of the region borders in the pane's own pixels.
 On the MNI guide, a cortical label volume (Harvard-Oxford cortical, Schaefer, Glasser) is frozen as per-vertex labels on that cortex
 (`guide_build.paint_on_cortex`), each vertex looking only on its own side of the midline. Its ROI stays the label volume, so its manifest `kind` stays
-`subcortical` and `aligned_to` says `gm`. Every sub-cortical atlas, on either guide, keeps its own marching-cubes surface of the NIfTI, drawn with the skin and without the cortex.
+`subcortical` and `aligned_to` says `gm`. Every sub-cortical atlas, on either guide, keeps its own marching-cubes surface of the NIfTI, drawn with the skin and without the cortex. Only the Visual exporter's Networks pane offers to hide the cortex: `ScenePart.switchable` puts a switch in **Layers** that sets the part's opacity to 0, which takes it out of every draw and pick pass without moving the camera or uploading again.
 A labels payload carries its surface's first and last vertex in place of all of them (`tvsc.encode_labels`, flags bit1), which the pane still compares; `gii` is written only when asked for.
 A triangle's majority region label controls flat shading and picking; rotating its vertices preserves
 winding and prevents the provoking vertex from assigning a minority label. Triple junctions retain

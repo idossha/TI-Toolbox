@@ -13,11 +13,12 @@ import type { SceneRegionRef } from "./model";
 
 const regionName = (region: { name: string; hemi?: string | null }): string => (region.hemi ? `${region.hemi}.${region.name}` : region.name);
 
-export function NetworkPane({ subject, value, onChange, openMask }: {
+export function NetworkPane({ subject, value, onChange, openMask, cortexSwitch }: {
   subject: string | undefined;
   value: NetworkRoiValue;
   onChange?: (value: RoiValue) => void;
   openMask?: ReactNode;
+  cortexSwitch?: boolean;
 }) {
   const manifest = useTractManifest(subject);
   const atlas = manifest.data?.atlas ?? null;
@@ -82,6 +83,7 @@ export function NetworkPane({ subject, value, onChange, openMask }: {
         subject={subject}
         atlas={atlas}
         atlasLocked={!!atlas}
+        cortexSwitch={cortexSwitch}
         regions={regions}
         onRegionsChange={onChange ? onRegionsChange : undefined}
         lines={lines}

@@ -4881,3 +4881,12 @@ shown to matter. A `.blend` per colour: two large files that differ by a materia
 
 **Alternatives rejected.** Gzip on the wire or at rest: 33 % smaller (17.7 to 11.8 MB, indices no better than positions) for a second serving path. Decimating the central surfaces: holes come back (2026-11-06). Drawing cortex translucent around a sub-cortical atlas: not asked for and a behaviour change, though `final/` has pictures of it from a temporary build. Annotations on the template: above.
 
+## 2026-11-07 — The cortex switch belongs to the Networks tab
+
+User: "only in the network visualizer have the cortex and it should be togglable. in other visualizer like simulator/optimizer, do not have cortex with sub-coritcal."
+
+**Decision.** The Visual exporter's Networks pane has a **Cortex** switch in **Layers**, on by default. No other pane offers it. A sub-cortical atlas stays its own NIfTI surface with the skin and no cortex (`tests/unit/scene-cortex.test.tsx` checks both packaged manifests; `tests/e2e/scene-space.spec.ts` the drawn parts). The Optimizer's Network target keeps its cortex and has no switch, because seeds are clicked on it. Rendered figures are unchanged.
+
+**Why opacity, not removing the part.** `framingSignature` includes every part, so a part leaving `parts` re-frames the camera and throws away the view the user orbited to, and every `parts` change uploads all surfaces again. At opacity 0 a part is already out of every pass (`glScene.ordered`), as the explode veil relies on.
+
+**Alternatives rejected.** Unlocking the cortex's opacity slider: a translucent cortex is what was ruled out for the other panes, and the request was on or off. A separate control beside **Layers**: a second place for layer visibility.

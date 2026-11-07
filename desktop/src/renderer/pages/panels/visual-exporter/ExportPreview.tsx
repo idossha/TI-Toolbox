@@ -94,7 +94,7 @@ export function ExportPreview(props: ExportPreviewProps) {
     );
   if (mode === "networks")
     return props.networkValue ? (
-      <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} />
+      <NetworkPane subject={subjectId} value={props.networkValue} onChange={props.onNetworkChange} cortexSwitch />
     ) : (
       <p className="field-help">Your own file draws what it holds: nothing to choose here. Its renders are in the Renders tab.</p>
     );

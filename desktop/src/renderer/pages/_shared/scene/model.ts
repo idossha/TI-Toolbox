@@ -280,6 +280,16 @@ export function labelsAlignment(
 }
 
 /**
+ * Which surface part carries an atlas' labels, and so the one brain surface the pane draws beside
+ * the skin. The manifest says so (`aligned_to`), because an MNI guide packages one surface per atlas
+ * volume — CIT168's regions are not MASSP's geometry — and a sub-cortical atlas therefore draws its
+ * own surface with no cortex around it. `kind` is the fallback for older manifests.
+ */
+export function atlasSurfacePart(entry?: { kind?: string; aligned_to?: string }): string {
+  return entry?.aligned_to ?? (entry?.kind === "subcortical" ? "subcortical" : "gm");
+}
+
+/**
  * Whether the pane offers **Explode**: only on the MNI template's volume surfaces (never a cortex,
  * subject's or template's, which is one sheet with nothing buried), and only once an atlas' labels
  * are on the drawn surface — there is nothing to pull apart before that.

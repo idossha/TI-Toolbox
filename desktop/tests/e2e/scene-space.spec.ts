@@ -151,11 +151,15 @@ test("Optimizer: MNI opens on the whole cortex, and a sub-cortical atlas on its 
   await expect.poll(async () => (await drawn())[0]?.id, { timeout: 30_000 }).toMatch(/^atlas-CIT168/);
   await expect.poll(async () => (await drawn())[0]?.labelled, { timeout: 30_000 }).toBe(true);
   await expect(host).toHaveAttribute("data-state", "ready");
+  // No cortex around it, and nothing here offers one: that switch is the Networks tab's.
+  expect(await drawn()).toHaveLength(1);
+  await expect(host.getByTestId("scene-part-switch-gm")).toHaveCount(0);
   // A sub-cortical row in subject space is drawn on the packaged head, from that head's own volume.
   await paneSwitch().getByRole("radio", { name: "Subject", exact: true }).click();
   await expect.poll(async () => (await paneDebug()).atlas, { timeout: 30_000 }).toBe("labeling.nii.gz");
   await expect.poll(async () => (await paneDebug()).guideId, { timeout: 30_000 }).toBe("default");
   await expect.poll(async () => (await drawn())[0]?.id, { timeout: 30_000 }).toBe("subcortical");
+  expect(await drawn()).toHaveLength(1);
 });
 
 /**

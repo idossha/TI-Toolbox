@@ -126,7 +126,7 @@ preset, its regions or your file's name) and the date and time, one open at a ti
 before this form, under their own names.
 
 **The Scene pane** fills the column while you choose. The Plan is one line above it, opening on a click, and
-**Layers** at the pane's corner opens the legend and the opacity sliders over the canvas.
+**Layers** at the pane's corner opens the legend and the opacity sliders over the canvas, with a **Cortex** switch, on by default, that shows or hides the cortex so the fibres inside it can be seen. Regions are clicked on the cortex, so seeds are chosen with it on, or in the form. The switch changes this pane only, not the render.
 
 **Setup.** The **Setup** section of the form lists what the render will use, with a reason for each when you
 rest on it, and replaces any one value.

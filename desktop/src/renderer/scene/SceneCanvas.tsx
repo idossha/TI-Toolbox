@@ -752,7 +752,7 @@ export function SceneCanvas({
       for (const part of parts) {
         // A locked part ignores anything the page-session remembered: a stale value from before it
         // was locked must never make it translucent again.
-        const value = part.opacityLocked
+        const value = part.opacityLocked && !part.switchable
           ? part.opacity
           : (previous[part.id] ?? DEFAULT_OPACITY[part.id] ?? part.opacity);
         next[part.id] = value;
@@ -1050,6 +1050,7 @@ export function SceneCanvas({
 
   /** The surfaces that get a slider. The grey matter is locked opaque and has none. */
   const adjustableParts = useMemo(() => parts.filter((part) => !part.opacityLocked), [parts]);
+  const switchableParts = useMemo(() => parts.filter((part) => part.switchable), [parts]);
 
   const setOpacity = useCallback((partId: string, value: number) => {
     setOpacities((previous) => ({ ...previous, [partId]: value }));
@@ -1077,7 +1078,7 @@ export function SceneCanvas({
           id: part.id,
           triangles: part.indices.length / 3,
           vertices: part.positions.length / 3,
-          opacity: part.opacityLocked ? part.opacity : (opacities[part.id] ?? part.opacity),
+          opacity: opacities[part.id] ?? part.opacity,
         }));
       },
       get markers() {
@@ -1308,17 +1309,29 @@ export function SceneCanvas({
               </li>
             ))}
           </ul>
-          {markers.length > 0 && (
+          {(markers.length > 0 || switchableParts.length > 0) && (
             /* One box, the switches side by side; it wraps onto a second line in a narrow pane. */
             <div className="scene-toggles" data-testid="scene-toggles">
-              <label className="scene-names-toggle" data-testid="scene-names-toggle">
-                <Switch
-                  checked={showNames}
-                  onCheckedChange={setShowNames}
-                  aria-label="Electrode names"
-                />
-                <span>Electrode names</span>
-              </label>
+              {switchableParts.map((part) => (
+                <label key={part.id} className="scene-names-toggle" data-testid={`scene-part-switch-${part.id}`}>
+                  <Switch
+                    checked={(opacities[part.id] ?? part.opacity) > 0}
+                    onCheckedChange={(on) => setOpacity(part.id, on ? part.opacity : 0)}
+                    aria-label={part.label}
+                  />
+                  <span>{part.label}</span>
+                </label>
+              ))}
+              {markers.length > 0 && (
+                <label className="scene-names-toggle" data-testid="scene-names-toggle">
+                  <Switch
+                    checked={showNames}
+                    onCheckedChange={setShowNames}
+                    aria-label="Electrode names"
+                  />
+                  <span>Electrode names</span>
+                </label>
+              )}
               {onActualSizeChange && (
                 <label className="scene-names-toggle" data-testid="scene-actual-size-toggle">
                   <Switch checked={!!actualSize} onCheckedChange={onActualSizeChange} aria-label="Actual size" />

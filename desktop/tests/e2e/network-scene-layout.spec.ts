@@ -170,6 +170,51 @@ test("the pane's expand button gives the scene the page, and the picker comes ba
   await page.screenshot({ path: join(SHOTS, "after_networks_expanded.png") });
 });
 
+test("Networks tab: Layers switches the cortex off and on, and the view does not move", async () => {
+  test.setTimeout(120_000);
+  await launch(1440, 900);
+  await openNetworks();
+  await ready();
+  const pane = page.locator('[data-page-active="true"]');
+  // An orbited view, because a re-frame would be the pane moving under the user's hand.
+  await pane.getByRole("radio", { name: "L", exact: true }).click();
+  await page.waitForFunction(() => window.__scene?.camera.settled === true);
+  await pane.getByTestId("scene-layers-toggle").click();
+  const cortex = pane.getByRole("switch", { name: "Cortex" });
+  await expect(cortex).toBeChecked();
+
+  // Read off the id pass, which draws what a click can hit: a hidden cortex must not catch clicks.
+  const state = () =>
+    page.evaluate(() => {
+      const scene = window.__scene!;
+      const grid: [number, number][] = [];
+      for (let y = 8; y < scene.canvas.heightCss; y += 12) for (let x = 8; x < scene.canvas.widthCss; x += 12) grid.push([x, y]);
+      return {
+        opacity: scene.parts.find((part) => part.id === "gm")?.opacity,
+        cortex: scene.sampleRegions(grid).filter((label) => label !== null).length,
+        lines: scene.lines?.streamlines,
+        camera: JSON.stringify(scene.camera),
+      };
+    });
+  const on = await state();
+  expect(on.opacity).toBe(1);
+  expect(on.cortex, "the cortex is drawn by default").toBeGreaterThan(0);
+  const pixels = await canvas().screenshot();
+
+  await cortex.click();
+  await expect(cortex).not.toBeChecked();
+  await expect.poll(async () => (await state()).opacity).toBe(0);
+  const off = await state();
+  expect(off.cortex, "nothing of it is left to click").toBe(0);
+  expect(off.lines, "the fibres stay").toBe(on.lines);
+  expect(off.camera, "the view stays").toBe(on.camera);
+  expect(Buffer.compare(await canvas().screenshot(), pixels), "the picture changes").not.toBe(0);
+
+  await cortex.click();
+  await expect(cortex).toBeChecked();
+  await expect.poll(state).toEqual(on);
+});
+
 test("the Optimizer's Network target has the same pane, and it is as usable", async () => {
   test.setTimeout(120_000);
   await launch(1440, 900);
@@ -185,4 +230,5 @@ test("the Optimizer's Network target has the same pane, and it is as usable", as
   await seeds.getByRole("button", { name: "Done" }).click();
   await closeOptEditor(page);
   await expectAUsablePane(900, "optimizer_1440x900");
+  await expect(page.locator('[data-page-active="true"]').getByTestId("scene-part-switch-gm")).toHaveCount(0);
 });

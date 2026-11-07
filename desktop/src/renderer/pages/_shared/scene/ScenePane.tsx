@@ -68,6 +68,7 @@ import {
   DEFAULT_OPACITY,
   SCENE_PALETTE,
   applyElectrodePick,
+  atlasSurfacePart,
   channelByElectrode,
   explodeOffered,
   firstEmptySlot,
@@ -215,6 +216,9 @@ export interface ScenePaneProps {
   lineLabel?: (group: number) => string | null;
   /** The page has fixed the atlas (a network's own), so the pane offers no atlas selector. */
   atlasLocked?: boolean;
+  /** Layers offers a **Cortex** switch, on by default: the Visual exporter's Networks tab, where the
+   *  fibres inside the cortex are what is being looked at. */
+  cortexSwitch?: boolean;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
   /**
@@ -325,6 +329,7 @@ export function ScenePane({
   onLinePick,
   lineLabel,
   atlasLocked = false,
+  cortexSwitch = false,
   note,
   showing = null,
   className,
@@ -413,18 +418,10 @@ export function ScenePane({
     [onAtlasChange, manifestData],
   );
 
-  /**
-   * Which surface part carries the drawn atlas' per-vertex labels.
-   *
-   * The manifest says so (`atlases[].aligned_to`), because an MNI guide packages one surface per
-   * atlas volume — CIT168's regions are not MASSP's geometry — and a hard-coded `"subcortical"`
-   * would draw one atlas' anatomy with another's labels. `kind` is the fallback for the older
-   * manifests that carry no `aligned_to`.
-   */
   const atlasEntry = manifestData?.atlases.find((entry) => entry.id === effectiveAtlas) as
     | { kind?: string; aligned_to?: string }
     | undefined;
-  const atlasPart = atlasEntry?.aligned_to ?? (atlasEntry?.kind === "subcortical" ? "subcortical" : "gm");
+  const atlasPart = atlasSurfacePart(atlasEntry);
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
@@ -510,7 +507,7 @@ export function ScenePane({
     if (gmData?.indices) {
       out.push({
         id: atlasPart,
-        label: atlasPart === "gm" ? "GM" : atlasPart === "subcortical" ? "Subcortical regions" : "Atlas regions",
+        label: atlasPart === "gm" ? (cortexSwitch ? "Cortex" : "GM") : atlasPart === "subcortical" ? "Subcortical regions" : "Atlas regions",
         positions: gmData.positions,
         indices: gmData.indices,
         labels: alignment.aligned ? (labelData?.labels ?? null) : null,
@@ -520,6 +517,7 @@ export function ScenePane({
         // veil over something behind it.
         opacity: 1,
         opacityLocked: true,
+        switchable: cortexSwitch && atlasPart === "gm",
         order: 0,
       });
     }
@@ -540,7 +538,7 @@ export function ScenePane({
       });
     }
     return out.length > 0 ? out : NO_PARTS;
-  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements, atlasPart, offsets]);
+  }, [gmData, skinData, labelData, alignment.aligned, gesture, showingPlacements, atlasPart, offsets, cortexSwitch]);
 
   const box6 = (box: number[] | null | undefined): Bounds | undefined =>
     box && box.length === 6 ? (box as Bounds) : undefined;

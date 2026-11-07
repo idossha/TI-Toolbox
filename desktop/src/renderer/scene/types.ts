@@ -31,6 +31,9 @@ export interface ScenePart {
   /** Fixed at `opacity`: no slider is offered and no page-session value can override it. The grey
    *  matter is locked opaque — it is the anatomy being aimed at, not a veil over something else. */
   opacityLocked?: boolean;
+  /** Layers offers an on/off switch for this part, by its opacity so the camera and the upload stay
+   *  put; off, it is neither drawn nor picked. Its on value is `opacity`, with or without the lock. */
+  switchable?: boolean;
   /**
    * Painter's order, smallest first. Two nested translucent shells are drawn inner-then-outer with
    * depth writes off; drawn the other way round the outer shell's fragments reject the inner one's
