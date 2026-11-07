@@ -82,6 +82,7 @@
 
 /* Over the canvas, never beside it; a long list scrolls in here rather than the page. */
 .scene-layers {
+  box-sizing: border-box;
   position: absolute;
   left: var(--space-2);
   bottom: calc(var(--space-2) + 28px);
@@ -99,6 +100,8 @@
 }
 
 .scene-legend {
+  box-sizing: border-box;
+  max-width: 100%;
   margin: 0;
   padding: var(--space-2);
   list-style: none;
@@ -114,14 +117,16 @@
 
 .scene-legend li {
   display: grid;
-  grid-template-columns: 10px 1fr auto;
+  /* minmax(0, ...): a long atlas name truncates inside the card rather than widening it past the
+     panel, whose overflow would then cut off the card's right border. */
+  grid-template-columns: 10px minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-2);
   white-space: nowrap;
 }
 
 .scene-legend-static li {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .scene-legend-swatch {
@@ -131,6 +136,8 @@
 }
 
 .scene-legend-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
   color: var(--on-canvas);
 }
 
@@ -146,15 +153,21 @@
   border-radius: var(--radius-control);
   background: rgba(11, 13, 16, 0.72);
   border: 1px solid rgba(230, 235, 241, 0.14);
-  min-width: 168px;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .scene-opacity-row {
   display: grid;
-  grid-template-columns: 56px 1fr;
+  grid-template-columns: 56px minmax(0, 1fr);
   align-items: center;
   gap: var(--space-2);
   font-size: 11px;
+}
+
+/* The slider's own 120 px floor would push its track through the box's border in a narrow pane. */
+.scene-opacity-row .slider-root {
+  min-width: 0;
 }
 
 .scene-opacity-label {
@@ -213,7 +226,9 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  flex: none;
   gap: var(--space-1);
+  max-width: 100%;
   min-width: 0;
 }
 

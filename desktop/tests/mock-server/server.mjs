@@ -3209,6 +3209,7 @@ route("GET", "/api/guide/manifest", (ctx) => {
       ...mniManifest,
       guide_id: "mni",
       guides: INSTALLED_GUIDES,
+      content_hash: "mock-guide-mni",
       parts: mniManifest.parts.map(withoutFiles),
       atlases: mniManifest.atlases.map(withoutFiles),
       nets: GUIDE_NETS.map((name) => ({ name, electrodes: NET_SIZES[name] ?? 128, url: `/api/guide/electrodes?net=${encodeURIComponent(name)}` })),
@@ -3223,6 +3224,7 @@ route("GET", "/api/guide/manifest", (ctx) => {
       guide_id: guideId,
       guides: INSTALLED_GUIDES,
       guide_version: 2,
+      content_hash: "mock-guide-default",
       // Never "subject-ras": the pane keys click-to-config off this value.
       space: "guide-ras",
       bbox: sceneBbox,

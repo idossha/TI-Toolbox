@@ -18,6 +18,7 @@ Deliberately elsewhere
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -231,3 +232,31 @@ def test_subcortical_reference_is_served_without_building(client, monkeypatch):
         response = client.get(url, headers=BEARER)
         assert response.status_code == 200
         assert len(response.content) > 100
+
+
+@pytest.mark.parametrize("guide_id", ["default", "mni"])
+def test_content_hash_is_a_version_a_client_can_put_in_its_urls(
+    client: TestClient, guide_id: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The payloads are cached for a year per URL, so a client's URL carries this hash.
+
+    It has to move when any payload does: an unchanged hash after a rebuild is the
+    year-old cortex under new labels (2026-11-07), which paints nothing.
+    """
+    url = f"/api/guide/manifest?guide={guide_id}"
+    first = client.get(url, headers=BEARER).json()["content_hash"]
+    assert first and first == client.get(url, headers=BEARER).json()["content_hash"]
+
+    body = guide.manifest(guide_id)
+    rebuilt = json.loads(json.dumps(body))
+    rebuilt["parts"][0]["files"]["tvsc_meta"]["sha256"] = "0" * 64
+    monkeypatch.setattr(guide, "manifest", lambda *_: rebuilt)
+    assert client.get(url, headers=BEARER).json()["content_hash"] != first
+
+    monkeypatch.undo()
+    part = body["parts"][0]["id"]
+    versioned = client.get(
+        f"/api/guide/surface?part={part}&guide={guide_id}&v={first}", headers=BEARER
+    )
+    assert versioned.status_code == 200
+    assert len(versioned.content) == body["parts"][0]["bytes"]

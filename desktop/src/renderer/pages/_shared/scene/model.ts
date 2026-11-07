@@ -280,6 +280,33 @@ export function labelsAlignment(
 }
 
 /**
+ * What the pane says about an atlas' labels while they are not on the drawn surface: `loading` until
+ * they arrive, and a plain sentence when they will not. `null` is nothing to say, which includes an
+ * atlas with no regions and a regions failure, which the pane's hint already states.
+ */
+export function atlasLabelsStatus(input: {
+  atlas: string | null;
+  /** The legend has not arrived, or the server is still building it. */
+  legendPending: boolean;
+  legendFailed: boolean;
+  legendRows: number;
+  surfaceExpected: boolean;
+  surfaceReady: boolean;
+  labelsPending: boolean;
+  labelsError: string | null;
+  /** Why the labels that arrived do not belong to the drawn surface. */
+  misaligned: string | null;
+}): { kind: "loading" | "failed"; text: string } | null {
+  const { atlas } = input;
+  if (!atlas || input.legendFailed) return null;
+  if (input.labelsError) return { kind: "failed", text: `The ${atlas} labels could not be loaded: ${input.labelsError}` };
+  if (input.misaligned) return { kind: "failed", text: `The ${atlas} labels were not applied: ${input.misaligned}.` };
+  const pending =
+    input.legendPending || (input.legendRows > 0 && (input.labelsPending || (input.surfaceExpected && !input.surfaceReady)));
+  return pending ? { kind: "loading", text: `Loading ${atlas} labels…` } : null;
+}
+
+/**
  * Which surface part carries an atlas' labels, and so the one brain surface the pane draws beside
  * the skin. The manifest says so (`aligned_to`), because an MNI guide packages one surface per atlas
  * volume — CIT168's regions are not MASSP's geometry — and a sub-cortical atlas therefore draws its

@@ -40,6 +40,26 @@
   color: var(--ink-2);
 }
 
+/* Over the stage, clear of the camera presets in the top-right corner. */
+.scene-pane-status {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  max-width: calc(100% - 136px);
+  margin: 0;
+  padding: 2px var(--space-2);
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 16px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--on-canvas);
+  background: rgba(11, 13, 16, 0.72);
+  border: 1px solid rgba(230, 235, 241, 0.14);
+  border-radius: var(--radius-control);
+  pointer-events: none;
+}
+
 .scene-pane-retry {
   align-self: flex-start;
   pointer-events: auto;

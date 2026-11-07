@@ -4890,3 +4890,20 @@ User: "only in the network visualizer have the cortex and it should be togglable
 **Why opacity, not removing the part.** `framingSignature` includes every part, so a part leaving `parts` re-frames the camera and throws away the view the user orbited to, and every `parts` change uploads all surfaces again. At opacity 0 a part is already out of every pass (`glScene.ordered`), as the explode veil relies on.
 
 **Alternatives rejected.** Unlocking the cortex's opacity slider: a translucent cortex is what was ruled out for the other panes, and the request was on or off. A separate control beside **Layers**: a second place for layer visibility.
+
+## 2026-11-07 — A guide payload's URL names the guide's version; the Simulator has no cortex; a net is drawn one way
+
+The maintainer reported Harvard-Oxford and Glasser on MNI as all grey on a puffy, torn cortex, with the other atlases good.
+
+**Cause.** The renderer's own HTTP cache, not the data. `/api/guide/*` is `immutable` for a year per URL, and those URLs did not change when df955a10 replaced the cortex. The maintainer's Electron profile (`ti-toolbox-desktop/Cache`) held `surface?part=gm&format=tvsc&guide=mni` at 2 541 377 bytes from 2026-10-21: the pre-midlayer surface (2 540 768 bytes in `df955a10~1`, 66 544 vertices), with the new labels fetched beside it at 2026-11-06. `labelsAlignment` then refused them, 256 686 against 66 544, and nothing said so. Serving those old bytes to a fresh profile reproduces the report (`final/MNI_REPRODUCED_report_stale_cached_cortex.png`). The profile holds no Schaefer entry, so it was never opened there; it would have looked the same. Sub-cortical atlases have their own surfaces, unchanged, which is why they looked good. The packaged midlayer is sound: 256 686 vertices, 0 degenerate triangles, longest edge 1.72 mm. Its folds are broader than a subject's, with 1 888 cm² of surface to the Ernie guide's 2 151, as expected of a template averaged over many brains; that stays.
+
+**Decisions.**
+
+1. The guide manifest, which is never cached, carries `content_hash`: a hash of the manifest, which names every payload's SHA-256. The client sends it as `v` on surface, labels, regions and electrodes, so a changed package is new URLs. The payload hooks wait for the manifest. A new install's old cache entries are simply never asked for again.
+2. A label failure is stated: `atlasLabelsStatus` drives one line over the stage. Loading appears after 250 ms, so a cached atlas shows nothing (measured on sub-101: 167 ms from a warm server cache, no line; about 2.3 s from a cold one, line shown). A misaligned or failed payload is a sentence. A regions failure stays in the hint, unchanged.
+3. `ScenePane.cortex={false}` on the Simulator only. Other `montage` panes (results candidates, the exporter's preview, EEG caps) keep theirs: the request named the Simulator. The scalp's depth pre-pass hides far-side electrodes at every skin opacity on its own.
+4. `ScenePane.placedOccluded` on EEG caps: its markers are a whole net, so they take the Simulator's route (posed on the scalp, occluded, normal scale) instead of the free-hand one, which stays unhidden (2026-09-06). Not `net=`: caps draws a second net to compare, and colours collapsed electrodes.
+
+**Alternatives rejected.** `v=guide_version`: needs someone to remember a bump, the same defect later. Per-file hashes: three fields and a wider contract, to save one re-download after a rebuild. `no-cache` with the existing ETag: an entry already cached as `immutable` is never revalidated, so the user's would have stayed stale; URLs had to change anyway. Telling users to clear a cache: every user who updates would hit it.
+
+Verified by `tests/e2e/scene-pane-status.spec.ts`, `tests/unit/scene-labels-status.test.ts`, `tests/test_guide_routes.py::test_content_hash_is_a_version_a_client_can_put_in_its_urls`.

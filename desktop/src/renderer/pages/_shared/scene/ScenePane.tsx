@@ -68,6 +68,7 @@ import {
   DEFAULT_OPACITY,
   SCENE_PALETTE,
   applyElectrodePick,
+  atlasLabelsStatus,
   atlasSurfacePart,
   channelByElectrode,
   explodeOffered,
@@ -149,6 +150,9 @@ export interface ScenePaneProps {
    * first, and the table now claims an electrode nobody meant to add.
    */
   onPlacedPick?: (index: number) => void;
+  /** `placedMarkers` are a whole EEG net: drawn as the Simulator draws a net's, on the scalp and hidden
+   *  by the head when round the back, rather than as a few dots that must never be hidden. */
+  placedOccluded?: boolean;
   /** Marker indices to draw as if hovered — how a hovered table row lights its own dot. */
   highlightMarkers?: number[];
   /** The placement marker the page has selected: ringed and enlarged, so "which electrode does the
@@ -219,6 +223,8 @@ export interface ScenePaneProps {
   /** Layers offers a **Cortex** switch, on by default: the Visual exporter's Networks tab, where the
    *  fibres inside the cortex are what is being looked at. */
   cortexSwitch?: boolean;
+  /** `false` neither fetches nor draws the cortex: the Simulator, where the scalp is what is aimed at. */
+  cortex?: boolean;
   /** A page-supplied sentence for a target the pane cannot draw (subcortical, a saved ROI CSV). */
   note?: string;
   /**
@@ -305,6 +311,7 @@ export function ScenePane({
   guide = "default",
   onPlace,
   placedMarkers,
+  placedOccluded = false,
   originalPositions,
   onPlacedPick,
   onPlacedHover,
@@ -330,6 +337,7 @@ export function ScenePane({
   lineLabel,
   atlasLocked = false,
   cortexSwitch = false,
+  cortex = true,
   note,
   showing = null,
   className,
@@ -426,9 +434,10 @@ export function ScenePane({
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
   const allGuideRequests = useGuideSurfaceRequests(guideWanted ? guideManifest.data : undefined, guide);
-  const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || part.id === atlasPart), [allGuideRequests, atlasPart]);
+  const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || (cortex && part.id === atlasPart)), [allGuideRequests, atlasPart, cortex]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
-  const subjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
+  const allSubjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
+  const subjectRequests = useMemo(() => (cortex ? allSubjectRequests : allSubjectRequests.filter((part) => part.id === "skin")), [allSubjectRequests, cortex]);
   const subjectSurfaces = useSceneSurfaces(drawnSubject, subjectRequests);
   const surfaceRequests = drawnSubject ? subjectRequests : guideRequests;
   const surfaces = drawnSubject ? subjectSurfaces : guideSurfaces;
@@ -717,6 +726,31 @@ export function ScenePane({
     return null;
   })();
 
+  // Only once the pane is drawing and the labels are slow, so a cached load shows nothing: the disk
+  // cache still takes a few frames to answer.
+  const labelsStatus =
+    state === "ready"
+      ? atlasLabelsStatus({
+          atlas: effectiveAtlas,
+          legendPending: regionsQuery.isPending || !!(regionsQuery.data as { building?: boolean } | undefined)?.building,
+          legendFailed: !!regionsQuery.error,
+          legendRows: legend.length,
+          surfaceExpected: surfaceRequests.some((part) => part.id === atlasPart),
+          surfaceReady: !!gmData,
+          labelsPending: labels.isPending,
+          labelsError: labels.error ? labels.error.message : null,
+          misaligned: alignment.reason,
+        })
+      : null;
+  const loadingLabels = labelsStatus?.kind === "loading" ? labelsStatus.text : null;
+  const [slowLabels, setSlowLabels] = useState<string | null>(null);
+  useEffect(() => {
+    if (!loadingLabels) return;
+    const timer = setTimeout(() => setSlowLabels(loadingLabels), 250);
+    return () => clearTimeout(timer);
+  }, [loadingLabels]);
+  const labelsSentence = labelsStatus && (labelsStatus.kind === "failed" || slowLabels === labelsStatus.text) ? labelsStatus.text : null;
+
   // ---- first paint ---------------------------------------------------------------------------
   // Refs, not state: this number is read through the debug handle and by nothing that renders, and
   // putting it in state would re-render the pane purely to record a measurement.
@@ -955,12 +989,12 @@ export function ScenePane({
              * there" is a worse failure than "an electrode round the back shows through", and the
              * dots are four to eight, not 185.
              */
-            markersOccluded={!placedMarkers}
+            markersOccluded={!placedMarkers || placedOccluded}
             actualSize={actualSizeOn}
             onActualSizeChange={actualSizeOffered ? setActualSize : undefined}
             /* A placement dot is one of four to eight, carries a name and has to be aimed at; an
                EEG net's is one of 185. */
-            markerScale={placedMarkers ? 1.5 : undefined}
+            markerScale={placedMarkers && !placedOccluded ? 1.5 : undefined}
             /* An electrode goes ON the skin — including a skin the user has turned down to 0.22 to
                see the cortex through. Without this the click reads through it and the electrode
                lands on the grey matter behind. */
@@ -1001,6 +1035,11 @@ export function ScenePane({
             ) : null}
           </div>
         )}
+        {labelsSentence ? (
+          <p className="scene-pane-status" role="status" data-testid="scene-pane-status" title={labelsSentence}>
+            {labelsSentence}
+          </p>
+        ) : null}
       </div>
       <p className="scene-pane-hint" data-testid="scene-pane-hint">
         {state === "ready" ? hint : ""}
