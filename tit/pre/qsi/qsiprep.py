@@ -102,8 +102,8 @@ def run_qsiprep(
 
     Susceptibility distortion correction is always on: TOPUP with the subject's
     reverse phase-encoding fieldmap (``IntendedFor`` written into its sidecar when
-    missing) or reverse-PE DWI series, else fieldmap-less SyN
-    (``--use-syn-sdc warn``). DWI fieldmaps that exist but cannot be used stop the
+    missing) or reverse-PE DWI series, else fieldmap-less SyN.
+    DWI fieldmaps that exist but cannot be used stop the
     run instead of silently falling back.
 
     Parameters

@@ -169,12 +169,19 @@ class TestBuildQsiprepCmd:
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_fs_license_uses_host_path(self, mock_resources, builder):
         """License mount source must be the host path, not container path."""
-        config = QSIPrepConfig(subject_id="001")
+        config = QSIPrepConfig(subject_id="001", image_tag="26.0.0")
         cmd = builder.build_qsiprep_cmd(config)
         v_args = [cmd[i + 1] for i, x in enumerate(cmd) if x == "--mount"]
         license_mounts = [v for v in v_args if "license" in v]
         assert len(license_mounts) == 1
         assert license_mounts[0].startswith("type=bind,source=/host/project/")
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_26_1_needs_no_fs_license(self, mock_resources, builder):
+        """QSIPrep 26.1 removed --fs-license-file and needs no license at all."""
+        cmd = builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001"))
+        assert "--fs-license-file" not in cmd
+        assert not any("license" in arg.lower() for arg in cmd)
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_no_fs_license(self, mock_resources, tmp_path):
@@ -200,14 +207,30 @@ class TestBuildQsiprepCmdGpu:
         cmd = builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001"))
         joined = " ".join(cmd)
         assert "--gpus" not in cmd
+        assert "--gpu" not in cmd
         assert "--eddy-config" not in cmd
         assert "eddy_cuda" not in joined
         assert not list(tmp_path.glob(".qsiprep_eddy*"))
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
-    def test_gpu_flag_and_eddy_config(self, mock_resources, builder):
+    def test_26_1_takes_gpu_eddy_with_no_shim_or_config(
+        self, mock_resources, builder, tmp_path
+    ):
         cmd = builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001", use_gpu=True))
         image = cmd.index(f"{const.QSI_QSIPREP_IMAGE}:{const.QSI_QSIPREP_IMAGE_TAG}")
+        # docker's own flag before the image, QSIPrep's after it.
+        assert cmd[cmd.index("--gpus") + 1] == "all" and cmd.index("--gpus") < image
+        assert cmd[cmd.index("--gpu") + 1] == "eddy" and cmd.index("--gpu") > image
+        assert "--eddy-config" not in cmd
+        assert "eddy_cuda" not in " ".join(cmd)
+        assert not list(tmp_path.glob(".qsiprep_eddy*"))
+
+    @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
+    def test_gpu_flag_and_eddy_config(self, mock_resources, builder):
+        cmd = builder.build_qsiprep_cmd(
+            QSIPrepConfig(subject_id="001", use_gpu=True, image_tag="26.0.0")
+        )
+        image = cmd.index(f"{const.QSI_QSIPREP_IMAGE}:26.0.0")
         # docker's own flag before the image, QSIPrep's after it.
         assert cmd[cmd.index("--gpus") + 1] == "all" and cmd.index("--gpus") < image
         assert cmd[cmd.index("--eddy-config") + 1] == "/tmp/eddy_params_gpu.json"
@@ -215,7 +238,9 @@ class TestBuildQsiprepCmdGpu:
 
     @patch(f"{MODULE}.get_inherited_dood_resources", return_value=(8, 32))
     def test_gpu_mounts_are_read_only_host_paths(self, mock_resources, builder):
-        cmd = builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001", use_gpu=True))
+        cmd = builder.build_qsiprep_cmd(
+            QSIPrepConfig(subject_id="001", use_gpu=True, image_tag="26.0.0")
+        )
         mounts = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--mount"]
         assert (
             "type=bind,source=/host/project/.qsiprep_eddy_params_gpu.json,"
@@ -230,7 +255,9 @@ class TestBuildQsiprepCmdGpu:
     def test_staged_config_passes_qsiprep_validation(
         self, mock_resources, builder, tmp_path
     ):
-        builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001", use_gpu=True))
+        builder.build_qsiprep_cmd(
+            QSIPrepConfig(subject_id="001", use_gpu=True, image_tag="26.0.0")
+        )
         staged = json.loads((tmp_path / ".qsiprep_eddy_params_gpu.json").read_text())
         assert staged["use_cuda"] is True
         # qsiprep.utils.misc.validate_eddy_config refuses anything else.
@@ -240,7 +267,9 @@ class TestBuildQsiprepCmdGpu:
     def test_staged_shim_is_executable_with_lf_shebang(
         self, mock_resources, builder, tmp_path
     ):
-        builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001", use_gpu=True))
+        builder.build_qsiprep_cmd(
+            QSIPrepConfig(subject_id="001", use_gpu=True, image_tag="26.0.0")
+        )
         shim = tmp_path / ".qsiprep_eddy_cuda_shim"
         assert shim.read_bytes() == b'#!/bin/sh\nexec eddy_cuda11.0 "$@"\n'
         assert os.access(shim, os.X_OK)
