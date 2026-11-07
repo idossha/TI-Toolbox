@@ -290,6 +290,7 @@ export function defaultQsiPrepConfig(): QsiPrepSettings {
     denoise_method: "dwidenoise",
     unringing_method: "auto",
     mni_normalization: false,
+    use_gpu: false,
   };
 }
 
@@ -314,7 +315,7 @@ export function qsiPrepPreferences(config: QsiPrepSettings): SurferSettings["qsi
   const { output_resolution, image_tag, skip_bids_validation, denoise_method, unringing_method } = config;
   if (denoise_method !== "dwidenoise" && denoise_method !== "patch2self" && denoise_method !== "none") throw new Error("Unsupported denoise method");
   if (unringing_method !== "auto" && unringing_method !== "mrdegibbs" && unringing_method !== "rpg" && unringing_method !== "none") throw new Error("Unsupported unringing method");
-  return { output_resolution: output_resolution ?? null, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization: config.mni_normalization ?? false };
+  return { output_resolution: output_resolution ?? null, image_tag, skip_bids_validation, denoise_method, unringing_method, mni_normalization: config.mni_normalization ?? false, use_gpu: config.use_gpu ?? false };
 }
 export function qsiReconPreferences(config: QsiReconSettings): SurferSettings["qsi_recon_config"] {
   const { recon_specs, atlases, use_gpu, image_tag, skip_odf_reports } = config;

@@ -373,6 +373,7 @@ def _run_subject_pipeline(
                     denoise_method=qsiprep_cfg.get("denoise_method", "dwidenoise"),
                     unringing_method=qsiprep_cfg.get("unringing_method", "auto"),
                     mni_normalization=qsiprep_cfg.get("mni_normalization", False),
+                    use_gpu=qsiprep_cfg.get("use_gpu", False),
                     runner=runner,
                 ),
                 logger,

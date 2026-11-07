@@ -4239,3 +4239,26 @@ back); restoring `SIG_IGN` after the import (no one place knows when that happen
 comparison read `sub-CHN/left_insula_mean`; the no-NIfTI catalog case reads `sub-CHN/posterior_timax`. With one analysis left (ernie's voxel ROI), the results test
 checks that one and that it covered every `results.csv` found on disk, in place of a floor of five. Sub-101's two ex runs now share a leadfield but no montage, so the
 "same grey-matter mean" test still has nothing to compare and skips saying that. The asserts themselves are unchanged.
+
+## 2026-11-06 — `use_gpu` runs QSIPrep's eddy on the GPU through a name shim on 26.0.0
+
+**Decision.** `QSIPrepSettings.use_gpu` (default off) adds `--gpus all`, passes `--eddy-config` with
+the image's default parameters plus `use_cuda: true`, and bind-mounts a one-line shim as
+`eddy_cuda10.2` that execs `eddy_cuda11.0`. Reuses `validate_dood_environment(require_gpu=)`.
+Replaced by `--gpu eddy` when the pinned image moves to QSIPrep 26.1 or later. Pinned by
+`tests/test_pre_qsi_docker.py::TestBuildQsiprepCmdGpu`.
+
+**Why.** CPU eddy on about 500 volumes at 1.5 mm ran over 19 hours on 8 threads, too slow for a
+64-subject study. QSIPrep 26.0.0 hardcodes `eddy_cuda10.2` while its image ships only
+`eddy_cuda11.0`, so `use_cuda` alone stops with a missing-dependency error
+([PennLINC/qsiprep#1067](https://github.com/PennLINC/qsiprep/issues/1067), which names this
+workaround). 26.1 fixes the lookup and adds `--gpu`.
+
+**Alternatives rejected.** Moving to 26.1 now: it removes `--use-syn-sdc`, `--hmc-model`,
+`--pepolar-method`, `--output-resolution` and `--skip-anat-based-spatial-normalization`, changes
+output naming, and is a separate migration that can move results. A shim to FSL's `eddy` wrapper,
+or falling back to CPU when no GPU is usable: the wrapper picks `eddy_cpu` by itself, and CPU and GPU
+eddy are not numerically identical, so a fallback would hide a change of method.
+
+**Revisit if.** The pinned QSIPrep image moves past 26.0.0: delete the shim and the config, and pass
+`--gpu eddy`.

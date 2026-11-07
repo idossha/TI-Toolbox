@@ -136,6 +136,8 @@ class QSIPrepConfig:
         Run QSIPrep's anatomical normalization to MNI. Off by default: only
         QSIRecon atlases/template-space specs need it. Always on with SyN SDC,
         which uses the MNI transform to place its fieldmap prior.
+    use_gpu : bool
+        Run eddy on the GPU (requires NVIDIA Docker runtime).
     """
 
     subject_id: str
@@ -147,6 +149,7 @@ class QSIPrepConfig:
     unringing_method: str = "mrdegibbs"
     use_syn_sdc: bool = False
     mni_normalization: bool = False
+    use_gpu: bool = False
 
     def __post_init__(self) -> None:
         if not self.subject_id:

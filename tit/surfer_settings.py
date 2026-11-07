@@ -40,6 +40,7 @@ class QSIPrepPreferences(BaseModel):
     denoise_method: Literal["dwidenoise", "patch2self", "none"] = "dwidenoise"
     unringing_method: Literal["auto", "mrdegibbs", "rpg", "none"] = "auto"
     mni_normalization: bool = False
+    use_gpu: bool = False
 
 
 class QSIReconPreferences(BaseModel):
