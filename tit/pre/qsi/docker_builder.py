@@ -31,6 +31,17 @@ _CUSTOM_PIPELINE_MAP = {
     "dsi_studio_gqi": "dsi_studio_gqi_scalar.yaml",
 }
 
+# GPU eddy in the pinned QSIPrep image. eddy_params_gpu.json is the image's default
+# eddy_params.json with use_cuda on, nothing else. QSIPrep 26.0.0 then calls
+# eddy_cuda10.2, but its image ships only eddy_cuda11.0 (PennLINC/qsiprep#1067, fixed
+# upstream in 26.1 with --gpu eddy, whose CLI drops flags build_qsiprep_cmd passes), so
+# a shim of that name goes on the container's PATH. Written from here rather than
+# copied from a file: a checkout with CRLF line endings would break the shebang.
+_EDDY_GPU_CONFIG_FILE = "eddy_params_gpu.json"
+_EDDY_GPU_CONFIG_CONTAINER_PATH = "/tmp/eddy_params_gpu.json"
+_EDDY_CUDA_SHIM = b'#!/bin/sh\nexec eddy_cuda11.0 "$@"\n'
+_EDDY_CUDA_SHIM_CONTAINER_PATH = "/usr/local/bin/eddy_cuda10.2"
+
 #: The scratch directories under ``derivatives/`` the QSIPrep and QSIRecon containers
 #: get as ``-w``. Rebuildable: ``tit.storage`` counts them as cache, not "Other".
 QSIPREP_WORK_DIR = ".qsiprep_work"
@@ -197,6 +208,33 @@ class DockerCommandBuilder:
         container_path = "/tmp/recon_spec.yaml"
         return container_path, host_spec
 
+    def _stage_eddy_gpu_files(self) -> tuple[str, str]:
+        """Stage the GPU eddy config and the CUDA name shim into the project root.
+
+        Returns their host paths, for DooD mounting, as ``(config, shim)``.
+        """
+        src = (
+            Path(__file__).resolve().parents[3]
+            / "resources"
+            / "qsiprep"
+            / _EDDY_GPU_CONFIG_FILE
+        )
+        if not src.is_file():
+            raise DockerBuildError(f"GPU eddy config not found: {src}")
+
+        config_name = ".qsiprep_eddy_params_gpu.json"
+        shutil.copy2(src, Path(self.project_dir) / config_name)
+
+        shim_name = ".qsiprep_eddy_cuda_shim"
+        shim = Path(self.project_dir) / shim_name
+        shim.write_bytes(_EDDY_CUDA_SHIM)
+        shim.chmod(0o755)
+
+        return (
+            str(self._host_project_dir / config_name),
+            str(self._host_project_dir / shim_name),
+        )
+
     def build_qsiprep_cmd(self, config: QSIPrepConfig) -> list[str]:
         """
         Build Docker command for QSIPrep.
@@ -239,6 +277,9 @@ class DockerCommandBuilder:
             *self._label_args("qsiprep"),
         ]
 
+        if config.use_gpu:
+            cmd.extend(["--gpus", "all"])
+
         # Resource limits
         cmd.extend(
             [
@@ -273,6 +314,19 @@ class DockerCommandBuilder:
                 )
             )
 
+        if config.use_gpu:
+            host_eddy_config, host_eddy_shim = self._stage_eddy_gpu_files()
+            cmd.extend(
+                bind_mount(
+                    host_eddy_config, _EDDY_GPU_CONFIG_CONTAINER_PATH, readonly=True
+                )
+            )
+            cmd.extend(
+                bind_mount(
+                    host_eddy_shim, _EDDY_CUDA_SHIM_CONTAINER_PATH, readonly=True
+                )
+            )
+
         cmd.append(image)
 
         # QSIPrep arguments
@@ -301,6 +355,8 @@ class DockerCommandBuilder:
         cmd.extend(["--unringing-method", config.unringing_method])
         # Stated explicitly so an upstream default change cannot move our results.
         cmd.extend(["--hmc-model", "eddy", "--pepolar-method", "TOPUP"])
+        if config.use_gpu:
+            cmd.extend(["--eddy-config", _EDDY_GPU_CONFIG_CONTAINER_PATH])
         cmd.extend(["--b0-threshold", f"{const.QSI_B0_THRESHOLD:g}"])
         if config.use_syn_sdc:
             cmd.extend(["--use-syn-sdc", "warn"])

@@ -1330,3 +1330,10 @@ after the 2026-09-03 removal of the Freeview launch routes; no client read it. `
 /api/view/{kind}` returns `space`, `layers`, `scene` and the optional `cursor`.
 `tit.viewspec.to_freeview_args` and `freeview_command` are deleted with it. Regenerated
 `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-11-06 — `use_gpu` on QSIPrep settings and preferences
+
+`QSIPrepSettings`, `QSIPrepConfig` and `QSIPrepPreferences` gain optional `use_gpu` (default
+`false`), which runs eddy on the GPU; `GET /api/surfer-settings` always returns it, as it does for
+QSIRecon. Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json`
+and `desktop/src/renderer/api/schema.d.ts`.
