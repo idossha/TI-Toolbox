@@ -37,7 +37,7 @@ DTI_coregT1_tensor.nii.gz + DTI_coregT1_qc.json  -->  SimNIBS anisotropic simula
 
 ## Stage 1: QSIPrep
 
-TI-Toolbox runs QSIPrep 26.0.0 with defaults chosen from your data, so most users never open the settings:
+TI-Toolbox runs QSIPrep 26.1.1 with defaults chosen from your data, so most users never open the settings:
 
 | Setting | Default | Why |
 |---|---|---|
@@ -58,14 +58,14 @@ Before QSIPrep starts, TI-Toolbox looks at the subject's `fmap/` folder:
 
 - A **reverse phase-encoding fieldmap** (`fmap/*_epi` whose `acq` label says `dwi`/`dti`, or with no `acq` label and the DWI's matrix, or whose `IntendedFor` already names the DWI) with a `PhaseEncodingDirection` opposite to the DWI's is used with **TOPUP**. If its sidecar lacks `IntendedFor` or `TotalReadoutTime`, TI-Toolbox writes them into that fieldmap's own JSON (the readout time is derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`). Nothing else in your BIDS folder is touched, and a value that is already there is never overwritten.
 - **DWI series with opposite phase encoding** in `dwi/` are used with TOPUP directly.
-- **No fieldmap**: fieldmap-less **SyN** correction (`--use-syn-sdc warn`). SyN places its prior through the anatomical MNI transform, so MNI normalization is switched on for that run.
+- **No fieldmap**: fieldmap-less **SyN** correction (`--sdc-fieldmapless-method syn --sdc-anat-reference invt1w`). SyN places its prior through the anatomical MNI transform, so MNI normalization is switched on for that run.
 - **A DWI fieldmap that cannot be used** (no sidecar, no `PhaseEncodingDirection`, the same phase encoding as the DWI, or no readout time) is reported. If it is the only one, the run is refused with the reason instead of silently falling back; fix the sidecar, or move the fieldmap out of `fmap/` to accept SyN. When another usable fieldmap exists, the bad one is only logged.
 
 The chosen mode is written to the preprocessing log (`Distortion correction: ...`).
 
 ### Advanced options
 
-**Configure QSIPrep** keeps every option: output resolution (leave empty for native), denoising, unringing, BIDS validation, image tag and MNI normalization. CPU, memory and OpenMP threads live in [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
+**Configure QSIPrep** keeps every option: output resolution (leave empty for native), denoising, unringing, BIDS validation, image tag and MNI normalization. A tag older than 26.1 gets the command line that version understands, so a study started on it can finish on it; settings you saved keep their tag until you change it. CPU, memory and OpenMP threads live in [Pre-processing settings]({{ site.baseurl }}/wiki/pre-processing/#pre-processing-settings).
 
 ### Running eddy on the GPU
 

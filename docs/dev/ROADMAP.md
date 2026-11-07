@@ -29,6 +29,7 @@ source before scheduling them; remove a row when it ships.
 
 | Area | Follow-up |
 |---|---|
+| QSIPrep 26.1 | First end-to-end run of 26.1.1 and QSIRecon 26.0.1 on an x86 host, then `use_gpu` on an NVIDIA host, reading the DTI step and its report on the output; neither has run |
 | Optimizer | Ex symmetric-bucket controls; consistent naming for Flex `output_folder` and Ex `run_name`; mixed-kind group submission; prove interrupted candidate recording remains parseable and complete; validate full optimization → candidate → preview → simulation → analysis provenance, including cancellation, retry and all-invalid histories |
 | Analyzer | Expose Python multi-sphere ROI union in the config and UI |
 | Jobs | Running-job ETA and bulk retry; current elapsed time and single-job Rerun remain available |

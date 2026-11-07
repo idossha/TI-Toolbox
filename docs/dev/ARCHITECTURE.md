@@ -949,19 +949,21 @@ no Mac-specific path; Mac users copy QSIPrep output in.
 **QSIPrep defaults come from the data, advanced options stay opt-in.** Susceptibility distortion
 correction is mandatory: a reverse phase-encoding `fmap/*_epi` for the DWI (TOPUP; `IntendedFor` and
 a derived `TotalReadoutTime` are written into that fieldmap's own sidecar only when missing), else
-reverse-PE DWI series, else `--use-syn-sdc warn`. DWI fieldmaps that exist but cannot be used are a
+reverse-PE DWI series, else fieldmap-less SyN (`--sdc-fieldmapless-method syn --sdc-anat-reference invt1w`). DWI fieldmaps that exist but cannot be used are a
 preflight problem when none is usable, never a silent fallback. Unringing `auto` is `rpg` for
 `PartialFourier < 1`, else `mrdegibbs`; output resolution defaults to the finest native DWI axis
-(0.1 mm); `--hmc-model eddy --pepolar-method TOPUP --b0-threshold 100` are always explicit;
+(0.1 mm); `--hmc-method eddy --sdc-method topup --b0-threshold 100` are always explicit;
 `--skip-anat-based-spatial-normalization` is passed unless `mni_normalization` is set or SyN SDC
 runs (SyN places its prior through the MNI transform). Absent settings (`output_resolution: null`,
 `unringing_method: "auto"`, `mni_normalization: false`) reproduce these defaults. `use_gpu: true`
-(default off; JSON and saved preferences only, no UI control) adds `--gpus all` and
-`--eddy-config` with `resources/qsiprep/eddy_params_gpu.json`, and mounts a shim at
-`/usr/local/bin/eddy_cuda10.2` because the QSIPrep 26.0.0 image ships only `eddy_cuda11.0`; both
-files are staged into the project root as `.qsiprep_eddy_*`. QSIPrep itself sets eddy to one
-thread and one Nipype slot in that mode, so `--nthreads`/`--omp-nthreads` are unchanged. Job costs
-do not count the GPU, so two GPU jobs at once share the card.
+(default off; JSON and saved preferences only, no UI control) adds `--gpus all` and `--gpu eddy`.
+QSIPrep itself sets eddy to one thread and one Nipype slot in that mode, so
+`--nthreads`/`--omp-nthreads` are unchanged. Job costs do not count the GPU, so two GPU jobs at once
+share the card. An `image_tag` older than 26.1 keeps the command line it understands
+(`qsiprep_has_26_1_cli`): `--hmc-model eddy --pepolar-method TOPUP`, `--use-syn-sdc warn`, a FreeSurfer
+license mount and `--fs-license-file`, and for `use_gpu` `--eddy-config` with
+`resources/qsiprep/eddy_params_gpu.json` and a shim at `/usr/local/bin/eddy_cuda10.2`, because the 26.0.0
+image ships only `eddy_cuda11.0`; both files are staged into the project root as `.qsiprep_eddy_*`.
 
 **The DTI tensor is fitted from QSIPrep output, not QSIRecon.** `extract_dti_tensor` fits DIPY WLS on
 b ≤ 1500 using QSIPrep's `.b` table (scanner RAS), maps ACPC → raw T1 with the exact chain

@@ -19,7 +19,7 @@
         "4S156Parcels"
       ],
       "cpus": 4,
-      "image_tag": "26.0.0",
+      "image_tag": "26.0.1",
       "memory_gb": null,
       "omp_threads": 4,
       "recon_specs": [
@@ -32,7 +32,7 @@
     "qsiprep_config": {
       "cpus": 6,
       "denoise_method": "patch2self",
-      "image_tag": "26.0.0",
+      "image_tag": "26.1.1",
       "memory_gb": 24,
       "mni_normalization": true,
       "omp_threads": 3,
@@ -112,7 +112,7 @@
         "AAL116",
         "4S156Parcels"
       ],
-      "image_tag": "26.0.0",
+      "image_tag": "26.0.1",
       "recon_specs": [
         "dsi_studio_gqi",
         "dipy_dki"
@@ -122,7 +122,7 @@
     },
     "qsiprep_config": {
       "denoise_method": "patch2self",
-      "image_tag": "26.0.0",
+      "image_tag": "26.1.1",
       "mni_normalization": true,
       "output_resolution": 1.5,
       "skip_bids_validation": true,

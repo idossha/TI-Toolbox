@@ -257,17 +257,40 @@ class TestQsiprepFlags:
 
     def test_explicit_defaults(self, builder):
         cmd = self._cmd(builder)
-        assert self._value(cmd, "--hmc-model") == "eddy"
-        assert self._value(cmd, "--pepolar-method") == "TOPUP"
+        assert self._value(cmd, "--hmc-method") == "eddy"
+        assert self._value(cmd, "--sdc-method") == "topup"
         assert self._value(cmd, "--b0-threshold") == "100"
         assert self._value(cmd, "--denoise-method") == "dwidenoise"
         assert "--skip-anat-based-spatial-normalization" in cmd
-        assert "--use-syn-sdc" not in cmd
+        assert "--sdc-anat-reference" not in cmd
 
     def test_syn_sdc_keeps_mni_normalization(self, builder):
+        # The replacement for --use-syn-sdc in QSIPrep's docs/upgrading.rst at 26.1.1.
         cmd = self._cmd(builder, use_syn_sdc=True)
-        assert self._value(cmd, "--use-syn-sdc") == "warn"
+        assert self._value(cmd, "--sdc-fieldmapless-method") == "syn"
+        assert self._value(cmd, "--sdc-anat-reference") == "invt1w"
         assert "--skip-anat-based-spatial-normalization" not in cmd
+
+    @pytest.mark.parametrize("tag", ["26.0.0", "1.1.1", "0.22.0"])
+    def test_an_older_image_keeps_the_flags_it_understands(self, builder, tag):
+        cmd = self._cmd(builder, image_tag=tag)
+        assert self._value(cmd, "--hmc-model") == "eddy"
+        assert self._value(cmd, "--pepolar-method") == "TOPUP"
+        assert "--hmc-method" not in cmd and "--sdc-method" not in cmd
+        cmd = self._cmd(builder, image_tag=tag, use_syn_sdc=True)
+        assert self._value(cmd, "--use-syn-sdc") == "warn"
+        assert "--sdc-fieldmapless-method" not in cmd
+
+    @pytest.mark.parametrize("tag", ["26.1.0", "26.1.1", "27.0.0", "latest"])
+    def test_flags_removed_in_26_1_are_never_sent_to_it(self, builder, tag):
+        cmd = self._cmd(builder, image_tag=tag, use_syn_sdc=True, use_gpu=True)
+        for removed in (
+            "--hmc-model",
+            "--pepolar-method",
+            "--use-syn-sdc",
+            "--eddy-config",
+        ):
+            assert removed not in cmd
 
     def test_mni_normalization_opt_in(self, builder):
         cmd = self._cmd(builder, mni_normalization=True)
@@ -277,3 +300,34 @@ class TestQsiprepFlags:
         cmd = self._cmd(builder, output_resolution=1.7, unringing_method="rpg")
         assert self._value(cmd, "--output-resolution") == "1.7"
         assert self._value(cmd, "--unringing-method") == "rpg"
+
+
+class TestQsiprepReportReads:
+    """What the DTI report reads from a QSIPrep run, under each version's names.
+
+    Names from QSIPrep's own source: ``workflow.hmc_method`` in ``qsiprep/config.py`` and
+    ``desc='about'`` in ``qsiprep/workflows/base.py`` at 26.1.1; ``hmc_model`` and
+    ``sub-<id>_about.html`` before it.
+    """
+
+    @pytest.mark.parametrize(
+        "toml_key, about",
+        [
+            ("hmc_method", "sub-001_desc-about_T1w.html"),
+            ("hmc_model", "sub-001_about.html"),
+        ],
+    )
+    def test_motion_method_and_command_are_found(self, tmp_path, toml_key, about):
+        from tit.pre.qsi.dti_advisories import acquisition
+
+        (tmp_path / "log" / "run").mkdir(parents=True)
+        (tmp_path / "log" / "run" / "qsiprep.toml").write_text(
+            f'[environment]\nversion = "x"\n[workflow]\n{toml_key} = "eddy"\n'
+        )
+        (tmp_path / "figures").mkdir()
+        (tmp_path / "figures" / about).write_text("<code>qsiprep /data</code>")
+
+        settings = acquisition(tmp_path)["qsiprep"]
+
+        assert settings["hmc_model"] == "eddy"
+        assert settings["command"] == "qsiprep /data"

@@ -14458,7 +14458,7 @@
         "additionalProperties": false
       },
       "QSIPrepConfig": {
-        "description": "Configuration for a QSIPrep run.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without 'sub-' prefix).\noutput_resolution : float\n    Target output resolution in mm (default: 2.0).\nresources : ResourceConfig\n    Resource allocation settings.\nimage_tag : str\n    Docker image tag for QSIPrep.\nskip_bids_validation : bool\n    Whether to skip BIDS validation (useful for non-BIDS datasets).\ndenoise_method : str\n    Denoising method: 'dwidenoise', 'patch2self', or 'none'.\nunringing_method : str\n    Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the\n    pipeline setting 'auto' is resolved by ``run_qsiprep``).\nuse_syn_sdc : bool\n    Pass ``--use-syn-sdc warn`` (fieldmap-less SyN distortion correction).\n    Set by ``run_qsiprep`` when the subject has no usable fieldmap.\nmni_normalization : bool\n    Run QSIPrep's anatomical normalization to MNI. Off by default: only\n    QSIRecon atlases/template-space specs need it. Always on with SyN SDC,\n    which uses the MNI transform to place its fieldmap prior.\nuse_gpu : bool\n    Run eddy on the GPU (requires NVIDIA Docker runtime).",
+        "description": "Configuration for a QSIPrep run.\n\nAttributes\n----------\nsubject_id : str\n    Subject identifier (without 'sub-' prefix).\noutput_resolution : float\n    Target output resolution in mm (default: 2.0).\nresources : ResourceConfig\n    Resource allocation settings.\nimage_tag : str\n    Docker image tag for QSIPrep.\nskip_bids_validation : bool\n    Whether to skip BIDS validation (useful for non-BIDS datasets).\ndenoise_method : str\n    Denoising method: 'dwidenoise', 'patch2self', or 'none'.\nunringing_method : str\n    Unringing method: 'mrdegibbs', 'rpg', or 'none' (already resolved; the\n    pipeline setting 'auto' is resolved by ``run_qsiprep``).\nuse_syn_sdc : bool\n    Run fieldmap-less SyN distortion correction.\n    Set by ``run_qsiprep`` when the subject has no usable fieldmap.\nmni_normalization : bool\n    Run QSIPrep's anatomical normalization to MNI. Off by default: only\n    QSIRecon atlases/template-space specs need it. Always on with SyN SDC,\n    which uses the MNI transform to place its fieldmap prior.\nuse_gpu : bool\n    Run eddy on the GPU (requires NVIDIA Docker runtime).",
         "properties": {
           "subject_id": {
             "title": "Subject Id",
@@ -14473,7 +14473,7 @@
             "$ref": "#/components/schemas/ResourceConfig"
           },
           "image_tag": {
-            "default": "26.0.0",
+            "default": "26.1.1",
             "title": "Image Tag",
             "type": "string"
           },
@@ -14553,7 +14553,7 @@
             "$ref": "#/components/schemas/ResourceConfig"
           },
           "image_tag": {
-            "default": "26.0.0",
+            "default": "26.0.1",
             "title": "Image Tag",
             "type": "string"
           },
@@ -17295,7 +17295,7 @@
             "type": "integer"
           },
           "image_tag": {
-            "default": "26.0.0",
+            "default": "26.1.1",
             "title": "Image Tag",
             "type": "string"
           },
@@ -17388,7 +17388,7 @@
             "type": "integer"
           },
           "image_tag": {
-            "default": "26.0.0",
+            "default": "26.0.1",
             "title": "Image Tag",
             "type": "string"
           },

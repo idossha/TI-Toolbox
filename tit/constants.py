@@ -428,8 +428,8 @@ CONDUCTIVITY_WHITE_MATTER = 0.126  # S/m
 # QSI Docker images
 QSI_QSIPREP_IMAGE = "pennlinc/qsiprep"
 QSI_QSIRECON_IMAGE = "pennlinc/qsirecon"
-QSI_QSIPREP_IMAGE_TAG = "26.0.0"
-QSI_QSIRECON_IMAGE_TAG = "26.0.0"
+QSI_QSIPREP_IMAGE_TAG = "26.1.1"
+QSI_QSIRECON_IMAGE_TAG = "26.0.1"
 
 # QSI recon specs (available reconstruction pipelines)
 # Organized by category. The full list is flat for validation; comments mark groups.

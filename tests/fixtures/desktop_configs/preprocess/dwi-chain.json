@@ -20,7 +20,7 @@
         "qsi_recon_config": {
           "atlases": null,
           "cpus": null,
-          "image_tag": "26.0.0",
+          "image_tag": "26.0.1",
           "memory_gb": null,
           "omp_threads": 1,
           "recon_specs": [
@@ -32,7 +32,7 @@
         "qsiprep_config": {
           "cpus": null,
           "denoise_method": "dwidenoise",
-          "image_tag": "26.0.0",
+          "image_tag": "26.1.1",
           "memory_gb": null,
           "mni_normalization": false,
           "omp_threads": 1,

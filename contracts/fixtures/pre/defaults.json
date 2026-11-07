@@ -62,7 +62,7 @@
     "freesurfer_threads": null,
     "qsi_recon_config": {
       "atlases": null,
-      "image_tag": "26.0.0",
+      "image_tag": "26.0.1",
       "recon_specs": [
         "dsi_studio_gqi"
       ],
@@ -71,7 +71,7 @@
     },
     "qsiprep_config": {
       "denoise_method": "dwidenoise",
-      "image_tag": "26.0.0",
+      "image_tag": "26.1.1",
       "mni_normalization": false,
       "output_resolution": null,
       "skip_bids_validation": true,

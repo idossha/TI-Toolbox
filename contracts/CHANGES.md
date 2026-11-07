@@ -1436,3 +1436,7 @@ On the MNI guide `atlases[].aligned_to` is `gm` for a cortical label volume, who
 `false`), which runs eddy on the GPU; `GET /api/surfer-settings` always returns it, as it does for
 QSIRecon. Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json`
 and `desktop/src/renderer/api/schema.d.ts`.
+
+## 2026-11-07 — QSIPrep 26.1.1 and QSIRecon 26.0.1 are the default image tags
+
+`QSIPrepSettings.image_tag` and `QSIPrepConfig.image_tag` default to `26.1.1`, and `QSIReconSettings.image_tag` and `QSIReconConfig.image_tag` to `26.0.1`. No field is added or removed, and a saved or explicit tag still applies. Regenerated `contracts/generated/config.schema.json`, `contracts/generated/openapi.json` and `desktop/src/renderer/api/schema.d.ts`.

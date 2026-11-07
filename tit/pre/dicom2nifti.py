@@ -621,8 +621,8 @@ def _name_fieldmap(output_dir: Path, subject_id: str, logger) -> bool:
     ``PhaseEncodingDirection`` and ``TotalReadoutTime`` in the sidecar (the
     latter is checked, and derived from the sidecar when it can be, before
     QSIPrep runs). ``IntendedFor`` lists the subject's DWI series as paths
-    relative to the subject folder: QSIPrep 26.0.0 reads neither BIDS URIs nor
-    ``B0FieldIdentifier``. An existing ``IntendedFor`` is kept. A series holding
+    relative to the subject folder, which QSIPrep 26.1 reads and 26.0.0, without BIDS
+    URIs or ``B0FieldIdentifier``, also needs. An existing ``IntendedFor`` is kept. A series holding
     both polarities (GE ``epi_pepolar``) comes out of dcm2niix as ``sub-{id}_epi``
     plus the collision name ``sub-{id}_epia``; each half is named by its direction.
     """

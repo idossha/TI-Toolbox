@@ -211,7 +211,7 @@ def test_qsi_stages_bundled_license_for_both_sibling_containers(tmp_path, monkey
         == hashlib.sha256(bundled.read_bytes()).digest()
     )
     commands = [
-        builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001")),
+        builder.build_qsiprep_cmd(QSIPrepConfig(subject_id="001", image_tag="26.0.0")),
         builder.build_qsirecon_cmd(QSIReconConfig(subject_id="001"), "dipy_dki"),
     ]
     for command in commands:

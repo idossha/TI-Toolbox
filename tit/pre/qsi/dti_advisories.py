@@ -407,7 +407,7 @@ def acquisition(qsiprep_sub: Path) -> dict:
     qc = _image_qc(qsiprep_sub)
     toml_path = _last(qsiprep_sub.glob("log/*/qsiprep.toml"))
     toml = tomllib.loads(toml_path.read_text()) if toml_path else {}
-    about = _last(qsiprep_sub.glob("figures/*_about.html"))
+    about = _last(qsiprep_sub.glob("figures/*about*.html"))
     command = (
         re.search(r"<code>(.*?)</code>", about.read_text(), re.S) if about else None
     )
@@ -417,7 +417,8 @@ def acquisition(qsiprep_sub: Path) -> dict:
         "MagneticFieldStrength",
         "PhaseEncodingDirection",
     )
-    settings = ("denoise_method", "unringing_method", "hmc_model", "output_resolution")
+    workflow = toml.get("workflow", {})
+    settings = ("denoise_method", "unringing_method", "output_resolution")
     return {
         "scanner": {k: meta.get(k) for k in keys},
         "raw_voxel_mm": [_num(qc.get(f"raw_voxel_size_{a}")) for a in "xyz"],
@@ -426,7 +427,9 @@ def acquisition(qsiprep_sub: Path) -> dict:
         "qsiprep": {
             "version": toml.get("environment", {}).get("version"),
             "command": command.group(1).strip() if command else None,
-            **{k: toml.get("workflow", {}).get(k) for k in settings},
+            **{k: workflow.get(k) for k in settings},
+            # QSIPrep 26.1 renamed it hmc_method.
+            "hmc_model": workflow.get("hmc_method", workflow.get("hmc_model")),
         },
     }
 
