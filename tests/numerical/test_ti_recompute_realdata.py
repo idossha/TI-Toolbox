@@ -2,12 +2,12 @@
 
 Pins (2026-10-22, package p25), on Dataset 000 read-only, no FEM:
 
-* **Recompute (image, SimNIBS mesh_io)**: for sub-101 ``L_Insula`` (re-run 2026-11-01, two 432 MB
-  scalar carrier meshes; sub-LA's smaller run, which this was written on, is gone from Dataset
-  000) the carrier meshes ``high_Frequency/mesh/101_TDCS_{1,2}_scalar.msh`` cropped to
+* **Recompute (image, SimNIBS mesh_io)**: for sub-CHN ``left_insula_mean`` (two 443 MB scalar carrier
+  meshes; the earlier runs this was written on, sub-LA's and sub-101's, are gone from Dataset
+  000) the carrier meshes ``high_Frequency/mesh/CHN_TDCS_{1,2}_scalar.msh`` cropped to
   ``BRAIN_TISSUE_TAG_RANGES`` (every head tissue below tag 100 and its surface, electrodes
   removed: 5.0 M elements) have exactly the elements and tags of the stored
-  ``TI/mesh/L_Insula_TI.msh``, and ``tit.calc.envelope_max([E1, E2])`` (the Hirata 2024
+  ``TI/mesh/left_insula_mean_TI.msh``, and ``tit.calc.envelope_max([E1, E2])`` (the Hirata 2024
   closed form) equals the stored ``TI_max`` that SimNIBS's ``TI.get_maxTI`` (Grossman 2017
   preprocess-then-branch form) wrote, to ``rtol 1e-4``: two independent implementations of one
   formula on every one of those elements. On the same fields: ``TI_max <= 2 min(|E1|, |E2|)``,
@@ -48,8 +48,8 @@ real_data = pytest.mark.skipif(
     "(export TIT_DATASET_000=/path/to/Dataset000, read-only)",
 )
 
-#: A scalar TI run with its carrier and TI meshes on disk (2 x 432 MB carrier meshes).
-SUBJECT, SIMULATION = "101", "L_Insula"
+#: A scalar TI run with its carrier and TI meshes on disk (2 x 443 MB carrier meshes).
+SUBJECT, SIMULATION = "CHN", "left_insula_mean"
 #: The two implementations differ in operation order only; float64 round-off is ~1e-12.
 RTOL = 1e-4
 #: Below this the envelope is numerically zero (V/m): relative error is meaningless there.
@@ -138,7 +138,9 @@ def test_the_stored_envelope_is_the_envelope_of_the_stored_carriers(mesh_io):
 
     n1, n2 = np.linalg.norm(e1, axis=1), np.linalg.norm(e2, axis=1)
     assert np.all(ti_stored <= 2 * np.minimum(n1, n2) + ATOL)
-    peak, sar = hf_peak([e1, e2]), 2.0 * hf_power([e1, e2])  # sar = sum |E_c|^2 = 2 hf_rms^2
+    peak, sar = hf_peak([e1, e2]), 2.0 * hf_power(
+        [e1, e2]
+    )  # sar = sum |E_c|^2 = 2 hf_rms^2
     assert np.all(ti_stored <= peak + ATOL)
     assert np.all(sar <= peak**2 * (1 + 1e-12) + ATOL)
     assert np.all(peak**2 <= 2 * sar * (1 + 1e-12) + ATOL)

@@ -49,8 +49,10 @@ def _ensure_importable() -> None:
     suite uses -- ``tests/conftest.py``'s ``pytest_configure`` is the single
     source of truth for that list, so this cannot drift from it.
     """
+    # Asks for SimNIBS itself: `tit.config_io` imports without it, since tit.sim loads it lazily,
+    # and the config classes still reach the other libs the mocks stand in for (matplotlib, ...).
     try:
-        import tit.config_io  # noqa: F401
+        import simnibs  # noqa: F401
         return
     except ImportError:
         pass

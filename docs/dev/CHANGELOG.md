@@ -20,6 +20,10 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 - **Fixed: atlas regions on the cortex no longer render with broken borders and holes** — every Simulator, Optimizer and Analyzer 3D pane drew a cortex from a simplified copy of the head mesh's grey-matter surface, whose open edges and coarse triangles broke the region borders. They now draw the head's central surfaces, the ones the atlas labels, as TetraVox and Blender do, on subjects and on the packaged Ernie and MNI152 heads. The cerebellum and brainstem are no longer in these panes. Sub-cortical regions are unchanged: they are still drawn from their NIfTI label volumes. A subject's scene is rebuilt once: it takes about 4 seconds where it took about 24, and is about 19 MB for its cortex and one atlas where the cortex alone was about 3 MB.
 - **Added: MNI cortical atlases on the MNI152 cortex** — with **Target space** set to MNI, the 3D pane opens on the template's cortex in Harvard-Oxford cortical, and the Schaefer and Glasser parcellations can now be clicked in the pane too. Choosing a region still targets that atlas' label volume, transformed into each subject before the job runs. Explode is offered for the sub-cortical MNI atlases, which have separate parts to pull apart.
 
+- **Fixed: leaving a page with a playing video no longer takes the server down** — after a Plan had been computed, dropping a stream could end the server's worker, and the app then waited for ever on every request until restarted.
+
+- **Fixed: the Simulator's job table appears at once on first visit** — its first load no longer waits for SimNIBS, which took about 16 seconds in the app under emulation and now takes about 1 second right after connecting. The saved-ROI list in the Optimizer and the flex-run list load quickly on first use for the same reason, and the server uses about 330 MB less until a job needs SimNIBS. Jobs and scripts work as before.
+
 ---
 ### v3.1.3 — November 3, 2026 <span class="release-pill">Latest</span> {#v313--november-3-2026}
 

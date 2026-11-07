@@ -162,6 +162,13 @@ def app_factory():
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     _configure_logging()
+    from tit.jobs.runner import PETSC_NO_SIGNAL_HANDLER, PETSC_OPTIONS_ENV
+
+    # A Plan's config import loads SimNIBS, and so PETSc, into this process: its signal handler
+    # would turn a client dropping a stream (SIGPIPE, which Python ignores) into MPI_Abort.
+    os.environ[PETSC_OPTIONS_ENV] = (
+        f"{os.environ.get(PETSC_OPTIONS_ENV, '')} {PETSC_NO_SIGNAL_HANDLER}".strip()
+    )
 
     from tit.server.app import create_app
 
