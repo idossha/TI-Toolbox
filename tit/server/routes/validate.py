@@ -45,16 +45,12 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-# NOTE: tit.config_io is imported lazily inside cls_for()/validate() below, not at module
-# level. tit.config_io imports tit.opt.config, and importing any submodule of the tit.opt
-# package runs tit/opt/__init__.py, which imports SimNIBS-backed engines eagerly (e.g.
-# tit.opt.ex.engine imports simnibs.utils.TI_utils). A module-level import here would make
-# this route module -- and therefore the whole server, since routes are auto-discovered at
-# startup -- unimportable without SimNIBS installed, breaking
-# ``python3 -m tit.server --dump-openapi`` on the host. Deferring the import to call time
-# keeps route *registration* (schema generation, OpenAPI) SimNIBS-free while the actual
-# validate/plan work (which does need the real config dataclasses) still runs fine inside
-# the SimNIBS container where these handlers are actually invoked.
+# NOTE: tit.config_io is imported inside cls_for()/validate() below, not at module level.
+# Routes are auto-discovered at server startup, so nothing imported here may load SimNIBS, or
+# ``python3 -m tit.server --dump-openapi`` would break on the host. tit.config_io imports
+# tit.opt.config; tit/opt/__init__.py and its ex, flex and mex packages load their
+# SimNIBS-backed runners lazily (PEP 562), which tests/test_lazy_package_imports.py pins.
+# The call-time import keeps route registration from depending on that.
 
 #: kind -> the one CONFIG_CLASS_REGISTRY key it always uses.
 SIMPLE_KIND_CLASS: dict[str, str] = {

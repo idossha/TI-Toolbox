@@ -29,6 +29,7 @@ import logging
 import math
 import os
 import re
+import stat
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -46,13 +47,13 @@ from tit.paths import (
     resolve_within,
 )
 
-# NOTE: tit.opt.ex.roi (used by list_rois) is imported lazily inside the
-# function that needs it, never at module level -- tit/opt/__init__.py
-# eagerly imports tit.opt.ex.engine, which imports simnibs (AGENTS.md
-# "SimNIBS imports - use lazy loading pattern in opt/"). tit.catalog is
-# imported at server startup by every route module, so a module-level
-# import here would make the whole server fail to boot outside a SimNIBS
-# environment (host dev tooling, --dump-openapi, CI without the container).
+# NOTE: tit.catalog is imported at server startup by every route module, so
+# nothing it imports may load SimNIBS, or the server would not boot outside a
+# SimNIBS environment (host dev tooling, --dump-openapi, CI without the
+# container). tit.opt and its ex, flex and mex packages load their
+# SimNIBS-backed runners lazily (PEP 562), so tit.opt.ex.roi (used by
+# list_rois, imported inside it) does not; tests/test_lazy_package_imports.py
+# pins that.
 
 logger = logging.getLogger(__name__)
 
@@ -2089,20 +2090,31 @@ def _ex_best(run_dir: str, *, project_root: str | None = None) -> dict | None:
     csv_path = os.path.join(run_dir, "final_output.csv")
     if project_root and not is_within(project_root, csv_path):
         return None
-    if not os.path.isfile(csv_path):
-        return None
-    best_montage, best_score = None, None
     try:
-        with open(csv_path, newline="") as f:
-            for row in csv.DictReader(f):
-                try:
-                    score = float(row["Composite_Index"])
-                except (KeyError, ValueError, TypeError):
-                    continue
-                if best_score is None or score > best_score:
-                    best_score, best_montage = score, row.get("Montage")
+        st = os.stat(csv_path)
     except OSError:
         return None
+    if not stat.S_ISREG(st.st_mode):
+        return None
+    try:
+        best = _ex_best_of(csv_path, st.st_mtime_ns, st.st_size)
+    except OSError:  # raised, not returned, so a failed read is not cached
+        return None
+    return dict(best) if best else None
+
+
+@functools.lru_cache(maxsize=256)
+def _ex_best_of(csv_path: str, mtime_ns: int, size: int) -> dict | None:
+    """``_ex_best`` of one file version: a CSV is rescanned only when its stat changes."""
+    best_montage, best_score = None, None
+    with open(csv_path, newline="") as f:
+        for row in csv.DictReader(f):
+            try:
+                score = float(row["Composite_Index"])
+            except (KeyError, ValueError, TypeError):
+                continue
+            if best_score is None or score > best_score:
+                best_score, best_montage = score, row.get("Montage")
     if best_montage is None or best_score is None:
         return None
     return {"montage": best_montage, "score": best_score}

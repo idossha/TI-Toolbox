@@ -19,7 +19,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, test, type ElectronApplication, type Locator, type Page } from "@playwright/test";
+import { expect, test, type ElectronApplication, type Locator, type Page, type Route } from "@playwright/test";
 import { connectLauncher, expectPage, gotoPage, launchElectronApp, openPalette, openSceneLayers } from "./_helpers";
 import { expectRunPaneTab, showRunPaneTab } from "./_runPane";
 import { analysisRows, analysisTargetText, closeOptEditor, openOptEditor, optRows, setOptCell } from "./_jobs";
@@ -391,18 +391,20 @@ test("bundled subcortical atlas and target settings synchronize without subject 
 });
 
 /**
- * A volume only this subject has (a mask made from a network, say) is in neither the subject's scene
- * nor the guide's. Nothing of it can be drawn, and plain cortex would read as its anatomy, so the
- * pane shows the head alone and says why, and never asks the guide for a legend it refuses with a
- * bare 422. The mock's DKT volume is one (tests/fixtures/atlases.json).
+ * A volume only this subject has is in neither the subject's scene nor the guide's. Nothing of it
+ * can be drawn, and plain cortex would read as its anatomy, so the pane shows the subject's own skin
+ * alone and says why, and never asks the guide or the subject's scene for a legend they refuse with
+ * a bare 422. The mock's DKT volume is one (tests/fixtures/atlases.json).
  */
-test("a volume only the subject has draws no cortex and says so in a sentence", async () => {
+test("a volume only the subject has draws the subject's skin, no cortex, and says so in a sentence", async () => {
   const volume = "aparc.DKTatlas+aseg";
   const asked: string[] = [];
-  await page.route("**/api/guide/regions?*", (route) => {
+  const record = (route: Route) => {
     asked.push(new URL(route.request().url()).searchParams.get("atlas") ?? "");
     return route.continue();
-  });
+  };
+  await page.route("**/api/guide/regions?*", record);
+  await page.route("**/api/scene/regions?*", record);
   try {
     await gotoPage(page, "optimizer", "Optimizer");
     const row = optRows(page).first();
@@ -416,14 +418,18 @@ test("a volume only the subject has draws no cortex and says so in a sentence", 
     await expect.poll(() => page.evaluate(() => window.__scenePane?.atlas)).toBe(volume);
     await expect.poll(() => page.evaluate(() => window.__scenePane?.parts.map((part) => part.id))).toEqual(["skin"]);
     await expect(host).toHaveAttribute("data-state", "ready");
+    const subject = await page.evaluate(() => window.__scenePane?.subject ?? null);
+    expect(subject, "the subject's own head stands in, not the guide").not.toBeNull();
+    expect(await page.evaluate(() => window.__scenePane?.guide ?? null)).toBeNull();
     const hint = page.locator('[data-page-active="true"]').getByTestId("scene-pane-hint");
-    await expect(hint).toHaveText(`The reference head is shown without a brain: ${volume} has no surface to draw.`);
+    await expect(hint).toHaveText(`${subject}'s head is shown without a brain: ${volume} has no surface to draw.`);
     expect(asked).not.toContain(volume);
     const editorAgain = await openOptEditor(page, row, "settings");
     await editorAgain.getByRole("radio", { name: "Cortical", exact: true }).click();
     await closeOptEditor(page);
   } finally {
     await page.unroute("**/api/guide/regions?*");
+    await page.unroute("**/api/scene/regions?*");
   }
 });
 

@@ -15,7 +15,9 @@
  * every real run must be offered and must resolve to electrodes — so it is asserted on the run
  * options the cell lists and on the row each of them makes runnable.
  *
- * Reads and plans only — no job is submitted, so nothing is written to the project.
+ * No job is submitted. Mapping a run onto a net it was never mapped onto writes that mapping
+ * beside the run (`flex-search/<run>/electrode_mapping_<net>.json`), so a read-only project fails
+ * the mapping leg.
  */
 import { expect, test } from "@playwright/test";
 import { connectReal, gotoPage, launchElectronApp, selectSubject } from "../_helpers";
