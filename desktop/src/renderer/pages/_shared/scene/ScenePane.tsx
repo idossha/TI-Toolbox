@@ -353,7 +353,14 @@ export function ScenePane({
     !atlas ||
     mode === "montage" ||
     (subjectManifest.data?.atlases ?? []).some((entry) => String(entry.id) === atlas);
-  const drawnSubject = subjectReady && subjectHasAtlas ? wantedSubject : null;
+  /**
+   * A volume no guide lists either (a mask only this subject has): no head can draw it, so the
+   * subject's own head stands in, its skin alone — plain cortex would read as that volume's anatomy.
+   */
+  const volumeOnly =
+    mode !== "montage" && !!atlas && !!guideManifest.data && !guideManifest.data.atlases.some((entry) => String(entry.id) === atlas);
+  const subjectSkinOnly = subjectReady && !subjectHasAtlas && volumeOnly;
+  const drawnSubject = subjectReady && (subjectHasAtlas || subjectSkinOnly) ? wantedSubject : null;
   // Until the subject's manifest answers, nothing says the guide is needed: a head fetched and
   // uploaded for those milliseconds, then replaced, is whole central surfaces for nothing.
   const guideWanted = !drawnSubject && !(wantedSubject && subjectManifest.isPending);
@@ -420,11 +427,12 @@ export function ScenePane({
     | undefined;
   const atlasPart = atlasEntry?.aligned_to ?? (atlasEntry?.kind === "subcortical" ? "subcortical" : "gm");
   /**
-   * An atlas the guide standing in does not list: a volume only this subject has, which has no packaged surface and no packaged legend. Nothing
-   * of it can be drawn or picked here, so the pane asks for neither and shows the head alone; plain
-   * cortex in its place would read as that atlas' anatomy.
+   * An atlas the drawn head cannot draw: a volume only this subject has, with no surface and no
+   * legend on the subject's scene or a guide. Nothing of it can be drawn or picked, so the pane asks
+   * for neither and shows the head alone — the subject's skin, or the guide's when the subject has
+   * no head yet.
    */
-  const atlasUndrawable = guideWanted && wantsRegions && !!atlas && !!guideManifest.data && !atlasEntry;
+  const atlasUndrawable = subjectSkinOnly || (guideWanted && wantsRegions && !!atlas && !!guideManifest.data && !atlasEntry);
 
   // Both hook sets always run (a `useQueries` with an empty list issues nothing), so switching
   // between the guide and a subject never changes the hook order.
@@ -432,7 +440,7 @@ export function ScenePane({
   const guideRequests = useMemo(() => allGuideRequests.filter((part) => part.id === "skin" || (cortex && !atlasUndrawable && part.id === atlasPart)), [allGuideRequests, atlasPart, atlasUndrawable, cortex]);
   const guideSurfaces = useGuideSurfaces(guideRequests);
   const allSubjectRequests = useSceneSurfaceRequests(drawnSubject, subjectManifest.data);
-  const subjectRequests = useMemo(() => (cortex ? allSubjectRequests : allSubjectRequests.filter((part) => part.id === "skin")), [allSubjectRequests, cortex]);
+  const subjectRequests = useMemo(() => (cortex && !atlasUndrawable ? allSubjectRequests : allSubjectRequests.filter((part) => part.id === "skin")), [allSubjectRequests, atlasUndrawable, cortex]);
   const subjectSurfaces = useSceneSurfaces(drawnSubject, subjectRequests);
   const surfaceRequests = drawnSubject ? subjectRequests : guideRequests;
   const surfaces = drawnSubject ? subjectSurfaces : guideSurfaces;
@@ -449,14 +457,14 @@ export function ScenePane({
   const subjectElectrodes = useSceneElectrodes(drawnSubject, listedNet);
   const electrodes = drawnSubject ? subjectElectrodes : guideElectrodes;
   const guideRegionsQuery = useGuideRegions(guideWanted && !atlasUndrawable ? effectiveAtlas : null, guide);
-  const subjectRegionsQuery = useSceneRegions(drawnSubject, effectiveAtlas);
+  const subjectRegionsQuery = useSceneRegions(drawnSubject, atlasUndrawable ? null : effectiveAtlas);
   const regionsQuery = drawnSubject ? subjectRegionsQuery : guideRegionsQuery;
   const legend = useMemo<SceneLegendRow[]>(
     () => (regionsQuery.data ? (regionsQuery.data.legend as SceneLegendRow[]) : []),
     [regionsQuery.data],
   );
   const guideLabels = useGuideLabels(guideWanted ? effectiveAtlas : null, legend.length > 0, guide);
-  const subjectLabels = useSceneLabels(drawnSubject, effectiveAtlas, legend.length > 0);
+  const subjectLabels = useSceneLabels(drawnSubject, atlasUndrawable ? null : effectiveAtlas, legend.length > 0);
   const labels = drawnSubject ? subjectLabels : guideLabels;
 
   // ---- geometry ------------------------------------------------------------------------------
@@ -824,7 +832,7 @@ export function ScenePane({
         ? `${drawnSubject ?? "The reference head"} has no ${net} electrode positions.`
         : `This head model has no ${electrodeNet} electrode positions — the buckets still work from the form.`;
     if (note) return note;
-    if (atlasUndrawable) return `The reference head is shown without a brain: ${atlas} has no surface to draw.`;
+    if (atlasUndrawable) return `${drawnSubject ? `${drawnSubject}'s head` : "The reference head"} is shown without a brain: ${atlas} has no surface to draw.`;
     if (sideError) return sideError instanceof SceneError ? sideError.message : "Some of this scene could not be loaded.";
     if (gesture === "electrode" && mode !== "montage") return "Click an electrode to add or remove it from the active bucket.";
     if (gesture === "electrode") {

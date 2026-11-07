@@ -4383,3 +4383,13 @@ Supersedes the Overview clause of "Reading a list never imports SimNIBS". Overvi
 
 Verified by `tests/test_server_overview.py::test_overview_and_ex_runs_follow_the_files_as_they_change`, which fails when the key drops the mtime.
 
+## 2026-11-07 — A volume no head can draw is shown on the subject's own scalp
+
+A subject-space volume that neither the subject's scene nor a guide lists (a mask under `m2m_<id>/masks/`) drew the packaged reference head without a brain, because b9643da5 chose not to build the subject's head to show nothing more. The maintainer asked for the subject's own skin instead.
+
+**Decision.** When the subject's scene is ready, `ScenePane` draws the subject with its skin part only (the scene's existing skin), asks the subject's scene for no legend or labels, and says "`<id>`'s head is shown without a brain: `<volume>` has no surface to draw." The reference head stands in, without a brain and with its own sentence, only while the subject has no head yet. A volume target still draws no cortex; the Networks visualizer is the one exception and is not on `main`.
+
+**Alternatives rejected.** Keeping the reference head: the user is targeting this subject, and its head is already built and cached for every other target.
+
+Verified by `desktop/tests/e2e/scene-pane.spec.ts` ("a volume only the subject has draws the subject's skin…") against the mock, and offscreen against Dataset 000 on sub-CHN with `masks/tract-posterior_tc.nii.gz`.
+

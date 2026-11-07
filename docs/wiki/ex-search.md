@@ -194,7 +194,7 @@ _(example output from v2.4.0)_ `within_pairs`, 7 bilateral candidates per channe
 
 The pane follows the active job row:
 
-- **Subcortical** targets are drawn, and clicking a region adds it to the target or removes it. A subject-space target is shown on the packaged reference head, because the subject's head model carries no copy of a volumetric atlas (the pane says which head it shows); an MNI-space target is shown on MNI152.
+- **Subcortical** targets are drawn, and clicking a region adds it to the target or removes it. A subject-space target is shown on the packaged reference head, because the subject's head model carries no copy of a volumetric atlas (the pane says which head it shows); an MNI-space target is shown on MNI152. A volume only the subject has, such as a mask under its head model's `masks/` folder, has no surface on any head, so the pane shows the subject's own scalp without a brain and says so.
 - **Saved** ROI and **NIfTI mask** targets are not drawn in the pane. It offers **Open target in TetraVox** instead, which opens the target on this subject in the TetraVox app.
 - With an EEG net chosen, a Subcortical row's pane also draws that net's cap, each electrode coloured by the bucket it is in. Switch the pane's toolbar control from **Target** to **Electrodes**, and a click on an electrode adds it to or removes it from the active bucket: the one you last focused in the form or picked in the pane's bucket legend.
 
