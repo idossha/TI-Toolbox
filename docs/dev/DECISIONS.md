@@ -4591,8 +4591,10 @@ passes.
 **MRtrix gradient gotcha.** Give MRtrix QSIPrep's `.b` table (`mrconvert -grad`), not `-fslgrad`. The QSIPrep `.bvec` is
 in the LPS+ voxel frame, and MRtrix's `-fslgrad` adds the FSL x-flip for positive-determinant images: `dwigradcheck` scored
 that table 38.9 mm mean streamline length against 61.5 mm for its x-flip, which is QSIPrep's `.b` (max difference 5e-9).
-`dwigradcheck` alone cannot exclude a z-flip (60.4 mm against 61.05 mm, within about 1 %). DIPY must read the `.bvec` in
-the array frame with no FSL flip.
+`dwigradcheck` alone cannot exclude a z-flip (60.4 mm against 61.05 mm, within about 1 %). `tit.tract` reads the `.b`
+table, never the `.bvec`, and maps its world directions to voxel axes through the affine. (Corrected 2026-11-07: this
+paragraph said DIPY must read the `.bvec` in the array frame, which the code does not do; see "QSIPrep gradient and
+readout-time pitfalls".)
 
 **Checks that passed.** ACPC to T1 map against `qc.json`, to 4.8e-7; applied to DIPY's `.tck` it reproduces `tractogram.trx`
 to 4.6e-5 mm, and its inverse misses by 125 mm. Own TDI against `tckmap`, Spearman 0.99985. DIPY seed-1 rerun bit-identical.
@@ -4989,3 +4991,92 @@ A subject-space volume that neither the subject's scene nor a guide lists (a mas
 
 Verified by `desktop/tests/e2e/scene-pane.spec.ts` ("a volume only the subject has draws the subject's skin…") against the mock, and offscreen against Dataset 000 on sub-CHN with `masks/tract-posterior_tc.nii.gz`.
 
+
+## 2026-11-07 — QSIPrep gradient and readout-time pitfalls
+
+Two upstream QSIPrep behaviours that a consumer of its files can trip on. The code is safe against both today;
+the guardrails that would keep it safe are open in [ROADMAP.md](ROADMAP.md). Wiki: [diffusion processing](../wiki/diffusion-processing.md).
+
+**1. The preprocessed `.bvec` is not FSL convention.** QSIPrep's preprocessed DWI is LPS+ (sub-CHN, 26.0.0: affine
+diag(-1, -1, 1), det +1), and its final `.bvec` is written on purpose in the image-axis ("DIPY") frame:
+`bvec_convention='DIPY'  # Resampled is always LPS+` (`qsiprep/workflows/dwi/finalize.py:654` at 26.0.0;
+`workflows/dwi/resampling.py:495` and `finalize.py:1042` at 26.1.1). ConformDwi flips bvec signs with the axes and never
+checks the determinant (`qsiprep/interfaces/images.py:459` at 26.0.0, `:592` at 26.1.1 and main). The `.b` is
+diag(-1, -1, 1)·bvec exactly (`interfaces/mrtrix.py:70`); on Dataset 000 `derivatives/qsiprep/sub-CHN/dwi/` the max
+difference is 0.0, and 1.97 with an extra x flip. FSL reads bvecs in radiological voxel coordinates and negates x when
+det(affine) > 0 ([FSL diffusion FAQ](https://fsl.fmrib.ox.ac.uk/fsl/docs/diffusion/faq.html)), so for FSL tools (dtifit,
+bedpostx) and MRtrix `-fslgrad` the QSIPrep `.bvec` is x-mirrored: `dwigradcheck` on sub-CHN scored it 38.9 mm mean
+streamline length against 61.5 mm for its x flip, which equals the `.b`. DIPY with image-axis vectors, DSI Studio's
+`.b_table.txt` and MRtrix `-grad <.b>` read it correctly. QSIPrep's own eddy runs in LAS (inferred from
+`workflows/dwi/base.py:241`, not run), so its preprocessing is believed unaffected; QSIRecon reorients to LAS before its FSL
+tools (`qsirecon/workflows/recon/converters.py:185`).
+
+Upstream: [#592](https://github.com/PennLINC/qsiprep/issues/592) open since 2023 (a 2026-10-06 comment confirms it on
+26.0.0, FSL included); [#619](https://github.com/PennLINC/qsiprep/issues/619) open, the maintainer leaning to a docs fix;
+[#218](https://github.com/PennLINC/qsiprep/issues/218) closed (dtifit gave a wrong V1, fixed by an x flip). Unchanged at
+26.1.1 and main, whose `docs/outputs.rst:129` says FSL reads the pair correctly, which is wrong for LPS+ output.
+
+Open: `dwigradcheck` could not exclude a z flip (61.05 against 60.4 mm). The QSIPrep convention does not explain one (the
+`.b` is derived from the `.bvec`), so a z problem would come from the input data; not investigated.
+
+**2. A missing `TotalReadoutTime` crashes the eddy path.** `read_nifti_sidecar` returns
+`metadata.get('TotalReadoutTime')`, so `None` (`qsiprep/interfaces/epi_fmap.py:79`, `:92` at 26.1.1);
+`spec_line % spec['TotalReadoutTime']` at `:400` runs before the `topup_requested` guard at `:408` and raises
+`TypeError: must be real number, not NoneType`; `:177` formats it the same way. `GatherEddyInputs` calls it unconditionally
+(`interfaces/eddy.py:168-186`). The fallback `get_trt` (`interfaces/fmap.py:863-925`) is not wired in and ignores
+`EstimatedTotalReadoutTime`. Present at 26.1.1 and main `06c51861`. Issues
+[#198](https://github.com/PennLINC/qsiprep/issues/198), [#453](https://github.com/PennLINC/qsiprep/issues/453),
+[#458](https://github.com/PennLINC/qsiprep/issues/458) and [#978](https://github.com/PennLINC/qsiprep/issues/978) closed
+with no code fix; maintainers said `EstimatedTotalReadoutTime` "should be fine". Per the eddy FAQ the value matters almost
+not at all when topup and eddy share the acqp file, but it does scale a non-topup `--field` (26.1's GRE-in-eddy path).
+
+TI-Toolbox's workaround is `ensure_total_readout_time` (`tit/pre/qsi/utils.py:470-584`), run by `run_qsiprep` before the
+container starts. For each `*_dwi.json` lacking a positive `TotalReadoutTime` it takes `EstimatedTotalReadoutTime`, else
+`EffectiveEchoSpacing × (ReconMatrixPE − 1)` (`AcquisitionMatrixPE` if no recon size). Failing both, it writes the 0.05 s
+placeholder (`QSI_FALLBACK_TOTAL_READOUT_TIME`) only when the subject has no image at all under any `fmap/` and one
+phase-encoding direction; otherwise it refuses with the reason. It rewrites the user's raw BIDS DWI sidecar in place,
+re-serialised with sorted keys; `repair=False` only reports. `plan_distortion_correction` writes a derived value into a
+usable reverse-PE fieldmap's own sidecar, never a placeholder.
+
+- **GRE fieldmaps.** `_subject_has_fieldmaps` counts every `fmap/*.nii*`, GRE phasediff and magnitude included, so the
+  placeholder can never meet a GRE `--field`: that guarantee holds. A *derived* value can: with a GRE fieldmap present,
+  an `EstimatedTotalReadoutTime` (dcm2niix's estimate) is written and is preferred over the echo-spacing formula when both
+  exist, and on the GRE-in-eddy path it scales the field directly.
+- **The placeholder case runs SyN.** No fieldmap and one PE direction is exactly when `plan_distortion_correction`
+  chooses fieldmap-less SyN, so the function's docstring ("no susceptibility correction is estimated") is wrong about why
+  the value is inert. Read at 26.1.1: SyN writes a standalone warp (`utils/sdc.py` `sdc_warp_source` returns `fieldwarp`)
+  and no readout time enters it; the readout time reaches only eddy's single acqp row and the TOPUP / GRE-in-eddy
+  rebuild (`workflows/dwi/resampling.py:434`). So it is inert at 26.1.1 by that reading; 26.0.0's SyN path was not read.
+- **GRE fieldmaps are not planned.** `plan_distortion_correction` looks at `fmap/*_epi` only, so a subject whose only
+  fieldmap is GRE gets the SyN command, while QSIPrep may still find the GRE through `IntendedFor`. Which correction then
+  runs is not established.
+
+**Audit, 2026-11-07.** Every reader and writer of DWI gradient files and `TotalReadoutTime` in `tit/`, `resources/`,
+`dev/`, `tests/`, `agent-plugin/` and `container/`. Nothing reads a QSIPrep `.bvec`, a `b_table`, `-fslgrad` or
+`dwigradcheck`; the MRtrix comparison above ran outside the repository.
+
+| Where | Reads or writes | Frame it assumes | Safe |
+|---|---|---|---|
+| `tit/pre/qsi/dti_extractor.py` `qsiprep_inputs` (:322-333) | locates `*_desc-preproc_dwi.b`, the one gradient locator `tit.tract` shares | — | yes; `tests/test_pre_qsi_dti.py:50` pins the `.b` name |
+| `tit/pre/qsi/dti_extractor.py` `fit_tensor` (:106-144) | QSIPrep `.b` into DIPY as is | world RAS, so a world-frame tensor; the SimNIBS frame is applied after | yes |
+| `tit/tract/tracking.py` `load_shell` / `fit_csd` (:203-242) | QSIPrep `.b` | world RAS, mapped to voxel axes by `M^-1`, `M` = affine / column norms | yes |
+| `tit/tract/tracking.py` `dti_reference` (:511) | QSIPrep `.b` through `fit_tensor` | world RAS | yes |
+| `tit/pre/qsi/dti_advisories.py` `acquisition` (:405) | `.b` column 4 (b-values) | none | yes |
+| `tit/pre/qsi/utils.py` `_validate_gradient_table` (:263-385) | raw BIDS `.bval`/`.bvec`: counts, shape, non-zero directions | none | yes |
+| `tit/pre/dicom2nifti.py` (:42, :390-515, :673) | copies dcm2niix's raw `.bval`/`.bvec` verbatim | dcm2niix's own (FSL) | yes |
+| `tit/pre/preflight.py:223`, `tit/reporting/generators/dti_qc.py` | a message; b-values from the QC record | none | yes |
+| `tit/pre/qsi/utils.py` `ensure_total_readout_time` (:470-584), `_derive_total_readout_time` (:444-467) | writes `TotalReadoutTime` into raw DWI sidecars | — | see above |
+| `tit/pre/qsi/utils.py` `plan_distortion_correction` (:662-767) | writes a derived `TotalReadoutTime` into a reverse-PE fieldmap sidecar | — | yes; never a placeholder |
+| `tit/constants.py:505-509` | the 0.05 s placeholder | — | — |
+| `tests/numerical/test_tract_frames.py`, `test_dti_roundtrip.py` | synthetic `.b`, LPS / PSR / oblique affines | world RAS | pins the `.b` algebra, not file choice |
+| `tests/conftest.py:460-473`, `test_pre_qsi_utils.py`, `test_pre_qsi_sdc.py`, `test_pre_dicom.py`, `test_pre_preflight.py`, `test_pre_submission_preflight.py`, `test_pre_dicom_outcome.py` | raw BIDS `.bval`/`.bvec` and `TotalReadoutTime` fixtures | none | yes |
+
+**What the existing checks cover.** The track stage's 8-flip check (`tracking.py:352`, `flip_verdict`) fails a run when a
+flipped CSD frame beats the unflipped one on tangent/V1 coherence; its reference tensor is fitted from the same `.b`, so
+it catches a frame error in the tracker's own conversion and, by construction, cannot see a table mirrored relative to the
+anatomy. The DTI step's advisory flip test (`dti_advisories.py:180`, Jeurissen 2014 continuity over 48 permutations and
+flips) can, and `tests/numerical/test_dti_advisories.py` finds a planted x flip with it, but it is advisory and never
+blocks.
+
+**Alternatives rejected.** Converting QSIPrep's `.bvec` to FSL convention now: nothing reads it. Patching QSIPrep in the
+image: upstream owns it and #592 / #619 are open.

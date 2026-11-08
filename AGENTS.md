@@ -127,6 +127,9 @@ A change to numerical behavior in `tit/stats`, `tit/analyzer`, `tit/calc` or `ti
 - **`electron-vite build` ignores `--mode`**; it hardcodes `NODE_ENV=production`, so
   `import.meta.env.DEV` is always false in a build. That is why gallery and scene hooks are gated
   by `VITE_INCLUDE_GALLERY` / `VITE_SCENE_HOOKS` instead.
+- **QSIPrep's preprocessed `.bvec` is image-axis, not FSL convention** (x-mirrored for FSL and MRtrix `-fslgrad`
+  on its LPS+ output), and a missing `TotalReadoutTime` crashes its eddy path. Read the `.b`; see "QSIPrep gradient
+  and readout-time pitfalls" in [DECISIONS.md](docs/dev/DECISIONS.md).
 - The maintainer-verified list of user-visible problems and fixes is
   [`docs/wiki/troubleshooting.md`](docs/wiki/troubleshooting.md). Consult it before diagnosing a
   reported error; add an entry when a new one is confirmed.
