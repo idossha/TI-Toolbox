@@ -31,7 +31,7 @@ DTI_coregT1_tensor.nii.gz + DTI_coregT1_qc.json  -->  SimNIBS anisotropic simula
 
 ### Requirements
 
-- Raw DWI in BIDS format (`.nii.gz` + `.bval` + `.bvec` + `.json` sidecar with `PhaseEncodingDirection`)
+- Raw DWI in BIDS format (`.nii.gz` + `.bval` + `.bvec` + `.json` sidecar with `PhaseEncodingDirection`). QSIPrep also needs `TotalReadoutTime`; when the sidecar lacks it, TI-Toolbox writes it into that sidecar before QSIPrep starts, derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`. With neither, it writes a 0.05 s placeholder only when the subject has no `fmap/` image and one phase-encoding direction, and otherwise stops and asks for the value.
 - A T1w image, and the SimNIBS head model (`m2m` folder from charm) built from **that same T1w file**
 - An x86-64 host for QSIPrep (above)
 
@@ -56,7 +56,7 @@ Starting from DICOMs, put the main DWI series in `sourcedata/sub-<id>/dwi/dicom/
 
 Before QSIPrep starts, TI-Toolbox looks at the subject's `fmap/` folder:
 
-- A **reverse phase-encoding fieldmap** (`fmap/*_epi` whose `acq` label says `dwi`/`dti`, or with no `acq` label and the DWI's matrix, or whose `IntendedFor` already names the DWI) with a `PhaseEncodingDirection` opposite to the DWI's is used with **TOPUP**. If its sidecar lacks `IntendedFor` or `TotalReadoutTime`, TI-Toolbox writes them into that fieldmap's own JSON (the readout time is derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`). Nothing else in your BIDS folder is touched, and a value that is already there is never overwritten.
+- A **reverse phase-encoding fieldmap** (`fmap/*_epi` whose `acq` label says `dwi`/`dti`, or with no `acq` label and the DWI's matrix, or whose `IntendedFor` already names the DWI) with a `PhaseEncodingDirection` opposite to the DWI's is used with **TOPUP**. If its sidecar lacks `IntendedFor` or `TotalReadoutTime`, TI-Toolbox writes them into that fieldmap's own JSON (the readout time is derived from `EstimatedTotalReadoutTime` or `EffectiveEchoSpacing × (ReconMatrixPE − 1)`). Nothing else in `fmap/` is touched, and a value that is already there is never overwritten.
 - **DWI series with opposite phase encoding** in `dwi/` are used with TOPUP directly.
 - **No fieldmap**: fieldmap-less **SyN** correction (`--sdc-fieldmapless-method syn --sdc-anat-reference invt1w`). SyN places its prior through the anatomical MNI transform, so MNI normalization is switched on for that run.
 - **A DWI fieldmap that cannot be used** (no sidecar, no `PhaseEncodingDirection`, the same phase encoding as the DWI, or no readout time) is reported. If it is the only one, the run is refused with the reason instead of silently falling back; fix the sidecar, or move the fieldmap out of `fmap/` to accept SyN. When another usable fieldmap exists, the bad one is only logged.
@@ -84,6 +84,12 @@ derivatives/qsiprep/sub-{id}/
     ├── sub-{id}_space-ACPC_desc-preproc_dwi.b          # gradient table, scanner RAS
     └── sub-{id}_space-ACPC_desc-brain_mask.nii.gz
 ```
+
+**Using QSIPrep's gradients in other tools.** QSIPrep's preprocessed DWI is LPS+, and the `.bval`/`.bvec` beside it give directions along the image axes, not in FSL's convention. TI-Toolbox reads only the `.b`. Elsewhere:
+
+- MRtrix3: use the `.b` (`mrconvert -grad sub-{id}_space-ACPC_desc-preproc_dwi.b`), not `-fslgrad` with the `.bvec`.
+- FSL (`dtifit`, `bedpostx`): negate the first (x) row of the `.bvec` first. Read as it is, the table is mirrored left–right, although QSIPrep's documentation says FSL reads it correctly ([PennLINC/qsiprep#592](https://github.com/PennLINC/qsiprep/issues/592)).
+- DIPY with the image's voxel axes, and DSI Studio's `.b_table.txt`, read QSIPrep's tables as written.
 
 ## Stage 2: the DTI step
 
