@@ -11,6 +11,8 @@ configuration like any other montage.
 Placement happens on the [Simulator]({{ site.baseurl }}/wiki/simulator/): you click in its 3-D pane, and a
 saved placement is a **Free-hand** source you can pick in a job row.
 
+A placement is specific to the subject it was placed on: it is saved with that subject, offered only in that subject's job rows, and never run on another subject's head (see [Free-Hand]({{ site.baseurl }}/wiki/simulator/#3-free-hand)).
+
 <img src="{{ site.baseurl }}/assets/imgs/v3/simulator-freehand.png" alt="The free-hand placement editor for subject 101: E1+ and E1- placed on the head with their coordinates filled in the table" style="width: 100%; max-width: 1000px;">
 <em>Two positions placed. The selected row (E1-) is labelled in the pane, and its dot carries a ring.</em>
 

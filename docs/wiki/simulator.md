@@ -47,6 +47,8 @@ The row starts with the run's own currents (its optimised current split when the
 
 A placement you clicked onto the subject's scalp or typed in, saved per subject: pick the **Free-hand set**. **New placement** opens the [placement editor]({{ site.baseurl }}/wiki/electrode-placement/).
 
+A free-hand placement belongs to the head model it was placed on: its coordinates are that subject's millimetres, and on another head they would land somewhere else on the scalp without any error. So a row only offers its own subject's placements, changing a row's subject clears its placement (a duplicated row too), and a plan step or an agent request that would run one placement on more than one subject is refused with *a free-hand placement belongs to one subject*. The same holds for a flex result's optimised (XYZ) positions. To simulate a similar placement on another subject, place it on that subject's head.
+
 ### Ex-search results and evaluated candidates
 
 To simulate an [ex-search]({{ site.baseurl }}/wiki/ex-search/) result, open the run in **Results ▸ Evaluated candidates**, select a candidate and press **Use in Simulator**. This works for Ex and mEx runs as well as Flex runs. An Ex or mEx candidate arrives as a Montage row on its net with the candidate's currents; a Flex candidate arrives as a Flex row whose **Placement** can snap it to a net. Nothing runs until you press **Run simulation**.
