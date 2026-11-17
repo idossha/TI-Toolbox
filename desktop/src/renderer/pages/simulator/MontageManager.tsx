@@ -351,6 +351,17 @@ export interface MontageDraft {
 }
 
 /** Is this open draft the saved montage `m` (an Edit of it)? Deleting `m` closes only that draft. */
+/** A saved placement's positions as the row's channel pairs: positions 1–2, 3–4, … */
+function xyzPairsOf(config: FreehandConfig | undefined): [[number, number, number], [number, number, number]][] {
+  const pairs: [[number, number, number], [number, number, number]][] = [];
+  for (let i = 0; config && i + 1 < config.electrode_positions.length; i += 2) {
+    const a = config.electrode_positions[i]!;
+    const b = config.electrode_positions[i + 1]!;
+    pairs.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
+  }
+  return pairs;
+}
+
 function isDraftOf(draft: MontageDraft | null, m: { net: string; kind: MontageKind; name: string }): boolean {
   return !!draft?.savedAs && draft.savedAs === m.kind && draft.net === m.net && draft.name.trim() === m.name;
 }
@@ -770,14 +781,17 @@ export function JobsTable({
   }
 
   function setRowFreehand(row: SelectedRow, name: string) {
-    const config = (freehandBySubject[row.subjectId] ?? []).find((c) => c.name === name);
-    const pairs: [[number, number, number], [number, number, number]][] = [];
-    for (let i = 0; config && i + 1 < config.electrode_positions.length; i += 2) {
-      const a = config.electrode_positions[i]!;
-      const b = config.electrode_positions[i + 1]!;
-      pairs.push([[a.x, a.y, a.z], [b.x, b.y, b.z]]);
-    }
+    const pairs = xyzPairsOf((freehandBySubject[row.subjectId] ?? []).find((c) => c.name === name));
     patch(row.id, { name, kind: undefined, pairs: undefined, xyzPairs: pairs, currents: defaultCurrents(pairs.length) });
+  }
+
+  /** A row holds a copy of its placement's coordinates, so saving over that name re-copies them
+   *  (currents kept unless the pair count changed) — else the row runs the old points. */
+  function placementSaved(subject: string, config: FreehandConfig) {
+    const pairs = xyzPairsOf(config);
+    onRowsChange(rowsRef.current.map((row) => row.source === "freehand" && row.subjectId === subject && row.name === config.name
+      ? { ...row, xyzPairs: pairs, currents: row.xyzPairs?.length === pairs.length ? row.currents : defaultCurrents(pairs.length) }
+      : row));
   }
 
   function addRow() {
@@ -1239,7 +1253,7 @@ export function JobsTable({
         onFocus={() => onFocusForm?.()}
       >
       {/* Cancel or Save returns the scene to the row — a montage draft behind it stays open. */}
-      {freehandOpen && <FreehandEditor subjects={usable} onClose={() => { setFreehandOpen(false); onFocusRow?.(focus?.rowId ?? null); }} />}
+      {freehandOpen && <FreehandEditor subjects={usable} onSaved={placementSaved} onClose={() => { setFreehandOpen(false); onFocusRow?.(focus?.rowId ?? null); }} />}
 
       {editing && !freehandOpen && (
         <Card>

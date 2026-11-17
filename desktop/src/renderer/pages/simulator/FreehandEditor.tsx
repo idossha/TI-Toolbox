@@ -80,7 +80,16 @@ export function freehandPlacementProblem(positions: ElectrodePosition[]): string
   return null;
 }
 
-export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjects: string[]; onClose: () => void }) {
+export function FreehandEditor({
+  subjects: selectedSubjects,
+  onClose,
+  onSaved,
+}: {
+  subjects: string[];
+  onClose: () => void;
+  /** After a save: job rows hold a copy of a placement's coordinates, so an overwrite must reach them. */
+  onSaved?: (subject: string, config: FreehandConfig) => void;
+}) {
   const queryClient = useQueryClient();
 
   // One draft for the page (see `freehandDraft.tsx`): the 3-D pane writes into the same rows this
@@ -110,15 +119,10 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
   const targets = useRef<Array<HTMLButtonElement | null>>([]);
 
   const save = useMutation({
-    mutationFn: () => {
-      // FreehandConfig.type is on-disk stim_configs semantics (unipolar/multipolar), not
-      // xyz/label — U for a 2-pair (4-position) montage, M for 4+ pairs (8+ positions). See
-      // contracts/openapi.yaml's FreehandConfig doc comment / tit/catalog.py::_read_freehand_file.
-      const type: FreehandConfig["type"] = positions.length / 2 >= 4 ? "M" : "U";
-      return putFreehand(activeEditSubject!, name.trim(), { name: name.trim(), type, electrode_positions: positions });
-    },
-    onSuccess: () => {
-      notify.success(`Saved free-hand configuration "${name.trim()}" for ${activeEditSubject}.`);
+    mutationFn: (config: FreehandConfig) => putFreehand(activeEditSubject!, config.name, config),
+    onSuccess: (_data, config) => {
+      onSaved?.(activeEditSubject!, config);
+      notify.success(`Saved free-hand configuration "${config.name}" for ${activeEditSubject}.`);
       reset();
       // The job row's Montage cell reads this key, so it picks the new set up straight away.
       void queryClient.invalidateQueries({ queryKey: ["freehand", activeEditSubject] });
@@ -316,7 +320,16 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
               loading={save.isPending}
               disabled={saveProblem !== null}
               title={saveProblem ?? undefined}
-              onClick={() => save.mutate()}
+              onClick={() =>
+                save.mutate({
+                  name: trimmedName,
+                  // FreehandConfig.type is on-disk stim_configs semantics (unipolar/multipolar), not
+                  // xyz/label — U for a 2-pair (4-position) montage, M for 4+ pairs (8+ positions). See
+                  // contracts/openapi.yaml's FreehandConfig doc comment / tit/catalog.py::_read_freehand_file.
+                  type: positions.length / 2 >= 4 ? "M" : "U",
+                  electrode_positions: positions,
+                })
+              }
             >
               Save placement
             </Button>

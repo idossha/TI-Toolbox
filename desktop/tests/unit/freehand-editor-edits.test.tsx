@@ -56,6 +56,8 @@ vi.mock("../../src/renderer/ui/Select", () => ({
 import { PageIdContext, clearPageSession } from "../../src/renderer/app/pageSession";
 import { FreehandEditor } from "../../src/renderer/pages/simulator/FreehandEditor";
 import { FreehandDraftProvider } from "../../src/renderer/pages/simulator/freehandDraft";
+import { JobsTable } from "../../src/renderer/pages/simulator/MontageManager";
+import type { SelectedRow } from "../../src/renderer/pages/simulator/types";
 
 type Xyz = [number, number, number];
 const PLACED: Xyz[] = [[61.2, 10.4, 40.1], [-60.5, 12.0, 38.7], [5.3, 72.8, 31.9], [3.1, -74.6, 33.0]];
@@ -177,5 +179,41 @@ describe("free-hand subject", () => {
     });
     await act(async () => button("Save placement").click());
     expect(api.putFreehand.mock.calls.map((c) => (c as unknown[])[0])).toEqual(["101"]);
+  });
+});
+
+describe("saving over an existing placement", () => {
+  it("re-points the job rows that use it at the new coordinates", async () => {
+    const old: Xyz[] = [[50, 0, 50], [-50, 0, 50], [0, 60, 40], [0, -60, 40]];
+    queryClient.setQueryData(["freehand", "ernie"], [
+      { name: "fh1", type: "U", electrode_positions: old.map(([x, y, z], i) => ({ label: `P${i}`, x, y, z })) },
+    ]);
+    const oldPairs: [Xyz, Xyz][] = [[old[0]!, old[1]!], [old[2]!, old[3]!]];
+    const rows: SelectedRow[] = [
+      { id: "uses", subjectId: "ernie", source: "freehand", name: "fh1", xyzPairs: oldPairs, currents: "1,1" },
+      { id: "other", subjectId: "ernie", source: "freehand", name: "fh2", xyzPairs: oldPairs, currents: "1,1" },
+    ];
+    const onRowsChange = vi.fn();
+    act(() =>
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <PageIdContext.Provider value="simulator">
+            <FreehandDraftProvider>
+              <JobsTable subjects={[{ id: "ernie" }]} subjectNets={{ ernie: [] }} rows={rows} onRowsChange={onRowsChange} draft={null} onDraftChange={() => {}} />
+            </FreehandDraftProvider>
+          </PageIdContext.Provider>
+        </QueryClientProvider>,
+      ),
+    );
+    await flush();
+    act(() => button("New placement").click());
+    placeAll();
+    fill(input("#sim-freehand-name"), "fh1");
+    await act(async () => button("Save placement").click());
+    await flush();
+    expect(api.putFreehand).toHaveBeenCalledTimes(1);
+    const last = onRowsChange.mock.calls.at(-1)?.[0] as SelectedRow[] | undefined;
+    expect(last?.find((r) => r.id === "uses")?.xyzPairs).toEqual([[PLACED[0], PLACED[1]], [PLACED[2], PLACED[3]]]);
+    expect(last?.find((r) => r.id === "other")?.xyzPairs).toEqual(oldPairs);
   });
 });
