@@ -304,8 +304,12 @@ export async function cancelJobFromRail(page: Page, kind: string, opts: { timeou
  * what the UI sent instead of a hand-typed guess at the config shape (program P5 — the flex
  * failure this whole harness exists to catch was exactly a UI/runner config divergence). `kind`
  * carries a variant suffix when a page has several ("sim-mti", "analyzer-voxel").
+ *
+ * Opt-in (`TIT_E2E_RECORD_PAYLOADS=1`): the bodies carry per-run names (`smoke-ui-<run id>-ti`),
+ * so recording on every run rewrote tracked files and left the release gate's tree dirty.
  */
 export function recordPayload(kind: string, body: unknown): void {
+  if (process.env.TIT_E2E_RECORD_PAYLOADS !== "1") return;
   const dir = join(__dirname, "..", "..", "..", "tests", "smoke", "payloads");
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, `${kind}.json`), `${JSON.stringify(body, null, 2)}\n`);

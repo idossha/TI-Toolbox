@@ -335,7 +335,9 @@ dev/smoke.sh --full <row>
 Select `TIT_SMOKE_CONTAINER` when multiple stacks exist. Heavy rows wait for an idle queue; never
 run competing FEM jobs under emulation. Fresh output namespaces and cleanup manifests live under
 `tests/smoke/artifacts/`; `--keep` preserves generated artifacts. State whether each check completed
-computation or only tested start/cancel. Real UI specs can record payloads for replay.
+computation or only tested start/cancel. Real UI specs record payloads for replay into
+`tests/smoke/payloads/` only with `TIT_E2E_RECORD_PAYLOADS=1`; the bodies carry per-run names, so commit
+a re-recording deliberately.
 
 Before restarting a backend, inspect running/queued jobs. After reload, wait for health and probe
 behavior proving the new source loaded; immediate health may still come from the old process.

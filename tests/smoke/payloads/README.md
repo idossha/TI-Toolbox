@@ -1,7 +1,8 @@
 # Recorded UI payloads (decision P5)
 
-Lane S2's Playwright `real` project writes the **exact** `POST /api/jobs` (or
-`POST /api/jobs/groups`) body each run page submitted into this directory, one file per row:
+Lane S2's Playwright `real` project, run with `TIT_E2E_RECORD_PAYLOADS=1`, writes the **exact**
+`POST /api/jobs` (or `POST /api/jobs/groups`) body each run page submitted into this directory, one
+file per row (without the variable it records nothing, so a real run leaves these files alone):
 
 ```
 tests/smoke/payloads/<row id>.json     # preferred (e.g. sim_ti.json)
