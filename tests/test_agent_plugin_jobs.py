@@ -339,6 +339,7 @@ def test_plan_job_reports_what_would_be_overwritten(js, fake):
 
 
 def test_submit_job_uses_the_group_route_like_the_app(js, fake):
+    fake.routes[("POST", "/api/plan/sim")] = {"jobs": []}
     fake.routes[("POST", "/api/jobs/groups")] = lambda q, b: (
         201,
         {
@@ -364,6 +365,10 @@ def test_submit_job_uses_the_group_route_like_the_app(js, fake):
     )
     assert not err, out
     assert out["job_ids"] == ["j0", "j1"]
+    # One config for two subjects is first planned for both: the server refuses a free-hand
+    # placement on more than one head, which the per-subject entries below cannot show it.
+    probe = fake.sent("POST", "/api/plan/sim")[0]["body"]
+    assert probe["subject_ids"] == ["101", "102"]
     body = fake.sent("POST", "/api/jobs/groups")[0]["body"]
     assert body["created_by"] == "agent"
     assert body["tags"] == ["sim-batch"]

@@ -359,6 +359,42 @@ def check_electrode_pairs(pairs, *, xyz: bool) -> None:
                 )
 
 
+def check_xyz_montages_one_subject(config: dict, subject_ids) -> None:
+    """Raise ``ValueError`` when an inline XYZ montage in *config* would run on two heads.
+
+    ``FREEHAND`` and ``FLEX_FREE`` electrodes are millimetres in one subject's head mesh;
+    SimNIBS projects them onto any other scalp without complaint, so a wrong-subject run
+    succeeds and looks plausible. Every route that turns one sim config into jobs or a plan
+    for several subjects calls this first. Per-subject ``montage_sources`` are not in
+    ``config["montages"]`` and are not affected.
+
+    Parameters
+    ----------
+    config : dict
+        A ``sim`` config as sent over the wire (``montages`` entries are dicts).
+    subject_ids : iterable of str
+        The subjects the config would run for; ``config["subject_id"]`` counts too.
+
+    Raises
+    ------
+    ValueError
+        Naming the first XYZ montage, when more than one subject is involved.
+    """
+    subjects = {s for s in subject_ids or [] if s}
+    if config.get("subject_id"):
+        subjects.add(config["subject_id"])
+    if len(subjects) < 2:
+        return
+    xyz_modes = (MontageMode.FREEHAND.value, MontageMode.FLEX_FREE.value)
+    for montage in config.get("montages") or []:
+        if isinstance(montage, dict) and montage.get("mode") in xyz_modes:
+            raise ValueError(
+                f"Montage {montage.get('name')!r} is a free-hand placement (x, y, z on one "
+                f"head model) and cannot run for {', '.join(sorted(subjects))}: a "
+                "free-hand placement belongs to one subject."
+            )
+
+
 @dataclass
 class SimulationConfig:
     """Full configuration for a TI or mTI simulation run.

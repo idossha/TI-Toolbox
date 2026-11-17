@@ -559,6 +559,19 @@ def _plan_generic_group(
             status_code=422,
             detail=f"subject_configs names subjects not in subject_ids: {sorted(unknown)}",
         )
+    if kind == "sim":
+        from tit.sim.config import check_xyz_montages_one_subject
+
+        # Each config with the subjects it would run for (the template: every subject without
+        # an entry), before the loop below overwrites its `subject_id` with the job's.
+        uses = [(c, [s]) for s, configs in by_subject.items() for c in configs]
+        uses.append((config, [s for s in subject_ids if s not in by_subject]))
+        try:
+            for entry_config, subjects in uses:
+                if subjects:
+                    check_xyz_montages_one_subject(entry_config, subjects)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
     for subject_id in subject_ids:
         if not isinstance(subject_id, str):
             raise HTTPException(

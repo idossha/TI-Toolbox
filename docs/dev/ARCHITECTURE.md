@@ -1048,6 +1048,13 @@ their routes or retained page instances.
 Simulator's saved-definition manager deletes montage or freehand definitions only. Confirmed
 deletion clears matching draft job selections, preserving completed simulation outputs. Freehand
 deletion is subject-scoped through `DELETE /api/catalog/freehand/{name}?subject=...`.
+A free-hand placement, like any XYZ montage (`freehand`, `flex_free`), is one subject's: it is
+saved in and listed from that subject's `m2m_<id>/stim_configs/`, a job row's subject change clears
+it, and one sim config carrying an inline XYZ montage is refused (422 / plan error) wherever it would
+reach more than one subject: `POST /api/plan/sim`, `POST /api/jobs/groups`, a proposal's sim step and
+the agent plugin's `plan_job`/`submit_job` all apply `tit.sim.config.check_xyz_montages_one_subject`.
+The desktop plan step never copies one subject's points to another (`pages/simulator/planStep.ts`).
+Per-subject `montage_sources` resolve from each subject's own folder and are unaffected.
 The manager uses a fixed-height scroll region. Bulk deletion reports partial success and leaves
 failed definitions selected for retry rather than claiming the entire selection was deleted.
 

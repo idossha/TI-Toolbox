@@ -4393,3 +4393,13 @@ A subject-space volume that neither the subject's scene nor a guide lists (a mas
 
 Verified by `desktop/tests/e2e/scene-pane.spec.ts` ("a volume only the subject has draws the subject's skin…") against the mock, and offscreen against Dataset 000 on sub-CHN with `masks/tract-posterior_tc.nii.gz`.
 
+
+## 2026-11-17 — An XYZ montage runs on one subject only, refused wherever one config would reach two
+
+The maintainer: "Every free-hand placement is specific to the head model. It is subject-specific always. No free-hand should be automatically available to another model." Free-hand coordinates are millimetres in one subject's head mesh, and SimNIBS projects them onto any other scalp without error, so a wrong-subject run succeeds and looks plausible. `POST /api/plan/sim` applied `config.montages` to every subject in `subject_ids`, `POST /api/jobs/groups` sent its template config to every subject without an entry (and overwrote an entry's `subject_id`), a proposal's sim step and the agent plugin's `plan_job`/`submit_job` copied one config to each subject, and the desktop plan step copied one subject's points onto every subject's rows.
+
+**Decision.** `tit.sim.config.check_xyz_montages_one_subject(config, subject_ids)` raises when an inline `freehand` or `flex_free` montage would reach more than one subject (the config's own `subject_id` counts). The plan route and the group route answer 422 with its sentence; a proposal step carries it as a plan error, which blocks approval; the agent plugin asks the plan route with all its subjects before fanning out. The desktop plan step gives a multi-subject step's rows no points and refuses to save XYZ rows for more than one subject, with the same sentence. It covers `flex_free` as well as `freehand` because no flow sends one optimised XYZ set to several subjects: flex results, `sim_from_flex` steps and candidate replays resolve per subject.
+
+**Alternatives rejected.** A warning: the run still succeeds on the wrong head. Comparing coordinates across per-subject entries: two subjects' own placements could coincide, and one rule over "one config, several subjects" is enough. Converting through MNI: not requested, and a free-hand placement has no source space other than its subject.
+
+Verified by `tests/test_freehand_one_subject.py`, `tests/test_agent_plugin_plan_job.py::test_a_freehand_montage_is_refused_for_two_subjects` and `desktop/tests/unit/plan-step-form.test.ts` (Simulator free-hand cases), each red against the previous source.

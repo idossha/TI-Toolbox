@@ -17,7 +17,10 @@ Per-kind output-dir resolution
 -------------------------------
 ``sim``
     One :class:`PlanJob` per ``(subject, montage)``. ``config.montages`` applies to every
-    subject in the plan; the request body's top-level ``montage_sources`` field
+    subject in the plan, so an XYZ (free-hand / ``flex_free``) montage there is refused (422)
+    when the plan names more than one subject
+    (:func:`tit.sim.config.check_xyz_montages_one_subject`); the request body's top-level
+    ``montage_sources`` field
     (``contracts/openapi.yaml``'s ``MontageSources`` -- ``{"flex": [{"subject"?, "run",
     "electrode_type"?, "eeg_net"?}], "freehand": [{"subject"?, "name"} | "name"]}``) is
     resolved via :mod:`tit.sim.montage_sources` into extra montages attached **only** to
@@ -296,6 +299,7 @@ def _plan_sim(
     montage_sources_field: dict[str, Any] | None = None,
 ) -> tuple[list[PlanJob], dict[str, Any]]:
     from tit.sim import montage_sources
+    from tit.sim.config import check_xyz_montages_one_subject
 
     source_montages: dict[str, list[Any]] = {}
     sources = _montage_sources_for_request(montage_sources_field, raw_config)
@@ -346,6 +350,11 @@ def _plan_sim(
     for sid in source_montages:
         if sid not in subjects:
             subjects.append(sid)
+    # config.montages apply to every subject below; an XYZ one belongs to one head.
+    try:
+        check_xyz_montages_one_subject(raw_config, subjects)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     if not subjects:
         warnings.append(

@@ -241,7 +241,8 @@ def _entries(
     a config that runs once for all its subjects (stats, a group analysis, ...) is one entry
     with the config as sent, a flex step gets each subject's absolute run folder, and a
     ``sim_from_flex`` step is resolved against its flex run now (:class:`ValueError` when that
-    run is not usable). Subject ``""`` marks an entry that covers every subject of the step.
+    run is not usable, and for a ``sim`` step whose XYZ montage would run on several subjects).
+    Subject ``""`` marks an entry that covers every subject of the step.
     """
     from tit.server.routes.jobs import runs_once_for_all_subjects
 
@@ -251,6 +252,11 @@ def _entries(
     if runs_once_for_all_subjects(kind, config):
         return kind, [("", dict(config))]
     if kind != SIM_FROM_FLEX:
+        if kind == "sim":
+            from tit.sim.config import check_xyz_montages_one_subject
+
+            # The step's one config runs on every subject below; an XYZ montage is one head's.
+            check_xyz_montages_one_subject(config, step["subject_ids"])
         entries = []
         for sid in step["subject_ids"]:
             entry = {**config, "subject_id": sid}

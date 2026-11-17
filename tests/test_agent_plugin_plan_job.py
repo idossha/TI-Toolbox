@@ -272,3 +272,44 @@ def test_a_refusal_without_a_message_never_reads_none():
     text = str(js.InvalidConfig([{"path": "roi"}, {"message": "goal is unknown"}]))
     assert text == "the config is invalid: roi: invalid; config: goal is unknown"
     assert str(js.InvalidConfig([])) == "the config is invalid"
+
+
+#: A free-hand montage in one head's millimetres (authored; the subjects need no head model,
+#: since the refusal comes before any input check).
+FREEHAND = {
+    "_type": "Montage",
+    "name": "hand",
+    "mode": "freehand",
+    "electrode_pairs": [
+        [[-60.0, 10.0, 40.0], [60.0, 10.0, 40.0]],
+        [[-60.0, -40.0, 40.0], [60.0, -40.0, 40.0]],
+    ],
+    "eeg_net": None,
+}
+
+
+@pytest.mark.parametrize("tool", ["plan_job", "submit_job"])
+def test_a_freehand_montage_is_refused_for_two_subjects(live, tool):
+    """plan_job/submit_job fan one config out per subject client-side, where the server sees one
+    subject per request; the server's planner sees them all first and refuses (2026-11-17).
+    """
+    js, _, _, as_user = live
+    as_user(
+        "PUT",
+        "/api/settings",
+        {"panels": [], "theme": "system", "agent_auto_submit": True},
+    )
+    err, text = call(
+        js,
+        tool,
+        kind="sim",
+        config={"montages": [FREEHAND]},
+        subject_ids=["101", "102"],
+    )
+    assert err, text
+    assert "'hand'" in text and "a free-hand placement belongs to one subject" in text
+    assert as_user("GET", "/api/jobs") == []
+    err, plan = call(
+        js, "plan_job", kind="sim", config={"montages": [FREEHAND]}, subject_ids=["101"]
+    )
+    assert not err and plan["errors"] == [] and len(plan["jobs"]) == 1, plan

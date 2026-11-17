@@ -356,29 +356,30 @@ def _flex_output_folder(kind: str, config: Dict[str, Any], subject: str) -> str:
             "output_folder must be a run name without separators, or absolute"
         )
     probe_config = {**config, "subject_id": subject, "output_folder": None}
+    probe = _probe_plan(kind, {"config": probe_config, "subject_ids": [subject]})
+    parent = os.path.dirname(probe["jobs"][0]["output_dir"])
+    return f"{parent}/{name or time.strftime('%Y%m%d_%H%M%S') + '_agent'}"
+
+
+def _probe_plan(kind: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """``POST /api/plan/<kind>`` for *body*; its refusal is the tool error.
+
+    Raises:
+        InvalidConfig: The probe was refused because the config does not validate.
+    """
     try:
-        probe = _api(
-            "POST",
-            f"/api/plan/{kind}",
-            {
-                "config": probe_config,
-                "subject_ids": [subject],
-                "created_by": CREATED_BY,
-            },
-        )
+        return _api("POST", f"/api/plan/{kind}", {**body, "created_by": CREATED_BY})
     except ToolError:
         # The probe deserializes the config, so an invalid one fails here first: answer with
         # the validator's field errors rather than the probe's bare HTTP status.
         check = _api(
             "POST",
             f"/api/validate/{kind}",
-            {"config": probe_config, "created_by": CREATED_BY},
+            {"config": body["config"], "created_by": CREATED_BY},
         )
         if not check.get("ok"):
             raise InvalidConfig(check.get("errors") or [])
         raise
-    parent = os.path.dirname(probe["jobs"][0]["output_dir"])
-    return f"{parent}/{name or time.strftime('%Y%m%d_%H%M%S') + '_agent'}"
 
 
 def _prepare(
@@ -390,6 +391,11 @@ def _prepare(
         raise ToolError("config must be an object")
     if kind == "pre":
         return [("", {**config, "subject_ids": subject_ids})]
+    if kind == "sim" and len(subject_ids) > 1:
+        # One config for every subject: the server's planner refuses a free-hand (x, y, z)
+        # montage on more than one head, which the per-subject requests below cannot see.
+        probe_config = {**config, "subject_id": subject_ids[0]}
+        _probe_plan(kind, {"config": probe_config, "subject_ids": subject_ids})
     entries = []
     for sid in subject_ids:
         entry = {**config, "subject_id": sid}
