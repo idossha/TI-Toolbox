@@ -269,3 +269,41 @@ describe("ObjectiveSection and SolverSection", () => {
     expect(errorIn("Optimization runs")).toBe("Optimization runs must be at least 1.");
   });
 });
+
+describe("Skin region margin", () => {
+  // A number input reports a lone "-" as ""; the field once stored that as 0, React wrote "0" back
+  // over the "-", and the next digits made "015" — a constricting margin sent as an expanding one.
+  it("typing -15 key by key keeps the sign, and an empty box blocks the run", () => {
+    let latest = form({});
+    function Stateful() {
+      const [state, setState] = React.useState(latest);
+      latest = state;
+      return React.createElement(SolverSection, { form: state, onChange: (patch) => setState((s) => ({ ...s, ...patch })), eegNets: [] });
+    }
+    render(React.createElement(Stateful));
+    const input = numberIn("Skin region margin");
+    const setValue = (v: string) => Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, v);
+    // A browser appends each key to its own text unless the page wrote the field in between.
+    let typed = "";
+    for (const key of "-15") {
+      typed += key;
+      setValue(typed);
+      const reported = input.value;
+      act(() => {
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      if (input.value !== reported) typed = input.value;
+    }
+    expect(input.value).toBe("-15");
+    expect(latest.skinRegionMarginMm).toBe(-15);
+    expect(flexFormReason(latest)).toBeNull();
+
+    setValue("");
+    act(() => {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(input.value).toBe("");
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(flexFormReason(latest)).toBe("Skin region margin must be a number.");
+  });
+});

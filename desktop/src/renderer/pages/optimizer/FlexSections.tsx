@@ -288,7 +288,16 @@ export function SolverSection({ form, onChange, eegNets }: { form: FlexFormState
         <NumberInput value={form.anisoMaxcond} onValueChange={(v) => onChange({ anisoMaxcond: v ?? 2 })} min={0.1} step={0.1} />
       </Field>
       <Field label="Skin region margin" help="Signed valid-skin-region margin. Positive expands the region; negative constricts it.">
-        <NumberInput value={form.skinRegionMarginMm} onValueChange={(v) => onChange({ skinRegionMarginMm: v ?? 0 })} unit="mm" step={5} min={-20} max={40} />
+        {/* Empty or a lone "-" is NaN, not 0: a 0 written back over the "-" turned -15 into +15. */}
+        <NumberInput
+          value={Number.isNaN(form.skinRegionMarginMm) ? undefined : form.skinRegionMarginMm}
+          onValueChange={(v) => onChange({ skinRegionMarginMm: v ?? Number.NaN })}
+          invalid={!Number.isFinite(form.skinRegionMarginMm)}
+          unit="mm"
+          step={5}
+          min={-20}
+          max={40}
+        />
       </Field>
       <Field label="Landmark exclusion">
         <Checkbox checked={form.avoidLandmarkRegions} onCheckedChange={(v) => onChange({ avoidLandmarkRegions: v })} label="Avoid eye/ear landmarks" />

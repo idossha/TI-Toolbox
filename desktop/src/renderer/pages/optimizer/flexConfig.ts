@@ -305,6 +305,7 @@ export function flexFormReason(form: FlexFormState): string | null {
     const reason = boundReason(key, form[key]);
     if (reason) return reason;
   }
+  if (!Number.isFinite(form.skinRegionMarginMm)) return "Skin region margin must be a number.";
   if (form.electrodeShape === "ellipse" && form.dimensionWidth !== form.dimensionHeight) return "Unequal ellipse dimensions are unsupported. Use equal dimensions or a rectangle.";
   if (form.goal !== "focality") return null;
   if (form.focalityMode === "manual") return thresholdsReason(form.manualThresholds);
