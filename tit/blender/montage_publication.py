@@ -20,6 +20,7 @@ from tit.paths import get_path_manager
 from tit import constants as const
 from tit.blender import utils as be_utils
 from tit.blender.io import read_binary_stl, write_binary_stl
+from tit.tools.montage_visualizer import placed_by_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -262,14 +263,14 @@ def build_montage_publication_blend(
             f"{record}"
         )
     # Every input below is checked before anything is written. A montage placed by
-    # coordinates (free-hand, flex_free) records eeg_net null, and this scene places a
-    # net's electrodes.
+    # coordinates (free-hand, flex_free) records eeg_net null or a sentinel ("freehand",
+    # "flex_mode"), and this scene places a net's electrodes.
     eeg_net = cfg.get("eeg_net")
-    if not eeg_net:
+    if not isinstance(eeg_net, str) or placed_by_coordinates(eeg_net):
         raise ValueError(
             f"This simulation has no recorded EEG net. {simulation_name!r} for "
-            f"sub-{subject_id} placed its electrodes by coordinates (eeg_net is null in "
-            f"{record}), and the montage scene places the electrodes of a net; export "
+            f"sub-{subject_id} placed its electrodes by coordinates (eeg_net is "
+            f"{json.dumps(eeg_net)} in {record}), and the montage scene places the electrodes of a net; export "
             "it as cortical regions or field vectors instead."
         )
     eeg_csv = _resolve_eeg_net_csv(subject_id=subject_id, eeg_net_name=str(eeg_net))

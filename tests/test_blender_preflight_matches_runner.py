@@ -361,6 +361,20 @@ def test_xyz_montage_finding_says_why(project):
     assert found.expected_path.endswith("b_xyz/documentation/config.json")
 
 
+@pytest.mark.parametrize("sentinel", ["freehand", "flex_mode", ""])
+def test_xyz_sentinel_net_refuses_like_null(project, monkeypatch, sentinel):
+    """A record whose eeg_net is a coordinate sentinel (the server plan path stores
+    "freehand") is refused as placed by coordinates, not as a missing net CSV."""
+    sim = project / "derivatives" / "SimNIBS" / f"sub-{SID}" / "Simulations" / "x"
+    _ti_tree(sim, record={**XYZ, "eeg_net": sentinel})
+    _patch_heavy_io(monkeypatch)
+    (found,) = preflight("blender", _config("MontageConfig", "x"), str(project))
+    assert "This simulation has no recorded EEG net." in found.what
+    exc = _run("MontageConfig", "x")
+    assert isinstance(exc, ValueError)
+    assert "This simulation has no recorded EEG net." in str(exc)
+
+
 @pytest.mark.parametrize("mode", ["RegionConfig", "VectorConfig", "MontageConfig"])
 def test_mti_preflight_names_the_mti_surface_and_only_it(project, mode):
     """The one file an mTI run without its surface lacks, spelled from the mTI layout."""

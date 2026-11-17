@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from tit.paths import PathManager, get_path_manager
+from tit.tools.montage_visualizer import placed_by_coordinates
 
 
 @dataclass(frozen=True)
@@ -1087,7 +1088,7 @@ def _blender_simulation_inputs(
             )
     if mode == "MontageConfig" and isinstance(record, dict):
         net = record.get("eeg_net")
-        if not isinstance(net, str) or not net.strip():
+        if not isinstance(net, str) or placed_by_coordinates(net):
             found.append(
                 MissingInput(
                     "This simulation has no recorded EEG net. Its electrodes were "

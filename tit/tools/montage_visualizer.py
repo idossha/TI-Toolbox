@@ -42,12 +42,12 @@ _COORD_FILES: dict[str, str] = {
     "EEG10-10_Neuroelectrics": "10-10.csv",
 }
 
+# Stored in place of a net by montages whose electrodes are XYZ coordinates.
+_COORDINATE_NETS = {"freehand", "flex_mode"}
 _SKIP_NETS = {
     "easycap_BC_TMS64_X21.csv",
     "EEG10-20_extended_SPM12",
-    "freehand",
-    "flex_mode",
-}
+} | _COORDINATE_NETS
 
 _COLORS = ["blue", "red", "green", "purple", "orange", "cyan", "chocolate", "violet"]
 _RINGS = [f"pair{i}ring.png" for i in range(1, 9)]
@@ -65,12 +65,17 @@ def get_expected_output_filename(montage_name: str, sim_mode: str = "U") -> str:
     return "combined_montage_visualization.png"
 
 
+def placed_by_coordinates(eeg_net: str | None) -> bool:
+    """Return True when *eeg_net* names no net: ``None``, blank, or a coordinate sentinel."""
+    return not eeg_net or not eeg_net.strip() or eeg_net in _COORDINATE_NETS
+
+
 def is_skipped_net(eeg_net: str | None) -> bool:
     """Return True when montage visualization is intentionally skipped.
 
     A missing net (``None`` or ``""``) means electrodes placed by coordinates.
     """
-    return not eeg_net or eeg_net in _SKIP_NETS
+    return placed_by_coordinates(eeg_net) or eeg_net in _SKIP_NETS
 
 
 def is_supported_net(eeg_net: str | None) -> bool:
