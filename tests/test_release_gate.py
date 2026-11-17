@@ -127,3 +127,43 @@ def test_gate_failure_still_restores_build_and_writes_receipt(
     assert receipt["stages"][0]["exit_code"] == failure
     assert receipt["stages"][-1]["stage"] == "final-build"
     assert receipt["container"]["id"] == "container-id"
+
+
+def test_smoke_selector_is_the_short_id_docker_ps_prints(tmp_path, monkeypatch):
+    """dev/smoke.sh matches `docker ps --format {{.ID}}` (12 hex), never the 64-hex .Id."""
+    import json
+
+    full_id = "0123456789ab" + "c" * 52
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["verify_release.py", "--image", "candidate", "--container", "stack"]
+        + ["--notebook-project", str(tmp_path), "--package", str(tmp_path)]
+        + ["--real-spec", "real.spec.ts", "--smoke-row", "sim"]
+        + ["--out", str(tmp_path / "evidence")],
+    )
+    for key in ("TIT_E2E_PROJECT_HOST", "TIT_E2E_SERVER_URL", "TIT_E2E_TOKEN"):
+        monkeypatch.setenv(key, "fixture")
+
+    def inspect(command, **kwargs):
+        if command[:2] == ["git", "status"]:
+            return ""
+        if command[:2] == ["git", "rev-parse"]:
+            return "candidate-sha\n"
+        if command[:3] == ["docker", "image", "inspect"]:
+            return "sha256:immutable\n"
+        mount = {"Destination": "/ti-toolbox", "Source": str(gate.ROOT)}
+        return json.dumps({"id": full_id, "image_id": "i", "mounts": [mount]})
+
+    envs = {}
+
+    def execute(command, **kwargs):
+        envs[command[1] if command[0] == "bash" else command[0]] = kwargs["env"]
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(gate.subprocess, "check_output", inspect)
+    monkeypatch.setattr(gate.subprocess, "run", execute)
+    monkeypatch.setattr(gate.fcntl, "flock", lambda *args: None)
+    assert gate.main() == 0
+    assert envs["dev/smoke.sh"]["TIT_SMOKE_CONTAINER"] == "0123456789ab"

@@ -137,7 +137,10 @@ def main() -> int:
         for m in mounts
     ):
         parser.error("real test container must mount this checkout at /ti-toolbox")
-    env = dict(os.environ, TIT_E2E_OFFSCREEN="1", TIT_SMOKE_CONTAINER=container["id"])
+    # dev/smoke.sh compares against `docker ps --format {{.ID}}`, Docker's 12-hex short ID.
+    env = dict(
+        os.environ, TIT_E2E_OFFSCREEN="1", TIT_SMOKE_CONTAINER=container["id"][:12]
+    )
     env.pop("VITE_SCENE_HOOKS", None)
     env.pop("VITE_INCLUDE_GALLERY", None)
     mock_env = {
