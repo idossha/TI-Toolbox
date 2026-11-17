@@ -350,7 +350,6 @@ export interface MontageDraft {
   slot?: number;
 }
 
-/** Is this open draft the saved montage `m` (an Edit of it)? Deleting `m` closes only that draft. */
 /** A saved placement's positions as the row's channel pairs: positions 1–2, 3–4, … */
 function xyzPairsOf(config: FreehandConfig | undefined): [[number, number, number], [number, number, number]][] {
   const pairs: [[number, number, number], [number, number, number]][] = [];
@@ -362,6 +361,7 @@ function xyzPairsOf(config: FreehandConfig | undefined): [[number, number, numbe
   return pairs;
 }
 
+/** Is this open draft the saved montage `m` (an Edit of it)? Deleting `m` closes only that draft. */
 function isDraftOf(draft: MontageDraft | null, m: { net: string; kind: MontageKind; name: string }): boolean {
   return !!draft?.savedAs && draft.savedAs === m.kind && draft.net === m.net && draft.name.trim() === m.name;
 }
