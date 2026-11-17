@@ -223,6 +223,29 @@ class TestWriteReadRoundTrip:
         assert back.carrier_only is True
         assert back.output_fields == ["hf_peak", "hf_rms"]
 
+    @pytest.mark.parametrize("pair", [["E1", "E2", "E3"], ["E1"]], ids=["three", "one"])
+    def test_electrode_pair_of_wrong_length_is_refused(self, pair):
+        """A pair is a fixed 2-tuple: a 3-electrode pair was cut to 2 silently."""
+        from tit.config_io import deserialize_config
+        from tit.sim.config import SimulationConfig
+
+        data = {
+            "subject_id": "001",
+            "montages": [
+                {
+                    "_type": "Montage",
+                    "name": "m",
+                    "mode": "net",
+                    "electrode_pairs": [pair, ["E4", "E5"]],
+                    "eeg_net": "GSN-HydroCel-185.csv",
+                }
+            ],
+        }
+        with pytest.raises(
+            ValueError, match=r"Montage\.electrode_pairs: expected an array of 2"
+        ):
+            deserialize_config(SimulationConfig, data)
+
     def test_simulation_montage_display_name_serializes(self):
         from tit.sim.config import Montage, SimulationConfig
 
@@ -244,4 +267,3 @@ class TestWriteReadRoundTrip:
         assert montage["display_name"] == (
             "May 7 14:30 | mean maxTI | a1b2c3d4 | mapped"
         )
-

@@ -385,6 +385,12 @@ def _check_shape(value: Any, tp: Any) -> None:
     if typing.get_origin(tp) in (list, tuple):
         if not isinstance(value, (list, tuple)):
             raise _WrongType(f"expected an array, got {value!r}")
+        args = typing.get_args(tp)
+        fixed = typing.get_origin(tp) is tuple and args and args[-1] is not Ellipsis
+        if fixed and len(value) != len(args):
+            raise _WrongType(
+                f"expected an array of {len(args)} items, got {len(value)}: {value!r}"
+            )
     elif tp in (int, float) and (
         isinstance(value, bool) or not isinstance(value, numbers.Real)
     ):

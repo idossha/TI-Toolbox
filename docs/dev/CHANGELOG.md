@@ -25,6 +25,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 - **Fixed: simulations of electrodes placed by coordinates run again** — a free-hand Simulator row, a flex-search result simulated without an EEG net, and a replayed optimisation candidate all failed before SimNIBS started, with `'NoneType' object has no attribute 'removesuffix'`. They now run; the 2-D cap picture is skipped for them, since electrodes placed by coordinates have no cap labels to draw. **Simulator**. Montages on an EEG net are unchanged.
 
+- **Fixed: a config with a three-electrode pair is refused instead of cut to two** — a simulation config whose `electrode_pairs` held a pair of the wrong length ran with only its first two electrodes. It now stops with `Montage.electrode_pairs: expected an array of 2 items`. Configs the app writes are unchanged.
+
 - **Fixed: leaving a page with a playing video no longer takes the server down** — after a Plan had been computed, dropping a stream could end the server's worker, and the app then waited for ever on every request until restarted.
 
 - **Fixed: the Simulator's job table appears at once on first visit** — its first load no longer waits for SimNIBS, which took about 16 seconds in the app under emulation and now takes about 1 second right after connecting. The saved-ROI list in the Optimizer, the flex-run list and the first mEx plan load quickly on first use for the same reason, and the server uses about 330 MB less until a job needs SimNIBS. Jobs and scripts work as before.
