@@ -241,9 +241,12 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
                   {(["x", "y", "z"] as const).map((axis) => (
                     <td key={axis} data-align="right">
                       <NumberInput
-                        value={pos[axis]}
+                        /* An empty or unfinished cell (a lone "-") is NaN, not 0: 0 would be written
+                           back over the "-" and the next digits saved a mirrored electrode. The
+                           Save gate refuses NaN as "not a number". */
+                        value={Number.isNaN(pos[axis]) ? undefined : pos[axis]}
                         step={0.1}
-                        onValueChange={(v) => setPositions((p) => p.map((row, idx) => (idx === i ? { ...row, [axis]: v ?? 0 } : row)))}
+                        onValueChange={(v) => setPositions((p) => p.map((row, idx) => (idx === i ? { ...row, [axis]: v ?? Number.NaN } : row)))}
                         aria-label={`Position ${i + 1} ${axis.toUpperCase()}`}
                       />
                     </td>

@@ -127,10 +127,13 @@ export function removeAt(positions: ElectrodePosition[], index: number): Electro
  * per-pair colouring said. A blank row draws nothing: a dot at the origin is a dot inside the
  * subject's head, and it would look like a placement nobody made.
  */
+/** A row with a dot: placed, and no coordinate left empty mid-edit (NaN) to draw at. */
+const drawn = (p: ElectrodePosition) => isPlaced(p) && [p.x, p.y, p.z].every(Number.isFinite);
+
 export function placementMarkers(positions: ElectrodePosition[]): SceneMarker[] {
   const markers: SceneMarker[] = [];
   positions.forEach((p, i) => {
-    if (!isPlaced(p)) return;
+    if (!drawn(p)) return;
     markers.push({
       id: p.label || autoLabel(i),
       label: autoLabel(i),
@@ -151,14 +154,14 @@ export function placementMarkers(positions: ElectrodePosition[]): SceneMarker[] 
  * were still empty — the state the editor spends most of its life in.
  */
 export function markerIndexOfRow(positions: ElectrodePosition[], row: number): number {
-  if (row < 0 || row >= positions.length || !isPlaced(positions[row] as ElectrodePosition)) return -1;
-  return positions.slice(0, row).filter(isPlaced).length;
+  if (row < 0 || row >= positions.length || !drawn(positions[row] as ElectrodePosition)) return -1;
+  return positions.slice(0, row).filter(drawn).length;
 }
 
 export function rowOfMarkerIndex(positions: ElectrodePosition[], marker: number): number {
   let seen = 0;
   for (let i = 0; i < positions.length; i += 1) {
-    if (!isPlaced(positions[i] as ElectrodePosition)) continue;
+    if (!drawn(positions[i] as ElectrodePosition)) continue;
     if (seen === marker) return i;
     seen += 1;
   }

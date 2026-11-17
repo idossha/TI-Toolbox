@@ -187,6 +187,18 @@ describe("row ↔ dot", () => {
     expect(rowOfMarkerIndex(rows, 1)).toBe(2);
     expect(rowOfMarkerIndex(rows, 5)).toBe(-1);
   });
+
+  it("draws no dot for a row with a coordinate cleared mid-edit, and the mapping skips it", () => {
+    // The editor holds an empty cell as NaN; a dot there has no place on the scalp.
+    const rows: ElectrodePosition[] = [
+      { label: "E1+", x: Number.NaN, y: 10, z: 40 },
+      { label: "E1-", x: 2, y: 0, z: 0 },
+    ];
+    expect(placementMarkers(rows).map((m) => m.id)).toEqual(["E1-"]);
+    expect(markerIndexOfRow(rows, 0)).toBe(-1);
+    expect(markerIndexOfRow(rows, 1)).toBe(0);
+    expect(rowOfMarkerIndex(rows, 0)).toBe(1);
+  });
 });
 
 describe("what Save accepts", () => {
