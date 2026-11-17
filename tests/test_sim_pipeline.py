@@ -515,6 +515,92 @@ class TestMTISimulation:
 
 
 # ============================================================================
+# XYZ montages with no EEG net, end to end through the montage-image step
+# ============================================================================
+
+
+def _desktop_freehand_payload(name, pairs):
+    """The JSON the desktop Simulator sends for a free-hand row
+    (``desktop/src/renderer/pages/simulator/buildConfig.ts``): XYZ pairs and
+    ``eeg_net: null``."""
+    return {
+        "subject_id": "001",
+        "montages": [
+            {
+                "_type": "Montage",
+                "name": name,
+                "mode": "freehand",
+                "electrode_pairs": pairs,
+                "eeg_net": None,
+            }
+        ],
+        "conductivity": "scalar",
+        "aniso_maxratio": 10,
+        "aniso_maxcond": 2,
+        "intensities": [1.0] * len(pairs),
+        "electrode_shape": "ellipse",
+        "electrode_dimensions": [8.0, 8.0],
+        "gel_thickness": 4.0,
+        "output_fields": [const.FIELD_TI_MAX],
+        "map_to_vol": False,
+        "map_to_mni": False,
+        "map_to_fsavg": False,
+    }
+
+
+_FREEHAND_PAIRS = [
+    [[-60.0, 10.0, 40.0], [60.0, 10.0, 40.0]],
+    [[-60.0, -40.0, 40.0], [60.0, -40.0, 40.0]],
+    [[-40.0, 50.0, 20.0], [40.0, 50.0, 20.0]],
+    [[-40.0, -70.0, 20.0], [40.0, -70.0, 20.0]],
+]
+
+
+@pytest.mark.unit
+class TestXYZMontageWithoutNetRuns:
+    """A free-hand / flex_free montage carries ``eeg_net: null``. Its run used to
+    crash in the montage-image step (``None.removesuffix``) before SimNIBS
+    started. ``run_montage_visualization`` is deliberately NOT patched here."""
+
+    @pytest.mark.parametrize(
+        "sim_mod, cls_name, pairs, label",
+        [
+            (_ti_mod, "TISimulation", _FREEHAND_PAIRS[:2], "TI"),
+            (_mti_mod, "mTISimulation", _FREEHAND_PAIRS, "mTI"),
+        ],
+    )
+    def test_desktop_freehand_config_runs(self, sim_mod, cls_name, pairs, label):
+        import json as _json
+        from tit.config_io import deserialize_config
+
+        data = _json.loads(_json.dumps(_desktop_freehand_payload("free", pairs)))
+        config = deserialize_config(SimulationConfig, data)
+        montage = config.montages[0]
+        assert montage.is_xyz and montage.eeg_net is None
+
+        with (
+            patch.object(_base_mod, "get_path_manager") as mock_pm,
+            patch.object(_base_mod, "run_simnibs") as mock_run_simnibs,
+            patch.object(_base_mod, "central_surface"),
+            patch.object(sim_mod, "safe_move"),
+            patch.object(_base_mod, "mesh_io") as mock_mesh_io,
+            patch.object(sim_mod, "glob"),
+            patch.object(_base_mod, "deepcopy", side_effect=lambda obj: obj),
+        ):
+            mock_pm.return_value.m2m.return_value = "fake/m2m"
+            mock_pm.return_value.simulation.return_value = "fake/sim/free"
+            mock_pm.return_value.eeg_positions.return_value = "fake/eeg"
+            _mock_mesh_efields(mock_mesh_io)
+
+            sim = getattr(sim_mod, cls_name)(config, montage, MagicMock())
+            result = sim.run("fake/simulation_dir")
+
+        mock_run_simnibs.assert_called_once()
+        assert result["status"] == "completed"
+        assert result["montage_type"] == label
+
+
+# ============================================================================
 # run_simulation orchestration
 # ============================================================================
 

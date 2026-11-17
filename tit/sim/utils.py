@@ -486,14 +486,14 @@ def clear_previous_outputs(montage_dir: str) -> None:
 def run_montage_visualization(
     montage_name: str,
     simulation_mode: SimulationMode,
-    eeg_net: str,
+    eeg_net: str | None,
     output_dir: str,
     logger,
     electrode_pairs: list | None = None,
 ) -> None:
     """Render a 2-D montage diagram for an EEG-cap montage.
 
-    Skips rendering for ``"freehand"`` and ``"flex_mode"`` montages
+    Skips rendering for ``None``, ``"freehand"`` and ``"flex_mode"`` nets
     (no cap layout available).
 
     Parameters
@@ -502,9 +502,9 @@ def run_montage_visualization(
         Name of the montage to visualize.
     simulation_mode : SimulationMode
         ``SimulationMode.TI`` or ``SimulationMode.MTI``.
-    eeg_net : str
+    eeg_net : str or None
         EEG net identifier.  Visualization is skipped when this is
-        ``"freehand"`` or ``"flex_mode"``.
+        ``None``, ``"freehand"`` or ``"flex_mode"``.
     output_dir : str
         Directory where the image file is saved.
     logger : logging.Logger

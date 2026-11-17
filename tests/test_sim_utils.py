@@ -410,6 +410,35 @@ class TestRunMontageVisualization:
         assert logger.warning.call_args.args[2] == "M1_highlighted_visualization.png"
         assert logger.warning.call_args.args[3] == str(tmp_path)
 
+    @pytest.mark.parametrize("eeg_net", [None, ""])
+    def test_missing_net_skips_without_raising(self, tmp_path, eeg_net):
+        """XYZ montages carry no net; the step skips instead of crashing."""
+        logger = MagicMock()
+
+        with patch("tit.tools.montage_visualizer.visualize_montage") as mock_visualize:
+            run_montage_visualization(
+                montage_name="M1",
+                simulation_mode=SimulationMode.TI,
+                eeg_net=eeg_net,
+                output_dir=str(tmp_path),
+                logger=logger,
+            )
+
+        mock_visualize.assert_not_called()
+        logger.warning.assert_called_once()
+
+    @pytest.mark.parametrize("eeg_net", [None, ""])
+    def test_net_helpers_accept_missing_net(self, eeg_net):
+        from tit.tools.montage_visualizer import (
+            is_skipped_net,
+            is_supported_net,
+            montage_webp,
+        )
+
+        assert is_skipped_net(eeg_net) is True
+        assert is_supported_net(eeg_net) is False
+        assert montage_webp([["E1", "E2"]], eeg_net) is None
+
     def test_unsupported_net_logs_warning(self, tmp_path):
         logger = MagicMock()
 

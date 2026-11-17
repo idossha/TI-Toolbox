@@ -65,14 +65,17 @@ def get_expected_output_filename(montage_name: str, sim_mode: str = "U") -> str:
     return "combined_montage_visualization.png"
 
 
-def is_skipped_net(eeg_net: str) -> bool:
-    """Return True when montage visualization is intentionally skipped."""
-    return eeg_net in _SKIP_NETS
+def is_skipped_net(eeg_net: str | None) -> bool:
+    """Return True when montage visualization is intentionally skipped.
+
+    A missing net (``None`` or ``""``) means electrodes placed by coordinates.
+    """
+    return not eeg_net or eeg_net in _SKIP_NETS
 
 
-def is_supported_net(eeg_net: str) -> bool:
+def is_supported_net(eeg_net: str | None) -> bool:
     """Return True when a coordinate map exists for *eeg_net* (with or without ``.csv``)."""
-    return eeg_net.removesuffix(".csv") in _COORD_FILES
+    return bool(eeg_net) and eeg_net.removesuffix(".csv") in _COORD_FILES
 
 
 def _load_coordinates(eeg_net: str) -> dict[str, tuple[int, int]] | None:

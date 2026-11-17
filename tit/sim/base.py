@@ -181,16 +181,16 @@ class BaseSimulation(ABC):
             self.config, self.montage, dirs["documentation"], self.logger
         )
 
-        viz_pairs = None if self.montage.is_xyz else self.montage.electrode_pairs
-
-        run_montage_visualization(
-            montage_name=self.montage.name,
-            simulation_mode=self._simulation_mode,
-            eeg_net=self.montage.eeg_net,
-            output_dir=dirs[self._montage_imgs_key],
-            logger=self.logger,
-            electrode_pairs=viz_pairs,
-        )
+        # The 2-D cap image needs net labels; coordinate montages have none.
+        if not self.montage.is_xyz:
+            run_montage_visualization(
+                montage_name=self.montage.name,
+                simulation_mode=self._simulation_mode,
+                eeg_net=self.montage.eeg_net,
+                output_dir=dirs[self._montage_imgs_key],
+                logger=self.logger,
+                electrode_pairs=self.montage.electrode_pairs,
+            )
 
         self.logger.info("SimNIBS simulation: Started")
         session = self._build_session(dirs["hf_dir"])
