@@ -102,10 +102,10 @@ def test_qsiplan_pairs_direction_named_dwi_series(tmp_path, capsys):
 
 def test_qsiprep_assigns_the_fmap_epi_to_the_dwi(tmp_path):
     os.environ.setdefault("TEMPLATEFLOW_HOME", str(tmp_path / "templateflow"))
+    qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     grouping = pytest.importorskip(
         "qsiprep.utils.grouping", reason="needs QSIPrep older than 26.1"
     )
-    qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     data, layout = qsi_bids.collect_data(
         str(_tree(tmp_path)), "001", bids_validate=False
     )
@@ -120,10 +120,10 @@ def test_qsiprep_assigns_the_fmap_epi_to_the_dwi(tmp_path):
 
 def test_qsiprep_pairs_direction_named_dwi_series(tmp_path):
     os.environ.setdefault("TEMPLATEFLOW_HOME", str(tmp_path / "templateflow"))
+    qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     grouping = pytest.importorskip(
         "qsiprep.utils.grouping", reason="needs QSIPrep older than 26.1"
     )
-    qsi_bids = pytest.importorskip("qsiprep.utils.bids", reason="qsiprep absent")
     data, layout = qsi_bids.collect_data(
         str(_tree(tmp_path, both_in_dwi=True)), "001", bids_validate=False
     )

@@ -188,6 +188,12 @@ ALLOWLISTS: dict[str, list[dict[str, str]]] = {
         },
         {
             "test": "tests.numerical.test_bids_fieldmap_tools.*",
+            "message": "qsiplan absent",
+            "why": "qsiplan is QSIPrep 26.1's grouping, shipped in its container, not the "
+            "toolbox image",
+        },
+        {
+            "test": "tests.numerical.test_bids_fieldmap_tools.*",
             "message": "TIT_BIDS_VALIDATOR is unset",
             "why": "the BIDS validator downloads itself; CI legs stay offline",
         },
