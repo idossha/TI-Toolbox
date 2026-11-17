@@ -560,6 +560,14 @@ test("the free-hand draft survives a navigation away and back", async () => {
   // retained for the whole file on purpose. Re-pressing the footer button is harmless either way.
   await current.getByRole("button", { name: "New placement", exact: true }).click();
   const subject = current.locator(".field", { hasText: /^Subject/ }).getByRole("combobox");
+  // A placed row locks Subject (its points are that head's mm), and the pane test above placed
+  // Position 1 in this retained draft, so blank every row before choosing another subject.
+  const rows = await current.getByRole("button", { name: /^Remove position / }).count();
+  for (let i = 1; i <= rows; i++) {
+    await current.getByLabel(`Position ${i} label`, { exact: true }).fill("");
+    for (const axis of ["X", "Y", "Z"]) await current.getByLabel(`Position ${i} ${axis}`, { exact: true }).fill("");
+  }
+  await expect(subject).toBeEnabled();
   const draftSubject = (await subject.textContent())?.trim() === "101" ? "ernie" : "101";
   await subject.click();
   await page.getByRole("option", { name: draftSubject, exact: true }).click();
