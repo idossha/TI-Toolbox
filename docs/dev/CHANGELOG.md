@@ -27,6 +27,8 @@ Detailed technical changelog for all versions of the Temporal Interference Toolb
 
 - **Fixed: a config with a three-electrode pair is refused instead of cut to two** — a simulation config whose `electrode_pairs` held a pair of the wrong length ran with only its first two electrodes. It now stops with `Montage.electrode_pairs: expected an array of 2 items`. Configs the app writes are unchanged.
 
+- **Fixed: one hand-edited free-hand placement no longer empties the list** — a file in `stim_configs/` whose coordinate was not `[x, y, z]` made the Simulator's free-hand list fail to load. That file is now left out, with a warning in the server log naming it, and the other placements show as before.
+
 - **Fixed: leaving a page with a playing video no longer takes the server down** — after a Plan had been computed, dropping a stream could end the server's worker, and the app then waited for ever on every request until restarted.
 
 - **Fixed: the Simulator's job table appears at once on first visit** — its first load no longer waits for SimNIBS, which took about 16 seconds in the app under emulation and now takes about 1 second right after connecting. The saved-ROI list in the Optimizer, the flex-run list and the first mEx plan load quickly on first use for the same reason, and the server uses about 330 MB less until a job needs SimNIBS. Jobs and scripts work as before.

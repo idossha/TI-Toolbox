@@ -2337,6 +2337,19 @@ def _read_freehand_file(path: str) -> dict | None:
     if data is None:
         return None
     positions = data.get("electrode_positions") or {}
+    # Skipped like an unreadable file: a hand-edited coordinate must not take the whole list down.
+    if not isinstance(positions, dict) or not all(
+        isinstance(xyz, list)
+        and len(xyz) == 3
+        and all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in xyz)
+        for xyz in positions.values()
+    ):
+        logger.warning(
+            "Skipping free-hand config %s: electrode_positions must map each label "
+            "to [x, y, z]",
+            path,
+        )
+        return None
     return {
         "name": data.get("name") or os.path.splitext(os.path.basename(path))[0],
         "type": data.get("type") or "U",

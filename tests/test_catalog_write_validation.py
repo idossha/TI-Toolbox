@@ -269,7 +269,10 @@ BAD_FREEHAND = [
     ({"type": "U", "electrode_positions": _positions(8)}, "8 positions are M"),
     ({"type": "M", "electrode_positions": _square()}, "4 positions are U"),
     ({"type": "M", "electrode_positions": _positions(10)}, "5 pairs"),
-    ({"type": "M", "electrode_positions": _positions(28)}, "14 channels, over the mTI limit"),
+    (
+        {"type": "M", "electrode_positions": _positions(28)},
+        "14 channels, over the mTI limit",
+    ),
     # An odd count leaves the last electrode without a partner: pairing consecutively would
     # drop it without a word (5 as M looks like 2 pairs, 9 like 4).
     ({"type": "M", "electrode_positions": _positions(5)}, "5 positions as M"),
@@ -393,3 +396,23 @@ def test_a_saved_freehand_config_resolves_into_the_montage_it_describes(
     montage = resolve_freehand_montage(get_path_manager(), "ernie", "Good")
     assert montage.num_pairs == 4
     SimulationConfig(subject_id="ernie", montages=[montage], intensities=[1.0] * 4)
+
+
+@pytest.mark.parametrize(
+    "positions",
+    [{"P1": [1.0, 2.0]}, {"P1": "1,2,3"}, {"P1": [1.0, 2.0, "z"]}, [[1.0, 2.0, 3.0]]],
+    ids=["two numbers", "a string", "a non-number", "a list, not a map"],
+)
+def test_a_hand_edited_bad_coordinate_skips_that_file_only(
+    client: TestClient, positions
+) -> None:
+    """A stim-config file written outside the app with a bad coordinate made the whole
+    free-hand listing raise (IndexError/TypeError); it is now skipped like an unreadable file.
+    """
+    stim = Path(get_path_manager().m2m("ernie"), "stim_configs")
+    (stim / "bad.json").write_text(
+        json.dumps({"name": "bad", "electrode_positions": positions})
+    )
+    r = client.get("/api/catalog/freehand", params={"subject": "ernie"}, headers=BEARER)
+    assert r.status_code == 200
+    assert [c["name"] for c in r.json()] == ["kept"]
