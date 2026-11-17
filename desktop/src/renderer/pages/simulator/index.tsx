@@ -359,7 +359,8 @@ function SimulatorPage() {
                   <div style={{ maxWidth: 340 }} className="text-dense">
                     One row is one simulation job. Each row picks its own subject and its own source — a montage from the
                     catalog, an optimised electrode set from a flex-search run, or a saved free-hand placement — and carries
-                    its own currents. Duplicate a row to run the same job on another subject.
+                    its own currents. Duplicate a row to run the same job on another subject; a free-hand placement
+                    belongs to its own subject, so changing the copy's subject clears it.
                   </div>
                 </Popover>
               }

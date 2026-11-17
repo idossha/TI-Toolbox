@@ -6,7 +6,8 @@
  *  - a step saved from the forms keeps fields the form does not show, keeps its kind, and refuses
  *    what one step cannot say (different settings per subject, a changed kind, two searches, one
  *    subject's leadfield or subject-space atlas carried to another);
- *  - the Simulator turns a sim step into subject × montage rows and back, and a sim_from_flex step
+ *  - the Simulator turns a sim step into subject × montage rows and back (a free-hand placement only
+ *    for one subject: never copied to a second subject, never saved as one step for two), and a sim_from_flex step
  *    into one flex row per subject that keeps its flex step unless another run is picked;
  *  - Pre-processing saves the form's stages over the step's config for the chosen subjects.
  * Expected values are the hand-written forms and configs below (authored in the contract's
@@ -21,7 +22,7 @@ import { buildFlexConfig, defaultFlexFormState, type FlexFormState } from "../..
 import { buildExConfig, buildMExConfig, defaultExFormState, defaultMExFormState, exTargets } from "../../src/renderer/pages/optimizer/exConfig";
 import { exFormFromConfig, flexFormFromConfig, mexFormFromConfig, netFromLeadfield, optStepEdit, optStepRows, roiFromConfig } from "../../src/renderer/pages/optimizer/planStep";
 import { simStepEdit, simStepRows } from "../../src/renderer/pages/simulator/planStep";
-import { defaultJobSettings } from "../../src/renderer/pages/simulator/types";
+import { defaultJobSettings, isRunnableRow } from "../../src/renderer/pages/simulator/types";
 import type { GlobalParams } from "../../src/renderer/pages/simulator/buildConfig";
 import { defaultConfig, preStepEdit, preStepValues } from "../../src/renderer/pages/preprocess/index";
 
@@ -190,6 +191,35 @@ describe("Simulator", () => {
     expect(() => simStepEdit(step, rows.slice(0, 3), params)).toThrow(/same jobs on every subject/);
     const perMontage = rows.map((r) => (r.name === "P3_P4" ? { ...r, currents: "1,1" } : r));
     expect(() => simStepEdit(step, perMontage, params)).toThrow(/same currents and settings/);
+  });
+
+  // One head's millimetres (authored); the owner's rule: a free-hand placement is never
+  // automatically available to another head model.
+  const hand = { _type: "Montage", name: "hand", mode: "freehand", electrode_pairs: [[[-60, 10, 40], [60, 10, 40]], [[-60, -40, 40], [60, -40, 40]]], eeg_net: null };
+  const refusal = "Montage 'hand' is a free-hand placement (x, y, z on one head model) and cannot run for 101, ernie: a free-hand placement belongs to one subject.";
+
+  it("never copies a free-hand placement onto another subject's rows, and refuses to save it for two", () => {
+    const step = target("sim", { montages: [hand], intensities: [1, 1] }, ["101", "ernie"]);
+    const rows = simStepRows(step);
+    expect(rows.map((r) => [r.subjectId, r.source, r.name, r.xyzPairs])).toEqual([
+      ["101", "freehand", "hand", undefined],
+      ["ernie", "freehand", "hand", undefined],
+    ]);
+    expect(rows.some(isRunnableRow)).toBe(false);
+    // Rows given one head's points (picked, or typed) still cannot become one two-subject step.
+    const placed = rows.map((r) => ({ ...r, xyzPairs: hand.electrode_pairs as [[number, number, number], [number, number, number]][] }));
+    expect(() => simStepEdit(step, placed, params)).toThrow(refusal);
+  });
+
+  it("round-trips a one-subject free-hand step with its points", () => {
+    const step = target("sim", { montages: [hand], intensities: [1, 1] }, ["101"]);
+    const rows = simStepRows(step);
+    expect(rows.map((r) => [r.subjectId, r.source, r.xyzPairs])).toEqual([["101", "freehand", hand.electrode_pairs]]);
+    const edit = simStepEdit(step, rows, params);
+    expect(edit.subject_ids).toEqual(["101"]);
+    expect((edit.config!.montages as { mode: string; electrode_pairs: unknown }[]).map((m) => [m.mode, m.electrode_pairs])).toEqual([
+      ["freehand", hand.electrode_pairs],
+    ]);
   });
 
   it("opens a sim_from_flex step as the flex step's run, and keeps the step unless another run is picked", () => {

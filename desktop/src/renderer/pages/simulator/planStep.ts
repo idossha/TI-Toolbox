@@ -1,14 +1,15 @@
 /**
  * A plan step on the Simulator (`app/proposals/stepForm.tsx`): the step's config as the jobs table's
  * rows, and the rows back as the step's one config. A step runs ONE config on every subject, so
- * the table holds the same rows for each subject; `sim_from_flex` is one Flex-result row per
+ * the table holds the same rows for each subject — except a free-hand (x, y, z) placement, which
+ * belongs to one subject and is never copied to another; `sim_from_flex` is one Flex-result row per
  * subject, whose run is the flex step's (not run yet) or a finished run.
  */
 import type { StepEdit } from "../../app/proposals/api";
 import type { PlanStepTarget } from "../../app/proposals/stepForm";
 import { buildSimulationConfig, type GlobalParams } from "./buildConfig";
 import { settingsFromConfig } from "./candidateHandoff";
-import { isRunnableRow, newRowId, rowProblem, settingsFor, type SelectedRow } from "./types";
+import { isRunnableRow, newRowId, rowProblem, sendsXyz, settingsFor, type SelectedRow } from "./types";
 
 type Config = Record<string, unknown>;
 const object = (v: unknown): v is Config => !!v && typeof v === "object" && !Array.isArray(v);
@@ -51,7 +52,20 @@ export function simStepRows(step: PlanStepTarget): SelectedRow[] {
     }));
   }
   const montages = (Array.isArray(c.montages) ? c.montages : []).filter(object);
-  return step.subjectIds.flatMap((s) => montages.map((m) => montageRow(s, m, currents, settings)));
+  // A free-hand (x, y, z) placement is one head model's: a step on several subjects gives no row
+  // its points, so each subject's row waits for that subject's own placement and cannot run.
+  const shared = step.subjectIds.length > 1;
+  return step.subjectIds.flatMap((s) =>
+    montages.map((m) => {
+      const row = montageRow(s, m, currents, settings);
+      return shared && row.xyzPairs ? { ...row, xyzPairs: undefined } : row;
+    }),
+  );
+}
+
+/** The server's refusal (`tit.sim.config.check_xyz_montages_one_subject`), word for word. */
+export function freehandSharedProblem(name: string, subjects: string[]): string {
+  return `Montage '${name}' is a free-hand placement (x, y, z on one head model) and cannot run for ${[...subjects].sort().join(", ")}: a free-hand placement belongs to one subject.`;
 }
 
 /** What a row runs, without who it runs on — the part every subject's rows must share. */
@@ -63,6 +77,8 @@ function rowContent(row: SelectedRow, params: GlobalParams): string {
 export function simStepEdit(step: PlanStepTarget, rows: SelectedRow[], params: GlobalParams): StepEdit {
   const subjects = [...new Set(rows.map((r) => r.subjectId).filter(Boolean))];
   if (subjects.length === 0) throw new Error("Add a job row with a subject.");
+  const placed = subjects.length > 1 ? rows.find((r) => sendsXyz(r) && r.xyzPairs?.length) : undefined;
+  if (placed) throw new Error(freehandSharedProblem(placed.name, subjects));
   const per = subjects.map((s) => JSON.stringify(rows.filter((r) => r.subjectId === s).map((r) => rowContent(r, params))));
   if (per.some((x) => x !== per[0])) throw new Error("A plan step runs the same jobs on every subject: make each subject's rows match.");
   const mine = rows.filter((r) => r.subjectId === subjects[0]);
