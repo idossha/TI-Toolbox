@@ -102,6 +102,9 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
   } = useFreehandDraft();
 
   const activeEditSubject = editSubject ?? selectedSubjects[0];
+  // Positions are this subject's head-mesh millimetres, meaningless on another head — the rule
+  // `MontageManager.startNewFreehand` already follows.
+  const subjectLocked = positions.some(isPlaced);
 
   // The radio targets, so ↑/↓ can move focus with the selection.
   const targets = useRef<Array<HTMLButtonElement | null>>([]);
@@ -149,11 +152,16 @@ export function FreehandEditor({ subjects: selectedSubjects, onClose }: { subjec
             <Select
               id="sim-freehand-subject"
               value={activeEditSubject}
-              onValueChange={setEditSubject}
+              onValueChange={(s) => !subjectLocked && setEditSubject(s)}
               options={selectedSubjects.map((s) => ({ value: s, label: s }))}
               placeholder="Choose a subject"
-              disabled={selectedSubjects.length === 0}
+              disabled={selectedSubjects.length === 0 || subjectLocked}
             />
+            {subjectLocked && selectedSubjects.length > 1 && (
+              <span className="field-help" data-testid="freehand-subject-locked">
+                The positions are placed on this subject's head; clear them to choose another subject.
+              </span>
+            )}
           </Field>
           <Field label="Configuration name" htmlFor="sim-freehand-name" required>
             <TextInput id="sim-freehand-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. custom_4electrode" />

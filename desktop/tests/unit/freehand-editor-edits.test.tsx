@@ -161,3 +161,21 @@ describe("free-hand coordinates", () => {
     expect(button("Save placement").disabled).toBe(false);
   });
 });
+
+describe("free-hand subject", () => {
+  it("cannot move placed positions to another subject", async () => {
+    renderEditor(["101", "ernie"]);
+    const subject = container.querySelector<HTMLSelectElement>("#sim-freehand-subject")!;
+    expect(subject.value).toBe("101");
+    expect(subject.disabled).toBe(false);
+    placeAll();
+    fill(input("#sim-freehand-name"), "fh1");
+    expect(subject.disabled).toBe(true);
+    act(() => {
+      setValue(subject, "ernie");
+      subject.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(async () => button("Save placement").click());
+    expect(api.putFreehand.mock.calls.map((c) => (c as unknown[])[0])).toEqual(["101"]);
+  });
+});
