@@ -1125,16 +1125,20 @@ def atlases(
         seg_dir = os.path.join(pm.m2m(sid), "segmentation")
         mesh_mgr = MeshAtlasManager(seg_dir if _project_paths_safe(pm, seg_dir) else "")
         for name in mesh_mgr.list_atlases():
-            lh_path = mesh_mgr.find_atlas_file(name, "lh")
-            if lh_path and not _project_paths_safe(pm, lh_path):
+            files = {
+                h: p for h in ("lh", "rh") if (p := mesh_mgr.find_atlas_file(name, h))
+            }
+            # list_atlases() names the SimNIBS built-ins even before subject_atlas has
+            # written them; without an .annot there is no region to pick or resolve.
+            if not files or not _project_paths_safe(pm, *files.values()):
                 continue
             out.append(
                 {
                     "id": name,
                     "name": name,
-                    "path": lh_path or "",
+                    "path": files.get("lh") or files["rh"],
                     "kind": "surface",
-                    "hemispheres": ["lh", "rh"],
+                    "hemispheres": sorted(files),
                 }
             )
 
@@ -1210,6 +1214,8 @@ def atlas_regions(
 
     mesh_mgr = MeshAtlasManager(seg_dir if _project_paths_safe(pm, seg_dir) else "")
     if atlas_id in mesh_mgr.list_atlases():
+        import nibabel.freesurfer.io as fsio
+
         hemis = ("lh", "rh") if hemi in (None, "both") else (hemi,)
         out: list[dict] = []
         for h in hemis:
@@ -1218,10 +1224,15 @@ def atlas_regions(
                 continue
             if not is_within(pm.project_dir, annot_path):
                 return None
-            for index, name in mesh_mgr.list_annot_regions(annot_path):
-                if name == "unknown":
-                    continue
-                out.append({"id": index, "name": name, "hemi": h})
+            vertex_labels, _ctab, names = fsio.read_annot(annot_path)
+            # A colour-table row no vertex carries (DK40's corpuscallosum, a2009s's
+            # Medial_wall) would resolve to an empty ROI; the placeholder rows
+            # ("unknown", HCP_MMP1's "???") are the unlabelled medial wall, not a region.
+            present = set(vertex_labels.tolist())
+            for index, raw in enumerate(names):
+                name = raw.decode("utf-8") if isinstance(raw, bytes) else str(raw)
+                if index in present and name.lower() not in ("unknown", "???"):
+                    out.append({"id": index, "name": name, "hemi": h})
         return out
 
     voxel_mgr = VoxelAtlasManager(

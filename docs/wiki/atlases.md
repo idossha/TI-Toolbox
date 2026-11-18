@@ -122,6 +122,8 @@ These are **not shipped**. They are produced for each subject during preprocessi
 - **FastSurfer `--seg_only` (v3)** writes `aparc.DKTatlas+aseg.deep.mgz`. It does not produce thalamic nuclei or hippocampal/amygdala subregion atlases. See [FastSurfer / FreeSurfer]({{ site.baseurl }}/wiki/fastsurfer/#freesurfer-reconstruction-and-subregions).
 - **Optional FreeSurfer `recon-all`** produces the volumetric parcellations `aparc.DKTatlas+aseg.mgz`, `aparc.a2009s+aseg.mgz`, `aparc+aseg.mgz` and `aseg.mgz`, with finer thalamic nuclei and hippocampal/amygdala subregions available as additional operations after reconstruction. Existing `ThalamicNuclei.v13.T1.mgz` and `lh/rh.hippoAmygLabels-T1.v22.mgz` outputs remain readable.
 
+The Optimizer's and Analyzer's target pickers list exactly the files a subject has: a surface atlas appears once its `.annot` files exist, and only its regions that label at least one vertex are listed (charm's DK40 colour table has a `corpuscallosum` entry that labels none).
+
 <div class="atlas-note" data-space="subject" markdown="1">
 
 **Read the coordinates as subject space.** The centroid column here is in ernie's own scanner/world coordinates, **not** MNI. The same structure will sit at different coordinates in your own subject.

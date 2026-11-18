@@ -137,6 +137,9 @@ def build_contract_project(root: Path) -> ContractProject:
     m2m = pm.m2m(sid)
     _write(os.path.join(m2m, "T1.nii.gz"))
     _write(os.path.join(m2m, f"{sid}.msh"))
+    # subject_atlas's parcellation: a surface atlas is listed only once its .annot exists.
+    for hemi in ("lh", "rh"):
+        _write(os.path.join(m2m, "segmentation", f"{hemi}.{sid}_DK40.annot"))
     caps = pm.eeg_positions(sid)
     _write(
         os.path.join(caps, NET),

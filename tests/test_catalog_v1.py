@@ -14,6 +14,7 @@ import subprocess
 import time
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 pytest.importorskip("fastapi")
@@ -889,9 +890,10 @@ def test_atlas_regions_cortical_returns_integer_id_and_hemi(
     monkeypatch.setattr(nfs_mock, "io", fsio_mock, raising=False)
 
     def _read_annot(path, *_args, **_kwargs):
+        labels = np.array([0, 1, 1, -1])
         if path.endswith("lh.aparc.DK40.annot"):
-            return (None, None, [b"unknown", b"bankssts"])
-        return (None, None, [b"unknown", b"precentral"])
+            return (labels, None, [b"unknown", b"bankssts"])
+        return (labels, None, [b"unknown", b"precentral"])
 
     fsio_mock.read_annot.side_effect = _read_annot
 
@@ -904,6 +906,57 @@ def test_atlas_regions_cortical_returns_integer_id_and_hemi(
     assert {"id": 1, "name": "precentral", "hemi": "rh"} in body
     assert all(r["name"] != "unknown" for r in body)
     assert all(isinstance(r["id"], int) for r in body)
+
+
+def test_atlas_regions_lists_only_regions_some_vertex_carries(
+    client: TestClient, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A colour-table row no vertex carries (charm's DK40 ``corpuscallosum``, a2009s's
+    ``Medial_wall``) resolved to an empty ROI, and the placeholder rows (``Unknown``,
+    HCP_MMP1's ``???``) are the unlabelled medial wall; none of them is a target.
+    Seen on Dataset 000's sub-101/sub-LA annots (2026-11-17). Names/labels authored."""
+    import sys
+    from unittest.mock import MagicMock
+
+    seg_dir = os.path.join(get_path_manager().m2m("ernie"), "segmentation")
+    os.makedirs(seg_dir, exist_ok=True)
+    Path(seg_dir, "lh.ernie_HCP_MMP1.annot").write_bytes(b"")
+    fsio_mock = MagicMock()
+    monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio_mock)
+    monkeypatch.setattr(sys.modules["nibabel.freesurfer"], "io", fsio_mock, raising=False)
+    fsio_mock.read_annot.return_value = (
+        np.array([0, 0, 1, 3, 3, -1]),
+        None,
+        [b"???", b"L_V1_ROI", b"corpuscallosum", b"L_4_ROI", b"Unknown"],
+    )
+
+    body = client.get(
+        "/api/catalog/atlases/regions",
+        params={"subject": "ernie", "atlas": "HCP_MMP1"},
+        headers=BEARER,
+    ).json()
+    assert body == [
+        {"id": 1, "name": "L_V1_ROI", "hemi": "lh"},
+        {"id": 3, "name": "L_4_ROI", "hemi": "lh"},
+    ]
+
+
+def test_cortical_atlas_is_offered_only_where_its_annot_exists(
+    client: TestClient, project: Path
+) -> None:
+    """Dataset 000's sub-ernie has no ``segmentation/``: the picker offered DK40, HCP_MMP1
+    and a2009s with ``path: ""`` and no regions (2026-11-17). An atlas with one hemisphere's
+    file is offered for that hemisphere only."""
+    params = {"subject": "ernie", "space": "subject", "kind": "cortical"}
+    assert client.get("/api/catalog/atlases", params=params, headers=BEARER).json() == []
+
+    seg_dir = os.path.join(get_path_manager().m2m("ernie"), "segmentation")
+    os.makedirs(seg_dir, exist_ok=True)
+    Path(seg_dir, "rh.ernie_a2009s.annot").write_bytes(b"")
+    body = client.get("/api/catalog/atlases", params=params, headers=BEARER).json()
+    assert [(a["id"], a["hemispheres"], a["path"]) for a in body] == [
+        ("a2009s", ["rh"], os.path.join(seg_dir, "rh.ernie_a2009s.annot"))
+    ]
 
 
 def test_atlas_regions_subcortical_returns_integer_id_and_null_hemi(

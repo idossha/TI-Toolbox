@@ -110,7 +110,7 @@ REQUESTS: dict[str, tuple[str, Callable[[Any], list] | None]] = {
     "/api/catalog/atlases": (f"/api/catalog/atlases?subject={SID}", _items()),
     "/api/catalog/atlases/regions": (
         f"/api/catalog/atlases/regions?subject={SID}&atlas=DK40",
-        None,
+        _items(),
     ),
     "/api/catalog/rois": (f"/api/catalog/rois?subject={SID}", _items()),
     "/api/catalog/leadfields": (f"/api/catalog/leadfields?subject={SID}", _items()),
@@ -230,6 +230,18 @@ def project(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> ContractProject:
     import tit.caps
 
     monkeypatch.setattr(tit.caps, "simnibs_caps_dir", lambda: caps)
+    # nibabel is a MagicMock on the host: the DK40 .annot reads as two labelled regions.
+    import numpy as np
+    from unittest.mock import MagicMock
+
+    fsio = MagicMock()
+    fsio.read_annot.return_value = (
+        np.array([0, 1, 2]),
+        None,
+        [b"unknown", b"bankssts", b"precentral"],
+    )
+    monkeypatch.setitem(sys.modules, "nibabel.freesurfer.io", fsio)
+    monkeypatch.setattr(sys.modules["nibabel.freesurfer"], "io", fsio, raising=False)
     return built
 
 
