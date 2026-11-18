@@ -50,3 +50,26 @@ def test_missing_anatomy_does_not_substitute_guide(tmp_path, monkeypatch):
         route.target_preview(body)
     assert caught.value.status_code == 404
     assert "T1.nii" in caught.value.detail
+
+
+@pytest.mark.parametrize(
+    "atlas, ok",
+    [
+        ("aparc.DKTatlas+aseg.deep.mgz", True),  # FastSurfer's id, as the catalog lists it
+        ("masks/target.nii.gz", True),  # a custom mask's id
+        ("../aparc+aseg.mgz", False),
+        ("masks/../x.nii.gz", False),
+        ("/etc/x.nii.gz", False),
+    ],
+)
+def test_subcortical_atlas_takes_every_id_the_catalog_lists(atlas, ok):
+    """2026-11-17: a '+' or masks/ id was refused before the preview could look it up."""
+    request = {
+        "subject": "ernie",
+        "roi": {"kind": "subcortical", "atlas": atlas, "space": "subject", "labels": [10]},
+    }
+    if ok:
+        assert route.TargetPreviewRequest.model_validate(request).roi.atlas == atlas
+    else:
+        with pytest.raises(ValidationError):
+            route.TargetPreviewRequest.model_validate(request)

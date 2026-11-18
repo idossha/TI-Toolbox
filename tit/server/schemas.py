@@ -10,7 +10,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
-from tit.paths import validate_name, validate_subject_id
+from tit.paths import is_valid_name, validate_name, validate_subject_id
 
 # ── request-side name grammars ─────────────────────────────────────────────────
 #
@@ -26,6 +26,19 @@ SubjectId = Annotated[str, AfterValidator(validate_subject_id)]
 #: One path component -- simulation, run, montage, ROI, atlas, EEG net, analysis
 #: name: ``tit.paths.NAME_RE``; a dot is allowed inside, never first.
 EntityName = Annotated[str, AfterValidator(validate_name)]
+
+
+def _validate_atlas_id(value: str) -> str:
+    # FreeSurfer's volumes carry "+" (aparc.DKTatlas+aseg.deep.mgz) and a custom mask is
+    # listed as "masks/<file>". Safe because an atlas id is only ever looked up among the
+    # subject's listed atlases, never joined into a path.
+    if not is_valid_name(value.removeprefix("masks/").replace("+", "_")):
+        validate_name(value)  # raises, naming the rule
+    return value
+
+
+#: An atlas id exactly as ``GET /api/catalog/atlases`` lists it.
+AtlasId = Annotated[str, AfterValidator(_validate_atlas_id)]
 
 
 class Health(BaseModel):

@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from tit import catalog
 from tit.paths import get_path_manager
 from tit.scene import build, cache
-from tit.server.schemas import EntityName, SubjectId
+from tit.server.schemas import AtlasId, SubjectId
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ class MaskTarget(PreviewModel):
 
 class AtlasTarget(PreviewModel):
     kind: Literal["subcortical"]
-    atlas: EntityName
+    atlas: AtlasId
     space: Literal["subject", "mni"]
     labels: list[int] = Field(min_length=1, max_length=10000)
 

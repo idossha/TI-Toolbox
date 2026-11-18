@@ -16,7 +16,7 @@ from __future__ import annotations
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, HTTPException, Query
-from tit.server.schemas import EntityName, SubjectId
+from tit.server.schemas import AtlasId, EntityName, SubjectId
 
 from tit import catalog
 from tit.paths import get_path_manager
@@ -137,7 +137,7 @@ def atlases(
 @router.get("/api/catalog/atlases/regions", summary="Regions of one atlas")
 def atlas_regions(
     subject: Annotated[SubjectId, Query()],
-    atlas: Annotated[EntityName, Query()],
+    atlas: Annotated[AtlasId, Query()],
     hemi: str | None = Query(None),
 ) -> list[dict]:
     return _or_404(

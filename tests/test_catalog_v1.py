@@ -979,6 +979,42 @@ def test_atlas_regions_subcortical_returns_integer_id_and_null_hemi(
     assert {"id": 2, "name": "Right-Thalamus", "hemi": None} in body
 
 
+def test_every_listed_volume_atlas_answers_its_regions(
+    client: TestClient, project: Path
+) -> None:
+    """FastSurfer's ``aparc.DKTatlas+aseg.deep.mgz`` and a custom ``masks/<file>`` are listed
+    under ids the name check refused, so their regions were a 422 and the picker said "Could
+    not load regions for this atlas" (Dataset 000's sub-ernie, 2026-11-17). Labels authored."""
+    pm = get_path_manager()
+    cache = "# header\n 1 10 100 50.0 Left-Thalamus\n"
+    for directory, name in (
+        (pm.fastsurfer_mri("ernie"), "aparc.DKTatlas+aseg.deep.mgz"),
+        (pm.masks("ernie"), "target.nii.gz"),
+    ):
+        os.makedirs(directory, exist_ok=True)
+        Path(directory, name).write_bytes(b"x")
+        stem = name.removesuffix(".gz").removesuffix(".nii").removesuffix(".mgz")
+        Path(directory, f"{stem}_labels.txt").write_text(cache)
+
+    listed = client.get(
+        "/api/catalog/atlases",
+        params={"subject": "ernie", "space": "subject", "kind": "subcortical"},
+        headers=BEARER,
+    ).json()
+    assert {a["id"] for a in listed} == {
+        "aparc.DKTatlas+aseg.deep.mgz",
+        "masks/target.nii.gz",
+    }
+    for atlas in listed:
+        response = client.get(
+            "/api/catalog/atlases/regions",
+            params={"subject": "ernie", "atlas": atlas["id"]},
+            headers=BEARER,
+        )
+        assert response.status_code == 200, (atlas["id"], response.text)
+        assert response.json() == [{"id": 10, "name": "Left-Thalamus", "hemi": None}]
+
+
 def _seed_labeling(pm, cache: bool = True) -> Path:
     seg_dir = os.path.join(pm.m2m("ernie"), "segmentation")
     os.makedirs(seg_dir, exist_ok=True)
