@@ -602,10 +602,13 @@ function SubcorticalPanel({
     queryFn: () => getAtlases(subject as string, "subcortical", value.space),
     enabled: subject !== undefined,
   });
+  // The subject-space default, labeling.nii.gz, exists only once charm wrote segmentation/ (sub-ernie
+  // has none): an atlas this subject does not list is shown as unchosen, not asked for its regions.
+  const atlas = atlases.data?.some((a) => a.id === value.atlas) ? value.atlas : undefined;
   const regions = useQuery({
-    queryKey: ["atlas-regions", subject, value.atlas, value.space],
-    queryFn: () => getAtlasRegions(subject as string, value.atlas as string),
-    enabled: subject !== undefined && value.atlas !== undefined,
+    queryKey: ["atlas-regions", subject, atlas, value.space],
+    queryFn: () => getAtlasRegions(subject as string, atlas as string),
+    enabled: subject !== undefined && atlas !== undefined,
   });
   const options = (regions.data ?? []).map((r) => ({ value: String(r.id), label: r.name, region: { id: r.id, name: r.name } }));
   const selectedKeys = value.regions.map((r) => String(r.id));
@@ -626,8 +629,8 @@ function SubcorticalPanel({
           <Skeleton height={32} />
         ) : (
           <Combobox
-            value={value.atlas}
-            onValueChange={(atlas) => onChange({ ...value, atlas, regions: [] })}
+            value={atlas}
+            onValueChange={(next) => onChange({ ...value, atlas: next, regions: [] })}
             options={(atlases.data ?? []).map((a) => ({ value: a.id, label: a.name }))}
             placeholder="Select a volume atlas…"
             searchPlaceholder="Search atlases…"
@@ -652,8 +655,8 @@ function SubcorticalPanel({
           headers={{ label: "Region" }}
           filterPlaceholder="Filter regions…"
           idPrefix="roi-region"
-          placeholder={value.atlas ? "Add region…" : "Select an atlas first"}
-          disabled={disabled || value.atlas === undefined}
+          placeholder={atlas ? "Add region…" : "Select an atlas first"}
+          disabled={disabled || atlas === undefined}
         />
       </Field>
       {regions.error && <Callout kind="danger">Could not load regions for this atlas.</Callout>}
