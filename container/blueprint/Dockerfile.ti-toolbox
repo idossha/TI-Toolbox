@@ -1,9 +1,18 @@
 # Dockerfile.ti-toolbox — the one recipe for idossha/ti-toolbox:<ver>.
-# SimNIBS 4.6 + tit + tit.server + FastSurfer + the built UI. No viewer bundle:
-# TetraVox is a native host application the desktop app installs for the user.
-# Built by container/blueprint/build.sh; see container/blueprint/README.md for the why.
+#
+#   SimNIBS 4.6 + tit + tit.server (serves the built UI) + FastSurfer + headless Blender.
+#   TetraVox is not in the image: the desktop app installs it on the host.
+#
+# Built by container/blueprint/build.sh; container/blueprint/README.md explains the choices.
+#
+# Stages:  source -> ui-builder, fastsurfer, blender  ->  final (ubuntu:22.04)
+# Only the final stage is shipped; the others hand it files and are discarded.
 
-# --- source: the tree both the UI build and the final stage use, so both get one commit ---
+# =========================================================================================
+# Helper stages
+# =========================================================================================
+
+# --- source: the TI-Toolbox tree, from the local checkout (default) or a git ref ---
 ARG TI_TOOLBOX_SOURCE=local
 
 FROM --platform=$BUILDPLATFORM alpine/git:2.45.2 AS source-clone
@@ -18,14 +27,14 @@ COPY . /ti-toolbox
 
 FROM source-${TI_TOOLBOX_SOURCE} AS source
 
-# --- ui: the Electron renderer bundle. Native $BUILDPLATFORM (plain JS/CSS), not emulated. ---
+# --- ui-builder: the web UI that tit.server serves (desktop app and browser mode) ---
 FROM --platform=$BUILDPLATFORM node:22-bookworm-slim AS ui-builder
 COPY --from=source /ti-toolbox/desktop /build/desktop
 WORKDIR /build/desktop
 # --ignore-scripts: node-pty (Assistant host terminal) is Electron-main-only and compiles natively; the renderer build needs no install script.
 RUN npm ci --ignore-scripts && npm run build
 
-# --- fastsurfer: vendored here so it caches independently of the SimNIBS install below ---
+# --- fastsurfer: source checkout; its Python deps are installed in the final stage ---
 FROM ubuntu:22.04 AS fastsurfer
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
@@ -35,30 +44,28 @@ RUN git clone --depth 1 --branch "${FASTSURFER_REF}" \
         https://github.com/Deep-MI/FastSurfer.git /opt/fastsurfer \
     && rm -rf /opt/fastsurfer/.git
 
-# Blender's download/extraction tools stay out of the final image and do not invalidate
-# the expensive SimNIBS installer layer when the renderer changes.
+# --- blender: official build with its own Python (bpy inside SimNIBS would downgrade NumPy 2) ---
 FROM ubuntu:22.04 AS blender
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/*
-# Official Blender has its own Python/NumPy: installing bpy into SimNIBS downgrades NumPy2.
-# Archive digest is fixed to Blender's official manifest even when using a cached download.
+# The checksum is Blender's official one, so a mirror passed via build.sh is verified too.
 ARG BLENDER_ARCHIVE_URL=https://mirror.blender.org/release/Blender4.4/blender-4.4.3-linux-x64.tar.xz
 RUN mkdir -p /opt/blender \
     && curl -fL --retry 3 --retry-all-errors "$BLENDER_ARCHIVE_URL" -o /tmp/blender.tar.xz \
     && echo "8d3be07d2bc412b502c6bfe3cfe3e22195a4164076867da987ce148d73c27946  /tmp/blender.tar.xz" | sha256sum -c - \
     && tar -xJf /tmp/blender.tar.xz --strip-components=1 -C /opt/blender \
     && rm /tmp/blender.tar.xz
+
 # =========================================================================================
-# Stage: final
+# Final image
 # =========================================================================================
 FROM ubuntu:22.04
 ENV DEBIAN_FRONTEND=noninteractive
 
-# No X11 server, no Qt/GTK. Mesa/EGL stay because bpy renders headlessly through them; the
-# libX*/libICE/libSM/libxkbcommon shared objects are `ldd` dependencies of bpy's own .so — not
-# a display. gnupg/lsb-release are for the docker-ce-cli repo below.
-# Montage PNG overlays use ImageMagick and an explicit DejaVu font; without convert the
-# simulator cannot annotate electrode positions.
+# --- 1. System packages ---
+# No X11 server or Qt. Mesa/EGL and the libX*/libSM/libICE/libxkbcommon libraries are what
+# headless Blender links against. ImageMagick + DejaVu annotate montage PNGs. gnupg and
+# lsb-release are for the Docker apt repository below.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates wget curl git tzdata fontconfig imagemagick fonts-dejavu-core \
         libglib2.0-0 \
@@ -69,7 +76,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && convert -version \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# docker CLI for Docker-out-of-Docker (QSIPrep/QSIRecon still shell out — tit/pre/qsi/utils.py).
+# Docker CLI: QSIPrep/QSIRecon run as sibling containers (tit/pre/qsi/utils.py).
 RUN install -m 0755 -d /etc/apt/keyrings \
     && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
     && chmod a+r /etc/apt/keyrings/docker.gpg \
@@ -77,91 +84,81 @@ RUN install -m 0755 -d /etc/apt/keyrings \
     && apt-get update && apt-get install -y --no-install-recommends docker-ce-cli \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Avoid the OpenMP affinity crash SimNIBS/numpy hit during postinstall and under emulation.
+# --- 2. SimNIBS 4.6, official Linux installer ---
+# Avoids the OpenMP affinity crash in SimNIBS/numpy during postinstall and under emulation.
 ENV OMP_NUM_THREADS=1
 ENV KMP_AFFINITY=disabled
 
-# --- SimNIBS 4.6, from the official Linux installer tarball ---
+# After installing, drop what a headless TES toolbox never reaches:
+#   gmsh (92 MB)   only simnibs/cli/gmsh_cli.py, the GUI launcher; nothing links libgmsh
+#   PyQt5 (202 MB) only simnibs/GUI and postinstall; tit imports no Qt
+#   coil models    TMS-only data (41 MB); file_finder.coil_models is just a path join
+#   documentation  HTML docs
 RUN mkdir -p /simnibs \
     && wget -q https://github.com/simnibs/simnibs/releases/download/v4.6.0/simnibs_installer_linux.tar.gz -P /simnibs \
     && tar -xzf /simnibs/simnibs_installer_linux.tar.gz -C /simnibs \
     && /simnibs/simnibs_installer/install -s \
     && rm -rf /simnibs \
-    # gmsh (92 MB) is reachable only from simnibs/cli/gmsh_cli.py, the GUI launcher v3 dropped
-    # (no X11); nothing else in the env links libgmsh. Its HTML docs are dead weight too.
-    && rm -rf /root/SimNIBS-4.6/documentation \
-        /root/SimNIBS-4.6/bin/gmsh /root/SimNIBS-4.6/simnibs_env/bin/gmsh \
-        /root/SimNIBS-4.6/simnibs_env/lib/libgmsh.so* \
-        /root/SimNIBS-4.6/simnibs_env/lib/gmsh.jl \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/gmsh.py \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/__pycache__/gmsh.* \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/gmsh-*.dist-info \
-        /root/SimNIBS-4.6/simnibs_env/share/gmsh /root/SimNIBS-4.6/simnibs_env/share/doc/gmsh \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs_master/share/doc/gmsh \
-    # PyQt5 (202 MB) is reached only from simnibs/GUI and cli/postinstall_simnibs.py; tit itself
-    # imports no Qt at all (the PyQt GUI was deleted in v3). TMS coil models (41 MB) are a
-    # data directory this TES-only toolbox never opens -- file_finder.coil_models is a path join.
-    && rm -rf /root/SimNIBS-4.6/bin/simnibs_gui \
-        /root/SimNIBS-4.6/simnibs_env/bin/simnibs_gui \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/PyQt5 \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/PyQt5-*.dist-info \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/pyqt5_*.dist-info \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs/GUI \
-        /root/SimNIBS-4.6/simnibs_env/lib/python3.11/site-packages/simnibs/resources/coil_models
+    && R=/root/SimNIBS-4.6 \
+    && E=$R/simnibs_env \
+    && SP=$E/lib/python3.11/site-packages \
+    && rm -rf $R/documentation \
+        $R/bin/gmsh $E/bin/gmsh $E/lib/libgmsh.so* $E/lib/gmsh.jl \
+        $E/share/gmsh $E/share/doc/gmsh \
+        $SP/gmsh.py $SP/__pycache__/gmsh.* $SP/gmsh-*.dist-info \
+        $SP/simnibs_master/share/doc/gmsh \
+        $R/bin/simnibs_gui $E/bin/simnibs_gui \
+        $SP/PyQt5 $SP/PyQt5-*.dist-info $SP/pyqt5_*.dist-info \
+        $SP/simnibs/GUI \
+        $SP/simnibs/resources/coil_models
 
 ENV PATH="/root/SimNIBS-4.6/bin:$PATH"
 ENV SIMNIBSDIR="/root/SimNIBS-4.6"
 
+# --- 3. Blender ---
 COPY --from=blender /opt/blender /opt/blender
 ENV TIT_BLENDER_BIN=/opt/blender/blender
 
+# --- 4. Python packages tit imports ---
+# The constraints file keeps SimNIBS's NumPy ABI and pins the PyTorch/CUDA set below.
 COPY --from=source /ti-toolbox/container/blueprint/runtime-constraints.txt /opt/ti-runtime-constraints.txt
 ENV PIP_CONSTRAINT=/opt/ti-runtime-constraints.txt
 
-# Python deps tit/ imports. `mne>=1.5,<2` is a range on purpose (tit/source/_simnibs_compat.py
-# spans it); h5io is mne's HDF5 backend and is not pulled in by mne itself. dipy fits the DTI
-# tensor from QSIPrep output (tit/pre/qsi/dti_extractor.py); 1.12.1 installs without moving
-# numpy/scipy in the SimNIBS 4.6 env.
+# mne is a range on purpose (tit/source/_simnibs_compat.py spans it); h5io is mne's HDF5
+# backend; dipy fits the DTI tensor from QSIPrep output (tit/pre/qsi/dti_extractor.py).
 RUN simnibs_python -m pip install --no-cache-dir \
         meshio nilearn trimesh seaborn scikit-image numpy-stl click psutil \
         "mne>=1.5,<2" h5io nbformat jupyter_client ipykernel \
         fastapi "uvicorn[standard]" pyyaml "dipy>=1.12,<2"
 
-# CUDA libraries ship with PyTorch; NVIDIA host drivers are supplied by the container runtime.
+# --- 5. FastSurfer: CUDA PyTorch, the package, its checkpoints ---
+# PyTorch + CUDA is ~6 GB, so it is installed over several layers to keep each one small
+# enough for registries with a per-layer size limit. Versions come from the constraints file.
+# CUDA libraries ship in these wheels; the NVIDIA driver comes from the host at run time.
 ENV FASTSURFER_HOME=/opt/fastsurfer
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu126
+RUN simnibs_python -m pip install --no-cache-dir --index-url "$TORCH_INDEX" nvidia-cublas-cu12
+RUN simnibs_python -m pip install --no-cache-dir --index-url "$TORCH_INDEX" nvidia-cudnn-cu12
+RUN simnibs_python -m pip install --no-cache-dir --index-url "$TORCH_INDEX" \
+        nvidia-nvjitlink-cu12 nvidia-cusparse-cu12 nvidia-cusparselt-cu12 nvidia-nccl-cu12
+RUN simnibs_python -m pip install --no-cache-dir --index-url "$TORCH_INDEX" \
+        nvidia-cufft-cu12 nvidia-cusolver-cu12 nvidia-curand-cu12 nvidia-cufile-cu12 \
+        nvidia-cuda-cupti-cu12 nvidia-cuda-nvrtc-cu12 nvidia-cuda-runtime-cu12 nvidia-nvtx-cu12 \
+        triton
 COPY --from=fastsurfer /opt/fastsurfer /opt/fastsurfer
-RUN simnibs_python -m pip install --no-cache-dir \
-        --index-url https://download.pytorch.org/whl/cu126 "torch==2.7.1+cu126" "torchvision==0.22.1+cu126" \
+RUN simnibs_python -m pip install --no-cache-dir --index-url "$TORCH_INDEX" torch torchvision \
     && simnibs_python -m pip install --no-cache-dir -e "${FASTSURFER_HOME}" \
     && simnibs_python -c "import torch; assert torch.version.cuda == '12.6', torch.__version__" \
     && simnibs_python -c "import simnibs.segmentation, brainnet"
 
-# --vinn only: the asegdkt checkpoints (67 MB). Production runs pass --no_cereb --no_hypothal
-# --no_cc, so CerebNet/HypVINN weights are never used. Needs torch, hence not in that stage.
-# Optional cache for official-host outages (TLS-chain failure + Zenodo 504, 2026-09-09).
-# Verify bytes before reading the archive; extract only named members to fixed destinations,
-# never archive-controlled paths. The ordinary path remains the upstream TLS-verified downloader.
+# Checkpoints for --vinn (67 MB); production runs skip CerebNet/HypVINN. Downloads from the
+# official host, or from a verified mirror passed via build.sh (see the script).
 ARG FASTSURFER_CHECKPOINTS_TGZ=""
 ARG FASTSURFER_CHECKPOINTS_SHA256=""
-RUN if [ -n "$FASTSURFER_CHECKPOINTS_TGZ" ]; then \
-        printf '%s' "$FASTSURFER_CHECKPOINTS_SHA256" | grep -Eq '^[0-9a-f]{64}$' \
-        && curl -fsSL "$FASTSURFER_CHECKPOINTS_TGZ" -o /tmp/fastsurfer-checkpoints.tgz \
-        && echo "$FASTSURFER_CHECKPOINTS_SHA256  /tmp/fastsurfer-checkpoints.tgz" | sha256sum -c - \
-        && mkdir -p "${FASTSURFER_HOME}/checkpoints" \
-        && for plane in axial coronal sagittal; do \
-            file="aparc_vinn_${plane}_v2.0.0.pkl"; \
-            tar -xzOf /tmp/fastsurfer-checkpoints.tgz "$file" > "${FASTSURFER_HOME}/checkpoints/$file" \
-                && test -s "${FASTSURFER_HOME}/checkpoints/$file" || exit 1; \
-        done \
-        && printf '%s\n' "$FASTSURFER_CHECKPOINTS_SHA256" > "${FASTSURFER_HOME}/checkpoints/cache-archive.sha256" \
-        && rm /tmp/fastsurfer-checkpoints.tgz; \
-    else \
-        test -z "$FASTSURFER_CHECKPOINTS_SHA256" \
-        && simnibs_python "${FASTSURFER_HOME}/FastSurferCNN/download_checkpoints.py" --vinn; \
-    fi
+COPY --from=source /ti-toolbox/container/blueprint/fastsurfer_checkpoints.sh /opt/fastsurfer_checkpoints.sh
+RUN sh /opt/fastsurfer_checkpoints.sh
 
-# Scientific patches below affect transformations/flex, not FastSurfer installation.
-# --- TI-Toolbox: SimNIBS patches, extra EEG caps, the flex-optimisation replacement, tit ---
+# --- 6. TI-Toolbox: SimNIBS patches, extra EEG caps, flex-optimisation replacement, tit ---
 COPY --from=source /ti-toolbox /ti-toolbox
 RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
     && cp /ti-toolbox/resources/ElectrodeCaps_MNI/* $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
@@ -170,18 +167,18 @@ RUN mkdir -p $SIMNIBSDIR/resources/ElectrodeCaps_MNI/ \
     && simnibs_python /ti-toolbox/resources/atlas2subject/patch_atlas2subject.py \
     && simnibs_python -m pip install --no-cache-dir /ti-toolbox
 
-# The kernel the in-app notebooks run on (tit/server/kernels.py starts it by name).
+# Jupyter kernel the in-app notebooks use (tit/server/kernels.py starts it by name).
 RUN simnibs_python -m ipykernel install --name simnibs --display-name "SimNIBS + TI-Toolbox"
 
-# Fail on ABI/dependency drift after all installers have run, before exporting the image.
+# Fail the build on ABI/dependency drift once every installer has run.
 RUN simnibs_python /ti-toolbox/container/blueprint/verify_runtime.py
 
+# --- 7. Web UI and entrypoint ---
 COPY --from=ui-builder /build/desktop/out/renderer /opt/ti-toolbox/ui
-
 COPY --from=source /ti-toolbox/container/blueprint/entrypoint.ti-toolbox.sh /usr/local/bin/entrypoint.ti-toolbox.sh
 RUN chmod +x /usr/local/bin/entrypoint.ti-toolbox.sh
 
-# Build record: `docker inspect` answers "which image is this" from outside, the JSON inside.
+# --- 8. Build record: `docker inspect` labels, plus /etc/ti-toolbox-build.json inside ---
 ARG TI_TOOLBOX_VERSION=dev
 ARG VCS_REF=unknown
 ARG VCS_SHA=unknown

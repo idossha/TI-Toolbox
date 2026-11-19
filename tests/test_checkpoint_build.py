@@ -62,9 +62,7 @@ class CheckpointBuildTests(unittest.TestCase):
         ).hexdigest()
 
     def install(self):
-        text = (ROOT / "container/blueprint/Dockerfile.ti-toolbox").read_text()
-        start = text.index('RUN if [ -n "$FASTSURFER_CHECKPOINTS_TGZ" ]')
-        shell = text[start + 4 : text.index("\n\n", start)].replace("\\\n", " ")
+        shell = (ROOT / "container/blueprint/fastsurfer_checkpoints.sh").read_text()
         # The container's fixed scratch file is mapped to this test's private directory.
         shell = shell.replace(
             "/tmp/fastsurfer-checkpoints.tgz", str(self.root / "download.tgz")
